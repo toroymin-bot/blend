@@ -9,13 +9,13 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { sendChatRequest } from './chat-api';
 import { getModelById, calculateCost, DEFAULT_MODELS } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
-import { Send, Square, ChevronDown, Copy, Check, RefreshCw } from 'lucide-react';
+import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
 
 export function ChatView() {
-  const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage } = useChatStore();
+  const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat } = useChatStore();
   const { getKey, hasKey } = useAPIKeyStore();
   const { getActiveAgent } = useAgentStore();
   const { addRecord } = useUsageStore();
@@ -225,6 +225,16 @@ export function ChatView() {
                       title="복사"
                     >
                       {copiedMsgId === msg.id ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const idx = chat.messages.findIndex((m) => m.id === msg.id);
+                        if (idx >= 0) forkChat(currentChatId!, idx);
+                      }}
+                      className="text-gray-500 hover:text-green-400 p-1 rounded transition-colors"
+                      title="여기서 분기"
+                    >
+                      <GitFork size={13} />
                     </button>
                     {msg.role === 'assistant' && msg.id === chat.messages[chat.messages.length - 1]?.id && !isStreaming && (
                       <button

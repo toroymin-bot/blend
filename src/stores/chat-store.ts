@@ -19,6 +19,7 @@ interface ChatState {
   createFolder: (name: string) => void;
   moveToFolder: (chatId: string, folderId: string | undefined) => void;
   removeLastMessage: (chatId: string) => ChatMessage | undefined;
+  forkChat: (chatId: string, atMessageIndex: number) => string;
   getCurrentChat: () => Chat | undefined;
 }
 
@@ -94,6 +95,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       chats: state.chats.map((c) => (c.id === chatId ? { ...c, folderId } : c)),
     }));
+  },
+
+  forkChat: (chatId, atMessageIndex) => {
+    const chat = get().chats.find((c) => c.id === chatId);
+    if (!chat) return '';
+    const id = generateId();
+    const forked: Chat = {
+      id,
+      title: chat.title + ' (fork)',
+      messages: chat.messages.slice(0, atMessageIndex + 1),
+      model: chat.model,
+      folderId: chat.folderId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    set((state) => ({
+      chats: [forked, ...state.chats],
+      currentChatId: id,
+    }));
+    return id;
   },
 
   removeLastMessage: (chatId) => {
