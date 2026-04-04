@@ -1,0 +1,214 @@
+'use client';
+
+import { useState } from 'react';
+import { usePromptStore } from '@/stores/prompt-store';
+import { Prompt } from '@/types';
+import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X } from 'lucide-react';
+
+interface PromptsViewProps {
+  onUsePrompt?: (content: string) => void;
+}
+
+export function PromptsView({ onUsePrompt }: PromptsViewProps) {
+  const {
+    searchQuery, selectedTag, setSearchQuery, setSelectedTag,
+    getFilteredPrompts, getAllTags, addPrompt, deletePrompt, toggleFavorite, updatePrompt,
+  } = usePromptStore();
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
+  const [newPrompt, setNewPrompt] = useState({ title: '', content: '', tags: '' });
+
+  const filteredPrompts = getFilteredPrompts();
+  const allTags = getAllTags();
+
+  const handleCreate = () => {
+    if (!newPrompt.title.trim() || !newPrompt.content.trim()) return;
+    const variables = [...newPrompt.content.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]);
+    addPrompt({
+      title: newPrompt.title,
+      content: newPrompt.content,
+      tags: newPrompt.tags.split(',').map((t) => t.trim()).filter(Boolean),
+      variables,
+      isFavorite: false,
+    });
+    setNewPrompt({ title: '', content: '', tags: '' });
+    setShowCreateModal(false);
+  };
+
+  const handleUse = (prompt: Prompt) => {
+    let content = prompt.content;
+    if (prompt.variables && prompt.variables.length > 0) {
+      prompt.variables.forEach((v) => {
+        const value = window.prompt(`${v} 값을 입력하세요:`, '');
+        if (value !== null) {
+          content = content.replace(new RegExp(`\\{\\{${v}\\}\\}`, 'g'), value);
+        }
+      });
+    }
+    onUsePrompt?.(content);
+  };
+
+  return (
+    <div className="h-full overflow-y-auto bg-gray-900 p-6">
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-white">프롬프트 라이브러리</h1>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
+          >
+            <Plus size={16} /> 새 프롬프트
+          </button>
+        </div>
+
+        {/* Search + Tags */}
+        <div className="mb-4 flex gap-2">
+          <div className="flex-1 relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="프롬프트 검색..."
+              className="w-full pl-9 pr-3 py-2 bg-gray-800 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Tag filter */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setSelectedTag(null)}
+            className={`px-3 py-1 rounded-full text-xs ${
+              !selectedTag ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+          >
+            전체
+          </button>
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+              className={`px-3 py-1 rounded-full text-xs flex items-center gap-1 ${
+                selectedTag === tag ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              <Tag size={10} /> {tag}
+            </button>
+          ))}
+        </div>
+
+        {/* Prompt list */}
+        <div className="space-y-3">
+          {filteredPrompts.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">프롬프트가 없습니다</div>
+          ) : (
+            filteredPrompts.map((prompt) => (
+              <div key={prompt.id} className="bg-gray-800 rounded-xl p-4 group">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleFavorite(prompt.id)}
+                      className={prompt.isFavorite ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-400'}
+                    >
+                      <Star size={16} fill={prompt.isFavorite ? 'currentColor' : 'none'} />
+                    </button>
+                    <h3 className="font-medium text-white">{prompt.title}</h3>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleUse(prompt)}
+                      className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded"
+                      title="사용"
+                    >
+                      <Copy size={14} />
+                    </button>
+                    <button
+                      onClick={() => setEditingPrompt(prompt)}
+                      className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded"
+                      title="수정"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button
+                      onClick={() => deletePrompt(prompt.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded"
+                      title="삭제"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-400 line-clamp-2 mb-2">{prompt.content}</p>
+                <div className="flex items-center gap-2">
+                  {prompt.tags.map((tag) => (
+                    <span key={tag} className="text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded">
+                      {tag}
+                    </span>
+                  ))}
+                  {prompt.variables && prompt.variables.length > 0 && (
+                    <span className="text-xs text-blue-400">
+                      {prompt.variables.length}개 변수
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Create Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-lg mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">새 프롬프트</h2>
+                <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-white">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={newPrompt.title}
+                  onChange={(e) => setNewPrompt({ ...newPrompt, title: e.target.value })}
+                  placeholder="제목"
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <textarea
+                  value={newPrompt.content}
+                  onChange={(e) => setNewPrompt({ ...newPrompt, content: e.target.value })}
+                  placeholder="프롬프트 내용 (변수는 {{변수명}} 형식)"
+                  rows={6}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none resize-none focus:ring-1 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  value={newPrompt.tags}
+                  onChange={(e) => setNewPrompt({ ...newPrompt, tags: e.target.value })}
+                  placeholder="태그 (쉼표로 구분)"
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleCreate}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
+                >
+                  생성
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
