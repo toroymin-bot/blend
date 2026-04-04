@@ -1,0 +1,104 @@
+// Blend - Agent Store (Reusable: any project needing AI persona management)
+
+import { create } from 'zustand';
+import { Agent } from '@/types';
+
+interface AgentState {
+  agents: Agent[];
+  activeAgentId: string | null;
+
+  addAgent: (agent: Omit<Agent, 'id' | 'createdAt'>) => void;
+  updateAgent: (id: string, updates: Partial<Agent>) => void;
+  deleteAgent: (id: string) => void;
+  setActiveAgent: (id: string | null) => void;
+  getActiveAgent: () => Agent | undefined;
+  loadFromStorage: () => void;
+  saveToStorage: () => void;
+}
+
+const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+
+const DEFAULT_AGENTS: Agent[] = [
+  {
+    id: 'agent-translator',
+    name: '번역가',
+    description: '전문 번역가입니다. 한국어와 영어 사이의 자연스러운 번역을 제공합니다.',
+    systemPrompt: '당신은 전문 번역가입니다. 한국어와 영어 사이의 번역을 자연스럽고 정확하게 수행합니다. 문맥을 고려하여 의역하되, 원문의 의미를 충실히 전달합니다. 번역만 제공하고 설명은 하지 않습니다.',
+    model: 'gpt-4o-mini',
+    icon: '🌐',
+    createdAt: Date.now(),
+  },
+  {
+    id: 'agent-coder',
+    name: '시니어 개발자',
+    description: '10년 경력의 풀스택 개발자입니다. 코드 리뷰, 디버깅, 아키텍처 설계를 도와줍니다.',
+    systemPrompt: '당신은 10년 경력의 시니어 풀스택 개발자입니다. TypeScript, Python, Go에 능통하며, 클라우드 아키텍처와 시스템 설계에 전문성이 있습니다. 코드를 작성할 때는 항상 타입 안전성, 에러 처리, 테스트 가능성을 고려합니다. 답변은 간결하고 실용적으로 합니다.',
+    model: 'claude-sonnet-4-6',
+    icon: '💻',
+    createdAt: Date.now(),
+  },
+  {
+    id: 'agent-writer',
+    name: '카피라이터',
+    description: '마케팅 카피와 콘텐츠를 작성하는 전문가입니다.',
+    systemPrompt: '당신은 10년 경력의 디지털 마케팅 카피라이터입니다. 한국어와 영어 모두 능통하며, SEO 최적화된 블로그 포스트, 소셜 미디어 카피, 이메일 마케팅 문구, 랜딩 페이지 카피를 작성합니다. 타겟 고객의 심리를 이해하고 전환율을 높이는 글을 씁니다.',
+    model: 'gpt-4o',
+    icon: '✍️',
+    createdAt: Date.now(),
+  },
+  {
+    id: 'agent-data',
+    name: '데이터 분석가',
+    description: 'SQL, Python, BI 도구를 활용한 데이터 분석 전문가입니다.',
+    systemPrompt: '당신은 데이터 분석 전문가입니다. SQL, Python(pandas, numpy), BI 도구(Tableau, Power BI)에 능통합니다. 데이터를 분석하여 인사이트를 도출하고, 시각화를 제안하며, 비즈니스 의사결정을 지원합니다. 쿼리 최적화와 데이터 파이프라인 설계도 가능합니다.',
+    model: 'gemini-2.5-pro',
+    icon: '📊',
+    createdAt: Date.now(),
+  },
+];
+
+export const useAgentStore = create<AgentState>((set, get) => ({
+  agents: DEFAULT_AGENTS,
+  activeAgentId: null,
+
+  addAgent: (agent) => {
+    const newAgent: Agent = { ...agent, id: generateId(), createdAt: Date.now() };
+    set((state) => ({ agents: [...state.agents, newAgent] }));
+    get().saveToStorage();
+  },
+
+  updateAgent: (id, updates) => {
+    set((state) => ({
+      agents: state.agents.map((a) => (a.id === id ? { ...a, ...updates } : a)),
+    }));
+    get().saveToStorage();
+  },
+
+  deleteAgent: (id) => {
+    set((state) => ({
+      agents: state.agents.filter((a) => a.id !== id),
+      activeAgentId: state.activeAgentId === id ? null : state.activeAgentId,
+    }));
+    get().saveToStorage();
+  },
+
+  setActiveAgent: (id) => set({ activeAgentId: id }),
+
+  getActiveAgent: () => {
+    const { agents, activeAgentId } = get();
+    return agents.find((a) => a.id === activeAgentId);
+  },
+
+  loadFromStorage: () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('blend:agents');
+      if (stored) set({ agents: JSON.parse(stored) });
+    } catch {}
+  },
+
+  saveToStorage: () => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('blend:agents', JSON.stringify(get().agents));
+  },
+}));
