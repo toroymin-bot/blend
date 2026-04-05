@@ -393,8 +393,8 @@ function createCostTrigger() {
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'sendCostReport') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('sendCostReport').timeBased().everyDays(1).atHour(8).nearMinute(30).create();
-  Logger.log('Cost report trigger created: 8:30 AM daily');
+  ScriptApp.newTrigger('sendCostReport').timeBased().everyDays(1).atHour(8).nearMinute(35).create();
+  Logger.log('Cost report trigger created: 8:35 AM daily');
 }
 
 function setupKeys() {
