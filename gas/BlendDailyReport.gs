@@ -114,5 +114,5 @@ function buildReportHTML(d) {
 
 function doPost(e){try{PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA',e.postData.contents);return ContentService.createTextOutput('ok')}catch(err){return ContentService.createTextOutput('error')}}
 function testSendReport(){sendBlendDailyReport()}
-function createDailyTrigger(){ScriptApp.getProjectTriggers().forEach(function(t){ScriptApp.deleteTrigger(t)});ScriptApp.newTrigger('sendBlendDailyReport').timeBased().everyDays(1).atHour(3).create();Logger.log('Trigger created')}
+function createDailyTrigger(){ScriptApp.getProjectTriggers().forEach(function(t){ScriptApp.deleteTrigger(t)});ScriptApp.newTrigger('sendBlendDailyReport').timeBased().everyDays(1).atHour(8).nearMinute(35).create();Logger.log('Trigger created: 8:35 AM daily')}
 function setupApiKey(){PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY','AIzaSyBSmIS5nSHtHC9uPIs74n7wYn2gxkt8');Logger.log('Key set')}
