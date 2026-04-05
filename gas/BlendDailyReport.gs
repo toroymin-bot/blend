@@ -19,11 +19,31 @@ function sendBlendDailyReport() {
     var enriched = enrichWithGemini(data);
     var html = buildReportHTML(enriched);
     var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    // 생성된 HTML을 저장해두어 아침 재발송 시 동일한 이메일 사용
+    PropertiesService.getScriptProperties().setProperty('LAST_REPORT_HTML', html);
+    PropertiesService.getScriptProperties().setProperty('LAST_REPORT_SUBJECT', '[Blend Daily Report] Day ' + data.dayNumber + ' - ' + today);
     GmailApp.sendEmail(RECIPIENT_EMAIL, '[Blend Daily Report] Day ' + data.dayNumber + ' - ' + today, '', {htmlBody:html, name:'Blend Dev Bot', charset:'UTF-8'});
     Logger.log('Email sent!');
   } catch(e) {
     Logger.log('Error: ' + e.message);
     GmailApp.sendEmail(RECIPIENT_EMAIL, '[Blend] Error', 'Error: ' + e.message);
+  }
+}
+
+function sendMorningReport() {
+  try {
+    var html = PropertiesService.getScriptProperties().getProperty('LAST_REPORT_HTML');
+    var subject = PropertiesService.getScriptProperties().getProperty('LAST_REPORT_SUBJECT');
+    if (!html || !subject) {
+      Logger.log('No saved report found, generating new one...');
+      sendBlendDailyReport();
+      return;
+    }
+    GmailApp.sendEmail(RECIPIENT_EMAIL, subject, '', {htmlBody:html, name:'Blend Dev Bot', charset:'UTF-8'});
+    Logger.log('Morning report re-sent!');
+  } catch(e) {
+    Logger.log('Error: ' + e.message);
+    GmailApp.sendEmail(RECIPIENT_EMAIL, '[Blend] Morning Report Error', 'Error: ' + e.message);
   }
 }
 
@@ -114,5 +134,5 @@ function buildReportHTML(d) {
 
 function doPost(e){try{PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA',e.postData.contents);return ContentService.createTextOutput('ok')}catch(err){return ContentService.createTextOutput('error')}}
 function testSendReport(){sendBlendDailyReport()}
-function createDailyTrigger(){ScriptApp.getProjectTriggers().forEach(function(t){ScriptApp.deleteTrigger(t)});ScriptApp.newTrigger('sendBlendDailyReport').timeBased().everyDays(1).atHour(8).nearMinute(35).create();Logger.log('Trigger created: 8:35 AM daily')}
+function createDailyTrigger(){ScriptApp.getProjectTriggers().forEach(function(t){if(t.getHandlerFunction()==='sendBlendDailyReport'||t.getHandlerFunction()==='sendMorningReport')ScriptApp.deleteTrigger(t)});ScriptApp.newTrigger('sendMorningReport').timeBased().everyDays(1).atHour(8).nearMinute(35).create();Logger.log('Trigger created: sendMorningReport 8:35 AM daily')}
 function setupApiKey(){PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY','AIzaSyBSmIS5nSHtHC9uPIs74n7wYn2gxkt8');Logger.log('Key set')}
