@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Puzzle, Search, Image, Code, BarChart3, Zap, Check, X } from 'lucide-react';
+import { usePluginStore } from '@/stores/plugin-store';
 
 interface PluginItem {
   id: string;
@@ -9,7 +10,6 @@ interface PluginItem {
   description: string;
   icon: React.ReactNode;
   category: string;
-  installed: boolean;
   comingSoon?: boolean;
 }
 
@@ -20,7 +20,6 @@ const AVAILABLE_PLUGINS: PluginItem[] = [
     description: 'AI가 웹에서 최신 정보를 검색합니다 (SerpAPI/Perplexity)',
     icon: <Search size={20} />,
     category: '검색',
-    installed: false,
     comingSoon: true,
   },
   {
@@ -29,47 +28,47 @@ const AVAILABLE_PLUGINS: PluginItem[] = [
     description: 'DALL-E 3 또는 Stable Diffusion으로 이미지를 생성합니다',
     icon: <Image size={20} />,
     category: '이미지',
-    installed: false,
     comingSoon: true,
   },
   {
     id: 'code-runner',
     name: '코드 실행',
-    description: 'JavaScript/Python 코드를 브라우저에서 실행합니다',
+    description: 'JavaScript 코드를 안전한 샌드박스 환경에서 실행합니다',
     icon: <Code size={20} />,
     category: '개발',
-    installed: false,
-    comingSoon: true,
+    comingSoon: false,
   },
   {
     id: 'chart-render',
     name: '차트 생성',
-    description: 'AI가 데이터를 시각화된 차트로 렌더링합니다',
+    description: 'AI 응답의 JSON 데이터를 자동으로 차트로 시각화합니다',
     icon: <BarChart3 size={20} />,
     category: '데이터',
-    installed: false,
-    comingSoon: true,
+    comingSoon: false,
   },
   {
     id: 'url-reader',
     name: 'URL 읽기',
-    description: '웹 페이지 URL을 입력하면 내용을 가져와 분석합니다',
+    description: '채팅에서 URL을 입력하면 내용을 자동으로 가져와 AI 컨텍스트에 포함합니다',
     icon: <Zap size={20} />,
     category: '생산성',
-    installed: false,
-    comingSoon: true,
+    comingSoon: false,
   },
 ];
 
 export function PluginsView() {
-  const [plugins, setPlugins] = useState(AVAILABLE_PLUGINS);
+  const { installedPlugins, installPlugin, uninstallPlugin, loadFromStorage } = usePluginStore();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredPlugins = plugins.filter(
+  useEffect(() => {
+    loadFromStorage();
+  }, []);
+
+  const filteredPlugins = AVAILABLE_PLUGINS.filter(
     (p) => !searchQuery || p.name.includes(searchQuery) || p.description.includes(searchQuery)
   );
 
-  const categories = [...new Set(plugins.map((p) => p.category))];
+  const categories = [...new Set(AVAILABLE_PLUGINS.map((p) => p.category))];
 
   return (
     <div className="h-full overflow-y-auto bg-gray-900 p-6">
@@ -81,6 +80,7 @@ export function PluginsView() {
             </h1>
             <p className="text-sm text-gray-400 mt-1">AI 기능을 확장하는 플러그인을 관리하세요</p>
           </div>
+          <span className="text-xs text-gray-500">{installedPlugins.length}개 설치됨</span>
         </div>
 
         <div className="mb-4">
@@ -104,41 +104,60 @@ export function PluginsView() {
 
         {/* Plugin grid */}
         <div className="grid gap-3 md:grid-cols-2">
-          {filteredPlugins.map((plugin) => (
-            <div key={plugin.id} className="bg-gray-800 rounded-xl p-4">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center text-gray-400">
-                    {plugin.icon}
+          {filteredPlugins.map((plugin) => {
+            const installed = installedPlugins.includes(plugin.id);
+            return (
+              <div key={plugin.id} className="bg-gray-800 rounded-xl p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      installed ? 'bg-blue-600/20 text-blue-400' : 'bg-gray-700 text-gray-400'
+                    }`}>
+                      {plugin.icon}
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-white text-sm">{plugin.name}</h3>
+                      <span className="text-xs text-gray-600">{plugin.category}</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-medium text-white text-sm">{plugin.name}</h3>
-                    <span className="text-xs text-gray-600">{plugin.category}</span>
-                  </div>
+                  {plugin.comingSoon ? (
+                    <span className="text-xs bg-yellow-600/20 text-yellow-400 px-2 py-0.5 rounded">준비 중</span>
+                  ) : installed ? (
+                    <button
+                      onClick={() => uninstallPlugin(plugin.id)}
+                      className="flex items-center gap-1 text-xs text-green-400 bg-green-400/10 px-2 py-1 rounded hover:bg-red-400/10 hover:text-red-400 transition-colors"
+                      title="클릭하여 제거"
+                    >
+                      <Check size={12} /> 설치됨
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => installPlugin(plugin.id)}
+                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
+                    >
+                      설치
+                    </button>
+                  )}
                 </div>
-                {plugin.comingSoon ? (
-                  <span className="text-xs bg-yellow-600/20 text-yellow-400 px-2 py-0.5 rounded">준비 중</span>
-                ) : plugin.installed ? (
-                  <button className="flex items-center gap-1 text-xs text-green-400 bg-green-400/10 px-2 py-1 rounded">
-                    <Check size={12} /> 설치됨
-                  </button>
-                ) : (
-                  <button className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">
-                    설치
-                  </button>
+                <p className="text-xs text-gray-400">{plugin.description}</p>
+                {installed && !plugin.comingSoon && (
+                  <div className="mt-2 flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full" />
+                    <span className="text-xs text-green-400">활성화됨 - 채팅에서 사용 가능</span>
+                  </div>
                 )}
               </div>
-              <p className="text-xs text-gray-400">{plugin.description}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-8 bg-gray-800/50 rounded-xl p-4 border border-dashed border-gray-700">
-          <h3 className="text-sm font-medium text-gray-300 mb-2">커스텀 플러그인 개발</h3>
-          <p className="text-xs text-gray-500">
-            Blend 플러그인 API를 사용하여 자체 플러그인을 개발할 수 있습니다.
-            각 플러그인은 독립 모듈로 동작하며, 다른 프로젝트에서도 재사용 가능합니다.
-          </p>
+          <h3 className="text-sm font-medium text-gray-300 mb-2">플러그인 사용 방법</h3>
+          <ul className="text-xs text-gray-500 space-y-1">
+            <li>• <strong className="text-gray-400">URL 읽기</strong>: 채팅 입력창에 URL을 포함하면 자동으로 내용을 가져옵니다</li>
+            <li>• <strong className="text-gray-400">코드 실행</strong>: AI가 생성한 JS 코드 블록에 &quot;실행&quot; 버튼이 나타납니다</li>
+            <li>• <strong className="text-gray-400">차트 생성</strong>: AI 응답에서 JSON 데이터를 감지해 차트로 표시합니다</li>
+          </ul>
         </div>
       </div>
     </div>

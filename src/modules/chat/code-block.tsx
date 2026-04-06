@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
+import { CodeRunner } from '@/modules/plugins/code-runner';
+import { usePluginStore } from '@/stores/plugin-store';
 
 interface CodeBlockProps {
   children: string;
@@ -10,12 +12,23 @@ interface CodeBlockProps {
 
 export function CodeBlock({ children, language }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const { isInstalled } = usePluginStore();
+  const codeRunnerEnabled = isInstalled('code-runner');
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(children);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const isRunnable = codeRunnerEnabled && (
+    !language ||
+    language === 'javascript' ||
+    language === 'js' ||
+    language === 'jsx' ||
+    language === 'ts' ||
+    language === 'tsx'
+  );
 
   return (
     <div className="relative group my-2">
@@ -38,9 +51,12 @@ export function CodeBlock({ children, language }: CodeBlockProps) {
           )}
         </button>
       </div>
-      <pre className="bg-gray-950 rounded-b-lg p-4 overflow-x-auto">
+      <pre className={`bg-gray-950 p-4 overflow-x-auto ${isRunnable ? '' : 'rounded-b-lg'}`}>
         <code className="text-sm text-gray-300 font-mono">{children}</code>
       </pre>
+      {isRunnable && (
+        <CodeRunner code={children} language={language} />
+      )}
     </div>
   );
 }

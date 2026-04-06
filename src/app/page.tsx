@@ -17,6 +17,7 @@ import { useAgentStore } from '@/stores/agent-store';
 import { useUsageStore } from '@/stores/usage-store';
 import { useChatStore } from '@/stores/chat-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { usePluginStore } from '@/stores/plugin-store';
 import { Menu } from 'lucide-react';
 
 export default function Home() {
@@ -28,6 +29,7 @@ export default function Home() {
   const usageStore = useUsageStore();
   const { createChat } = useChatStore();
   const settingsStore = useSettingsStore();
+  const pluginStore = usePluginStore();
 
   useEffect(() => {
     apiKeyStore.loadFromStorage();
@@ -35,6 +37,7 @@ export default function Home() {
     agentStore.loadFromStorage();
     usageStore.loadFromStorage();
     settingsStore.loadFromStorage();
+    pluginStore.loadFromStorage();
   }, []);
 
   const handleTabChange = (tab: string) => {

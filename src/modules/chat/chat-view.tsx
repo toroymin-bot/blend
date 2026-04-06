@@ -6,28 +6,37 @@ import { useAPIKeyStore } from '@/stores/api-key-store';
 import { useAgentStore } from '@/stores/agent-store';
 import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { usePluginStore } from '@/stores/plugin-store';
 import { sendChatRequest } from './chat-api';
 import { getModelById, calculateCost, DEFAULT_MODELS } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
-import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork } from 'lucide-react';
+import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
+import { fetchURLContent, isValidURL, extractDomain } from '@/modules/plugins/url-reader';
+import { ChartRender, extractChartData } from '@/modules/plugins/chart-render';
 
 export function ChatView() {
-  const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat } = useChatStore();
+  const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle } = useChatStore();
   const { getKey, hasKey } = useAPIKeyStore();
   const { getActiveAgent } = useAgentStore();
   const { addRecord } = useUsageStore();
   const { systemPrompt } = useSettingsStore();
+  const { isInstalled, loadFromStorage: loadPlugins } = usePluginStore();
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [fetchingURLs, setFetchingURLs] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    loadPlugins();
+  }, []);
 
   const handleCopyMessage = async (msgId: string, content: string) => {
     await navigator.clipboard.writeText(content);
@@ -42,6 +51,38 @@ export function ChatView() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chat?.messages, streamingText]);
+
+  // Auto-generate chat title using AI after first exchange
+  const autoGenerateTitle = async (chatId: string, userMsg: string, assistantMsg: string, provider: string, apiKey: string | null) => {
+    try {
+      const titleMessages = [
+        { role: 'system', content: '다음 대화의 제목을 15자 이내로 한국어로 작성하세요. 제목만 출력하고 다른 내용은 쓰지 마세요.' },
+        { role: 'user', content: `사용자: ${userMsg.substring(0, 200)}\nAI: ${assistantMsg.substring(0, 200)}` },
+      ];
+      let titleText = '';
+      await sendChatRequest({
+        messages: titleMessages,
+        model: selectedModel,
+        provider: provider as 'openai' | 'anthropic' | 'google' | 'custom',
+        apiKey: apiKey ?? '',
+        stream: true,
+        onChunk: (t) => { titleText += t; },
+        onDone: (full) => {
+          const clean = full.replace(/["'*\n]/g, '').trim().substring(0, 30);
+          if (clean) updateChatTitle(chatId, clean);
+        },
+        onError: () => {},
+      });
+    } catch {
+      // Fail silently — title generation is non-critical
+    }
+  };
+
+  // Extract URLs from input text
+  const extractURLs = (text: string): string[] => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return (text.match(urlRegex) || []).filter(isValidURL);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
@@ -64,14 +105,37 @@ export function ChatView() {
       return;
     }
 
+    let userContent = input.trim();
+    setInput('');
+
+    // URL Reader plugin: fetch URL content if enabled
+    const urlReaderEnabled = isInstalled('url-reader');
+    if (urlReaderEnabled) {
+      const urls = extractURLs(userContent);
+      if (urls.length > 0) {
+        setFetchingURLs(urls);
+        const urlResults = await Promise.all(urls.map(fetchURLContent));
+        setFetchingURLs([]);
+
+        const urlContext = urlResults
+          .filter((r) => !r.error && r.text)
+          .map((r) => `[URL: ${r.url}]\n제목: ${r.title}\n${r.description ? `설명: ${r.description}\n` : ''}내용:\n${r.text}`)
+          .join('\n\n---\n\n');
+
+        if (urlContext) {
+          userContent = `${userContent}\n\n--- URL 컨텍스트 ---\n${urlContext}`;
+        }
+      }
+    }
+
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: input.trim(),
+      content: input.trim(), // Display original input (without URL context)
       createdAt: Date.now(),
     };
     addMessage(chatId, userMsg);
-    setInput('');
+
     setIsStreaming(true);
     setStreamingText('');
 
@@ -81,13 +145,16 @@ export function ChatView() {
     if (sysPrompt) {
       allMessages.push({ role: 'system', content: sysPrompt });
     }
-    allMessages.push(...[...(chat?.messages || []), userMsg].map((m) => ({
+    // Use enriched content (with URL data) for API, but display original
+    const messagesForAPI = [...(chat?.messages || []), { ...userMsg, content: userContent }].map((m) => ({
       role: m.role,
       content: m.content,
-    })));
+    }));
+    allMessages.push(...messagesForAPI);
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const isFirstMessage = !chat || chat.messages.length === 0;
 
     await sendChatRequest({
       messages: allMessages,
@@ -121,6 +188,12 @@ export function ChatView() {
             chatId: chatId!,
           });
         }
+
+        // Auto-generate title after first AI response
+        if (isFirstMessage) {
+          autoGenerateTitle(chatId!, input.trim(), fullText, currentModel.provider, getKey(currentModel.provider));
+        }
+
         setStreamingText('');
         setIsStreaming(false);
       },
@@ -158,6 +231,8 @@ export function ChatView() {
       handleSend();
     }
   };
+
+  const chartRenderEnabled = isInstalled('chart-render');
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
@@ -213,6 +288,12 @@ export function ChatView() {
                           },
                         }}
                       >{msg.content}</ReactMarkdown>
+
+                      {/* Chart rendering if chart-render plugin enabled */}
+                      {chartRenderEnabled && (() => {
+                        const chartData = extractChartData(msg.content);
+                        return chartData ? <ChartRender data={chartData} /> : null;
+                      })()}
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -278,6 +359,16 @@ export function ChatView() {
         )}
       </div>
 
+      {/* URL fetching indicator */}
+      {fetchingURLs.length > 0 && (
+        <div className="px-4 py-2 bg-blue-900/20 border-t border-blue-800/30 flex items-center gap-2">
+          <Link size={13} className="text-blue-400 animate-pulse" />
+          <span className="text-xs text-blue-300">
+            URL 읽는 중: {fetchingURLs.map(extractDomain).join(', ')}...
+          </span>
+        </div>
+      )}
+
       {/* Input area */}
       <div className="border-t border-gray-700 p-4">
         <div className="max-w-3xl mx-auto">
@@ -290,6 +381,12 @@ export function ChatView() {
               {model?.name || selectedModel}
               <ChevronDown size={14} />
             </button>
+            {/* Active plugin indicators */}
+            {isInstalled('url-reader') && (
+              <span className="text-xs text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded flex items-center gap-1">
+                <Link size={11} /> URL 읽기
+              </span>
+            )}
             {showModelDropdown && (
               <div className="absolute bottom-8 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-64 max-h-80 overflow-y-auto">
                 {enabledModels.map((m) => (
@@ -322,7 +419,7 @@ export function ChatView() {
                 e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
               }}
               onKeyDown={handleKeyDown}
-              placeholder='메시지를 입력하세요... (Shift+Enter로 줄바꿈)'
+              placeholder={isInstalled('url-reader') ? '메시지 또는 URL을 입력하세요... (Shift+Enter로 줄바꿈)' : '메시지를 입력하세요... (Shift+Enter로 줄바꿈)'}
               rows={1}
               className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 outline-none resize-none max-h-40 px-2 py-1"
               style={{ minHeight: '36px' }}
