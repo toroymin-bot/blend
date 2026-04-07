@@ -25,6 +25,9 @@ interface ChatState {
   addChatTag: (chatId: string, tag: string) => void;
   removeChatTag: (chatId: string, tag: string) => void;
   getAllChatTags: () => string[];
+  // Persistence
+  loadFromStorage: () => void;
+  saveToStorage: () => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
@@ -49,6 +52,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       chats: [chat, ...state.chats],
       currentChatId: id,
     }));
+    get().saveToStorage();
     return id;
   },
 
@@ -57,9 +61,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       chats: state.chats.filter((c) => c.id !== id),
       currentChatId: state.currentChatId === id ? null : state.currentChatId,
     }));
+    get().saveToStorage();
   },
 
-  setCurrentChat: (id) => set({ currentChatId: id }),
+  setCurrentChat: (id) => {
+    set({ currentChatId: id });
+    get().saveToStorage();
+  },
 
   addMessage: (chatId, message) => {
     set((state) => ({
@@ -76,15 +84,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : c
       ),
     }));
+    get().saveToStorage();
   },
 
   updateChatTitle: (chatId, title) => {
     set((state) => ({
       chats: state.chats.map((c) => (c.id === chatId ? { ...c, title } : c)),
     }));
+    get().saveToStorage();
   },
 
-  setSelectedModel: (model) => set({ selectedModel: model }),
+  setSelectedModel: (model) => {
+    set({ selectedModel: model });
+    get().saveToStorage();
+  },
 
   createFolder: (name) => {
     const folder: ChatFolder = {
@@ -93,12 +106,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       order: get().folders.length,
     };
     set((state) => ({ folders: [...state.folders, folder] }));
+    get().saveToStorage();
   },
 
   moveToFolder: (chatId, folderId) => {
     set((state) => ({
       chats: state.chats.map((c) => (c.id === chatId ? { ...c, folderId } : c)),
     }));
+    get().saveToStorage();
   },
 
   forkChat: (chatId, atMessageIndex) => {
@@ -118,6 +133,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       chats: [forked, ...state.chats],
       currentChatId: id,
     }));
+    get().saveToStorage();
     return id;
   },
 
@@ -132,6 +148,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return c;
       }),
     }));
+    get().saveToStorage();
     return removed;
   },
 
@@ -150,6 +167,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : c
       ),
     }));
+    get().saveToStorage();
   },
 
   removeChatTag: (chatId, tag) => {
@@ -160,11 +178,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : c
       ),
     }));
+    get().saveToStorage();
   },
 
   getAllChatTags: () => {
     const tags = new Set<string>();
     get().chats.forEach((c) => (c.tags ?? []).forEach((t) => tags.add(t)));
     return [...tags].sort();
+  },
+
+  loadFromStorage: () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('blend:chats');
+      if (stored) {
+        const data = JSON.parse(stored);
+        set({
+          chats: data.chats ?? [],
+          folders: data.folders ?? [],
+          selectedModel: data.selectedModel ?? 'gpt-4o-mini',
+          currentChatId: data.currentChatId ?? null,
+        });
+      }
+    } catch {}
+  },
+
+  saveToStorage: () => {
+    if (typeof window === 'undefined') return;
+    const { chats, folders, selectedModel, currentChatId } = get();
+    localStorage.setItem('blend:chats', JSON.stringify({ chats, folders, selectedModel, currentChatId }));
   },
 }));

@@ -21,7 +21,7 @@ export function MobileBottomBar({ activeTab, onTabChange }: MobileBottomBarProps
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 flex items-center justify-around px-4 py-2 safe-area-inset-bottom">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 flex items-center justify-around px-4 py-2" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}>
       {mobileTabs.map((tab) => (
         <button
           key={tab.id}

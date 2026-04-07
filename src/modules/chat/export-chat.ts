@@ -122,12 +122,30 @@ export function downloadChatAsPDF(chat: Chat) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-export function exportAllChatsAsJSON(chats: Chat[]) {
-  const blob = new Blob([JSON.stringify(chats, null, 2)], { type: 'application/json' });
+// Download a single chat as JSON
+export function downloadChatAsJSON(chat: Chat) {
+  const blob = new Blob([JSON.stringify(chat, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `blend-chats-${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `${chat.title.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Download all chats as a single JSON backup file
+export function exportAllChatsAsJSON(chats: Chat[]) {
+  const data = {
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    totalChats: chats.length,
+    chats,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `chats-backup-${new Date().toISOString().split('T')[0]}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

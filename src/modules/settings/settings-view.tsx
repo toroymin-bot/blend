@@ -8,7 +8,8 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { AIProvider } from '@/types';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Check, X, Key, Download, Upload } from 'lucide-react';
+import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon } from 'lucide-react';
+import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 
 const PROVIDERS: { id: AIProvider; name: string; color: string; placeholder: string }[] = [
   { id: 'openai', name: 'OpenAI', color: '#10a37f', placeholder: 'sk-...' },
@@ -22,7 +23,7 @@ export function SettingsView() {
   const promptStore = usePromptStore();
   const agentStore = useAgentStore();
   const usageStore = useUsageStore();
-  const { systemPrompt, setSystemPrompt } = useSettingsStore();
+  const { systemPrompt, setSystemPrompt, settings, updateSettings } = useSettingsStore();
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -128,16 +129,30 @@ export function SettingsView() {
 
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-white mb-4">테마</h2>
-          <div className="bg-gray-800 rounded-xl p-4 flex items-center justify-between">
-            <span className="text-sm text-gray-300">다크 모드</span>
-            <button
-              onClick={() => {
-                document.documentElement.classList.toggle('theme-light');
-              }}
-              className="w-12 h-6 bg-gray-600 rounded-full relative cursor-pointer"
-            >
-              <div className="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform" />
-            </button>
+          <div className="bg-gray-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-gray-300">색상 테마</span>
+              <div className="flex gap-1">
+                {(['light', 'dark', 'system'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => updateSettings({ theme: t })}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      settings.theme === t
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'
+                    }`}
+                  >
+                    {t === 'light' && <Sun size={12} />}
+                    {t === 'dark' && <Moon size={12} />}
+                    {t === 'light' ? '라이트' : t === 'dark' ? '다크' : '시스템'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              {settings.theme === 'system' ? '시스템 설정을 따릅니다' : settings.theme === 'light' ? '라이트 모드가 적용됩니다' : '다크 모드가 적용됩니다'}
+            </p>
           </div>
         </section>
 
@@ -163,9 +178,16 @@ export function SettingsView() {
             <p className="text-sm text-gray-400 mb-2">
               모든 데이터는 브라우저 로컬 저장소에 저장됩니다. 서버로 전송되지 않습니다.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button onClick={handleExport} className="flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white">
-                <Download size={14} /> 내보내기
+                <Download size={14} /> 전체 백업
+              </button>
+              <button
+                onClick={() => exportAllChatsAsJSON(chatStore.chats)}
+                className="flex items-center gap-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white"
+                title="모든 채팅을 JSON 파일 하나로 내보냅니다"
+              >
+                <Download size={14} /> 채팅 JSON 내보내기
               </button>
               <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white">
                 <Upload size={14} /> 가져오기

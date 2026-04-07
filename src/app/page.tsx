@@ -28,12 +28,13 @@ export default function Home() {
   const promptStore = usePromptStore();
   const agentStore = useAgentStore();
   const usageStore = useUsageStore();
-  const { createChat } = useChatStore();
+  const { createChat, loadFromStorage: loadChatFromStorage } = useChatStore();
   const settingsStore = useSettingsStore();
   const pluginStore = usePluginStore();
 
   useEffect(() => {
     apiKeyStore.loadFromStorage();
+    loadChatFromStorage();
     promptStore.loadFromStorage();
     agentStore.loadFromStorage();
     usageStore.loadFromStorage();

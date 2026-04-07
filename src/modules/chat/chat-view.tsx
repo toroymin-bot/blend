@@ -18,7 +18,7 @@ import { fetchURLContent, isValidURL, extractDomain } from '@/modules/plugins/ur
 import { ChartRender, extractChartData } from '@/modules/plugins/chart-render';
 import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } from '@/modules/plugins/web-search';
 import { generateImage, extractImagePrompt, extractImageURLs } from '@/modules/plugins/image-gen';
-import { downloadChat, downloadChatAsPDF } from '@/modules/chat/export-chat';
+import { downloadChat, downloadChatAsPDF, downloadChatAsJSON } from '@/modules/chat/export-chat';
 
 export function ChatView() {
   const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle } = useChatStore();
@@ -486,7 +486,7 @@ export function ChatView() {
       )}
 
       {/* Input area */}
-      <div className="border-t border-gray-700 p-4">
+      <div className="border-t border-gray-700 p-4 pb-4 mobile-input-area" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
         <div className="max-w-3xl mx-auto">
           {/* Model selector */}
           <div className="flex items-center gap-2 mb-2 relative">
@@ -526,7 +526,7 @@ export function ChatView() {
                   내보내기
                 </button>
                 {showExportMenu && (
-                  <div className="absolute bottom-8 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-36">
+                  <div className="absolute bottom-8 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-40">
                     <button
                       onClick={() => { downloadChat(chat, 'md'); setShowExportMenu(false); }}
                       className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 flex items-center gap-2 rounded-t-lg"
@@ -538,6 +538,12 @@ export function ChatView() {
                       className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 flex items-center gap-2"
                     >
                       <FileText size={12} /> 텍스트 (.txt)
+                    </button>
+                    <button
+                      onClick={() => { downloadChatAsJSON(chat); setShowExportMenu(false); }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <FileText size={12} /> JSON (.json)
                     </button>
                     <button
                       onClick={() => { downloadChatAsPDF(chat); setShowExportMenu(false); }}
