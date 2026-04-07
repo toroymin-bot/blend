@@ -20,6 +20,7 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useChatStore } from '@/stores/chat-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { usePluginStore } from '@/stores/plugin-store';
+import { useDocumentStore } from '@/stores/document-store';
 import { Menu } from 'lucide-react';
 
 export default function Home() {
@@ -35,6 +36,7 @@ export default function Home() {
   const { createChat, loadFromStorage: loadChatFromStorage, chats, currentChatId, setCurrentChat } = useChatStore();
   const settingsStore = useSettingsStore();
   const pluginStore = usePluginStore();
+  const { loadFromDB: loadDocumentsFromDB } = useDocumentStore();
 
   useEffect(() => {
     apiKeyStore.loadFromStorage();
@@ -44,6 +46,7 @@ export default function Home() {
     usageStore.loadFromStorage();
     settingsStore.loadFromStorage();
     pluginStore.loadFromStorage();
+    loadDocumentsFromDB();
     // Show welcome on first launch (no key set, never welcomed)
     const welcomed = localStorage.getItem('blend:welcomed');
     if (!welcomed) setShowWelcome(true);

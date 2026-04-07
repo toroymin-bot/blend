@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { CodeRunner } from '@/modules/plugins/code-runner';
 import { usePluginStore } from '@/stores/plugin-store';
@@ -15,6 +15,19 @@ export function CodeBlock({ children, language, filename }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const { isInstalled } = usePluginStore();
   const codeRunnerEnabled = isInstalled('code-runner');
+  const codeRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!codeRef.current || !language) return;
+    import('highlight.js').then((hljs) => {
+      const lib = hljs.default;
+      const validLang = lib.getLanguage(language) ? language : 'plaintext';
+      const result = lib.highlight(children, { language: validLang });
+      if (codeRef.current) {
+        codeRef.current.innerHTML = result.value;
+      }
+    });
+  }, [children, language]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(children);
@@ -56,7 +69,9 @@ export function CodeBlock({ children, language, filename }: CodeBlockProps) {
         </button>
       </div>
       <pre className={`bg-gray-950 p-4 overflow-x-auto ${isRunnable ? '' : 'rounded-b-lg'}`}>
-        <code className="text-sm text-gray-300 font-mono">{children}</code>
+        <code ref={codeRef} className={`text-sm font-mono hljs${language ? ` language-${language}` : ''}`}>
+          {children}
+        </code>
       </pre>
       {isRunnable && (
         <CodeRunner code={children} language={language} />
