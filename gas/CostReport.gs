@@ -216,10 +216,10 @@ function buildCostHTML(openai, anthropic, gemini) {
   // ---- 합산 ----
   var totalToday=0, totalWeek=0, totalMonth=0, totalThisMonth=0;
   providers.forEach(function(p){
-    totalToday    += p.today;
-    totalWeek     += p.week;
-    totalMonth    += p.month;
-    totalThisMonth += p.thismonth;
+    totalToday     += Number(p.today)     || 0;
+    totalWeek      += Number(p.week)      || 0;
+    totalMonth     += Number(p.month)     || 0;
+    totalThisMonth += Number(p.thismonth) || 0;
   });
 
   // ---- 일 평균, 주 평균, 월 예상 ----
