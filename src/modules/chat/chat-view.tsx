@@ -20,6 +20,18 @@ import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } fr
 import { generateImage, extractImagePrompt, extractImageURLs } from '@/modules/plugins/image-gen';
 import { downloadChat, downloadChatAsPDF, downloadChatAsJSON } from '@/modules/chat/export-chat';
 
+// ── Inline text highlight helper ──────────────────────────────────────────────
+function highlightText(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
+      ? <mark key={i} className="bg-yellow-400/80 text-gray-900 rounded-sm px-0.5">{part}</mark>
+      : part
+  );
+}
+
 export function ChatView() {
   const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle, editMessage } = useChatStore();
   const { getKey, hasKey } = useAPIKeyStore();
@@ -114,6 +126,61 @@ export function ChatView() {
 
   const handleSearchNext = () => setSearchMatchIndex((i) => i + 1);
   const handleSearchPrev = () => setSearchMatchIndex((i) => i - 1);
+
+  // ── Cmd+R: regenerate last assistant message ───────────────────────────────
+  const handleRegenerateLast = useCallback(async () => {
+    if (!currentChatId || isStreaming || !chat) return;
+    const lastAssistant = [...chat.messages].reverse().find((m) => m.role === 'assistant');
+    if (!lastAssistant) return;
+    const currentModel = getModelById(selectedModel);
+    if (!currentModel || !hasKey(currentModel.provider)) return;
+    const msgIdx = chat.messages.findIndex((m) => m.id === lastAssistant.id);
+    const msgsBeforeRemoved = chat.messages.slice(0, msgIdx);
+    removeLastMessage(currentChatId);
+    const allMsgs: { role: string; content: string }[] = [];
+    const activeAgent = getActiveAgent();
+    const sysPrompt = activeAgent?.systemPrompt || systemPrompt;
+    if (sysPrompt) allMsgs.push({ role: 'system', content: sysPrompt });
+    msgsBeforeRemoved.forEach((m) => allMsgs.push({ role: m.role, content: m.content }));
+    await streamAIResponse(currentChatId, allMsgs, currentModel);
+  }, [currentChatId, isStreaming, chat, selectedModel, removeLastMessage, getActiveAgent, systemPrompt]);
+
+  // ── Cmd+E: edit last user message ─────────────────────────────────────────
+  const handleEditLast = useCallback(() => {
+    if (!chat) return;
+    const lastUser = [...chat.messages].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return;
+    setEditingMsgId(lastUser.id);
+    setEditingMsgContent(lastUser.content);
+  }, [chat]);
+
+  // ── Global keyboard shortcuts (Cmd+R, Cmd+E, /) ───────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+      const isMeta = e.metaKey || e.ctrlKey;
+      // Cmd+R — regenerate last
+      if (isMeta && !e.shiftKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        handleRegenerateLast();
+        return;
+      }
+      // Cmd+E — edit last user message
+      if (isMeta && !e.shiftKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        handleEditLast();
+        return;
+      }
+      // / — focus chat input (when not already typing)
+      if (e.key === '/' && !isMeta && !isTyping) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleRegenerateLast, handleEditLast]);
 
   // Auto-generate chat title using AI after first exchange
   const autoGenerateTitle = async (chatId: string, userMsg: string, assistantMsg: string, provider: string, apiKey: string | null) => {
@@ -539,7 +606,12 @@ export function ChatView() {
       )}
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        onTouchMove={() => {
+          if (showSearch) { setShowSearch(false); setSearchQuery(''); setSearchMatchIndex(0); }
+        }}
+      >
         {!chat || chat.messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -643,7 +715,9 @@ export function ChatView() {
                       </div>
                     </div>
                   ) : (
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <p className="whitespace-pre-wrap">
+                      {searchQuery.trim() ? highlightText(msg.content, searchQuery) : msg.content}
+                    </p>
                   )}
                   {/* Action buttons */}
                   <div className={`flex items-center gap-1 mt-2 ${msg.role === 'assistant' ? 'border-t border-gray-700 pt-1.5' : ''}`}>

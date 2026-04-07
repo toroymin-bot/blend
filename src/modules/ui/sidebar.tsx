@@ -5,7 +5,7 @@ import { useAgentStore } from '@/stores/agent-store';
 import { downloadChat } from '@/modules/chat/export-chat';
 import { ChatTags } from '@/modules/chat/chat-tags';
 import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 
 // Mobile bottom tab bar — 3 primary tabs
 interface MobileBottomBarProps {
@@ -54,6 +54,17 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
   const { activeAgentId, getActiveAgent } = useAgentStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsed, setCollapsed] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Cmd+K → focus sidebar search (dispatched from page.tsx)
+  useEffect(() => {
+    const handler = () => {
+      setCollapsed(false);
+      setTimeout(() => searchInputRef.current?.focus(), 60);
+    };
+    window.addEventListener('blend:focus-sidebar-search', handler);
+    return () => window.removeEventListener('blend:focus-sidebar-search', handler);
+  }, []);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | null>(null);
 
@@ -165,9 +176,11 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
         <div className="w-60 bg-surface-2 border-r border-border-token flex flex-col">
           <div className="p-3 border-b border-border-token space-y-2">
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') { setSearchQuery(''); searchInputRef.current?.blur(); } }}
               placeholder="대화 검색... (⌘K)"
               className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
             />

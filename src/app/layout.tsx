@@ -16,6 +16,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Blend - AI Chat Interface",
   description: "BYOK AI Chat Interface - Bring Your Own Key",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Blend",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "theme-color": "#0f1117",
+  },
 };
 
 export const viewport: Viewport = {

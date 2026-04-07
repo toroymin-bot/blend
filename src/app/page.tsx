@@ -70,7 +70,7 @@ export default function Home() {
   const shortcuts = useMemo(() => [
     { key: 'n', meta: true, action: () => { createChat(); setActiveTab('chat'); }, description: '새 채팅' },
     { key: ',', meta: true, action: () => setActiveTab('settings'), description: '설정' },
-    { key: 'k', meta: true, action: () => setActiveTab('chat'), description: '채팅 탭으로 이동' },
+    { key: 'k', meta: true, action: () => { setActiveTab('chat'); window.dispatchEvent(new Event('blend:focus-sidebar-search')); }, description: '채팅 목록 검색' },
     // Cmd+Shift+F: open in-chat search (chat-view listens for Cmd+F itself; this is an alias)
     { key: 'f', meta: true, shift: true, action: () => { setActiveTab('chat'); }, description: '채팅 내 검색' },
     // ?: show shortcut help modal (no modifier, only when not typing)

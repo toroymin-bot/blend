@@ -178,6 +178,76 @@ export function ModelCompareView() {
           )}
         </div>
 
+        {/* Metrics comparison — shown once all results are complete */}
+        {!isRunning && results.length > 0 && results.every((r) => r.endTime) && (
+          <div className="mb-6 bg-gray-800 rounded-xl p-4 space-y-4">
+            {/* Response time bars */}
+            <div>
+              <p className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1"><Clock size={12} /> 응답 시간</p>
+              {(() => {
+                const maxMs = Math.max(...results.map((r) => (r.endTime ?? r.startTime) - r.startTime));
+                return results.map((r) => {
+                  const ms = (r.endTime ?? r.startTime) - r.startTime;
+                  const pct = maxMs > 0 ? (ms / maxMs) * 100 : 0;
+                  return (
+                    <div key={r.modelId} className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs text-gray-400 w-28 shrink-0 truncate">{r.modelName}</span>
+                      <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div className="h-full bg-blue-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs text-gray-500 w-12 text-right shrink-0">{(ms / 1000).toFixed(1)}s</span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            {/* Cost bars (only if costs are available) */}
+            {results.some((r) => r.cost !== undefined) && (
+              <div>
+                <p className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1"><DollarSign size={12} /> 비용</p>
+                {(() => {
+                  const maxCost = Math.max(...results.filter((r) => r.cost !== undefined).map((r) => r.cost!));
+                  return results.map((r) => {
+                    const cost = r.cost ?? 0;
+                    const pct = maxCost > 0 ? (cost / maxCost) * 100 : 0;
+                    return (
+                      <div key={r.modelId} className="flex items-center gap-2 mb-1.5">
+                        <span className="text-xs text-gray-400 w-28 shrink-0 truncate">{r.modelName}</span>
+                        <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-green-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-500 w-16 text-right shrink-0">${cost.toFixed(4)}</span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+            {/* Token bars */}
+            {results.some((r) => r.tokens) && (
+              <div>
+                <p className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1"><Zap size={12} /> 출력 토큰</p>
+                {(() => {
+                  const maxTok = Math.max(...results.filter((r) => r.tokens).map((r) => r.tokens!.output));
+                  return results.map((r) => {
+                    const tok = r.tokens?.output ?? 0;
+                    const pct = maxTok > 0 ? (tok / maxTok) * 100 : 0;
+                    return (
+                      <div key={r.modelId} className="flex items-center gap-2 mb-1.5">
+                        <span className="text-xs text-gray-400 w-28 shrink-0 truncate">{r.modelName}</span>
+                        <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-purple-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-500 w-16 text-right shrink-0">{tok} tok</span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Results grid */}
         {results.length > 0 && (
           <div className={`grid gap-4 ${results.length === 1 ? 'grid-cols-1' : results.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
