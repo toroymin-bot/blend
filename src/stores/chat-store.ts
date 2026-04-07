@@ -17,7 +17,10 @@ interface ChatState {
   updateChatTitle: (chatId: string, title: string) => void;
   setSelectedModel: (model: string) => void;
   createFolder: (name: string) => void;
+  deleteFolder: (folderId: string) => void;
+  renameFolder: (folderId: string, name: string) => void;
   moveToFolder: (chatId: string, folderId: string | undefined) => void;
+  togglePin: (chatId: string) => void;
   removeLastMessage: (chatId: string) => ChatMessage | undefined;
   forkChat: (chatId: string, atMessageIndex: number) => string;
   getCurrentChat: () => Chat | undefined;
@@ -111,9 +114,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().saveToStorage();
   },
 
+  deleteFolder: (folderId) => {
+    set((state) => ({
+      folders: state.folders.filter((f) => f.id !== folderId),
+      // unassign chats in this folder
+      chats: state.chats.map((c) => c.folderId === folderId ? { ...c, folderId: undefined } : c),
+    }));
+    get().saveToStorage();
+  },
+
+  renameFolder: (folderId, name) => {
+    set((state) => ({
+      folders: state.folders.map((f) => f.id === folderId ? { ...f, name } : f),
+    }));
+    get().saveToStorage();
+  },
+
   moveToFolder: (chatId, folderId) => {
     set((state) => ({
       chats: state.chats.map((c) => (c.id === chatId ? { ...c, folderId } : c)),
+    }));
+    get().saveToStorage();
+  },
+
+  togglePin: (chatId) => {
+    set((state) => ({
+      chats: state.chats.map((c) => c.id === chatId ? { ...c, pinned: !c.pinned } : c),
     }));
     get().saveToStorage();
   },

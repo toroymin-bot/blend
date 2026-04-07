@@ -17,6 +17,7 @@ export interface Chat {
   messages: ChatMessage[];
   model: string;
   folderId?: string;
+  pinned?: boolean;
   createdAt: number;
   updatedAt: number;
   tags?: string[];
