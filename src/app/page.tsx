@@ -11,6 +11,7 @@ import { DashboardView } from '@/modules/ui/dashboard-view';
 import { ModelCompareView } from '@/modules/models/model-compare-view';
 import { PluginsView } from '@/modules/plugins/plugins-view';
 import { DocumentPluginView } from '@/modules/plugins/document-plugin-view';
+import { WelcomeView } from '@/modules/ui/welcome-view';
 import { useKeyboardShortcuts, ShortcutHelpModal } from '@/modules/ui/keyboard-shortcuts';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { usePromptStore } from '@/stores/prompt-store';
@@ -25,6 +26,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('chat');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const apiKeyStore = useAPIKeyStore();
   const promptStore = usePromptStore();
@@ -42,6 +44,9 @@ export default function Home() {
     usageStore.loadFromStorage();
     settingsStore.loadFromStorage();
     pluginStore.loadFromStorage();
+    // Show welcome on first launch (no key set, never welcomed)
+    const welcomed = localStorage.getItem('blend:welcomed');
+    if (!welcomed) setShowWelcome(true);
   }, []);
 
   const handleTabChange = (tab: string) => {
@@ -112,6 +117,17 @@ export default function Home() {
       default: return <ChatView />;
     }
   };
+
+  if (showWelcome) {
+    return (
+      <div className="h-dvh bg-gray-900">
+        <WelcomeView onComplete={() => {
+          localStorage.setItem('blend:welcomed', '1');
+          setShowWelcome(false);
+        }} />
+      </div>
+    );
+  }
 
   return (
     <div
