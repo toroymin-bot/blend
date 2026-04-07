@@ -2,7 +2,7 @@
 
 import { useUsageStore } from '@/stores/usage-store';
 import { getProviderColor } from '@/modules/models/model-registry';
-import { BarChart3, DollarSign, Zap, TrendingUp, Clock } from 'lucide-react';
+import { BarChart3, DollarSign, Zap, TrendingUp, Clock, Activity } from 'lucide-react';
 
 // ── SVG Bar Chart ──────────────────────────────────────────────────────────────
 function SVGBarChart({ data }: { data: { date: string; cost: number; requests: number }[] }) {
@@ -118,6 +118,72 @@ function SVGPieChart({ data }: { data: { label: string; value: number; color: st
   );
 }
 
+// ── SVG Mini Line Chart ────────────────────────────────────────────────────────
+function SVGLineChart({ data }: { data: { date: string; cost: number }[] }) {
+  const W = 600;
+  const H = 80;
+  const PAD = { top: 8, right: 10, bottom: 18, left: 36 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+  const maxCost = Math.max(...data.map((d) => d.cost), 0.0001);
+
+  const pts = data.map((d, i) => ({
+    x: (i / (data.length - 1)) * chartW,
+    y: chartH - (d.cost / maxCost) * chartH,
+    ...d,
+  }));
+
+  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const areaD = `${pathD} L ${pts[pts.length - 1].x.toFixed(1)} ${chartH} L 0 ${chartH} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="미니 라인차트">
+      <defs>
+        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <g transform={`translate(${PAD.left},${PAD.top})`}>
+        <path d={areaD} fill="url(#areaGrad)" />
+        <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth={2} strokeLinejoin="round" />
+        {pts.map((p) => (
+          <circle key={p.date} cx={p.x} cy={p.y} r={3} fill="#3b82f6" />
+        ))}
+        {/* X labels */}
+        {pts.map((p, i) => (
+          (i === 0 || i === pts.length - 1 || i % Math.ceil(pts.length / 5) === 0) && (
+            <text key={p.date} x={p.x} y={chartH + 14} textAnchor="middle" fontSize={8} fill="#6b7280">
+              {p.date.slice(5)}
+            </text>
+          )
+        ))}
+        <line x1={0} y1={chartH} x2={chartW} y2={chartH} stroke="#4b5563" strokeWidth={1} />
+      </g>
+    </svg>
+  );
+}
+
+// ── Model Cost Bar Chart ───────────────────────────────────────────────────────
+function ModelCostBars({ data }: { data: { model: string; cost: number }[] }) {
+  const max = Math.max(...data.map((d) => d.cost), 0.0001);
+  return (
+    <div className="space-y-2">
+      {data.map((d) => (
+        <div key={d.model}>
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-xs text-on-surface truncate max-w-[180px]">{d.model}</span>
+            <span className="text-xs font-medium text-on-surface ml-2 shrink-0">${d.cost.toFixed(4)}</span>
+          </div>
+          <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${(d.cost / max) * 100}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function DashboardView() {
   const {
     getTotalCost, getTodayCost, getThisMonthCost,
@@ -167,12 +233,13 @@ export function DashboardView() {
             </div>
             <p className="text-2xl font-bold text-on-surface">${monthCost.toFixed(4)}</p>
           </div>
-          <div className="bg-surface-2 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="bg-gradient-to-br from-yellow-900/40 to-surface-2 rounded-xl p-4 border border-yellow-700/30">
+            <div className="flex items-center gap-2 mb-1">
               <DollarSign size={16} className="text-yellow-400" />
-              <span className="text-sm text-on-surface-muted">전체 비용</span>
+              <span className="text-sm text-on-surface-muted">총 누적 비용</span>
             </div>
-            <p className="text-2xl font-bold text-on-surface">${totalCost.toFixed(4)}</p>
+            <p className="text-3xl font-bold text-yellow-300">${totalCost.toFixed(4)}</p>
+            <p className="text-xs text-on-surface-muted mt-1">{totalRequests}회 API 호출</p>
           </div>
           <div className="bg-surface-2 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -197,15 +264,17 @@ export function DashboardView() {
           )}
         </div>
 
-        {/* SVG Daily cost bar chart — 14 days */}
+        {/* SVG Mini Line Chart — 14 days trend */}
         <div className="bg-surface-2 rounded-xl p-4 mb-6">
-          <h2 className="text-sm font-medium text-on-surface-muted mb-3">최근 14일 비용 추이</h2>
+          <h2 className="text-sm font-medium text-on-surface-muted mb-2 flex items-center gap-1.5">
+            <Activity size={13} /> 최근 14일 비용 추이 (라인 차트)
+          </h2>
           {totalRequests === 0 ? (
             <div className="text-center text-on-surface-muted py-4">
               <p className="text-sm">데이터 없음</p>
             </div>
           ) : (
-            <SVGBarChart data={dailyCosts14} />
+            <SVGLineChart data={dailyCosts14} />
           )}
         </div>
 
@@ -216,33 +285,17 @@ export function DashboardView() {
             <SVGPieChart data={providerPieData} />
           </div>
 
-          {/* Cost by Model */}
+          {/* Cost by Model — bar chart */}
           <div className="bg-surface-2 rounded-xl p-4">
-            <h2 className="text-sm font-medium text-on-surface-muted mb-3">모델별 비용</h2>
+            <h2 className="text-sm font-medium text-on-surface-muted mb-3">모델별 비용 (바 차트)</h2>
             {Object.keys(costByModel).length === 0 ? (
               <p className="text-on-surface-muted text-sm">데이터 없음</p>
             ) : (
-              <div className="space-y-2">
-                {Object.entries(costByModel)
+              <ModelCostBars
+                data={Object.entries(costByModel)
                   .sort(([, a], [, b]) => b - a)
-                  .map(([model, cost]) => {
-                    const tokens = tokensByModel[model];
-                    return (
-                      <div key={model}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-on-surface">{model}</span>
-                          <span className="text-sm font-medium text-on-surface">${cost.toFixed(4)}</span>
-                        </div>
-                        {tokens && (
-                          <div className="flex gap-3 text-[10px] text-on-surface-muted mt-0.5">
-                            <span>입력: {(tokens.input / 1000).toFixed(1)}K</span>
-                            <span>출력: {(tokens.output / 1000).toFixed(1)}K</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
+                  .map(([model, cost]) => ({ model, cost }))}
+              />
             )}
           </div>
         </div>

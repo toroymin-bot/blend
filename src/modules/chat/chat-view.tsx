@@ -284,11 +284,15 @@ export function ChatView() {
 
   // Map raw API error messages to user-friendly Korean messages
   const friendlyError = (error: string): string => {
-    if (/api.key|API key|unauthorized|401/i.test(error)) return 'API 키가 유효하지 않습니다. 설정에서 키를 확인해주세요.';
-    if (/quota|rate.limit|429|exceeded/i.test(error)) return '요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
-    if (/context.length|maximum context|token limit|too long/i.test(error)) return '대화가 너무 길어 컨텍스트 한도를 초과했습니다. 새 채팅을 시작해주세요.';
-    if (/network|failed to fetch|ECONNREFUSED/i.test(error)) return '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-    if (/model.*not.*found|invalid.*model/i.test(error)) return '선택된 모델을 찾을 수 없습니다. 모델 설정을 확인해주세요.';
+    if (/api.key|API key|unauthorized|invalid.*key|403/i.test(error)) return '🔑 API 키가 유효하지 않습니다. 설정(⌘,)에서 키를 확인해주세요.';
+    if (/quota|rate.limit|429|exceeded|too many requests/i.test(error)) return '⏱ 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
+    if (/context.length|maximum context|token limit|too long|context_length/i.test(error)) return '📄 대화가 너무 길어 컨텍스트 한도를 초과했습니다. 새 채팅을 시작해주세요.';
+    if (/network|failed to fetch|ECONNREFUSED|ERR_NETWORK|net::/i.test(error)) return '🌐 네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+    if (/model.*not.*found|invalid.*model|model_not_found/i.test(error)) return '🤖 선택된 모델을 찾을 수 없습니다. 모델 설정을 확인해주세요.';
+    if (/overloaded|capacity|service.*unavailable|503/i.test(error)) return '🔄 AI 서버가 혼잡합니다. 잠시 후 다시 시도해주세요.';
+    if (/content.policy|safety|blocked|moderation/i.test(error)) return '🛡 콘텐츠 정책에 의해 요청이 차단되었습니다. 다른 방식으로 질문해주세요.';
+    if (/timeout|aborted|cancelled/i.test(error)) return '⏰ 요청 시간이 초과되었습니다. 다시 시도해주세요.';
+    if (/insufficient.*funds|billing|payment/i.test(error)) return '💳 API 크레딧이 부족합니다. 해당 서비스의 결제 설정을 확인해주세요.';
     return error;
   };
 

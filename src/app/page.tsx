@@ -99,6 +99,8 @@ export default function Home() {
     }, description: '테마 전환' },
     // ?: show shortcut help modal
     { key: '?', action: () => setShowShortcutHelp(true), description: '단축키 도움말' },
+    // Cmd+/ → shortcut help
+    { key: '/', meta: true, action: () => setShowShortcutHelp(true), description: '단축키 도움말 (Cmd+/)' },
   ], [createChat, chats, currentChatId, setCurrentChat, settingsStore]);
 
   useKeyboardShortcuts(shortcuts);
