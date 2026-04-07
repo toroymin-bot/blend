@@ -21,6 +21,10 @@ interface ChatState {
   removeLastMessage: (chatId: string) => ChatMessage | undefined;
   forkChat: (chatId: string, atMessageIndex: number) => string;
   getCurrentChat: () => Chat | undefined;
+  // Tag actions
+  addChatTag: (chatId: string, tag: string) => void;
+  removeChatTag: (chatId: string, tag: string) => void;
+  getAllChatTags: () => string[];
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
@@ -134,5 +138,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
   getCurrentChat: () => {
     const state = get();
     return state.chats.find((c) => c.id === state.currentChatId);
+  },
+
+  addChatTag: (chatId, tag) => {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    set((state) => ({
+      chats: state.chats.map((c) =>
+        c.id === chatId
+          ? { ...c, tags: c.tags ? (c.tags.includes(trimmed) ? c.tags : [...c.tags, trimmed]) : [trimmed] }
+          : c
+      ),
+    }));
+  },
+
+  removeChatTag: (chatId, tag) => {
+    set((state) => ({
+      chats: state.chats.map((c) =>
+        c.id === chatId
+          ? { ...c, tags: (c.tags ?? []).filter((t) => t !== tag) }
+          : c
+      ),
+    }));
+  },
+
+  getAllChatTags: () => {
+    const tags = new Set<string>();
+    get().chats.forEach((c) => (c.tags ?? []).forEach((t) => tags.add(t)));
+    return [...tags].sort();
   },
 }));

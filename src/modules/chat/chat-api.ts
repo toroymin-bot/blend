@@ -68,16 +68,20 @@ async function handleOpenAI(
     let usage: { input: number; output: number } | undefined;
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
+    let lineBuffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n').filter((l) => l.startsWith('data: '));
+      lineBuffer += decoder.decode(value, { stream: true });
+      const parts = lineBuffer.split('\n');
+      lineBuffer = parts.pop() ?? '';
 
-      for (const line of lines) {
-        const data = line.slice(6);
+      for (const line of parts) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
         if (data === '[DONE]') continue;
         try {
           const json = JSON.parse(data);
@@ -139,29 +143,54 @@ async function handleAnthropic(
   if (stream && res.body) {
     let fullText = '';
     let usage: { input: number; output: number } | undefined;
+    // inputUsage is provided on message_start; output on message_delta
+    let inputTokens = 0;
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
+    // Buffer to handle chunks that don't end on a newline boundary
+    let lineBuffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n').filter((l) => l.startsWith('data: '));
+      // Append decoded bytes to buffer; keep stream: true so multi-byte chars are handled
+      lineBuffer += decoder.decode(value, { stream: true });
 
-      for (const line of lines) {
+      // Process all complete lines (split on \n, keep remainder in buffer)
+      const parts = lineBuffer.split('\n');
+      lineBuffer = parts.pop() ?? ''; // last element may be incomplete
+
+      for (const line of parts) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        // Anthropic does not send [DONE] but guard anyway
+        if (data === '[DONE]') continue;
         try {
-          const json = JSON.parse(line.slice(6));
-          if (json.type === 'content_block_delta' && json.delta?.text) {
+          const json = JSON.parse(data);
+          // message_start carries input token count
+          if (json.type === 'message_start' && json.message?.usage) {
+            inputTokens = json.message.usage.input_tokens ?? 0;
+          }
+          // content_block_delta carries text deltas
+          if (json.type === 'content_block_delta' && json.delta?.type === 'text_delta' && json.delta?.text) {
             fullText += json.delta.text;
             onChunk?.(json.delta.text);
           }
+          // message_delta carries output token count
           if (json.type === 'message_delta' && json.usage) {
-            usage = { input: json.usage.input_tokens || 0, output: json.usage.output_tokens || 0 };
+            usage = {
+              input: inputTokens || json.usage.input_tokens || 0,
+              output: json.usage.output_tokens || 0,
+            };
           }
-        } catch {}
+        } catch {
+          // Silently skip malformed JSON chunks
+        }
       }
     }
+    // Flush any remaining buffer content (shouldn't normally have a data line here)
     onDone?.(fullText, usage);
   } else {
     const json = await res.json();

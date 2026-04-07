@@ -3,7 +3,8 @@
 import { useChatStore } from '@/stores/chat-store';
 import { useAgentStore } from '@/stores/agent-store';
 import { downloadChat } from '@/modules/chat/export-chat';
-import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X } from 'lucide-react';
+import { ChatTags } from '@/modules/chat/chat-tags';
+import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
 // Mobile bottom tab bar — 3 primary tabs
@@ -47,21 +48,28 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: SidebarProps) {
-  const { chats, currentChatId, createChat, setCurrentChat, deleteChat, updateChatTitle } = useChatStore();
+  const { chats, currentChatId, createChat, setCurrentChat, deleteChat, updateChatTitle, getAllChatTags } = useChatStore();
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const { activeAgentId, getActiveAgent } = useAgentStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsed, setCollapsed] = useState(false);
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+
+  const allChatTags = getAllChatTags();
 
   const filteredChats = useMemo(() => {
-    if (!searchQuery) return chats;
+    let list = chats;
+    if (activeTagFilter) {
+      list = list.filter((c) => (c.tags ?? []).includes(activeTagFilter));
+    }
+    if (!searchQuery) return list;
     const q = searchQuery.toLowerCase();
-    return chats.filter(
+    return list.filter(
       (c) => c.title.toLowerCase().includes(q) ||
         c.messages.some((m) => m.content.toLowerCase().includes(q))
     );
-  }, [chats, searchQuery]);
+  }, [chats, searchQuery, activeTagFilter]);
 
   const activeAgent = getActiveAgent();
 
@@ -133,7 +141,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
       {/* Chat list panel */}
       {activeTab === 'chat' && !collapsed && (
         <div className="w-60 bg-gray-800 border-r border-gray-700 flex flex-col">
-          <div className="p-3 border-b border-gray-700">
+          <div className="p-3 border-b border-gray-700 space-y-2">
             <input
               type="text"
               value={searchQuery}
@@ -141,6 +149,30 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
               placeholder="대화 검색... (⌘K)"
               className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
             />
+            {allChatTags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                <button
+                  onClick={() => setActiveTagFilter(null)}
+                  className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
+                    !activeTagFilter ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  }`}
+                >
+                  전체
+                </button>
+                {allChatTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => setActiveTagFilter(activeTagFilter === tag ? null : tag)}
+                    className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs transition-colors ${
+                      activeTagFilter === tag ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                    }`}
+                  >
+                    <Tag size={9} />
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto">
             {filteredChats.length === 0 ? (
@@ -184,6 +216,14 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                       {chat.messages.length}개 메시지
                       {chat.model && <span className="ml-1 text-gray-600">· {chat.model}</span>}
                     </p>
+                    {(chat.tags ?? []).length > 0 && (
+                      <div
+                        className="mt-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ChatTags chatId={chat.id} tags={chat.tags} />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button

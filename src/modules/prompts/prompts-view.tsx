@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { usePromptStore } from '@/stores/prompt-store';
 import { Prompt } from '@/types';
 import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X } from 'lucide-react';
+import { PromptVariableModal } from './prompt-variable-modal';
 
 interface PromptsViewProps {
   onUsePrompt?: (content: string) => void;
@@ -18,6 +19,7 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [newPrompt, setNewPrompt] = useState({ title: '', content: '', tags: '' });
+  const [variableModal, setVariableModal] = useState<{ prompt: Prompt } | null>(null);
 
   const filteredPrompts = getFilteredPrompts();
   const allTags = getAllTags();
@@ -37,16 +39,22 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
   };
 
   const handleUse = (prompt: Prompt) => {
-    let content = prompt.content;
     if (prompt.variables && prompt.variables.length > 0) {
-      prompt.variables.forEach((v) => {
-        const value = window.prompt(`${v} 값을 입력하세요:`, '');
-        if (value !== null) {
-          content = content.replace(new RegExp(`\\{\\{${v}\\}\\}`, 'g'), value);
-        }
-      });
+      // Open variable modal instead of using blocking window.prompt()
+      setVariableModal({ prompt });
+    } else {
+      onUsePrompt?.(prompt.content);
     }
+  };
+
+  const handleVariableConfirm = (values: Record<string, string>) => {
+    if (!variableModal) return;
+    let content = variableModal.prompt.content;
+    Object.entries(values).forEach(([key, val]) => {
+      content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
+    });
     onUsePrompt?.(content);
+    setVariableModal(null);
   };
 
   return (
@@ -157,6 +165,16 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
             ))
           )}
         </div>
+
+        {/* Prompt Variable Modal */}
+        {variableModal && (
+          <PromptVariableModal
+            title={variableModal.prompt.title}
+            variables={variableModal.prompt.variables ?? []}
+            onConfirm={handleVariableConfirm}
+            onClose={() => setVariableModal(null)}
+          />
+        )}
 
         {/* Create Modal */}
         {showCreateModal && (

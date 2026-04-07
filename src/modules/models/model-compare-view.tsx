@@ -32,10 +32,14 @@ export function ModelCompareView() {
 
   const availableModels = DEFAULT_MODELS.filter((m) => m.enabled && hasKey(m.provider));
 
+  const MAX_COMPARE_MODELS = 3;
+
   const toggleModel = (modelId: string) => {
-    setSelectedModels((prev) =>
-      prev.includes(modelId) ? prev.filter((id) => id !== modelId) : [...prev, modelId]
-    );
+    setSelectedModels((prev) => {
+      if (prev.includes(modelId)) return prev.filter((id) => id !== modelId);
+      if (prev.length >= MAX_COMPARE_MODELS) return prev; // cap at 3
+      return [...prev, modelId];
+    });
   };
 
   const handleCompare = async () => {
@@ -117,23 +121,34 @@ export function ModelCompareView() {
     <div className="h-full overflow-y-auto bg-gray-900 p-6">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-2xl font-bold text-white mb-2">모델 비교</h1>
-        <p className="text-sm text-gray-400 mb-4">같은 질문을 여러 모델에 동시에 보내고 결과를 비교합니다</p>
+        <p className="text-sm text-gray-400 mb-4">
+          같은 질문을 여러 모델에 동시에 보내고 결과를 비교합니다{' '}
+          <span className="text-gray-600">(최대 {MAX_COMPARE_MODELS}개)</span>
+        </p>
 
         {/* Model selector */}
         <div className="flex flex-wrap gap-2 mb-4">
-          {availableModels.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => toggleModel(m.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                selectedModels.includes(m.id)
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-            >
-              {m.name}
-            </button>
-          ))}
+          {availableModels.map((m) => {
+            const isSelected = selectedModels.includes(m.id);
+            const isDisabled = !isSelected && selectedModels.length >= MAX_COMPARE_MODELS;
+            return (
+              <button
+                key={m.id}
+                onClick={() => toggleModel(m.id)}
+                disabled={isDisabled}
+                title={isDisabled ? `최대 ${MAX_COMPARE_MODELS}개까지 선택 가능` : undefined}
+                className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                  isSelected
+                    ? 'bg-blue-600 text-white'
+                    : isDisabled
+                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                {m.name}
+              </button>
+            );
+          })}
           {availableModels.length === 0 && (
             <p className="text-sm text-gray-500">설정에서 API 키를 먼저 입력해주세요</p>
           )}
