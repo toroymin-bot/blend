@@ -43,12 +43,12 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
   const icons = ['🤖', '💻', '✍️', '📊', '🌐', '🎨', '📝', '🔬', '💡', '🎯', '📚', '🏗️'];
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-900 p-6">
+    <div className="h-full overflow-y-auto bg-surface p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">AI 에이전트</h1>
-            <p className="text-sm text-gray-400 mt-1">특정 작업에 특화된 AI 어시스턴트를 만들고 사용하세요</p>
+            <h1 className="text-2xl font-bold text-on-surface">AI 에이전트</h1>
+            <p className="text-sm text-on-surface-muted mt-1">특정 작업에 특화된 AI 어시스턴트를 만들고 사용하세요</p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -63,7 +63,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
           {agents.map((agent) => (
             <div
               key={agent.id}
-              className={`bg-gray-800 rounded-xl p-4 border-2 transition-colors ${
+              className={`bg-surface-2 rounded-xl p-4 border-2 transition-colors ${
                 activeAgentId === agent.id ? 'border-blue-500' : 'border-transparent hover:border-gray-600'
               }`}
             >
@@ -71,8 +71,8 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{agent.icon || '🤖'}</span>
                   <div>
-                    <h3 className="font-medium text-white">{agent.name}</h3>
-                    <p className="text-xs text-gray-500">{agent.model}</p>
+                    <h3 className="font-medium text-on-surface">{agent.name}</h3>
+                    <p className="text-xs text-on-surface-muted">{agent.model}</p>
                   </div>
                 </div>
                 {activeAgentId === agent.id && (
@@ -81,7 +81,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-400 mb-3 line-clamp-2">{agent.description}</p>
+              <p className="text-sm text-on-surface-muted mb-3 line-clamp-2">{agent.description}</p>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleStartChatWithAgent(agent)}

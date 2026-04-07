@@ -155,10 +155,10 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-900 p-6">
+    <div className="h-full overflow-y-auto bg-surface p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-white">프롬프트 라이브러리</h1>
+          <h1 className="text-2xl font-bold text-on-surface">프롬프트 라이브러리</h1>
           <div className="flex items-center gap-2">
             {/* Export dropdown */}
             <div className="relative">
@@ -256,10 +256,10 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
         {/* Prompt list */}
         <div className="space-y-3">
           {filteredPrompts.length === 0 ? (
-            <div className="text-center text-gray-500 py-12">프롬프트가 없습니다</div>
+            <div className="text-center text-on-surface-muted py-12">프롬프트가 없습니다</div>
           ) : (
             filteredPrompts.map((prompt) => (
-              <div key={prompt.id} className="bg-gray-800 rounded-xl p-4 group">
+              <div key={prompt.id} className="bg-surface-2 rounded-xl p-4 group">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <button
@@ -268,7 +268,7 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
                     >
                       <Star size={16} fill={prompt.isFavorite ? 'currentColor' : 'none'} />
                     </button>
-                    <h3 className="font-medium text-white">{prompt.title}</h3>
+                    <h3 className="font-medium text-on-surface">{prompt.title}</h3>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -294,7 +294,7 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
                     </button>
                   </div>
                 </div>
-                <p className="text-sm text-gray-400 line-clamp-2 mb-2">{prompt.content}</p>
+                <p className="text-sm text-on-surface-muted line-clamp-2 mb-2">{prompt.content}</p>
                 <div className="flex items-center gap-2">
                   {prompt.tags.map((tag) => (
                     <span key={tag} className="text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded">

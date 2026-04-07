@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useChatStore } from '@/stores/chat-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { useAgentStore } from '@/stores/agent-store';
@@ -10,7 +10,7 @@ import { usePluginStore } from '@/stores/plugin-store';
 import { sendChatRequest } from './chat-api';
 import { getModelById, calculateCost, DEFAULT_MODELS } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
-import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil } from 'lucide-react';
+import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
@@ -42,9 +42,15 @@ export function ChatView() {
   // Streaming token counter
   const [streamTokenCount, setStreamTokenCount] = useState(0);
   const [showTokenCounter, setShowTokenCounter] = useState(false);
+  // In-chat search state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const tokenHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -64,6 +70,50 @@ export function ChatView() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chat?.messages, streamingText]);
+
+  // In-chat search: compute matching message ids
+  const searchMatches = useCallback((): string[] => {
+    if (!searchQuery.trim() || !chat) return [];
+    const q = searchQuery.toLowerCase();
+    return chat.messages
+      .filter((m) => m.content.toLowerCase().includes(q))
+      .map((m) => m.id);
+  }, [searchQuery, chat]);
+
+  // Keyboard shortcut: Cmd+F / Ctrl+F to open search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setShowSearch((prev) => {
+          if (!prev) {
+            setTimeout(() => searchInputRef.current?.focus(), 50);
+            return true;
+          }
+          return prev;
+        });
+      }
+      if (e.key === 'Escape' && showSearch) {
+        setShowSearch(false);
+        setSearchQuery('');
+        setSearchMatchIndex(0);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showSearch]);
+
+  // Scroll to current match when index changes
+  useEffect(() => {
+    const matches = searchMatches();
+    if (matches.length === 0) return;
+    const idx = ((searchMatchIndex % matches.length) + matches.length) % matches.length;
+    const el = messageRefs.current[matches[idx]];
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [searchMatchIndex, searchMatches]);
+
+  const handleSearchNext = () => setSearchMatchIndex((i) => i + 1);
+  const handleSearchPrev = () => setSearchMatchIndex((i) => i - 1);
 
   // Auto-generate chat title using AI after first exchange
   const autoGenerateTitle = async (chatId: string, userMsg: string, assistantMsg: string, provider: string, apiKey: string | null) => {
@@ -437,13 +487,54 @@ export function ChatView() {
   const imageGenEnabledForRender = isInstalled('image-gen');
 
   return (
-    <div className="flex flex-col h-full bg-gray-900">
+    <div className="flex flex-col h-full bg-surface">
       {/* Header with active agent */}
       {getActiveAgent() && (
-        <div className="px-4 py-2 border-b border-gray-700 flex items-center gap-2 bg-gray-800/50">
+        <div className="px-4 py-2 border-b border-border-token flex items-center gap-2 bg-surface-2">
           <span className="text-lg">{getActiveAgent()?.icon}</span>
-          <span className="text-sm text-gray-300">{getActiveAgent()?.name}</span>
-          <span className="text-xs text-gray-500">· {getActiveAgent()?.model}</span>
+          <span className="text-sm text-on-surface">{getActiveAgent()?.name}</span>
+          <span className="text-xs text-on-surface-muted">· {getActiveAgent()?.model}</span>
+        </div>
+      )}
+
+      {/* In-chat search panel */}
+      {showSearch && (
+        <div className="px-4 py-2 border-b border-border-token bg-surface-2 flex items-center gap-2">
+          <Search size={14} className="text-on-surface-muted shrink-0" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setSearchMatchIndex(0); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.shiftKey ? handleSearchPrev() : handleSearchNext(); }
+              if (e.key === 'Escape') { setShowSearch(false); setSearchQuery(''); setSearchMatchIndex(0); }
+            }}
+            placeholder="채팅 내 검색... (Enter: 다음, Shift+Enter: 이전)"
+            className="flex-1 bg-transparent text-on-surface placeholder-on-surface-muted outline-none text-sm"
+          />
+          {searchQuery && (() => {
+            const matches = searchMatches();
+            const idx = matches.length > 0 ? ((searchMatchIndex % matches.length) + matches.length) % matches.length : 0;
+            return (
+              <span className="text-xs text-on-surface-muted shrink-0">
+                {matches.length > 0 ? `${idx + 1} / ${matches.length}` : '결과 없음'}
+              </span>
+            );
+          })()}
+          <button onClick={handleSearchPrev} className="p-1 text-on-surface-muted hover:text-on-surface" title="이전 (Shift+Enter)">
+            <ChevronUp size={14} />
+          </button>
+          <button onClick={handleSearchNext} className="p-1 text-on-surface-muted hover:text-on-surface" title="다음 (Enter)">
+            <ChevronDownIcon size={14} />
+          </button>
+          <button
+            onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchMatchIndex(0); }}
+            className="p-1 text-on-surface-muted hover:text-on-surface"
+            title="닫기 (ESC)"
+          >
+            <XIcon size={14} />
+          </button>
         </div>
       )}
 
@@ -453,9 +544,9 @@ export function ChatView() {
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <h1 className="text-4xl font-bold mb-2">
-                <span className="text-gray-300">Blend</span>
+                <span className="text-on-surface">Blend</span>
               </h1>
-              <p className="text-gray-500 mb-4">AI와 대화를 시작하세요</p>
+              <p className="text-on-surface-muted mb-4">AI와 대화를 시작하세요</p>
               {getActiveAgent() && (
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900/30 rounded-lg text-sm text-blue-300">
                   <span className="text-lg">{getActiveAgent()?.icon}</span>
@@ -466,14 +557,23 @@ export function ChatView() {
           </div>
         ) : (
           <div className="max-w-3xl mx-auto py-4 px-4">
-            {chat.messages.map((msg) => (
-              <div key={msg.id} className={`mb-4 ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
+            {chat.messages.map((msg) => {
+              const matches = searchMatches();
+              const idx = matches.length > 0 ? ((searchMatchIndex % matches.length) + matches.length) % matches.length : 0;
+              const isSearchMatch = searchQuery.trim() !== '' && matches.includes(msg.id);
+              const isCurrentMatch = isSearchMatch && matches[idx] === msg.id;
+              return (
+              <div
+                key={msg.id}
+                ref={(el) => { messageRefs.current[msg.id] = el; }}
+                className={`mb-4 ${msg.role === 'user' ? 'flex justify-end' : ''}`}
+              >
                 <div
-                  className={`rounded-2xl px-4 py-3 max-w-[85%] ${
+                  className={`rounded-2xl px-4 py-3 max-w-[85%] transition-colors ${
                     msg.role === 'user'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-800 text-gray-200'
-                  }`}
+                  } ${isCurrentMatch ? 'ring-2 ring-yellow-400' : isSearchMatch ? 'ring-1 ring-yellow-600/50' : ''}`}
                 >
                   {msg.role === 'assistant' ? (
                     <div className="prose prose-invert prose-sm max-w-none">
@@ -604,7 +704,8 @@ export function ChatView() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {isStreaming && streamingText && (
               <div className="mb-4">
                 <div className="rounded-2xl px-4 py-3 bg-gray-800 text-gray-200 max-w-[85%]">
@@ -660,7 +761,7 @@ export function ChatView() {
       )}
 
       {/* Input area */}
-      <div className="border-t border-gray-700 p-4 pb-4 mobile-input-area" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
+      <div className="border-t border-border-token p-4 pb-4 mobile-input-area" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
         <div className="max-w-3xl mx-auto">
           {/* Model selector */}
           <div className="flex items-center gap-2 mb-2 relative">

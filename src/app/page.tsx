@@ -10,7 +10,7 @@ import { AgentsView } from '@/modules/agents/agents-view';
 import { DashboardView } from '@/modules/ui/dashboard-view';
 import { ModelCompareView } from '@/modules/models/model-compare-view';
 import { PluginsView } from '@/modules/plugins/plugins-view';
-import { useKeyboardShortcuts } from '@/modules/ui/keyboard-shortcuts';
+import { useKeyboardShortcuts, ShortcutHelpModal } from '@/modules/ui/keyboard-shortcuts';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { usePromptStore } from '@/stores/prompt-store';
 import { useAgentStore } from '@/stores/agent-store';
@@ -23,6 +23,7 @@ import { Menu } from 'lucide-react';
 export default function Home() {
   const [activeTab, setActiveTab] = useState('chat');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const apiKeyStore = useAPIKeyStore();
   const promptStore = usePromptStore();
@@ -69,7 +70,11 @@ export default function Home() {
   const shortcuts = useMemo(() => [
     { key: 'n', meta: true, action: () => { createChat(); setActiveTab('chat'); }, description: '새 채팅' },
     { key: ',', meta: true, action: () => setActiveTab('settings'), description: '설정' },
-    { key: 'k', meta: true, action: () => setActiveTab('chat'), description: '채팅 검색' },
+    { key: 'k', meta: true, action: () => setActiveTab('chat'), description: '채팅 탭으로 이동' },
+    // Cmd+Shift+F: open in-chat search (chat-view listens for Cmd+F itself; this is an alias)
+    { key: 'f', meta: true, shift: true, action: () => { setActiveTab('chat'); }, description: '채팅 내 검색' },
+    // ?: show shortcut help modal (no modifier, only when not typing)
+    { key: '?', action: () => setShowShortcutHelp(true), description: '단축키 도움말' },
   ], [createChat]);
 
   useKeyboardShortcuts(shortcuts);
@@ -90,19 +95,19 @@ export default function Home() {
 
   return (
     <div
-      className="flex h-screen bg-gray-900 text-white"
+      className="flex h-screen bg-surface text-on-surface"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gray-900 border-b border-gray-800 px-3 py-2 flex items-center gap-3">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-border-token px-3 py-2 flex items-center gap-3">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-2 text-gray-400 hover:text-white"
+          className="p-2 text-on-surface-muted hover:text-on-surface"
         >
           <Menu size={20} />
         </button>
-        <span className="text-sm font-medium text-gray-300">Blend</span>
+        <span className="text-sm font-medium text-on-surface">Blend</span>
       </div>
 
       {/* Mobile overlay */}
@@ -132,6 +137,9 @@ export default function Home() {
 
       {/* Mobile bottom tab bar */}
       <MobileBottomBar activeTab={activeTab} onTabChange={handleTabChange} />
+
+      {/* Shortcut help modal */}
+      {showShortcutHelp && <ShortcutHelpModal onClose={() => setShowShortcutHelp(false)} />}
     </div>
   );
 }

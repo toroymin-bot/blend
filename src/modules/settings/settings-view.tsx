@@ -77,32 +77,32 @@ export function SettingsView() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-900 p-6">
+    <div className="h-full overflow-y-auto bg-surface p-6">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-6">설정</h1>
+        <h1 className="text-2xl font-bold text-on-surface mb-6">설정</h1>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
             <Key size={20} /> API 키 관리
           </h2>
-          <p className="text-sm text-gray-400 mb-4">
+          <p className="text-sm text-on-surface-muted mb-4">
             각 AI 제공자의 API 키를 입력하세요. 키는 브라우저 로컬 저장소에만 저장됩니다.
           </p>
 
           <div className="space-y-4">
             {PROVIDERS.map((provider) => (
-              <div key={provider.id} className="bg-gray-800 rounded-xl p-4">
+              <div key={provider.id} className="bg-surface-2 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: provider.color }} />
-                    <span className="font-medium text-white">{provider.name}</span>
+                    <span className="font-medium text-on-surface">{provider.name}</span>
                   </div>
                   {keys[provider.id] ? (
                     <span className="flex items-center gap-1 text-xs text-green-400">
                       <Check size={12} /> 설정됨
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-xs text-gray-500">
+                    <span className="flex items-center gap-1 text-xs text-on-surface-muted">
                       <X size={12} /> 미설정
                     </span>
                   )}
@@ -117,7 +117,7 @@ export function SettingsView() {
                   />
                   <button
                     onClick={() => setShowKeys((s) => ({ ...s, [provider.id]: !s[provider.id] }))}
-                    className="p-2 text-gray-400 hover:text-white"
+                    className="p-2 text-on-surface-muted hover:text-on-surface"
                   >
                     {showKeys[provider.id] ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -128,10 +128,10 @@ export function SettingsView() {
         </section>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-white mb-4">테마</h2>
-          <div className="bg-gray-800 rounded-xl p-4">
+          <h2 className="text-lg font-semibold text-on-surface mb-4">테마</h2>
+          <div className="bg-surface-2 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-300">색상 테마</span>
+              <span className="text-sm text-on-surface">색상 테마</span>
               <div className="flex gap-1">
                 {(['light', 'dark', 'system'] as const).map((t) => (
                   <button
@@ -150,22 +150,22 @@ export function SettingsView() {
                 ))}
               </div>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-on-surface-muted">
               {settings.theme === 'system' ? '시스템 설정을 따릅니다' : settings.theme === 'light' ? '라이트 모드가 적용됩니다' : '다크 모드가 적용됩니다'}
             </p>
           </div>
         </section>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-white mb-4">비용 알림</h2>
-          <div className="bg-gray-800 rounded-xl p-4">
-            <p className="text-sm text-gray-400 mb-3">
+          <h2 className="text-lg font-semibold text-on-surface mb-4">비용 알림</h2>
+          <div className="bg-surface-2 rounded-xl p-4">
+            <p className="text-sm text-on-surface-muted mb-3">
               일일 API 비용이 설정한 한도를 초과하면 경고 알림이 표시됩니다. 0으로 설정하면 비활성화됩니다.
             </p>
             <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-300 whitespace-nowrap">일일 한도 (USD)</label>
+              <label className="text-sm text-on-surface whitespace-nowrap">일일 한도 (USD)</label>
               <div className="flex items-center gap-1">
-                <span className="text-gray-400 text-sm">$</span>
+                <span className="text-on-surface-muted text-sm">$</span>
                 <input
                   type="number"
                   min="0"
@@ -175,7 +175,7 @@ export function SettingsView() {
                   className="w-24 bg-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-on-surface-muted">
                 {(settings.dailyCostLimit ?? 0) <= 0 ? '비활성화됨' : `$${(settings.dailyCostLimit ?? 1).toFixed(2)} 초과 시 경고`}
               </span>
             </div>
@@ -183,9 +183,9 @@ export function SettingsView() {
         </section>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-white mb-4">글로벌 시스템 프롬프트</h2>
-          <div className="bg-gray-800 rounded-xl p-4">
-            <p className="text-sm text-gray-400 mb-2">
+          <h2 className="text-lg font-semibold text-on-surface mb-4">글로벌 시스템 프롬프트</h2>
+          <div className="bg-surface-2 rounded-xl p-4">
+            <p className="text-sm text-on-surface-muted mb-2">
               모든 대화에 자동으로 적용되는 시스템 프롬프트입니다. 에이전트 사용 시 에이전트 프롬프트가 우선합니다.
             </p>
             <textarea
@@ -199,9 +199,9 @@ export function SettingsView() {
         </section>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-white mb-4">데이터 저장소</h2>
-          <div className="bg-gray-800 rounded-xl p-4">
-            <p className="text-sm text-gray-400 mb-2">
+          <h2 className="text-lg font-semibold text-on-surface mb-4">데이터 저장소</h2>
+          <div className="bg-surface-2 rounded-xl p-4">
+            <p className="text-sm text-on-surface-muted mb-2">
               모든 데이터는 브라우저 로컬 저장소에 저장됩니다. 서버로 전송되지 않습니다.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -227,8 +227,8 @@ export function SettingsView() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-white mb-4">정보</h2>
-          <div className="bg-gray-800 rounded-xl p-4 text-sm text-gray-400">
+          <h2 className="text-lg font-semibold text-on-surface mb-4">정보</h2>
+          <div className="bg-surface-2 rounded-xl p-4 text-sm text-on-surface-muted">
             <p>Blend v0.1.0</p>
             <p className="mt-1">AI 채팅 인터페이스 - BYOK (Bring Your Own Key)</p>
           </div>
