@@ -4,7 +4,7 @@ import { useChatStore } from '@/stores/chat-store';
 import { useAgentStore } from '@/stores/agent-store';
 import { downloadChat } from '@/modules/chat/export-chat';
 import { ChatTags } from '@/modules/chat/chat-tags';
-import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, FileText } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 
 // Mobile bottom tab bar — 3 primary tabs
@@ -124,6 +124,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     { id: 'chat', icon: MessageSquare, label: '채팅' },
     { id: 'agents', icon: Bot, label: '에이전트' },
     { id: 'prompts', icon: BookText, label: '프롬프트' },
+    { id: 'documents', icon: FileText, label: '문서 RAG' },
     { id: 'plugins', icon: Puzzle, label: '플러그인' },
     { id: 'models', icon: Cpu, label: '모델' },
     { id: 'compare', icon: GitCompareArrows, label: '모델 비교' },

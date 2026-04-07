@@ -19,6 +19,8 @@ import { ChartRender, extractChartData } from '@/modules/plugins/chart-render';
 import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } from '@/modules/plugins/web-search';
 import { generateImage, extractImagePrompt, extractImageURLs } from '@/modules/plugins/image-gen';
 import { downloadChat, downloadChatAsPDF, downloadChatAsJSON } from '@/modules/chat/export-chat';
+import { useDocumentStore } from '@/stores/document-store';
+import { buildContext } from '@/modules/plugins/document-plugin';
 
 // ── Inline text highlight helper ──────────────────────────────────────────────
 function highlightText(text: string, query: string): React.ReactNode {
@@ -39,6 +41,7 @@ export function ChatView() {
   const { addRecord } = useUsageStore();
   const { systemPrompt, customModels } = useSettingsStore();
   const { isInstalled, loadFromStorage: loadPlugins } = usePluginStore();
+  const { getActiveDocs } = useDocumentStore();
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
@@ -510,8 +513,11 @@ export function ChatView() {
     const activeAgent = getActiveAgent();
     const allMessages: import('@/modules/chat/chat-api').ChatRequestMessage[] = [];
     const sysPrompt = activeAgent?.systemPrompt || systemPrompt;
-    if (sysPrompt) {
-      allMessages.push({ role: 'system', content: sysPrompt });
+    const activeDocs = getActiveDocs();
+    const docContext = activeDocs.length > 0 ? buildContext(userContent, activeDocs) : '';
+    const fullSysPrompt = [sysPrompt, docContext].filter(Boolean).join('\n\n');
+    if (fullSysPrompt) {
+      allMessages.push({ role: 'system', content: fullSysPrompt });
     }
     // Build messages for API: prior messages (text only) + new user message (with images if any)
     const priorMsgs = (chat?.messages || []).map((m) => ({ role: m.role, content: m.content }));
@@ -1076,6 +1082,14 @@ export function ChatView() {
               </div>
             )}
           </div>
+
+          {/* Active document indicator */}
+          {getActiveDocs().length > 0 && (
+            <div className="flex items-center gap-1.5 mb-2 text-xs text-blue-400">
+              <FileText size={12} />
+              <span>{getActiveDocs().map((d) => d.name).join(', ')} 참조 중</span>
+            </div>
+          )}
 
           {/* Attached image previews */}
           {attachedImages.length > 0 && (

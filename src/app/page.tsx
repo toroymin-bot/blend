@@ -10,6 +10,7 @@ import { AgentsView } from '@/modules/agents/agents-view';
 import { DashboardView } from '@/modules/ui/dashboard-view';
 import { ModelCompareView } from '@/modules/models/model-compare-view';
 import { PluginsView } from '@/modules/plugins/plugins-view';
+import { DocumentPluginView } from '@/modules/plugins/document-plugin-view';
 import { useKeyboardShortcuts, ShortcutHelpModal } from '@/modules/ui/keyboard-shortcuts';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { usePromptStore } from '@/stores/prompt-store';
@@ -101,6 +102,7 @@ export default function Home() {
       case 'agents': return <AgentsView onStartChat={() => handleTabChange('chat')} />;
       case 'prompts': return <PromptsView />;
       case 'plugins': return <PluginsView />;
+      case 'documents': return <DocumentPluginView />;
       case 'compare': return <ModelCompareView />;
       case 'dashboard': return <DashboardView />;
       default: return <ChatView />;
