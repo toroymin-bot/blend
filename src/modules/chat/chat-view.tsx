@@ -785,10 +785,23 @@ export function ChatView() {
                         remarkPlugins={[remarkGfm]}
                         components={{
                           code({ className, children, ...props }) {
-                            const match = /language-(\w+)/.exec(className || '');
+                            const rawInfo = (className || '').replace(/^language-/, '');
+                            const colonIdx = rawInfo.indexOf(':');
+                            const spaceIdx = rawInfo.indexOf(' ');
+                            let lang: string | undefined;
+                            let filename: string | undefined;
+                            if (colonIdx > 0) {
+                              lang = rawInfo.slice(0, colonIdx);
+                              filename = rawInfo.slice(colonIdx + 1) || undefined;
+                            } else if (spaceIdx > 0) {
+                              lang = rawInfo.slice(0, spaceIdx);
+                              filename = rawInfo.slice(spaceIdx + 1).trim() || undefined;
+                            } else {
+                              lang = rawInfo || undefined;
+                            }
                             const isBlock = String(children).includes('\n');
-                            if (isBlock || match) {
-                              return <CodeBlock language={match?.[1]}>{String(children).replace(/\n$/, '')}</CodeBlock>;
+                            if (isBlock || lang) {
+                              return <CodeBlock language={lang} filename={filename}>{String(children).replace(/\n$/, '')}</CodeBlock>;
                             }
                             return <code className="bg-gray-700 px-1.5 py-0.5 rounded text-sm text-pink-300" {...props}>{children}</code>;
                           },
@@ -916,6 +929,14 @@ export function ChatView() {
                     {msg.cost !== undefined && (
                       <span className="text-xs text-gray-600 ml-1">
                         {msg.model} · ${msg.cost.toFixed(4)} · {msg.tokens?.input}+{msg.tokens?.output}t
+                      </span>
+                    )}
+                    {msg.createdAt && (
+                      <span
+                        className="text-xs text-gray-700 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title={new Date(msg.createdAt).toLocaleString('ko-KR')}
+                      >
+                        {new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>

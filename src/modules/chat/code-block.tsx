@@ -8,9 +8,10 @@ import { usePluginStore } from '@/stores/plugin-store';
 interface CodeBlockProps {
   children: string;
   language?: string;
+  filename?: string;
 }
 
-export function CodeBlock({ children, language }: CodeBlockProps) {
+export function CodeBlock({ children, language, filename }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const { isInstalled } = usePluginStore();
   const codeRunnerEnabled = isInstalled('code-runner');
@@ -33,7 +34,10 @@ export function CodeBlock({ children, language }: CodeBlockProps) {
   return (
     <div className="relative group my-2">
       <div className="flex items-center justify-between bg-gray-950 rounded-t-lg px-4 py-1.5 border-b border-gray-700">
-        <span className="text-xs text-gray-500">{language || 'code'}</span>
+        <div className="flex items-center gap-2">
+          {filename && <span className="text-xs text-gray-300 font-mono">{filename}</span>}
+          <span className="text-xs text-gray-500">{language || 'code'}</span>
+        </div>
         <button
           onClick={handleCopy}
           className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"

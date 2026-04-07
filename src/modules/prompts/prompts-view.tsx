@@ -3,14 +3,15 @@
 import { useState, useRef } from 'react';
 import { usePromptStore } from '@/stores/prompt-store';
 import { Prompt } from '@/types';
-import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X, Upload, Download, ChevronDown } from 'lucide-react';
+import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X, Upload, Download, ChevronDown, MessageSquare } from 'lucide-react';
 import { PromptVariableModal } from './prompt-variable-modal';
 
 interface PromptsViewProps {
   onUsePrompt?: (content: string) => void;
+  onStartChat?: (systemPrompt: string) => void;
 }
 
-export function PromptsView({ onUsePrompt }: PromptsViewProps) {
+export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
   const {
     searchQuery, selectedTag, setSearchQuery, setSelectedTag,
     getFilteredPrompts, getAllTags, addPrompt, deletePrompt, toggleFavorite, updatePrompt,
@@ -271,10 +272,19 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
                     <h3 className="font-medium text-on-surface">{prompt.title}</h3>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {onStartChat && (
+                      <button
+                        onClick={() => onStartChat(prompt.content)}
+                        className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded"
+                        title="이 프롬프트로 채팅 시작"
+                      >
+                        <MessageSquare size={14} />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleUse(prompt)}
                       className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded"
-                      title="사용"
+                      title="클립보드에 복사"
                     >
                       <Copy size={14} />
                     </button>

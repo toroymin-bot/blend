@@ -100,7 +100,11 @@ export default function Home() {
       case 'models': return <ModelsView />;
       case 'settings': return <SettingsView />;
       case 'agents': return <AgentsView onStartChat={() => handleTabChange('chat')} />;
-      case 'prompts': return <PromptsView />;
+      case 'prompts': return <PromptsView onStartChat={(sysPrompt) => {
+        settingsStore.setSystemPrompt(sysPrompt);
+        createChat();
+        setActiveTab('chat');
+      }} />;
       case 'plugins': return <PluginsView />;
       case 'documents': return <DocumentPluginView />;
       case 'compare': return <ModelCompareView />;
