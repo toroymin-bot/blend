@@ -8,6 +8,7 @@ interface DocumentState {
   activeDocIds: Set<string>;
 
   addDocument: (doc: ParsedDocument) => void;
+  updateDocument: (doc: ParsedDocument) => void;
   removeDocument: (id: string) => void;
   toggleActive: (id: string) => void;
   getActiveDocs: () => ParsedDocument[];
@@ -22,6 +23,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set((state) => ({
       documents: [...state.documents, doc],
       activeDocIds: new Set([...state.activeDocIds, doc.id]),
+    }));
+  },
+
+  updateDocument: (doc) => {
+    set((state) => ({
+      documents: state.documents.map((d) => (d.id === doc.id ? doc : d)),
     }));
   },
 

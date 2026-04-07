@@ -530,7 +530,11 @@ export function ChatView() {
     const allMessages: import('@/modules/chat/chat-api').ChatRequestMessage[] = [];
     const sysPrompt = activeAgent?.systemPrompt || systemPrompt;
     const activeDocs = getActiveDocs();
-    const docContext = activeDocs.length > 0 ? buildContext(userContent, activeDocs) : '';
+    const embeddingApiKey = getKey('openai') || getKey('google') || undefined;
+    const embeddingProvider: 'openai' | 'google' | undefined = getKey('openai') ? 'openai' : getKey('google') ? 'google' : undefined;
+    const docContext = activeDocs.length > 0
+      ? await buildContext(userContent, activeDocs, embeddingApiKey, embeddingProvider)
+      : '';
     const fullSysPrompt = [sysPrompt, docContext].filter(Boolean).join('\n\n');
     if (fullSysPrompt) {
       allMessages.push({ role: 'system', content: fullSysPrompt });

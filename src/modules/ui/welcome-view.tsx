@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import { useAPIKeyStore } from '@/stores/api-key-store';
-import { Key, ArrowRight, Bot, FileText, Zap, Globe } from 'lucide-react';
+import { Key, ArrowRight, Bot, FileText, Zap, Globe, ExternalLink } from 'lucide-react';
 
 interface WelcomeViewProps {
   onComplete: () => void;
 }
 
 const PROVIDERS = [
-  { id: 'openai' as const, name: 'OpenAI', placeholder: 'sk-...', color: '#10a37f', models: 'GPT-4o, GPT-4o Mini' },
-  { id: 'anthropic' as const, name: 'Anthropic', placeholder: 'sk-ant-...', color: '#d4a574', models: 'Claude Sonnet 4.6, Haiku 4.5' },
-  { id: 'google' as const, name: 'Google', placeholder: 'AIza...', color: '#4285f4', models: 'Gemini 2.5 Pro, 2.0 Flash' },
+  { id: 'openai' as const, name: 'OpenAI', placeholder: 'sk-...', color: '#10a37f', models: 'GPT-4o, GPT-4.1, o3, o4-mini', keyUrl: 'https://platform.openai.com/api-keys' },
+  { id: 'anthropic' as const, name: 'Anthropic', placeholder: 'sk-ant-...', color: '#d4a574', models: 'Claude Opus 4, Sonnet 4, Haiku 3.5', keyUrl: 'https://console.anthropic.com/settings/keys' },
+  { id: 'google' as const, name: 'Google', placeholder: 'AIza...', color: '#4285f4', models: 'Gemini 2.5 Pro, 2.0 Flash', keyUrl: 'https://aistudio.google.com/app/apikey', note: '무료 티어 제공' },
 ];
 
 const FEATURES = [
@@ -91,11 +91,24 @@ export function WelcomeView({ onComplete }: WelcomeViewProps) {
         <div className="space-y-4 mb-6">
           {PROVIDERS.map((p) => (
             <div key={p.id}>
-              <label className="text-xs text-gray-400 mb-1 block flex items-center gap-2">
-                <span style={{ color: p.color }}>●</span>
-                {p.name}
-                <span className="text-gray-600">({p.models})</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-gray-400 flex items-center gap-2">
+                  <span style={{ color: p.color }}>●</span>
+                  {p.name}
+                  <span className="text-gray-600">({p.models})</span>
+                  {p.note && (
+                    <span className="text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">{p.note}</span>
+                  )}
+                </label>
+                <a
+                  href={p.keyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-0.5 text-xs text-blue-400 hover:text-blue-300"
+                >
+                  키 발급 <ExternalLink size={10} />
+                </a>
+              </div>
               <input
                 type="password"
                 value={keys[p.id as keyof typeof keys]}

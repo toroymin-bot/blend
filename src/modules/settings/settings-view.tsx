@@ -8,13 +8,43 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { AIProvider } from '@/types';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2, ExternalLink } from 'lucide-react';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 
-const PROVIDERS: { id: AIProvider; name: string; color: string; placeholder: string }[] = [
-  { id: 'openai', name: 'OpenAI', color: '#10a37f', placeholder: 'sk-...' },
-  { id: 'anthropic', name: 'Anthropic', color: '#d4a574', placeholder: 'sk-ant-...' },
-  { id: 'google', name: 'Google Gemini', color: '#4285f4', placeholder: 'AIza...' },
+const PROVIDERS: {
+  id: AIProvider;
+  name: string;
+  color: string;
+  placeholder: string;
+  models: string;
+  keyUrl: string;
+  note?: string;
+}[] = [
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    color: '#10a37f',
+    placeholder: 'sk-...',
+    models: 'GPT-4o, GPT-4.1, o3, o4-mini',
+    keyUrl: 'https://platform.openai.com/api-keys',
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    color: '#d4a574',
+    placeholder: 'sk-ant-...',
+    models: 'Claude Opus 4, Sonnet 4, Haiku 3.5',
+    keyUrl: 'https://console.anthropic.com/settings/keys',
+  },
+  {
+    id: 'google',
+    name: 'Google Gemini',
+    color: '#4285f4',
+    placeholder: 'AIza...',
+    models: 'Gemini 2.0 Flash, Gemini 2.5 Pro',
+    keyUrl: 'https://aistudio.google.com/app/apikey',
+    note: '무료 티어 제공',
+  },
 ];
 
 export function SettingsView() {
@@ -88,31 +118,43 @@ export function SettingsView() {
         <h1 className="text-2xl font-bold text-on-surface mb-6">설정</h1>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-on-surface mb-1 flex items-center gap-2">
             <Key size={20} /> API 키 관리
           </h2>
           <p className="text-sm text-on-surface-muted mb-4">
-            각 AI 제공자의 API 키를 입력하세요. 키는 브라우저 로컬 저장소에만 저장됩니다.
+            사용할 AI 서비스의 API 키를 입력하세요. 키는 내 브라우저에만 저장되며 외부로 전송되지 않습니다.
           </p>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {PROVIDERS.map((provider) => (
               <div key={provider.id} className="bg-surface-2 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
+                {/* Header row */}
+                <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: provider.color }} />
-                    <span className="font-medium text-on-surface">{provider.name}</span>
+                    <div className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: provider.color }} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-on-surface">{provider.name}</span>
+                        {provider.note && (
+                          <span className="text-xs text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">{provider.note}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-on-surface-muted mt-0.5">{provider.models}</p>
+                    </div>
                   </div>
-                  {keys[provider.id] ? (
-                    <span className="flex items-center gap-1 text-xs text-green-400">
-                      <Check size={12} /> 설정됨
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-xs text-on-surface-muted">
-                      <X size={12} /> 미설정
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {keys[provider.id] ? (
+                      <span className="flex items-center gap-1 text-xs text-green-400">
+                        <Check size={12} /> 설정됨
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs text-on-surface-muted">
+                        <X size={12} /> 미설정
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {/* Key input */}
                 <div className="flex items-center gap-2">
                   <input
                     type={showKeys[provider.id] ? 'text' : 'password'}
@@ -124,10 +166,22 @@ export function SettingsView() {
                   <button
                     onClick={() => setShowKeys((s) => ({ ...s, [provider.id]: !s[provider.id] }))}
                     className="p-2 text-on-surface-muted hover:text-on-surface"
+                    aria-label={showKeys[provider.id] ? '키 숨기기' : '키 보기'}
                   >
                     {showKeys[provider.id] ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {/* Get key link */}
+                {!keys[provider.id] && (
+                  <a
+                    href={provider.keyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 mt-2"
+                  >
+                    API 키 발급받기 <ExternalLink size={11} />
+                  </a>
+                )}
               </div>
             ))}
           </div>
