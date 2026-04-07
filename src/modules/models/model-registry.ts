@@ -69,8 +69,8 @@ export const DEFAULT_MODELS: AIModel[] = [
   },
 ];
 
-export function getModelById(id: string): AIModel | undefined {
-  return DEFAULT_MODELS.find((m) => m.id === id);
+export function getModelById(id: string, customModels: AIModel[] = []): AIModel | undefined {
+  return [...DEFAULT_MODELS, ...customModels].find((m) => m.id === id);
 }
 
 export function getModelsByProvider(provider: string): AIModel[] {

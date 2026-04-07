@@ -1,7 +1,7 @@
 // Blend - Settings Store (Reusable: app-wide settings management)
 
 import { create } from 'zustand';
-import { AppSettings } from '@/types';
+import { AppSettings, AIModel } from '@/types';
 
 export interface SystemPromptPreset {
   id: string;
@@ -13,11 +13,14 @@ interface SettingsState {
   settings: AppSettings;
   systemPrompt: string;
   systemPromptPresets: SystemPromptPreset[];
+  customModels: AIModel[];
 
   updateSettings: (updates: Partial<AppSettings>) => void;
   setSystemPrompt: (prompt: string) => void;
   addSystemPromptPreset: (name: string, content: string) => void;
   removeSystemPromptPreset: (id: string) => void;
+  addCustomModel: (model: Omit<AIModel, 'enabled'>) => void;
+  removeCustomModel: (id: string) => void;
   loadFromStorage: () => void;
   saveToStorage: () => void;
 }
@@ -36,6 +39,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   settings: DEFAULT_SETTINGS,
   systemPrompt: '',
   systemPromptPresets: [],
+  customModels: [],
 
   updateSettings: (updates) => {
     set((state) => ({ settings: { ...state.settings, ...updates } }));
@@ -58,6 +62,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     get().saveToStorage();
   },
 
+  addCustomModel: (model) => {
+    const newModel: AIModel = { ...model, provider: 'custom', enabled: true };
+    set((state) => ({ customModels: [...state.customModels, newModel] }));
+    get().saveToStorage();
+  },
+
+  removeCustomModel: (id) => {
+    set((state) => ({ customModels: state.customModels.filter((m) => m.id !== id) }));
+    get().saveToStorage();
+  },
+
   loadFromStorage: () => {
     if (typeof window === 'undefined') return;
     try {
@@ -68,6 +83,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           settings: { ...DEFAULT_SETTINGS, ...data.settings },
           systemPrompt: data.systemPrompt || '',
           systemPromptPresets: data.systemPromptPresets ?? [],
+          customModels: data.customModels ?? [],
         });
       }
     } catch {}
@@ -75,7 +91,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    const { settings, systemPrompt, systemPromptPresets } = get();
-    localStorage.setItem('blend:settings', JSON.stringify({ settings, systemPrompt, systemPromptPresets }));
+    const { settings, systemPrompt, systemPromptPresets, customModels } = get();
+    localStorage.setItem('blend:settings', JSON.stringify({ settings, systemPrompt, systemPromptPresets, customModels }));
   },
 }));

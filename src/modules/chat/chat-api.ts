@@ -22,6 +22,7 @@ interface ChatRequest {
   model: string;
   provider: AIProvider;
   apiKey: string;
+  baseUrl?: string;  // custom OpenAI-compatible endpoint
   stream?: boolean;
   onChunk?: (text: string) => void;
   onDone?: (fullText: string, usage?: { input: number; output: number }) => void;
@@ -76,7 +77,7 @@ const ENDPOINTS: Record<AIProvider, string> = {
 };
 
 export async function sendChatRequest(req: ChatRequest) {
-  const { messages, model, provider, apiKey, stream = true, onChunk, onDone, onError, signal } = req;
+  const { messages, model, provider, apiKey, baseUrl, stream = true, onChunk, onDone, onError, signal } = req;
 
   try {
     if (provider === 'openai') {
@@ -85,6 +86,8 @@ export async function sendChatRequest(req: ChatRequest) {
       await handleAnthropic(messages, model, apiKey, stream, onChunk, onDone, signal);
     } else if (provider === 'google') {
       await handleGoogle(messages, model, apiKey, stream, onChunk, onDone, signal);
+    } else if (provider === 'custom' && baseUrl) {
+      await handleCustom(messages, model, apiKey, baseUrl, stream, onChunk, onDone, signal);
     }
   } catch (e: any) {
     if (e.name === 'AbortError') return;
@@ -320,5 +323,75 @@ async function handleGoogle(
     const json = await res.json();
     const content = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
     onDone?.(content);
+  }
+}
+
+// ── Custom / OpenAI-compatible endpoint (Ollama, OpenRouter, LM Studio…) ─────
+async function handleCustom(
+  messages: ChatRequestMessage[],
+  model: string,
+  apiKey: string,
+  baseUrl: string,
+  stream: boolean,
+  onChunk?: (text: string) => void,
+  onDone?: (fullText: string, usage?: { input: number; output: number }) => void,
+  signal?: AbortSignal
+) {
+  // Normalise base URL: strip trailing slash, ensure /chat/completions path
+  const base = baseUrl.replace(/\/+$/, '');
+  const endpoint = base.endsWith('/chat/completions') ? base : `${base}/chat/completions`;
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model,
+      messages: messages.map((m) => ({ role: m.role, content: toOpenAIContent(m.content) })),
+      stream,
+      stream_options: stream ? { include_usage: true } : undefined,
+    }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Custom API error: ${res.status}`);
+  }
+
+  if (stream && res.body) {
+    let fullText = '';
+    let usage: { input: number; output: number } | undefined;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let lineBuffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      lineBuffer += decoder.decode(value, { stream: true });
+      const parts = lineBuffer.split('\n');
+      lineBuffer = parts.pop() ?? '';
+      for (const line of parts) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const json = JSON.parse(data);
+          const content = json.choices?.[0]?.delta?.content;
+          if (content) { fullText += content; onChunk?.(content); }
+          if (json.usage) usage = { input: json.usage.prompt_tokens, output: json.usage.completion_tokens };
+        } catch {}
+      }
+    }
+    onDone?.(fullText, usage);
+  } else {
+    const json = await res.json();
+    const content = json.choices?.[0]?.message?.content || '';
+    const usage = json.usage ? { input: json.usage.prompt_tokens, output: json.usage.completion_tokens } : undefined;
+    onDone?.(content, usage);
   }
 }

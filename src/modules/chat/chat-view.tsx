@@ -37,7 +37,7 @@ export function ChatView() {
   const { getKey, hasKey } = useAPIKeyStore();
   const { getActiveAgent } = useAgentStore();
   const { addRecord } = useUsageStore();
-  const { systemPrompt } = useSettingsStore();
+  const { systemPrompt, customModels } = useSettingsStore();
   const { isInstalled, loadFromStorage: loadPlugins } = usePluginStore();
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -83,8 +83,9 @@ export function ChatView() {
   };
 
   const chat = getCurrentChat();
-  const model = getModelById(selectedModel);
-  const enabledModels = DEFAULT_MODELS.filter((m) => m.enabled);
+  const allModels = [...DEFAULT_MODELS, ...customModels];
+  const model = getModelById(selectedModel, customModels);
+  const enabledModels = allModels.filter((m) => m.enabled);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -280,7 +281,7 @@ export function ChatView() {
   // Helper: stream AI response given a fully-prepared messages array
   const streamAIResponse = async (
     chatId: string,
-    allMessages: { role: string; content: string }[],
+    allMessages: import('@/modules/chat/chat-api').ChatRequestMessage[],
     currentModel: ReturnType<typeof getModelById>,
   ) => {
     if (!currentModel) return;
@@ -295,9 +296,10 @@ export function ChatView() {
 
     await sendChatRequest({
       messages: allMessages,
-      model: selectedModel,
+      model: currentModel.id,
       provider: currentModel.provider,
-      apiKey: getKey(currentModel.provider),
+      apiKey: currentModel.provider === 'custom' ? getKey('custom') : getKey(currentModel.provider),
+      baseUrl: currentModel.baseUrl,
       stream: true,
       signal: controller.signal,
       onChunk: (text) => {
@@ -538,9 +540,10 @@ export function ChatView() {
 
     await sendChatRequest({
       messages: allMessages,
-      model: selectedModel,
+      model: currentModel.id,
       provider: currentModel.provider,
-      apiKey: getKey(currentModel.provider),
+      apiKey: currentModel.provider === 'custom' ? getKey('custom') : getKey(currentModel.provider),
+      baseUrl: currentModel.baseUrl,
       stream: true,
       signal: controller.signal,
       onChunk: (text) => {
@@ -555,7 +558,7 @@ export function ChatView() {
           id: crypto.randomUUID(),
           role: 'assistant',
           content: fullText,
-          model: selectedModel,
+          model: currentModel.id,
           createdAt: Date.now(),
           tokens: usage,
           cost: usage && currentModel ? calculateCost(currentModel, usage.input, usage.output) : undefined,

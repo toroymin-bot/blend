@@ -38,6 +38,7 @@ export interface AIModel {
   outputPrice: number; // per 1M tokens
   features: ModelFeature[];
   enabled: boolean;
+  baseUrl?: string;    // custom endpoint (OpenAI-compatible)
 }
 
 export type AIProvider = 'openai' | 'anthropic' | 'google' | 'custom';

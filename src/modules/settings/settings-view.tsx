@@ -8,7 +8,7 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { AIProvider } from '@/types';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus } from 'lucide-react';
+import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2 } from 'lucide-react';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 
 const PROVIDERS: { id: AIProvider; name: string; color: string; placeholder: string }[] = [
@@ -23,10 +23,14 @@ export function SettingsView() {
   const promptStore = usePromptStore();
   const agentStore = useAgentStore();
   const usageStore = useUsageStore();
-  const { systemPrompt, setSystemPrompt, settings, updateSettings, systemPromptPresets, addSystemPromptPreset, removeSystemPromptPreset } = useSettingsStore();
+  const { systemPrompt, setSystemPrompt, settings, updateSettings, systemPromptPresets, addSystemPromptPreset, removeSystemPromptPreset, customModels, addCustomModel, removeCustomModel } = useSettingsStore();
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [presetName, setPresetName] = useState('');
+  const [showAddModel, setShowAddModel] = useState(false);
+  const [newModelName, setNewModelName] = useState('');
+  const [newModelId, setNewModelId] = useState('');
+  const [newModelBaseUrl, setNewModelBaseUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -127,6 +131,107 @@ export function SettingsView() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* ── Custom Model Endpoints ── */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-on-surface mb-1 flex items-center gap-2">
+            <Cpu size={20} /> 커스텀 모델 엔드포인트
+          </h2>
+          <p className="text-sm text-on-surface-muted mb-4">
+            Ollama, OpenRouter, LM Studio 등 OpenAI 호환 API를 연결합니다.
+          </p>
+
+          {/* Existing custom models */}
+          {customModels.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {customModels.map((m) => (
+                <div key={m.id} className="bg-surface-2 rounded-xl px-4 py-3 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-on-surface truncate">{m.name}</p>
+                    <p className="text-xs text-on-surface-muted truncate">{m.baseUrl} · <code className="font-mono">{m.id.replace('custom-', '')}</code></p>
+                  </div>
+                  <button
+                    onClick={() => removeCustomModel(m.id)}
+                    className="text-on-surface-muted hover:text-red-400 p-1.5 shrink-0"
+                    aria-label={`${m.name} 삭제`}
+                  ><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add model form */}
+          {showAddModel ? (
+            <div className="bg-surface-2 rounded-xl p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-on-surface-muted mb-1 block">표시 이름</label>
+                  <input
+                    type="text"
+                    value={newModelName}
+                    onChange={(e) => setNewModelName(e.target.value)}
+                    placeholder="Llama 3.2"
+                    className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-on-surface-muted mb-1 block">모델 ID</label>
+                  <input
+                    type="text"
+                    value={newModelId}
+                    onChange={(e) => setNewModelId(e.target.value)}
+                    placeholder="llama3.2"
+                    className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-on-surface-muted mb-1 block">Base URL</label>
+                <input
+                  type="text"
+                  value={newModelBaseUrl}
+                  onChange={(e) => setNewModelBaseUrl(e.target.value)}
+                  placeholder="http://localhost:11434/v1"
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <p className="text-xs text-on-surface-muted mt-1">
+                  Ollama: <code className="font-mono">http://localhost:11434/v1</code> · OpenRouter: <code className="font-mono">https://openrouter.ai/api/v1</code>
+                </p>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    if (!newModelName.trim() || !newModelId.trim() || !newModelBaseUrl.trim()) return;
+                    addCustomModel({
+                      id: newModelId.trim(),
+                      name: newModelName.trim(),
+                      baseUrl: newModelBaseUrl.trim(),
+                      provider: 'custom',
+                      contextLength: 32000,
+                      inputPrice: 0,
+                      outputPrice: 0,
+                      features: ['streaming'],
+                    });
+                    setNewModelName(''); setNewModelId(''); setNewModelBaseUrl('');
+                    setShowAddModel(false);
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
+                >추가</button>
+                <button
+                  onClick={() => { setShowAddModel(false); setNewModelName(''); setNewModelId(''); setNewModelBaseUrl(''); }}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"
+                >취소</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddModel(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-surface-2 hover:bg-gray-700 rounded-xl text-sm text-on-surface-muted border border-dashed border-border-token transition-colors"
+            >
+              <Plus size={16} /> 모델 추가
+            </button>
+          )}
         </section>
 
         <section className="mb-8">
