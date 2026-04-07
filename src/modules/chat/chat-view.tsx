@@ -57,6 +57,7 @@ export function ChatView() {
   // Streaming token counter
   const [streamTokenCount, setStreamTokenCount] = useState(0);
   const [showTokenCounter, setShowTokenCounter] = useState(false);
+  const [isWaiting, setIsWaiting] = useState(false); // true while waiting for first chunk
   // In-chat search state
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -281,6 +282,16 @@ export function ChatView() {
     return (text.match(urlRegex) || []).filter(isValidURL);
   };
 
+  // Map raw API error messages to user-friendly Korean messages
+  const friendlyError = (error: string): string => {
+    if (/api.key|API key|unauthorized|401/i.test(error)) return 'API 키가 유효하지 않습니다. 설정에서 키를 확인해주세요.';
+    if (/quota|rate.limit|429|exceeded/i.test(error)) return '요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
+    if (/context.length|maximum context|token limit|too long/i.test(error)) return '대화가 너무 길어 컨텍스트 한도를 초과했습니다. 새 채팅을 시작해주세요.';
+    if (/network|failed to fetch|ECONNREFUSED/i.test(error)) return '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+    if (/model.*not.*found|invalid.*model/i.test(error)) return '선택된 모델을 찾을 수 없습니다. 모델 설정을 확인해주세요.';
+    return error;
+  };
+
   // Helper: stream AI response given a fully-prepared messages array
   const streamAIResponse = async (
     chatId: string,
@@ -289,6 +300,7 @@ export function ChatView() {
   ) => {
     if (!currentModel) return;
     setIsStreaming(true);
+    setIsWaiting(true);
     setStreamingText('');
     setStreamTokenCount(0);
     setShowTokenCounter(true);
@@ -306,6 +318,7 @@ export function ChatView() {
       stream: true,
       signal: controller.signal,
       onChunk: (text) => {
+        setIsWaiting(false);
         setStreamingText((prev) => {
           const next = prev + text;
           setStreamTokenCount(Math.round(next.length / 4));
@@ -313,6 +326,7 @@ export function ChatView() {
         });
       },
       onDone: (fullText, usage) => {
+        setIsWaiting(false);
         const assistantMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
@@ -343,11 +357,13 @@ export function ChatView() {
         }, 3000);
       },
       onError: (error) => {
+        setIsWaiting(false);
         addMessage(chatId, {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `오류: ${error}`,
+          content: friendlyError(error),
           createdAt: Date.now(),
+          isError: true,
         });
         setStreamingText('');
         setIsStreaming(false);
@@ -536,6 +552,7 @@ export function ChatView() {
 
     // Use shared stream helper — wrap to handle auto-title
     setIsStreaming(true);
+    setIsWaiting(true);
     setStreamingText('');
     setStreamTokenCount(0);
     setShowTokenCounter(true);
@@ -553,6 +570,7 @@ export function ChatView() {
       stream: true,
       signal: controller.signal,
       onChunk: (text) => {
+        setIsWaiting(false);
         setStreamingText((prev) => {
           const next = prev + text;
           setStreamTokenCount(Math.round(next.length / 4));
@@ -595,11 +613,13 @@ export function ChatView() {
         }, 3000);
       },
       onError: (error) => {
+        setIsWaiting(false);
         addMessage(chatId!, {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `오류: ${error}`,
+          content: friendlyError(error),
           createdAt: Date.now(),
+          isError: true,
         });
         setStreamingText('');
         setIsStreaming(false);
@@ -776,6 +796,8 @@ export function ChatView() {
                   className={`rounded-2xl px-4 py-3 max-w-[85%] transition-colors ${
                     msg.role === 'user'
                       ? 'bg-blue-600 text-white'
+                      : msg.isError
+                      ? 'bg-red-900/30 text-red-300 border border-red-800/50'
                       : 'bg-gray-800 text-gray-200'
                   } ${isCurrentMatch ? 'ring-2 ring-yellow-400' : isSearchMatch ? 'ring-1 ring-yellow-600/50' : ''}`}
                 >
@@ -903,7 +925,16 @@ export function ChatView() {
                         <Pencil size={13} />
                       </button>
                     )}
-                    {msg.role === 'assistant' && msg.id === chat.messages[chat.messages.length - 1]?.id && !isStreaming && (
+                    {msg.isError && !isStreaming && (
+                      <button
+                        onClick={handleRegenerateLast}
+                        className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 px-2 py-0.5 rounded bg-red-900/30 hover:bg-red-900/50 transition-colors ml-1"
+                        title="다시 시도"
+                      >
+                        <RefreshCw size={11} />다시 시도
+                      </button>
+                    )}
+                    {msg.role === 'assistant' && !msg.isError && msg.id === chat.messages[chat.messages.length - 1]?.id && !isStreaming && (
                       <button
                         onClick={async () => {
                           removeLastMessage(currentChatId!);
@@ -944,6 +975,18 @@ export function ChatView() {
               </div>
               );
             })}
+            {isStreaming && isWaiting && !streamingText && (
+              <div className="mb-4">
+                <div className="rounded-2xl px-4 py-4 bg-gray-800 max-w-[85%]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="text-xs text-gray-500 ml-1">응답 대기 중...</span>
+                  </div>
+                </div>
+              </div>
+            )}
             {isStreaming && streamingText && (
               <div className="mb-4">
                 <div className="rounded-2xl px-4 py-3 bg-gray-800 text-gray-200 max-w-[85%]">

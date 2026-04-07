@@ -9,6 +9,7 @@ export interface ChatMessage {
   createdAt: number;
   tokens?: { input: number; output: number };
   cost?: number;
+  isError?: boolean;
 }
 
 export interface Chat {
