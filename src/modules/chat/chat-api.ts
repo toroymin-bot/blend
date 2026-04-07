@@ -3,8 +3,22 @@
 
 import { AIProvider } from '@/types';
 
+// Multimodal content: either plain text or an array of text/image parts
+export interface MultimodalPart {
+  type: 'text' | 'image_url';
+  text?: string;
+  url?: string; // base64 data URL  e.g. "data:image/jpeg;base64,..."
+}
+
+export type MessageContent = string | MultimodalPart[];
+
+export interface ChatRequestMessage {
+  role: string;
+  content: MessageContent;
+}
+
 interface ChatRequest {
-  messages: { role: string; content: string }[];
+  messages: ChatRequestMessage[];
   model: string;
   provider: AIProvider;
   apiKey: string;
@@ -13,6 +27,45 @@ interface ChatRequest {
   onDone?: (fullText: string, usage?: { input: number; output: number }) => void;
   onError?: (error: string) => void;
   signal?: AbortSignal;
+}
+
+// ── Helpers to convert internal format to provider-specific format ────────────
+
+/** Convert our MessageContent to OpenAI content (string | array) */
+function toOpenAIContent(content: MessageContent): string | object[] {
+  if (typeof content === 'string') return content;
+  return content.map((part) => {
+    if (part.type === 'text') return { type: 'text', text: part.text ?? '' };
+    // image_url
+    return { type: 'image_url', image_url: { url: part.url ?? '', detail: 'auto' } };
+  });
+}
+
+/** Convert our MessageContent to Anthropic content blocks */
+function toAnthropicContent(content: MessageContent): string | object[] {
+  if (typeof content === 'string') return content;
+  return content.map((part) => {
+    if (part.type === 'text') return { type: 'text', text: part.text ?? '' };
+    // Parse "data:<mediaType>;base64,<data>"
+    const url = part.url ?? '';
+    const match = url.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      return { type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } };
+    }
+    return { type: 'text', text: '[image not supported]' };
+  });
+}
+
+/** Convert our MessageContent to Google parts array */
+function toGoogleParts(content: MessageContent): object[] {
+  if (typeof content === 'string') return [{ text: content }];
+  return content.map((part) => {
+    if (part.type === 'text') return { text: part.text ?? '' };
+    const url = part.url ?? '';
+    const match = url.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) return { inlineData: { mimeType: match[1], data: match[2] } };
+    return { text: '[image not supported]' };
+  });
 }
 
 const ENDPOINTS: Record<AIProvider, string> = {
@@ -40,7 +93,7 @@ export async function sendChatRequest(req: ChatRequest) {
 }
 
 async function handleOpenAI(
-  messages: { role: string; content: string }[],
+  messages: ChatRequestMessage[],
   model: string,
   apiKey: string,
   stream: boolean,
@@ -54,7 +107,12 @@ async function handleOpenAI(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ model, messages, stream, stream_options: stream ? { include_usage: true } : undefined }),
+    body: JSON.stringify({
+      model,
+      messages: messages.map((m) => ({ role: m.role, content: toOpenAIContent(m.content) })),
+      stream,
+      stream_options: stream ? { include_usage: true } : undefined,
+    }),
     signal,
   });
 
@@ -106,7 +164,7 @@ async function handleOpenAI(
 }
 
 async function handleAnthropic(
-  messages: { role: string; content: string }[],
+  messages: ChatRequestMessage[],
   model: string,
   apiKey: string,
   stream: boolean,
@@ -128,8 +186,8 @@ async function handleAnthropic(
     body: JSON.stringify({
       model,
       max_tokens: 4096,
-      system: systemMsg?.content,
-      messages: userMsgs,
+      system: systemMsg ? (typeof systemMsg.content === 'string' ? systemMsg.content : undefined) : undefined,
+      messages: userMsgs.map((m) => ({ role: m.role, content: toAnthropicContent(m.content) })),
       stream,
     }),
     signal,
@@ -201,7 +259,7 @@ async function handleAnthropic(
 }
 
 async function handleGoogle(
-  messages: { role: string; content: string }[],
+  messages: ChatRequestMessage[],
   model: string,
   apiKey: string,
   stream: boolean,
@@ -216,7 +274,7 @@ async function handleGoogle(
     .filter((m) => m.role !== 'system')
     .map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
+      parts: toGoogleParts(m.content),
     }));
 
   const res = await fetch(endpoint, {
@@ -224,7 +282,7 @@ async function handleGoogle(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents,
-      systemInstruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
+      systemInstruction: systemMsg ? { parts: [{ text: typeof systemMsg.content === 'string' ? systemMsg.content : '' }] } : undefined,
     }),
     signal,
   });

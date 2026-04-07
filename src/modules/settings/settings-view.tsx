@@ -8,7 +8,7 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { AIProvider } from '@/types';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon } from 'lucide-react';
+import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus } from 'lucide-react';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 
 const PROVIDERS: { id: AIProvider; name: string; color: string; placeholder: string }[] = [
@@ -23,8 +23,10 @@ export function SettingsView() {
   const promptStore = usePromptStore();
   const agentStore = useAgentStore();
   const usageStore = useUsageStore();
-  const { systemPrompt, setSystemPrompt, settings, updateSettings } = useSettingsStore();
+  const { systemPrompt, setSystemPrompt, settings, updateSettings, systemPromptPresets, addSystemPromptPreset, removeSystemPromptPreset } = useSettingsStore();
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [presetName, setPresetName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -195,6 +197,76 @@ export function SettingsView() {
               rows={4}
               className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none resize-none focus:ring-1 focus:ring-blue-500"
             />
+
+            {/* System Prompt Presets Library */}
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-on-surface-muted flex items-center gap-1">
+                  <BookMarked size={11} /> 프리셋 라이브러리
+                </span>
+                <button
+                  onClick={() => { setShowSavePreset(true); setPresetName(''); }}
+                  disabled={!systemPrompt.trim()}
+                  className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40 flex items-center gap-0.5"
+                  aria-label="현재 시스템 프롬프트를 라이브러리에 저장"
+                >
+                  <Plus size={11} /> 현재 내용 저장
+                </button>
+              </div>
+
+              {/* Inline save form */}
+              {showSavePreset && (
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && presetName.trim()) {
+                        addSystemPromptPreset(presetName.trim(), systemPrompt);
+                        setShowSavePreset(false);
+                      }
+                      if (e.key === 'Escape') setShowSavePreset(false);
+                    }}
+                    placeholder="프리셋 이름..."
+                    className="flex-1 px-2.5 py-1.5 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+                    aria-label="프리셋 이름 입력"
+                  />
+                  <button
+                    onClick={() => { if (presetName.trim()) { addSystemPromptPreset(presetName.trim(), systemPrompt); setShowSavePreset(false); } }}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs text-white"
+                  >저장</button>
+                  <button onClick={() => setShowSavePreset(false)} className="text-on-surface-muted hover:text-on-surface" aria-label="취소">
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+
+              {/* Preset chips */}
+              {systemPromptPresets.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {systemPromptPresets.map((p) => (
+                    <div key={p.id} className="group flex items-center gap-1 px-2.5 py-1 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs transition-colors">
+                      <button
+                        onClick={() => setSystemPrompt(p.content)}
+                        className="text-gray-200 hover:text-white max-w-[120px] truncate"
+                        title={p.content}
+                        aria-label={`프리셋 '${p.name}' 적용`}
+                      >{p.name}</button>
+                      <button
+                        onClick={() => removeSystemPromptPreset(p.id)}
+                        className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={`프리셋 '${p.name}' 삭제`}
+                      ><X size={10} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {systemPromptPresets.length === 0 && !showSavePreset && (
+                <p className="text-xs text-on-surface-muted">저장된 프리셋이 없습니다</p>
+              )}
+            </div>
           </div>
         </section>
 

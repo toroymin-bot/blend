@@ -4,6 +4,7 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  images?: string[];   // base64 data URLs for multimodal (vision) messages
   model?: string;
   createdAt: number;
   tokens?: { input: number; output: number };

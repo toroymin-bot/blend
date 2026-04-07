@@ -44,15 +44,17 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
 
 export const SHORTCUT_LIST = [
   { keys: '⌘ N', description: '새 채팅' },
-  { keys: '⌘ K', description: '채팅 탭으로 이동' },
+  { keys: '⌘ K', description: '사이드바 검색 포커스' },
+  { keys: '⌘ [', description: '이전 채팅' },
+  { keys: '⌘ ]', description: '다음 채팅' },
   { keys: '⌘ ,', description: '설정' },
-  { keys: '⌘ F / Ctrl+F', description: '채팅 내 검색' },
-  { keys: '⌘ ⇧ F', description: '채팅 내 검색 열기' },
+  { keys: '⌘ F', description: '채팅 내 검색' },
   { keys: '⌘ R', description: '마지막 AI 응답 재생성' },
   { keys: '⌘ E', description: '마지막 사용자 메시지 편집' },
-  { keys: '?', description: '단축키 도움말 표시' },
+  { keys: '⌘ ⇧ T', description: '다크/라이트 테마 전환' },
   { keys: '/', description: '입력창 포커스' },
-  { keys: 'ESC', description: '검색 패널 닫기' },
+  { keys: '?', description: '단축키 도움말' },
+  { keys: 'ESC', description: '검색·모달 닫기' },
 ];
 
 // ── Shortcut Help Modal ────────────────────────────────────────────────────────

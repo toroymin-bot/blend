@@ -29,7 +29,7 @@ export default function Home() {
   const promptStore = usePromptStore();
   const agentStore = useAgentStore();
   const usageStore = useUsageStore();
-  const { createChat, loadFromStorage: loadChatFromStorage } = useChatStore();
+  const { createChat, loadFromStorage: loadChatFromStorage, chats, currentChatId, setCurrentChat } = useChatStore();
   const settingsStore = useSettingsStore();
   const pluginStore = usePluginStore();
 
@@ -71,11 +71,25 @@ export default function Home() {
     { key: 'n', meta: true, action: () => { createChat(); setActiveTab('chat'); }, description: '새 채팅' },
     { key: ',', meta: true, action: () => setActiveTab('settings'), description: '설정' },
     { key: 'k', meta: true, action: () => { setActiveTab('chat'); window.dispatchEvent(new Event('blend:focus-sidebar-search')); }, description: '채팅 목록 검색' },
-    // Cmd+Shift+F: open in-chat search (chat-view listens for Cmd+F itself; this is an alias)
+    // Cmd+Shift+F: open in-chat search
     { key: 'f', meta: true, shift: true, action: () => { setActiveTab('chat'); }, description: '채팅 내 검색' },
-    // ?: show shortcut help modal (no modifier, only when not typing)
+    // Cmd+[ / Cmd+] — navigate between chats
+    { key: '[', meta: true, action: () => {
+      const idx = chats.findIndex((c) => c.id === currentChatId);
+      if (idx > 0) { setCurrentChat(chats[idx - 1].id); setActiveTab('chat'); }
+    }, description: '이전 채팅' },
+    { key: ']', meta: true, action: () => {
+      const idx = chats.findIndex((c) => c.id === currentChatId);
+      if (idx >= 0 && idx < chats.length - 1) { setCurrentChat(chats[idx + 1].id); setActiveTab('chat'); }
+    }, description: '다음 채팅' },
+    // Cmd+Shift+T — toggle dark/light theme
+    { key: 't', meta: true, shift: true, action: () => {
+      const cur = settingsStore.settings.theme;
+      settingsStore.updateSettings({ theme: cur === 'dark' ? 'light' : 'dark' });
+    }, description: '테마 전환' },
+    // ?: show shortcut help modal
     { key: '?', action: () => setShowShortcutHelp(true), description: '단축키 도움말' },
-  ], [createChat]);
+  ], [createChat, chats, currentChatId, setCurrentChat, settingsStore]);
 
   useKeyboardShortcuts(shortcuts);
 

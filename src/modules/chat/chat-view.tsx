@@ -10,7 +10,7 @@ import { usePluginStore } from '@/stores/plugin-store';
 import { sendChatRequest } from './chat-api';
 import { getModelById, calculateCost, DEFAULT_MODELS } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
-import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react';
+import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon, Paperclip, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
@@ -59,6 +59,13 @@ export function ChatView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // Image attachment state
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  // Chat summary state
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summaryText, setSummaryText] = useState('');
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   const tokenHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -126,6 +133,62 @@ export function ChatView() {
 
   const handleSearchNext = () => setSearchMatchIndex((i) => i + 1);
   const handleSearchPrev = () => setSearchMatchIndex((i) => i - 1);
+
+  // ── Image helpers ──────────────────────────────────────────────────────────
+  const resizeImage = (dataUrl: string, maxDim = 1024, quality = 0.82): Promise<string> =>
+    new Promise((resolve) => {
+      const img = new window.Image();
+      img.onload = () => {
+        let { width: w, height: h } = img;
+        if (w > maxDim || h > maxDim) {
+          const s = Math.min(maxDim / w, maxDim / h);
+          w = Math.round(w * s); h = Math.round(h * s);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = dataUrl;
+    });
+
+  const handleImageFiles = async (files: FileList | File[]) => {
+    const items = Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, 4);
+    const results = await Promise.all(
+      items.map((f) => new Promise<string>((res) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resizeImage(e.target?.result as string).then(res);
+        reader.readAsDataURL(f);
+      }))
+    );
+    setAttachedImages((prev) => [...prev, ...results].slice(0, 4));
+  };
+
+  // ── Chat summary ───────────────────────────────────────────────────────────
+  const handleSummarize = async () => {
+    if (!chat || chat.messages.length === 0 || isSummarizing) return;
+    const currentModel = getModelById(selectedModel);
+    if (!currentModel || !hasKey(currentModel.provider)) return;
+    setIsSummarizing(true);
+    setSummaryText('');
+    setShowSummaryModal(true);
+    const convo = chat.messages
+      .map((m) => `${m.role === 'user' ? '사용자' : 'AI'}: ${m.content.substring(0, 400)}`)
+      .join('\n');
+    await sendChatRequest({
+      messages: [
+        { role: 'system', content: '주어진 대화를 3~5개 불릿 포인트로 한국어로 간결하게 요약하세요. 핵심 주제, 결론, 중요 포인트를 포함하세요.' },
+        { role: 'user', content: convo },
+      ],
+      model: selectedModel,
+      provider: currentModel.provider,
+      apiKey: getKey(currentModel.provider),
+      stream: true,
+      onChunk: (t) => setSummaryText((p) => p + t),
+      onDone: () => setIsSummarizing(false),
+      onError: () => { setSummaryText('요약 생성 중 오류가 발생했습니다.'); setIsSummarizing(false); },
+    });
+  };
 
   // ── Cmd+R: regenerate last assistant message ───────────────────────────────
   const handleRegenerateLast = useCallback(async () => {
@@ -315,7 +378,7 @@ export function ChatView() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isStreaming) return;
+    if ((!input.trim() && attachedImages.length === 0) || isStreaming) return;
 
     let chatId = currentChatId;
     if (!chatId) {
@@ -336,7 +399,9 @@ export function ChatView() {
     }
 
     let userContent = input.trim();
+    const capturedImages = [...attachedImages];
     setInput('');
+    setAttachedImages([]);
 
     // Image Generation plugin: handle /image command
     const imageGenEnabled = isInstalled('image-gen');
@@ -435,25 +500,31 @@ export function ChatView() {
       id: crypto.randomUUID(),
       role: 'user',
       content: input.trim(), // Display original input (without URL context)
+      images: capturedImages.length > 0 ? capturedImages : undefined,
       createdAt: Date.now(),
     };
     addMessage(chatId, userMsg);
 
     const activeAgent = getActiveAgent();
-    const allMessages: { role: string; content: string }[] = [];
+    const allMessages: import('@/modules/chat/chat-api').ChatRequestMessage[] = [];
     const sysPrompt = activeAgent?.systemPrompt || systemPrompt;
     if (sysPrompt) {
       allMessages.push({ role: 'system', content: sysPrompt });
     }
-    // Use enriched content (with URL data) for API, but display original
-    const messagesForAPI = [...(chat?.messages || []), { ...userMsg, content: userContent }].map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-    allMessages.push(...messagesForAPI);
+    // Build messages for API: prior messages (text only) + new user message (with images if any)
+    const priorMsgs = (chat?.messages || []).map((m) => ({ role: m.role, content: m.content }));
+    // Last message = current user message with potential images
+    const lastMsgContent: import('@/modules/chat/chat-api').MessageContent =
+      capturedImages.length > 0
+        ? [
+            { type: 'text' as const, text: userContent },
+            ...capturedImages.map((url) => ({ type: 'image_url' as const, url })),
+          ]
+        : userContent;
+    allMessages.push(...priorMsgs, { role: 'user', content: lastMsgContent });
 
     const isFirstMessage = !chat || chat.messages.length === 0;
-    const capturedInput = input.trim();
+    const capturedInput = userContent;
 
     // Use shared stream helper — wrap to handle auto-title
     setIsStreaming(true);
@@ -554,7 +625,59 @@ export function ChatView() {
   const imageGenEnabledForRender = isInstalled('image-gen');
 
   return (
-    <div className="flex flex-col h-full bg-surface">
+    <div
+      className="flex flex-col h-full bg-surface"
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+      onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) handleImageFiles(e.dataTransfer.files); }}
+    >
+      {/* Summary Modal */}
+      {showSummaryModal && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowSummaryModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="대화 요약"
+        >
+          <div
+            className="bg-surface-2 border border-border-token rounded-2xl p-6 w-full max-w-lg shadow-2xl max-h-[70vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <h2 className="text-base font-semibold text-on-surface flex items-center gap-2">
+                <Sparkles size={16} className="text-blue-400" /> 대화 요약
+              </h2>
+              <button onClick={() => setShowSummaryModal(false)} className="text-on-surface-muted hover:text-on-surface p-1" aria-label="닫기">
+                <XIcon size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {isSummarizing && !summaryText && (
+                <div className="flex items-center gap-2 text-on-surface-muted text-sm">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  요약 생성 중...
+                </div>
+              )}
+              {summaryText && (
+                <div className="prose prose-invert prose-sm max-w-none text-on-surface">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaryText}</ReactMarkdown>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image input (hidden) */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); e.target.value = ''; }}
+      />
+
       {/* Header with active agent */}
       {getActiveAgent() && (
         <div className="px-4 py-2 border-b border-border-token flex items-center gap-2 bg-surface-2">
@@ -715,9 +838,20 @@ export function ChatView() {
                       </div>
                     </div>
                   ) : (
-                    <p className="whitespace-pre-wrap">
-                      {searchQuery.trim() ? highlightText(msg.content, searchQuery) : msg.content}
-                    </p>
+                    <>
+                      {/* Attached images (user message) */}
+                      {(msg.images ?? []).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {(msg.images ?? []).map((img, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={i} src={img} alt={`첨부 이미지 ${i + 1}`} className="max-h-48 rounded-lg object-contain border border-white/10" />
+                          ))}
+                        </div>
+                      )}
+                      <p className="whitespace-pre-wrap">
+                        {searchQuery.trim() ? highlightText(msg.content, searchQuery) : msg.content}
+                      </p>
+                    </>
                   )}
                   {/* Action buttons */}
                   <div className={`flex items-center gap-1 mt-2 ${msg.role === 'assistant' ? 'border-t border-gray-700 pt-1.5' : ''}`}>
@@ -863,6 +997,19 @@ export function ChatView() {
               </span>
             )}
 
+            {/* Summary button */}
+            {chat && chat.messages.length > 1 && (
+              <button
+                onClick={handleSummarize}
+                disabled={isSummarizing}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 text-xs text-gray-400 hover:text-yellow-300 hover:bg-gray-700 disabled:opacity-50"
+                title="대화 요약 (AI)"
+                aria-label="AI로 대화 요약 생성"
+              >
+                <Sparkles size={13} /> 요약
+              </button>
+            )}
+
             {/* Export button */}
             {chat && chat.messages.length > 0 && (
               <div className="relative ml-auto">
@@ -870,6 +1017,7 @@ export function ChatView() {
                   onClick={() => setShowExportMenu(!showExportMenu)}
                   className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-700"
                   title="내보내기"
+                  aria-label="채팅 내보내기"
                 >
                   <Download size={13} />
                   내보내기
@@ -926,8 +1074,34 @@ export function ChatView() {
             )}
           </div>
 
+          {/* Attached image previews */}
+          {attachedImages.length > 0 && (
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              {attachedImages.map((img, i) => (
+                <div key={i} className="relative group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img} alt={`첨부 이미지 ${i + 1}`} className="w-16 h-16 object-cover rounded-lg border border-gray-700" />
+                  <button
+                    onClick={() => setAttachedImages((prev) => prev.filter((_, j) => j !== i))}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-900 border border-gray-700 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label={`이미지 ${i + 1} 제거`}
+                  ><XIcon size={10} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Text input */}
           <div className="flex items-end gap-2 bg-gray-800 rounded-xl p-2">
+            {/* Image attach button */}
+            <button
+              onClick={() => imageInputRef.current?.click()}
+              className="p-2 text-gray-500 hover:text-gray-300 shrink-0 self-end mb-0.5"
+              title="이미지 첨부 (Vision 모델 필요)"
+              aria-label="이미지 파일 첨부"
+            >
+              <Paperclip size={18} />
+            </button>
             <textarea
               ref={inputRef}
               value={input}
@@ -959,7 +1133,7 @@ export function ChatView() {
             ) : (
               <button
                 onClick={handleSend}
-                disabled={!input.trim()}
+                disabled={!input.trim() && attachedImages.length === 0}
                 className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send size={18} />
