@@ -41,6 +41,7 @@ export interface AIModel {
   features: ModelFeature[];
   enabled: boolean;
   baseUrl?: string;    // custom endpoint (OpenAI-compatible)
+  description?: string; // short user-facing description
 }
 
 export type AIProvider = 'openai' | 'anthropic' | 'google' | 'custom';
@@ -92,4 +93,59 @@ export interface UsageStats {
   outputTokens: number;
   cost: number;
   requestCount: number;
+}
+
+// ── Multi-Source RAG (Enterprise) ─────────────────────────────────────────────
+
+export type DataSourceType = 'local' | 'google-drive' | 'onedrive' | 'webdav';
+export type DataSourceStatus = 'idle' | 'syncing' | 'error' | 'connected';
+
+export interface LocalSourceConfig {
+  type: 'local';
+  label: string; // user-visible name for the directory
+}
+
+export interface GoogleDriveConfig {
+  type: 'google-drive';
+  clientId: string;
+  accessToken?: string;
+  tokenExpiry?: number;
+  folderId?: string;
+  folderName?: string;
+}
+
+export interface OneDriveConfig {
+  type: 'onedrive';
+  clientId: string;
+  tenantId?: string; // 'common' for personal/multi-tenant
+  accessToken?: string;
+  tokenExpiry?: number;
+  folderId?: string;
+  folderName?: string;
+}
+
+export interface WebDAVConfig {
+  type: 'webdav';
+  serverUrl: string;    // e.g. http://192.168.1.10:5005
+  basePath?: string;    // e.g. /RAG
+  username: string;
+  password: string;
+}
+
+export type DataSourceConfig =
+  | LocalSourceConfig
+  | GoogleDriveConfig
+  | OneDriveConfig
+  | WebDAVConfig;
+
+export interface DataSource {
+  id: string;
+  name: string;
+  type: DataSourceType;
+  status: DataSourceStatus;
+  config: DataSourceConfig;
+  fileCount?: number;
+  indexedCount?: number;
+  lastSync?: number;
+  error?: string;
 }

@@ -1131,7 +1131,7 @@ export function ChatView() {
             )}
 
             {showModelDropdown && (
-              <div className="absolute bottom-8 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-64 max-h-80 overflow-y-auto">
+              <div className="absolute bottom-8 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-72 max-h-80 overflow-y-auto">
                 {enabledModels.map((m) => (
                   <button
                     key={m.id}
@@ -1139,12 +1139,17 @@ export function ChatView() {
                       setSelectedModel(m.id);
                       setShowModelDropdown(false);
                     }}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-700 flex justify-between ${
-                      m.id === selectedModel ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
+                    className={`w-full text-left px-3 py-2.5 hover:bg-gray-700 transition-colors ${
+                      m.id === selectedModel ? 'bg-gray-700' : ''
                     }`}
                   >
-                    <span>{m.name}</span>
-                    <span className="text-xs text-gray-500">${m.inputPrice}/{m.outputPrice}</span>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-sm font-medium ${m.id === selectedModel ? 'text-blue-400' : 'text-gray-200'}`}>{m.name}</span>
+                      <span className="text-xs text-gray-500 ml-2 shrink-0">${m.inputPrice}/{m.outputPrice}</span>
+                    </div>
+                    {m.description && (
+                      <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
+                    )}
                   </button>
                 ))}
               </div>
