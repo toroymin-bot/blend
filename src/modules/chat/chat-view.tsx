@@ -10,7 +10,7 @@ import { usePluginStore } from '@/stores/plugin-store';
 import { sendChatRequest } from './chat-api';
 import { getModelById, calculateCost, DEFAULT_MODELS } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
-import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText } from 'lucide-react';
+import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
@@ -21,7 +21,7 @@ import { generateImage, extractImagePrompt, extractImageURLs } from '@/modules/p
 import { downloadChat, downloadChatAsPDF, downloadChatAsJSON } from '@/modules/chat/export-chat';
 
 export function ChatView() {
-  const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle } = useChatStore();
+  const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle, editMessage } = useChatStore();
   const { getKey, hasKey } = useAPIKeyStore();
   const { getActiveAgent } = useAgentStore();
   const { addRecord } = useUsageStore();
@@ -36,6 +36,13 @@ export function ChatView() {
   const [isSearching, setIsSearching] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  // Message editing state
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editingMsgContent, setEditingMsgContent] = useState('');
+  // Streaming token counter
+  const [streamTokenCount, setStreamTokenCount] = useState(0);
+  const [showTokenCounter, setShowTokenCounter] = useState(false);
+  const tokenHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -88,6 +95,106 @@ export function ChatView() {
   const extractURLs = (text: string): string[] => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     return (text.match(urlRegex) || []).filter(isValidURL);
+  };
+
+  // Helper: stream AI response given a fully-prepared messages array
+  const streamAIResponse = async (
+    chatId: string,
+    allMessages: { role: string; content: string }[],
+    currentModel: ReturnType<typeof getModelById>,
+  ) => {
+    if (!currentModel) return;
+    setIsStreaming(true);
+    setStreamingText('');
+    setStreamTokenCount(0);
+    setShowTokenCounter(true);
+    if (tokenHideTimerRef.current) clearTimeout(tokenHideTimerRef.current);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    await sendChatRequest({
+      messages: allMessages,
+      model: selectedModel,
+      provider: currentModel.provider,
+      apiKey: getKey(currentModel.provider),
+      stream: true,
+      signal: controller.signal,
+      onChunk: (text) => {
+        setStreamingText((prev) => {
+          const next = prev + text;
+          setStreamTokenCount(Math.round(next.length / 4));
+          return next;
+        });
+      },
+      onDone: (fullText, usage) => {
+        const assistantMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: fullText,
+          model: selectedModel,
+          createdAt: Date.now(),
+          tokens: usage,
+          cost: usage && currentModel ? calculateCost(currentModel, usage.input, usage.output) : undefined,
+        };
+        addMessage(chatId, assistantMsg);
+        if (usage && currentModel) {
+          addRecord({
+            timestamp: Date.now(),
+            model: selectedModel,
+            provider: currentModel.provider,
+            inputTokens: usage.input,
+            outputTokens: usage.output,
+            cost: calculateCost(currentModel, usage.input, usage.output),
+            chatId,
+          });
+        }
+        setStreamingText('');
+        setIsStreaming(false);
+        // Hide token counter after 3 s
+        tokenHideTimerRef.current = setTimeout(() => {
+          setShowTokenCounter(false);
+          setStreamTokenCount(0);
+        }, 3000);
+      },
+      onError: (error) => {
+        addMessage(chatId, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `오류: ${error}`,
+          createdAt: Date.now(),
+        });
+        setStreamingText('');
+        setIsStreaming(false);
+        setShowTokenCounter(false);
+      },
+    });
+  };
+
+  // Handle saving an inline edit and re-triggering AI
+  const handleEditSave = async (msgId: string) => {
+    const newContent = editingMsgContent.trim();
+    setEditingMsgId(null);
+    setEditingMsgContent('');
+    if (!newContent || !currentChatId) return;
+
+    const currentModel = getModelById(selectedModel);
+    if (!currentModel || !hasKey(currentModel.provider)) return;
+
+    // Update the message and truncate everything after it
+    editMessage(currentChatId, msgId, newContent);
+
+    // Re-fetch the updated chat state to build the API messages list
+    const updatedChat = useChatStore.getState().getCurrentChat();
+    if (!updatedChat) return;
+
+    const allMessages: { role: string; content: string }[] = [];
+    const activeAgent = getActiveAgent();
+    const sysPrompt = activeAgent?.systemPrompt || systemPrompt;
+    if (sysPrompt) allMessages.push({ role: 'system', content: sysPrompt });
+    updatedChat.messages.forEach((m) => allMessages.push({ role: m.role, content: m.content }));
+
+    await streamAIResponse(currentChatId, allMessages, currentModel);
   };
 
   const handleSend = async () => {
@@ -215,9 +322,6 @@ export function ChatView() {
     };
     addMessage(chatId, userMsg);
 
-    setIsStreaming(true);
-    setStreamingText('');
-
     const activeAgent = getActiveAgent();
     const allMessages: { role: string; content: string }[] = [];
     const sysPrompt = activeAgent?.systemPrompt || systemPrompt;
@@ -231,9 +335,18 @@ export function ChatView() {
     }));
     allMessages.push(...messagesForAPI);
 
+    const isFirstMessage = !chat || chat.messages.length === 0;
+    const capturedInput = input.trim();
+
+    // Use shared stream helper — wrap to handle auto-title
+    setIsStreaming(true);
+    setStreamingText('');
+    setStreamTokenCount(0);
+    setShowTokenCounter(true);
+    if (tokenHideTimerRef.current) clearTimeout(tokenHideTimerRef.current);
+
     const controller = new AbortController();
     abortRef.current = controller;
-    const isFirstMessage = !chat || chat.messages.length === 0;
 
     await sendChatRequest({
       messages: allMessages,
@@ -243,7 +356,11 @@ export function ChatView() {
       stream: true,
       signal: controller.signal,
       onChunk: (text) => {
-        setStreamingText((prev) => prev + text);
+        setStreamingText((prev) => {
+          const next = prev + text;
+          setStreamTokenCount(Math.round(next.length / 4));
+          return next;
+        });
       },
       onDone: (fullText, usage) => {
         const assistantMsg: ChatMessage = {
@@ -270,11 +387,15 @@ export function ChatView() {
 
         // Auto-generate title after first AI response
         if (isFirstMessage) {
-          autoGenerateTitle(chatId!, input.trim(), fullText, currentModel.provider, getKey(currentModel.provider));
+          autoGenerateTitle(chatId!, capturedInput, fullText, currentModel.provider, getKey(currentModel.provider));
         }
 
         setStreamingText('');
         setIsStreaming(false);
+        tokenHideTimerRef.current = setTimeout(() => {
+          setShowTokenCounter(false);
+          setStreamTokenCount(0);
+        }, 3000);
       },
       onError: (error) => {
         addMessage(chatId!, {
@@ -285,6 +406,7 @@ export function ChatView() {
         });
         setStreamingText('');
         setIsStreaming(false);
+        setShowTokenCounter(false);
       },
     });
   };
@@ -395,6 +517,31 @@ export function ChatView() {
                         );
                       })()}
                     </div>
+                  ) : editingMsgId === msg.id ? (
+                    /* Inline edit textarea */
+                    <div className="flex flex-col gap-2">
+                      <textarea
+                        value={editingMsgContent}
+                        onChange={(e) => setEditingMsgContent(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEditSave(msg.id); }
+                          if (e.key === 'Escape') { setEditingMsgId(null); setEditingMsgContent(''); }
+                        }}
+                        autoFocus
+                        rows={3}
+                        className="w-full bg-blue-700 text-white rounded-lg px-3 py-2 text-sm outline-none resize-none"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => { setEditingMsgId(null); setEditingMsgContent(''); }}
+                          className="px-3 py-1 text-xs bg-blue-700/60 hover:bg-blue-700 rounded-lg"
+                        >취소</button>
+                        <button
+                          onClick={() => handleEditSave(msg.id)}
+                          className="px-3 py-1 text-xs bg-white text-blue-700 hover:bg-blue-50 rounded-lg font-medium"
+                        >저장 후 재생성</button>
+                      </div>
+                    </div>
                   ) : (
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                   )}
@@ -417,14 +564,31 @@ export function ChatView() {
                     >
                       <GitFork size={13} />
                     </button>
+                    {msg.role === 'user' && !isStreaming && (
+                      <button
+                        onClick={() => { setEditingMsgId(msg.id); setEditingMsgContent(msg.content); }}
+                        className="text-gray-400 hover:text-yellow-300 p-1 rounded transition-colors"
+                        title="편집"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
                     {msg.role === 'assistant' && msg.id === chat.messages[chat.messages.length - 1]?.id && !isStreaming && (
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           removeLastMessage(currentChatId!);
                           const lastUserMsg = chat.messages.filter((m) => m.role === 'user').pop();
-                          if (lastUserMsg) {
-                            setInput(lastUserMsg.content);
-                          }
+                          if (!lastUserMsg || !currentChatId) return;
+                          const currentModel = getModelById(selectedModel);
+                          if (!currentModel || !hasKey(currentModel.provider)) return;
+                          // Build messages up to (but not including) the removed assistant message
+                          const msgsBeforeRemoved = chat.messages.slice(0, chat.messages.findIndex((m) => m.id === msg.id));
+                          const allMsgs: { role: string; content: string }[] = [];
+                          const activeAgent = getActiveAgent();
+                          const sysPrompt = activeAgent?.systemPrompt || systemPrompt;
+                          if (sysPrompt) allMsgs.push({ role: 'system', content: sysPrompt });
+                          msgsBeforeRemoved.forEach((m) => allMsgs.push({ role: m.role, content: m.content }));
+                          await streamAIResponse(currentChatId, allMsgs, currentModel);
                         }}
                         className="text-gray-500 hover:text-blue-400 p-1 rounded transition-colors"
                         title="재생성"
@@ -458,6 +622,16 @@ export function ChatView() {
           </div>
         )}
       </div>
+
+      {/* Streaming token counter — fixed bottom-right */}
+      {showTokenCounter && (
+        <div className="fixed bottom-24 right-4 z-40 pointer-events-none">
+          <div className="px-3 py-1.5 bg-gray-800/90 border border-gray-700 rounded-full text-xs text-gray-400 flex items-center gap-1.5 shadow-lg backdrop-blur-sm">
+            <div className={`w-1.5 h-1.5 rounded-full ${isStreaming ? 'bg-blue-500 animate-pulse' : 'bg-gray-500'}`} />
+            ~{streamTokenCount} 토큰 · ${(streamTokenCount * 0.000003).toFixed(6)}
+          </div>
+        </div>
+      )}
 
       {/* URL fetching indicator */}
       {fetchingURLs.length > 0 && (

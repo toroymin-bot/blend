@@ -21,7 +21,7 @@ export function MobileBottomBar({ activeTab, onTabChange }: MobileBottomBarProps
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 flex items-center justify-around px-4 py-2" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}>
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border-token flex items-center justify-around px-4 py-2" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}>
       {mobileTabs.map((tab) => (
         <button
           key={tab.id}
@@ -109,7 +109,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
   return (
     <div className="flex h-full">
       {/* Icon bar */}
-      <div className="w-14 bg-gray-900 flex flex-col items-center py-3 gap-1 border-r border-gray-800">
+      <div className="w-14 bg-surface flex flex-col items-center py-3 gap-1 border-r border-border-token">
         <button
           onClick={() => {
             createChat();
@@ -132,7 +132,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
               }
             }}
             className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-              activeTab === tab.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              activeTab === tab.id ? 'bg-surface-2 text-on-surface' : 'text-on-surface-muted hover:text-on-surface hover:bg-surface-2'
             }`}
             title={tab.label}
           >
@@ -153,7 +153,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="w-10 h-10 rounded-lg text-gray-500 hover:text-white hover:bg-gray-800 flex items-center justify-center"
+          className="w-10 h-10 rounded-lg text-on-surface-muted hover:text-on-surface hover:bg-surface-2 flex items-center justify-center"
           title={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
         >
           {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
@@ -162,8 +162,8 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
 
       {/* Chat list panel */}
       {activeTab === 'chat' && !collapsed && (
-        <div className="w-60 bg-gray-800 border-r border-gray-700 flex flex-col">
-          <div className="p-3 border-b border-gray-700 space-y-2">
+        <div className="w-60 bg-surface-2 border-r border-border-token flex flex-col">
+          <div className="p-3 border-b border-border-token space-y-2">
             <input
               type="text"
               value={searchQuery}

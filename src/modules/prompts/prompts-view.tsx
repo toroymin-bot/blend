@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { usePromptStore } from '@/stores/prompt-store';
 import { Prompt } from '@/types';
-import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X, Upload } from 'lucide-react';
+import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X, Upload, Download, ChevronDown } from 'lucide-react';
 import { PromptVariableModal } from './prompt-variable-modal';
 
 interface PromptsViewProps {
@@ -21,6 +21,7 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
   const [newPrompt, setNewPrompt] = useState({ title: '', content: '', tags: '' });
   const [variableModal, setVariableModal] = useState<{ prompt: Prompt } | null>(null);
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
 
   const filteredPrompts = getFilteredPrompts();
@@ -123,12 +124,68 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
     reader.readAsText(file);
   };
 
+  const handleExportJSON = () => {
+    const { prompts: allPrompts } = usePromptStore.getState();
+    const data = allPrompts.map(({ title, content, tags }) => ({ title, content, tags }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'prompts.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportDropdown(false);
+  };
+
+  const handleExportCSV = () => {
+    const { prompts: allPrompts } = usePromptStore.getState();
+    const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const rows = [
+      ['title', 'content', 'tags'].map(escape).join(','),
+      ...allPrompts.map((p) => [p.title, p.content, p.tags.join(',')].map(escape).join(',')),
+    ];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'prompts.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportDropdown(false);
+  };
+
   return (
     <div className="h-full overflow-y-auto bg-gray-900 p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-white">프롬프트 라이브러리</h1>
           <div className="flex items-center gap-2">
+            {/* Export dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"
+                title="프롬프트 내보내기"
+              >
+                <Download size={16} /> 내보내기 <ChevronDown size={13} />
+              </button>
+              {showExportDropdown && (
+                <div className="absolute top-10 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-40">
+                  <button
+                    onClick={handleExportJSON}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-t-lg"
+                  >
+                    JSON (.json)
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-b-lg"
+                  >
+                    CSV (.csv)
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => importFileRef.current?.click()}
               className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"

@@ -8,6 +8,14 @@
   --text-secondary: #9ca3af;
   --accent: #3b82f6;
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Design token CSS variables (dark default) */
+  --surface: #111827;
+  --surface-2: #1f2937;
+  --on-surface: #f3f4f6;
+  --on-surface-muted: #9ca3af;
+  --border: #374151;
+  --accent-token: #3b82f6;
 }
 
 /* Dark theme (default) */
@@ -18,6 +26,14 @@
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
   --accent: #3b82f6;
+
+  /* Design token CSS variables */
+  --surface: #111827;
+  --surface-2: #1f2937;
+  --on-surface: #f3f4f6;
+  --on-surface-muted: #9ca3af;
+  --border: #374151;
+  --accent-token: #3b82f6;
 }
 
 /* Light theme */
@@ -28,6 +44,14 @@
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --accent: #2563eb;
+
+  /* Design token CSS variables */
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --on-surface: #111827;
+  --on-surface-muted: #6b7280;
+  --border: #e5e7eb;
+  --accent-token: #2563eb;
 }
 
 /* Legacy class-based light theme (backward compat) */
@@ -38,11 +62,26 @@
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --accent: #2563eb;
+
+  /* Design token CSS variables */
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --on-surface: #111827;
+  --on-surface-muted: #6b7280;
+  --border: #e5e7eb;
+  --accent-token: #2563eb;
 }
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Design token colors mapped to Tailwind utility classes */
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-muted: var(--on-surface-muted);
+  --color-border-token: var(--border);
+  --color-accent-token: var(--accent-token);
 }
 
 body {

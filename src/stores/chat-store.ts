@@ -21,6 +21,8 @@ interface ChatState {
   removeLastMessage: (chatId: string) => ChatMessage | undefined;
   forkChat: (chatId: string, atMessageIndex: number) => string;
   getCurrentChat: () => Chat | undefined;
+  // Edit message (truncates all messages after this one)
+  editMessage: (chatId: string, messageId: string, newContent: string) => void;
   // Tag actions
   addChatTag: (chatId: string, tag: string) => void;
   removeChatTag: (chatId: string, tag: string) => void;
@@ -155,6 +157,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
   getCurrentChat: () => {
     const state = get();
     return state.chats.find((c) => c.id === state.currentChatId);
+  },
+
+  editMessage: (chatId, messageId, newContent) => {
+    set((state) => ({
+      chats: state.chats.map((c) => {
+        if (c.id !== chatId) return c;
+        const idx = c.messages.findIndex((m) => m.id === messageId);
+        if (idx < 0) return c;
+        // Keep messages up to and including the edited one, update its content
+        const updated = c.messages.slice(0, idx + 1).map((m, i) =>
+          i === idx ? { ...m, content: newContent } : m
+        );
+        return { ...c, messages: updated, updatedAt: Date.now() };
+      }),
+    }));
+    get().saveToStorage();
   },
 
   addChatTag: (chatId, tag) => {
