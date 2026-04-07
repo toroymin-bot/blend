@@ -10,12 +10,15 @@ import { usePluginStore } from '@/stores/plugin-store';
 import { sendChatRequest } from './chat-api';
 import { getModelById, calculateCost, DEFAULT_MODELS } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
-import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link } from 'lucide-react';
+import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
 import { fetchURLContent, isValidURL, extractDomain } from '@/modules/plugins/url-reader';
 import { ChartRender, extractChartData } from '@/modules/plugins/chart-render';
+import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } from '@/modules/plugins/web-search';
+import { generateImage, extractImagePrompt, extractImageURLs } from '@/modules/plugins/image-gen';
+import { downloadChat, downloadChatAsPDF } from '@/modules/chat/export-chat';
 
 export function ChatView() {
   const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle } = useChatStore();
@@ -30,6 +33,9 @@ export function ChatView() {
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [fetchingURLs, setFetchingURLs] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -107,6 +113,79 @@ export function ChatView() {
 
     let userContent = input.trim();
     setInput('');
+
+    // Image Generation plugin: handle /image command
+    const imageGenEnabled = isInstalled('image-gen');
+    if (imageGenEnabled) {
+      const imagePrompt = extractImagePrompt(userContent);
+      if (imagePrompt) {
+        const openaiKey = getKey('openai');
+        if (!openaiKey) {
+          addMessage(chatId, {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: 'OpenAI API 키가 설정되지 않았습니다. 설정에서 OpenAI 키를 입력해주세요.',
+            createdAt: Date.now(),
+          });
+          return;
+        }
+
+        // Add user message immediately
+        addMessage(chatId, {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: userContent,
+          createdAt: Date.now(),
+        });
+
+        setIsGeneratingImage(true);
+        const result = await generateImage(imagePrompt, openaiKey);
+        setIsGeneratingImage(false);
+
+        if (result.error) {
+          addMessage(chatId, {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `이미지 생성 실패: ${result.error}`,
+            createdAt: Date.now(),
+          });
+        } else if (result.url) {
+          addMessage(chatId, {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `이미지가 생성되었습니다:\n\n![생성된 이미지](${result.url})`,
+            createdAt: Date.now(),
+          });
+        }
+        return;
+      }
+    }
+
+    // Web Search plugin: handle !search or ?query patterns
+    const webSearchEnabled = isInstalled('web-search');
+    if (webSearchEnabled) {
+      const searchQuery = extractSearchQuery(userContent);
+      if (searchQuery) {
+        setIsSearching(true);
+        const searchResult = await performWebSearch(searchQuery);
+        setIsSearching(false);
+
+        if (searchResult.available && searchResult.results) {
+          const context = formatSearchResultsAsContext(searchQuery, searchResult.results);
+          // Append search results to user content as context
+          userContent = `${userContent}\n\n${context}`;
+        } else if (!searchResult.available) {
+          // Server doesn't have API key — inform the user
+          addMessage(chatId, {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: '웹 검색 플러그인이 설치되었지만 서버에 BRAVE_SEARCH_API_KEY가 설정되지 않았습니다.',
+            createdAt: Date.now(),
+          });
+          return;
+        }
+      }
+    }
 
     // URL Reader plugin: fetch URL content if enabled
     const urlReaderEnabled = isInstalled('url-reader');
@@ -233,6 +312,7 @@ export function ChatView() {
   };
 
   const chartRenderEnabled = isInstalled('chart-render');
+  const imageGenEnabledForRender = isInstalled('image-gen');
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
@@ -293,6 +373,26 @@ export function ChatView() {
                       {chartRenderEnabled && (() => {
                         const chartData = extractChartData(msg.content);
                         return chartData ? <ChartRender data={chartData} /> : null;
+                      })()}
+
+                      {/* Image rendering: show images from URLs detected in AI response */}
+                      {imageGenEnabledForRender && (() => {
+                        const imgUrls = extractImageURLs(msg.content);
+                        if (imgUrls.length === 0) return null;
+                        return (
+                          <div className="mt-3 flex flex-col gap-2">
+                            {imgUrls.map((url) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={url}
+                                src={url}
+                                alt="AI 생성 이미지"
+                                className="rounded-xl max-w-full border border-gray-700"
+                                style={{ maxHeight: '400px', objectFit: 'contain' }}
+                              />
+                            ))}
+                          </div>
+                        );
                       })()}
                     </div>
                   ) : (
@@ -369,6 +469,22 @@ export function ChatView() {
         </div>
       )}
 
+      {/* Web search indicator */}
+      {isSearching && (
+        <div className="px-4 py-2 bg-green-900/20 border-t border-green-800/30 flex items-center gap-2">
+          <Search size={13} className="text-green-400 animate-pulse" />
+          <span className="text-xs text-green-300">웹 검색 중...</span>
+        </div>
+      )}
+
+      {/* Image generation indicator */}
+      {isGeneratingImage && (
+        <div className="px-4 py-2 bg-purple-900/20 border-t border-purple-800/30 flex items-center gap-2">
+          <Image size={13} className="text-purple-400 animate-pulse" />
+          <span className="text-xs text-purple-300">이미지 생성 중 (최대 30초)...</span>
+        </div>
+      )}
+
       {/* Input area */}
       <div className="border-t border-gray-700 p-4">
         <div className="max-w-3xl mx-auto">
@@ -387,6 +503,53 @@ export function ChatView() {
                 <Link size={11} /> URL 읽기
               </span>
             )}
+            {isInstalled('web-search') && (
+              <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded flex items-center gap-1">
+                <Search size={11} /> 웹 검색
+              </span>
+            )}
+            {isInstalled('image-gen') && (
+              <span className="text-xs text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded flex items-center gap-1">
+                <Image size={11} /> 이미지
+              </span>
+            )}
+
+            {/* Export button */}
+            {chat && chat.messages.length > 0 && (
+              <div className="relative ml-auto">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+                  title="내보내기"
+                >
+                  <Download size={13} />
+                  내보내기
+                </button>
+                {showExportMenu && (
+                  <div className="absolute bottom-8 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-36">
+                    <button
+                      onClick={() => { downloadChat(chat, 'md'); setShowExportMenu(false); }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 flex items-center gap-2 rounded-t-lg"
+                    >
+                      <FileText size={12} /> Markdown (.md)
+                    </button>
+                    <button
+                      onClick={() => { downloadChat(chat, 'txt'); setShowExportMenu(false); }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <FileText size={12} /> 텍스트 (.txt)
+                    </button>
+                    <button
+                      onClick={() => { downloadChatAsPDF(chat); setShowExportMenu(false); }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 flex items-center gap-2 rounded-b-lg"
+                    >
+                      <FileText size={12} /> PDF (인쇄)
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {showModelDropdown && (
               <div className="absolute bottom-8 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-64 max-h-80 overflow-y-auto">
                 {enabledModels.map((m) => (
@@ -419,7 +582,17 @@ export function ChatView() {
                 e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
               }}
               onKeyDown={handleKeyDown}
-              placeholder={isInstalled('url-reader') ? '메시지 또는 URL을 입력하세요... (Shift+Enter로 줄바꿈)' : '메시지를 입력하세요... (Shift+Enter로 줄바꿈)'}
+              placeholder={
+                isInstalled('image-gen') && isInstalled('web-search')
+                  ? '메시지, URL, ?검색어, /image 프롬프트... (Shift+Enter로 줄바꿈)'
+                  : isInstalled('image-gen')
+                  ? '메시지 또는 /image 프롬프트를 입력하세요... (Shift+Enter로 줄바꿈)'
+                  : isInstalled('web-search')
+                  ? '메시지 또는 ?검색어, !search 검색어... (Shift+Enter로 줄바꿈)'
+                  : isInstalled('url-reader')
+                  ? '메시지 또는 URL을 입력하세요... (Shift+Enter로 줄바꿈)'
+                  : '메시지를 입력하세요... (Shift+Enter로 줄바꿈)'
+              }
               rows={1}
               className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 outline-none resize-none max-h-40 px-2 py-1"
               style={{ minHeight: '36px' }}

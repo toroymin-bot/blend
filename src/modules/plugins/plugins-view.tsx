@@ -17,18 +17,18 @@ const AVAILABLE_PLUGINS: PluginItem[] = [
   {
     id: 'web-search',
     name: '웹 검색',
-    description: 'AI가 웹에서 최신 정보를 검색합니다 (SerpAPI/Perplexity)',
+    description: 'Brave Search로 최신 정보를 검색합니다. "!search 검색어" 또는 "?검색어" 패턴 사용',
     icon: <Search size={20} />,
     category: '검색',
-    comingSoon: true,
+    comingSoon: false,
   },
   {
     id: 'image-gen',
     name: '이미지 생성',
-    description: 'DALL-E 3 또는 Stable Diffusion으로 이미지를 생성합니다',
+    description: 'DALL-E 3로 이미지를 생성합니다. "/image 프롬프트" 패턴 사용 (OpenAI 키 필요)',
     icon: <Image size={20} />,
     category: '이미지',
-    comingSoon: true,
+    comingSoon: false,
   },
   {
     id: 'code-runner',
@@ -157,6 +157,8 @@ export function PluginsView() {
             <li>• <strong className="text-gray-400">URL 읽기</strong>: 채팅 입력창에 URL을 포함하면 자동으로 내용을 가져옵니다</li>
             <li>• <strong className="text-gray-400">코드 실행</strong>: AI가 생성한 JS 코드 블록에 &quot;실행&quot; 버튼이 나타납니다</li>
             <li>• <strong className="text-gray-400">차트 생성</strong>: AI 응답에서 JSON 데이터를 감지해 차트로 표시합니다</li>
+            <li>• <strong className="text-gray-400">웹 검색</strong>: <code className="bg-gray-700 px-1 rounded">!search 검색어</code> 또는 <code className="bg-gray-700 px-1 rounded">?검색어</code>로 검색 (서버에 BRAVE_SEARCH_API_KEY 필요)</li>
+            <li>• <strong className="text-gray-400">이미지 생성</strong>: <code className="bg-gray-700 px-1 rounded">/image 프롬프트</code>로 DALL-E 3 이미지 생성 (OpenAI 키 필요)</li>
           </ul>
         </div>
       </div>

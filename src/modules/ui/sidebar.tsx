@@ -6,6 +6,39 @@ import { downloadChat } from '@/modules/chat/export-chat';
 import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
+// Mobile bottom tab bar — 3 primary tabs
+interface MobileBottomBarProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}
+
+export function MobileBottomBar({ activeTab, onTabChange }: MobileBottomBarProps) {
+  const mobileTabs = [
+    { id: 'chat', icon: MessageSquare, label: '채팅' },
+    { id: 'models', icon: Cpu, label: '모델' },
+    { id: 'settings', icon: Settings, label: '설정' },
+  ];
+
+  return (
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 flex items-center justify-around px-4 py-2 safe-area-inset-bottom">
+      {mobileTabs.map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => onTabChange(tab.id)}
+          className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg transition-colors ${
+            activeTab === tab.id
+              ? 'text-blue-400 bg-blue-400/10'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          <tab.icon size={20} />
+          <span className="text-xs">{tab.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;

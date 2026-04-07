@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Sidebar } from '@/modules/ui/sidebar';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Sidebar, MobileBottomBar } from '@/modules/ui/sidebar';
 import { ChatView } from '@/modules/chat/chat-view';
 import { SettingsView } from '@/modules/settings/settings-view';
 import { ModelsView } from '@/modules/models/models-view';
@@ -23,6 +23,7 @@ import { Menu } from 'lucide-react';
 export default function Home() {
   const [activeTab, setActiveTab] = useState('chat');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const touchStartX = useRef<number | null>(null);
   const apiKeyStore = useAPIKeyStore();
   const promptStore = usePromptStore();
   const agentStore = useAgentStore();
@@ -43,6 +44,25 @@ export default function Home() {
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setMobileOpen(false); // 모바일에서 탭 선택 시 사이드바 닫기
+  };
+
+  // Touch swipe handlers for mobile sidebar
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    // Swipe right from left edge → open sidebar
+    if (dx > 60 && e.changedTouches[0].clientX - dx < 40) {
+      setMobileOpen(true);
+    }
+    // Swipe left → close sidebar
+    if (dx < -60 && mobileOpen) {
+      setMobileOpen(false);
+    }
   };
 
   const shortcuts = useMemo(() => [
@@ -68,7 +88,11 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white">
+    <div
+      className="flex h-screen bg-gray-900 text-white"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gray-900 border-b border-gray-800 px-3 py-2 flex items-center gap-3">
         <button
@@ -102,8 +126,11 @@ export default function Home() {
         />
       </div>
 
-      {/* Main content - mobile: add top padding for header */}
-      <main className="flex-1 pt-11 md:pt-0">{renderContent()}</main>
+      {/* Main content - mobile: add top padding for header and bottom padding for tab bar */}
+      <main className="flex-1 pt-11 pb-16 md:pt-0 md:pb-0 overflow-hidden">{renderContent()}</main>
+
+      {/* Mobile bottom tab bar */}
+      <MobileBottomBar activeTab={activeTab} onTabChange={handleTabChange} />
     </div>
   );
 }
