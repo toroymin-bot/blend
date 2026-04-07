@@ -304,7 +304,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 touch-visible transition-opacity">
                     <button
                       onClick={(e) => { e.stopPropagation(); togglePin(chat.id); }}
                       className={`p-1 ${chat.pinned ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-400'}`}

@@ -739,7 +739,7 @@ export function ChatView() {
 
       {/* Messages area */}
       <div
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto chat-messages"
         onTouchMove={() => {
           if (showSearch) { setShowSearch(false); setSearchQuery(''); setSearchMatchIndex(0); }
         }}
@@ -1121,7 +1121,7 @@ export function ChatView() {
                   <img src={img} alt={`첨부 이미지 ${i + 1}`} className="w-16 h-16 object-cover rounded-lg border border-gray-700" />
                   <button
                     onClick={() => setAttachedImages((prev) => prev.filter((_, j) => j !== i))}
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-900 border border-gray-700 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-900 border border-gray-700 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 touch-visible transition-opacity"
                     aria-label={`이미지 ${i + 1} 제거`}
                   ><XIcon size={10} /></button>
                 </div>
@@ -1165,14 +1165,14 @@ export function ChatView() {
               style={{ minHeight: '36px' }}
             />
             {isStreaming ? (
-              <button onClick={handleStop} className="p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white">
+              <button onClick={handleStop} className="p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white touch-target flex items-center justify-center">
                 <Square size={18} />
               </button>
             ) : (
               <button
                 onClick={handleSend}
                 disabled={!input.trim() && attachedImages.length === 0}
-                className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed touch-target flex items-center justify-center"
               >
                 <Send size={18} />
               </button>

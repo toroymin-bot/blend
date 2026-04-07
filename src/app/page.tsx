@@ -115,7 +115,7 @@ export default function Home() {
 
   return (
     <div
-      className="flex h-screen bg-surface text-on-surface"
+      className="flex h-dvh bg-surface text-on-surface"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >

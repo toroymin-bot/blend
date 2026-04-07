@@ -189,3 +189,38 @@ body {
     padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
   }
 }
+
+/* Dynamic viewport height — fixes iOS keyboard overlap */
+.h-dvh {
+  height: 100dvh;
+}
+@supports not (height: 100dvh) {
+  .h-dvh {
+    height: 100vh;
+  }
+}
+
+/* Mobile touch improvements */
+@media (hover: none) {
+  /* On touch devices, show action buttons without hover */
+  .touch-visible {
+    opacity: 1 !important;
+  }
+  /* Prevent callout/selection on tap-hold */
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  /* Bigger touch targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Smooth scroll for chat messages */
+.chat-messages {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
