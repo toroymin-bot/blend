@@ -81,6 +81,60 @@ body {
   background: #1e293b;
 }
 
+/* ============================================================
+   Light mode overrides — hard-coded Tailwind dark classes
+   These rules only activate when data-theme="light" is set
+   ============================================================ */
+
+/* Backgrounds */
+[data-theme="light"] .bg-gray-900  { background-color: #ffffff !important; }
+[data-theme="light"] .bg-gray-800  { background-color: #f3f4f6 !important; }
+[data-theme="light"] .bg-gray-700  { background-color: #e5e7eb !important; }
+[data-theme="light"] .bg-gray-600  { background-color: #d1d5db !important; }
+[data-theme="light"] .bg-gray-800\/50 { background-color: rgba(243,244,246,0.5) !important; }
+[data-theme="light"] .bg-gray-700\/50 { background-color: rgba(229,231,235,0.5) !important; }
+[data-theme="light"] .bg-black\/50  { background-color: rgba(0,0,0,0.4) !important; }
+
+/* Text */
+[data-theme="light"] .text-white    { color: #111827 !important; }
+[data-theme="light"] .text-gray-100 { color: #1f2937 !important; }
+[data-theme="light"] .text-gray-200 { color: #374151 !important; }
+[data-theme="light"] .text-gray-300 { color: #4b5563 !important; }
+[data-theme="light"] .text-gray-400 { color: #6b7280 !important; }
+[data-theme="light"] .text-gray-500 { color: #9ca3af !important; }
+[data-theme="light"] .text-gray-600 { color: #d1d5db !important; }
+
+/* Borders */
+[data-theme="light"] .border-gray-800 { border-color: #e5e7eb !important; }
+[data-theme="light"] .border-gray-700 { border-color: #d1d5db !important; }
+[data-theme="light"] .border-gray-600 { border-color: #9ca3af !important; }
+
+/* Hover states */
+[data-theme="light"] .hover\:bg-gray-800:hover { background-color: #e5e7eb !important; }
+[data-theme="light"] .hover\:bg-gray-700:hover { background-color: #d1d5db !important; }
+[data-theme="light"] .hover\:bg-gray-700\/50:hover { background-color: rgba(209,213,219,0.5) !important; }
+[data-theme="light"] .hover\:bg-gray-600:hover { background-color: #9ca3af !important; }
+[data-theme="light"] .hover\:text-white:hover  { color: #111827 !important; }
+[data-theme="light"] .hover\:text-gray-300:hover { color: #374151 !important; }
+
+/* Placeholder text */
+[data-theme="light"] .placeholder-gray-400::placeholder { color: #9ca3af !important; }
+[data-theme="light"] .placeholder-gray-500::placeholder { color: #6b7280 !important; }
+
+/* Prose (rendered markdown) in light mode */
+[data-theme="light"] .prose { color: #111827; }
+[data-theme="light"] .prose pre { background: #f1f5f9 !important; }
+[data-theme="light"] .prose th  { background: #e2e8f0; }
+[data-theme="light"] .prose code { color: #1e293b; }
+
+/* Scrollbar in light mode */
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Code blocks background */
+[data-theme="light"] pre { background: #f1f5f9 !important; }
+[data-theme="light"] code { background: #f1f5f9; color: #1e293b; }
+
 /* Mobile safe-area support */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);

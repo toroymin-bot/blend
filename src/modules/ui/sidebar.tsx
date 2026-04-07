@@ -55,11 +55,33 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsed, setCollapsed] = useState(false);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | null>(null);
 
   const allChatTags = getAllChatTags();
 
   const filteredChats = useMemo(() => {
     let list = chats;
+
+    // Date filter
+    if (dateFilter) {
+      const now = Date.now();
+      const DAY = 86400000;
+      let cutoff: number;
+      if (dateFilter === 'today') {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        cutoff = d.getTime();
+      } else if (dateFilter === 'week') {
+        cutoff = now - 7 * DAY;
+      } else {
+        const d = new Date();
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+        cutoff = d.getTime();
+      }
+      list = list.filter((c) => c.updatedAt >= cutoff);
+    }
+
     if (activeTagFilter) {
       list = list.filter((c) => (c.tags ?? []).includes(activeTagFilter));
     }
@@ -69,7 +91,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
       (c) => c.title.toLowerCase().includes(q) ||
         c.messages.some((m) => m.content.toLowerCase().includes(q))
     );
-  }, [chats, searchQuery, activeTagFilter]);
+  }, [chats, searchQuery, activeTagFilter, dateFilter]);
 
   const activeAgent = getActiveAgent();
 
@@ -149,6 +171,26 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
               placeholder="대화 검색... (⌘K)"
               className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
             />
+            {/* Date filter buttons */}
+            <div className="flex gap-1">
+              {([
+                { id: 'today', label: '오늘' },
+                { id: 'week', label: '이번 주' },
+                { id: 'month', label: '이번 달' },
+              ] as const).map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setDateFilter(dateFilter === f.id ? null : f.id)}
+                  className={`flex-1 px-1.5 py-0.5 rounded text-xs transition-colors ${
+                    dateFilter === f.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
             {allChatTags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 <button
@@ -216,6 +258,16 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                       {chat.messages.length}개 메시지
                       {chat.model && <span className="ml-1 text-gray-600">· {chat.model}</span>}
                     </p>
+                    {/* Message preview when searching */}
+                    {searchQuery && (() => {
+                      const q = searchQuery.toLowerCase();
+                      const matched = chat.messages.find((m) => m.content.toLowerCase().includes(q));
+                      if (!matched) return null;
+                      const idx = matched.content.toLowerCase().indexOf(q);
+                      const start = Math.max(0, idx - 10);
+                      const snippet = (start > 0 ? '…' : '') + matched.content.substring(start, start + 60) + (matched.content.length > start + 60 ? '…' : '');
+                      return <p className="text-xs text-blue-400 truncate mt-0.5">{snippet}</p>;
+                    })()}
                     {(chat.tags ?? []).length > 0 && (
                       <div
                         className="mt-1"

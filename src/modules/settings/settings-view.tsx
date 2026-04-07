@@ -157,6 +157,32 @@ export function SettingsView() {
         </section>
 
         <section className="mb-8">
+          <h2 className="text-lg font-semibold text-white mb-4">비용 알림</h2>
+          <div className="bg-gray-800 rounded-xl p-4">
+            <p className="text-sm text-gray-400 mb-3">
+              일일 API 비용이 설정한 한도를 초과하면 경고 알림이 표시됩니다. 0으로 설정하면 비활성화됩니다.
+            </p>
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-gray-300 whitespace-nowrap">일일 한도 (USD)</label>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-400 text-sm">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={settings.dailyCostLimit ?? 1.0}
+                  onChange={(e) => updateSettings({ dailyCostLimit: parseFloat(e.target.value) || 0 })}
+                  className="w-24 bg-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <span className="text-xs text-gray-500">
+                {(settings.dailyCostLimit ?? 0) <= 0 ? '비활성화됨' : `$${(settings.dailyCostLimit ?? 1).toFixed(2)} 초과 시 경고`}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-8">
           <h2 className="text-lg font-semibold text-white mb-4">글로벌 시스템 프롬프트</h2>
           <div className="bg-gray-800 rounded-xl p-4">
             <p className="text-sm text-gray-400 mb-2">

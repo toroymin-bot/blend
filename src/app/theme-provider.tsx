@@ -3,6 +3,7 @@
 // ThemeProvider: reads settings-store theme and applies data-theme to <html>
 import { useEffect } from 'react';
 import { useSettingsStore } from '@/stores/settings-store';
+import { CostAlertToast } from '@/modules/ui/cost-alert-toast';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { settings, loadFromStorage } = useSettingsStore();
@@ -32,5 +33,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [settings.theme]);
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <CostAlertToast />
+    </>
+  );
 }

@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   sendOnEnter: true,
   streamResponse: true,
   defaultModel: 'gpt-4o-mini',
+  dailyCostLimit: 1.0,
 };
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({

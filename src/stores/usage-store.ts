@@ -17,6 +17,7 @@ interface UsageRecord {
 
 interface UsageState {
   records: UsageRecord[];
+  dailyLimitAlerted: boolean; // track if we already fired the alert today
 
   addRecord: (record: Omit<UsageRecord, 'id'>) => void;
   getTotalCost: () => number;
@@ -27,6 +28,9 @@ interface UsageState {
   getCostByDay: (days: number) => { date: string; cost: number; requests: number }[];
   getTokensByModel: () => Record<string, { input: number; output: number }>;
   getTotalRequests: () => number;
+  /** Returns true if today's cost exceeds the given limit (0 = disabled) */
+  checkDailyLimit: (limit: number) => boolean;
+  resetDailyAlert: () => void;
   loadFromStorage: () => void;
   saveToStorage: () => void;
 }
@@ -35,6 +39,7 @@ const generateId = () => Math.random().toString(36).substring(2, 15);
 
 export const useUsageStore = create<UsageState>((set, get) => ({
   records: [],
+  dailyLimitAlerted: false,
 
   addRecord: (record) => {
     const newRecord = { ...record, id: generateId() };
@@ -106,6 +111,13 @@ export const useUsageStore = create<UsageState>((set, get) => ({
   },
 
   getTotalRequests: () => get().records.length,
+
+  checkDailyLimit: (limit) => {
+    if (limit <= 0) return false;
+    return get().getTodayCost() >= limit;
+  },
+
+  resetDailyAlert: () => set({ dailyLimitAlerted: false }),
 
   loadFromStorage: () => {
     if (typeof window === 'undefined') return;

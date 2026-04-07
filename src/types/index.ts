@@ -78,6 +78,7 @@ export interface AppSettings {
   sendOnEnter: boolean;
   streamResponse: boolean;
   defaultModel: string;
+  dailyCostLimit: number; // USD, 0 = disabled
 }
 
 export interface UsageStats {

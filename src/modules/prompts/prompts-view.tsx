@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { usePromptStore } from '@/stores/prompt-store';
 import { Prompt } from '@/types';
-import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X } from 'lucide-react';
+import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X, Upload } from 'lucide-react';
 import { PromptVariableModal } from './prompt-variable-modal';
 
 interface PromptsViewProps {
@@ -20,6 +20,8 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [newPrompt, setNewPrompt] = useState({ title: '', content: '', tags: '' });
   const [variableModal, setVariableModal] = useState<{ prompt: Prompt } | null>(null);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const filteredPrompts = getFilteredPrompts();
   const allTags = getAllTags();
@@ -57,18 +59,105 @@ export function PromptsView({ onUsePrompt }: PromptsViewProps) {
     setVariableModal(null);
   };
 
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const existingTitles = new Set(filteredPrompts.map((p) => p.title));
+        // Use the full list for duplicate checking
+        const { prompts: allPrompts } = usePromptStore.getState();
+        const allTitles = new Set(allPrompts.map((p) => p.title));
+
+        let items: { title: string; content: string; tags?: string }[] = [];
+
+        if (file.name.endsWith('.json')) {
+          const parsed = JSON.parse(text);
+          items = Array.isArray(parsed) ? parsed : [];
+        } else if (file.name.endsWith('.csv')) {
+          const lines = text.split('\n').filter((l) => l.trim());
+          if (lines.length < 2) return;
+          const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
+          const titleIdx = headers.indexOf('title');
+          const contentIdx = headers.indexOf('content');
+          const tagsIdx = headers.indexOf('tags');
+          for (let i = 1; i < lines.length; i++) {
+            // Simple CSV parse (handles quoted fields)
+            const cols = lines[i].match(/("(?:[^"]|"")*"|[^,]*)/g) ?? [];
+            const clean = (s: string) => s.replace(/^"|"$/g, '').replace(/""/g, '"').trim();
+            if (titleIdx >= 0 && contentIdx >= 0) {
+              items.push({
+                title: clean(cols[titleIdx] ?? ''),
+                content: clean(cols[contentIdx] ?? ''),
+                tags: tagsIdx >= 0 ? clean(cols[tagsIdx] ?? '') : '',
+              });
+            }
+          }
+        }
+
+        let added = 0;
+        let skipped = 0;
+        items.forEach((item) => {
+          if (!item.title?.trim() || !item.content?.trim()) return;
+          if (allTitles.has(item.title.trim())) { skipped++; return; }
+          const tagList = item.tags
+            ? item.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+            : [];
+          const variables = [...item.content.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]);
+          addPrompt({ title: item.title.trim(), content: item.content.trim(), tags: tagList, variables, isFavorite: false });
+          allTitles.add(item.title.trim());
+          added++;
+        });
+
+        setImportResult(`${added}개 추가됨${skipped > 0 ? `, ${skipped}개 중복 건너뜀` : ''}`);
+        setTimeout(() => setImportResult(null), 4000);
+      } catch {
+        setImportResult('파일 파싱 오류 — JSON 또는 CSV 형식인지 확인하세요');
+        setTimeout(() => setImportResult(null), 4000);
+      }
+      // Reset input so the same file can be imported again if needed
+      if (importFileRef.current) importFileRef.current.value = '';
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="h-full overflow-y-auto bg-gray-900 p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-white">프롬프트 라이브러리</h1>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
-          >
-            <Plus size={16} /> 새 프롬프트
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => importFileRef.current?.click()}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"
+              title="JSON 또는 CSV 파일에서 프롬프트 가져오기"
+            >
+              <Upload size={16} /> 가져오기
+            </button>
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".json,.csv"
+              onChange={handleImportFile}
+              className="hidden"
+            />
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
+            >
+              <Plus size={16} /> 새 프롬프트
+            </button>
+          </div>
         </div>
+
+        {/* Import result toast */}
+        {importResult && (
+          <div className="mb-4 px-4 py-2 bg-green-700/80 text-green-100 text-sm rounded-lg">
+            {importResult}
+          </div>
+        )}
 
         {/* Search + Tags */}
         <div className="mb-4 flex gap-2">
