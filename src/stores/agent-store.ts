@@ -10,7 +10,9 @@ interface AgentState {
   addAgent: (agent: Omit<Agent, 'id' | 'createdAt'>) => void;
   updateAgent: (id: string, updates: Partial<Agent>) => void;
   deleteAgent: (id: string) => void;
+  duplicateAgent: (id: string) => void;
   setActiveAgent: (id: string | null) => void;
+  incrementUsage: (id: string) => void;
   getActiveAgent: () => Agent | undefined;
   loadFromStorage: () => void;
   saveToStorage: () => void;
@@ -55,6 +57,33 @@ const DEFAULT_AGENTS: Agent[] = [
     icon: '📊',
     createdAt: Date.now(),
   },
+  {
+    id: 'agent-summarizer',
+    name: '문서 요약가',
+    description: '긴 문서, 보고서, 기사를 핵심만 간결하게 요약합니다.',
+    systemPrompt: '당신은 전문 문서 요약가입니다. 어떤 길이의 텍스트든 핵심 내용을 3~5개의 불릿 포인트로 정리하고, 마지막에 한 문장으로 핵심 결론을 제시합니다. 불필요한 내용은 제거하고 중요도 순으로 정렬합니다. 요약 후 원문에서 가장 중요한 인용구 1개를 제시합니다.',
+    model: 'claude-haiku-4-5-20251001',
+    icon: '📝',
+    createdAt: Date.now(),
+  },
+  {
+    id: 'agent-emailwriter',
+    name: '이메일 작성가',
+    description: '비즈니스 이메일을 상황에 맞게 작성해 드립니다.',
+    systemPrompt: '당신은 비즈니스 커뮤니케이션 전문가입니다. 사용자가 이메일 목적과 수신자 정보를 주면 적절한 격식과 어조로 이메일을 작성합니다. 한국어와 영어 모두 가능합니다. 제목, 본문, 서명 형식으로 제공하며, 원하는 수정 사항을 말하면 즉시 반영합니다.',
+    model: 'gpt-4o-mini',
+    icon: '📧',
+    createdAt: Date.now(),
+  },
+  {
+    id: 'agent-promptengineer',
+    name: '프롬프트 엔지니어',
+    description: 'AI 프롬프트를 최적화하고 개선합니다.',
+    systemPrompt: '당신은 AI 프롬프트 엔지니어링 전문가입니다. 사용자의 프롬프트를 분석하고 더 정확한 결과를 얻을 수 있도록 개선합니다. Chain-of-thought, few-shot, role prompting 등 최신 기법을 적용합니다. 개선된 프롬프트와 개선 이유를 함께 제시합니다.',
+    model: 'claude-sonnet-4-6',
+    icon: '🎯',
+    createdAt: Date.now(),
+  },
 ];
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -82,7 +111,22 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     get().saveToStorage();
   },
 
+  duplicateAgent: (id) => {
+    const agent = get().agents.find((a) => a.id === id);
+    if (!agent) return;
+    const copy: Agent = { ...agent, id: generateId(), name: `${agent.name} (복사)`, createdAt: Date.now(), usageCount: 0 };
+    set((state) => ({ agents: [...state.agents, copy] }));
+    get().saveToStorage();
+  },
+
   setActiveAgent: (id) => set({ activeAgentId: id }),
+
+  incrementUsage: (id) => {
+    set((state) => ({
+      agents: state.agents.map((a) => a.id === id ? { ...a, usageCount: (a.usageCount ?? 0) + 1 } : a),
+    }));
+    get().saveToStorage();
+  },
 
   getActiveAgent: () => {
     const { agents, activeAgentId } = get();

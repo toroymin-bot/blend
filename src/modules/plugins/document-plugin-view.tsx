@@ -20,8 +20,11 @@ export function DocumentPluginView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Per-document embedding status
+  // Per-document embedding status & progress
   const [embedStatus, setEmbedStatus] = useState<Record<string, EmbedStatus>>({});
+  const [embedProgress, setEmbedProgress] = useState<Record<string, number>>({});
+  // Delete confirmation
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Pick best available key for embeddings (OpenAI preferred, Google fallback)
   const embeddingKey = getKey('openai') || getKey('google') || '';
@@ -48,10 +51,14 @@ export function DocumentPluginView() {
         // Auto-generate embeddings if an API key is available
         if (embeddingProvider) {
           setEmbedStatus((prev) => ({ ...prev, [doc.id]: 'embedding' }));
-          generateEmbeddings(doc, embeddingKey, embeddingProvider)
+          setEmbedProgress((prev) => ({ ...prev, [doc.id]: 0 }));
+          generateEmbeddings(doc, embeddingKey, embeddingProvider, (pct) => {
+            setEmbedProgress((prev) => ({ ...prev, [doc.id]: pct }));
+          })
             .then((embedded) => {
               updateDocument(embedded);
               setEmbedStatus((prev) => ({ ...prev, [doc.id]: 'done' }));
+              setEmbedProgress((prev) => ({ ...prev, [doc.id]: 100 }));
             })
             .catch(() => {
               setEmbedStatus((prev) => ({ ...prev, [doc.id]: 'error' }));
@@ -153,7 +160,8 @@ export function DocumentPluginView() {
                         {/* Embedding status badge */}
                         {status === 'embedding' && (
                           <span className="flex items-center gap-1 text-xs text-blue-400">
-                            <Loader size={10} className="animate-spin" />임베딩 중...
+                            <Loader size={10} className="animate-spin" />
+                            임베딩 중... {embedProgress[doc.id] ?? 0}%
                           </span>
                         )}
                         {status === 'done' && (
@@ -181,13 +189,27 @@ export function DocumentPluginView() {
                       {isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                       {isActive ? '활성' : '비활성'}
                     </button>
-                    <button
-                      onClick={() => removeDocument(doc.id)}
-                      className="text-gray-500 hover:text-red-400 p-1 transition-colors"
-                      title="삭제"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {deleteConfirmId === doc.id ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-red-400">삭제?</span>
+                        <button
+                          onClick={() => { removeDocument(doc.id); setDeleteConfirmId(null); }}
+                          className="px-2 py-0.5 rounded text-xs bg-red-600 text-white hover:bg-red-700"
+                        >예</button>
+                        <button
+                          onClick={() => setDeleteConfirmId(null)}
+                          className="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        >취소</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteConfirmId(doc.id)}
+                        className="text-gray-500 hover:text-red-400 p-1 transition-colors"
+                        title="삭제"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );

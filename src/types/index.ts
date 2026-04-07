@@ -74,6 +74,7 @@ export interface Agent {
   icon?: string;
   plugins?: string[];
   createdAt: number;
+  usageCount?: number;
 }
 
 export interface AppSettings {

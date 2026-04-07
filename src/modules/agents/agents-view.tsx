@@ -5,14 +5,14 @@ import { useAgentStore } from '@/stores/agent-store';
 import { useChatStore } from '@/stores/chat-store';
 import { Agent } from '@/types';
 import { DEFAULT_MODELS } from '@/modules/models/model-registry';
-import { Plus, Trash2, Edit3, MessageSquare, X, Check } from 'lucide-react';
+import { Plus, Trash2, Edit3, MessageSquare, X, Check, Copy } from 'lucide-react';
 
 interface AgentsViewProps {
   onStartChat?: () => void;
 }
 
 export function AgentsView({ onStartChat }: AgentsViewProps) {
-  const { agents, activeAgentId, addAgent, deleteAgent, setActiveAgent, updateAgent } = useAgentStore();
+  const { agents, activeAgentId, addAgent, deleteAgent, duplicateAgent, setActiveAgent, updateAgent, incrementUsage } = useAgentStore();
   const { createChat, setSelectedModel } = useChatStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
@@ -28,6 +28,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
   };
 
   const handleStartChatWithAgent = (agent: Agent) => {
+    incrementUsage(agent.id);
     setActiveAgent(agent.id);
     setSelectedModel(agent.model);
     createChat();
@@ -82,6 +83,9 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                 )}
               </div>
               <p className="text-sm text-on-surface-muted mb-3 line-clamp-2">{agent.description}</p>
+              {(agent.usageCount ?? 0) > 0 && (
+                <p className="text-xs text-gray-600 mb-2">{agent.usageCount}회 사용</p>
+              )}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleStartChatWithAgent(agent)}
@@ -98,12 +102,21 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                 <button
                   onClick={() => setEditingAgent({ ...agent })}
                   className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-700 rounded"
+                  title="수정"
                 >
                   <Edit3 size={14} />
                 </button>
                 <button
+                  onClick={() => duplicateAgent(agent.id)}
+                  className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-gray-700 rounded"
+                  title="복제"
+                >
+                  <Copy size={14} />
+                </button>
+                <button
                   onClick={() => deleteAgent(agent.id)}
                   className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-700 rounded"
+                  title="삭제"
                 >
                   <Trash2 size={14} />
                 </button>

@@ -21,17 +21,20 @@ export function MobileBottomBar({ activeTab, onTabChange }: MobileBottomBarProps
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border-token flex items-center justify-around px-4 py-2" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}>
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border-token flex items-stretch justify-around" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {mobileTabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
-          className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg transition-colors ${
+          className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors ${
             activeTab === tab.id
-              ? 'text-blue-400 bg-blue-400/10'
+              ? 'text-blue-400'
               : 'text-gray-500 hover:text-gray-300'
           }`}
         >
+          {activeTab === tab.id && (
+            <span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-blue-400" />
+          )}
           <tab.icon size={20} />
           <span className="text-xs">{tab.label}</span>
         </button>

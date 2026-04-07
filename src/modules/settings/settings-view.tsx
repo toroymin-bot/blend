@@ -8,7 +8,7 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { AIProvider } from '@/types';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2, ExternalLink } from 'lucide-react';
+import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2, ExternalLink, Loader, AlertCircle } from 'lucide-react';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 
 const PROVIDERS: {
@@ -55,6 +55,8 @@ export function SettingsView() {
   const usageStore = useUsageStore();
   const { systemPrompt, setSystemPrompt, settings, updateSettings, systemPromptPresets, addSystemPromptPreset, removeSystemPromptPreset, customModels, addCustomModel, removeCustomModel } = useSettingsStore();
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+  const [testingKey, setTestingKey] = useState<Record<string, boolean>>({});
+  const [testResult, setTestResult] = useState<Record<string, 'ok' | 'fail' | null>>({});
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [showAddModel, setShowAddModel] = useState(false);
@@ -103,6 +105,34 @@ export function SettingsView() {
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleTestKey = async (providerId: AIProvider) => {
+    const key = keys[providerId];
+    if (!key) return;
+    setTestingKey((s) => ({ ...s, [providerId]: true }));
+    setTestResult((s) => ({ ...s, [providerId]: null }));
+    try {
+      let ok = false;
+      if (providerId === 'openai') {
+        const res = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+        ok = res.ok;
+      } else if (providerId === 'anthropic') {
+        const res = await fetch('https://api.anthropic.com/v1/models', {
+          headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        });
+        ok = res.ok;
+      } else if (providerId === 'google') {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        ok = res.ok;
+      }
+      setTestResult((s) => ({ ...s, [providerId]: ok ? 'ok' : 'fail' }));
+    } catch {
+      setTestResult((s) => ({ ...s, [providerId]: 'fail' }));
+    } finally {
+      setTestingKey((s) => ({ ...s, [providerId]: false }));
+      setTimeout(() => setTestResult((s) => ({ ...s, [providerId]: null })), 4000);
+    }
   };
 
   const handleClearAll = () => {
@@ -159,7 +189,7 @@ export function SettingsView() {
                   <input
                     type={showKeys[provider.id] ? 'text' : 'password'}
                     value={keys[provider.id] || ''}
-                    onChange={(e) => setKey(provider.id, e.target.value)}
+                    onChange={(e) => { setKey(provider.id, e.target.value); setTestResult((s) => ({ ...s, [provider.id]: null })); }}
                     placeholder={provider.placeholder}
                     className="flex-1 bg-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
                   />
@@ -170,6 +200,23 @@ export function SettingsView() {
                   >
                     {showKeys[provider.id] ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
+                  {keys[provider.id] && (
+                    <button
+                      onClick={() => handleTestKey(provider.id)}
+                      disabled={testingKey[provider.id]}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                        testResult[provider.id] === 'ok' ? 'bg-green-700 text-green-100' :
+                        testResult[provider.id] === 'fail' ? 'bg-red-700 text-red-100' :
+                        'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                      }`}
+                      title="API 키 유효성 검사"
+                    >
+                      {testingKey[provider.id] ? <Loader size={12} className="animate-spin" /> :
+                       testResult[provider.id] === 'ok' ? <Check size={12} /> :
+                       testResult[provider.id] === 'fail' ? <AlertCircle size={12} /> :
+                       '테스트'}
+                    </button>
+                  )}
                 </div>
                 {/* Get key link */}
                 {!keys[provider.id] && (

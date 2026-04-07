@@ -10,7 +10,7 @@ import { usePluginStore } from '@/stores/plugin-store';
 import { sendChatRequest } from './chat-api';
 import { getModelById, calculateCost, DEFAULT_MODELS } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
-import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon, Paperclip, Sparkles } from 'lucide-react';
+import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon, Paperclip, Sparkles, Eye, Brain } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
@@ -769,18 +769,37 @@ export function ChatView() {
         }}
       >
         {!chat || chat.messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
+          <div className="flex items-center justify-center h-full px-4">
+            <div className="text-center w-full max-w-md">
               <h1 className="text-4xl font-bold mb-2">
                 <span className="text-on-surface">Blend</span>
               </h1>
-              <p className="text-on-surface-muted mb-4">AI와 대화를 시작하세요</p>
+              <p className="text-on-surface-muted mb-6">AI와 대화를 시작하세요</p>
               {getActiveAgent() && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900/30 rounded-lg text-sm text-blue-300">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900/30 rounded-lg text-sm text-blue-300 mb-6">
                   <span className="text-lg">{getActiveAgent()?.icon}</span>
                   <span>에이전트: {getActiveAgent()?.name}</span>
                 </div>
               )}
+              {/* Suggested prompts */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { label: '코드 리뷰해줘', sub: '내 코드의 문제점과 개선 방법' },
+                  { label: '번역해줘', sub: '한국어 ↔ 영어 번역' },
+                  { label: '요약해줘', sub: '긴 텍스트를 핵심만 정리' },
+                  { label: '이메일 작성해줘', sub: '목적에 맞는 이메일 초안' },
+                  { label: '아이디어 떠올려줘', sub: '창의적인 아이디어 브레인스토밍' },
+                ].map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={() => { setInput(p.label); setTimeout(() => inputRef.current?.focus(), 50); }}
+                    className="text-left px-4 py-3 rounded-xl border border-border-token bg-surface-2 hover:bg-gray-700 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-on-surface">{p.label}</p>
+                    <p className="text-xs text-on-surface-muted mt-0.5">{p.sub}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
@@ -794,7 +813,7 @@ export function ChatView() {
               <div
                 key={msg.id}
                 ref={(el) => { messageRefs.current[msg.id] = el; }}
-                className={`mb-4 ${msg.role === 'user' ? 'flex justify-end' : ''}`}
+                className={`mb-4 group ${msg.role === 'user' ? 'flex justify-end' : ''}`}
               >
                 <div
                   className={`rounded-2xl px-4 py-3 max-w-[85%] transition-colors ${
@@ -1039,9 +1058,24 @@ export function ChatView() {
 
       {/* Image generation indicator */}
       {isGeneratingImage && (
-        <div className="px-4 py-2 bg-purple-900/20 border-t border-purple-800/30 flex items-center gap-2">
-          <Image size={13} className="text-purple-400 animate-pulse" />
-          <span className="text-xs text-purple-300">이미지 생성 중 (최대 30초)...</span>
+        <div className="px-4 py-3 bg-purple-900/20 border-t border-purple-800/30 flex items-center gap-3">
+          <div className="relative">
+            <Image size={16} className="text-purple-400" />
+            <span className="absolute inset-0 animate-ping rounded-full bg-purple-400/30" />
+          </div>
+          <div>
+            <p className="text-sm text-purple-300 font-medium">이미지 생성 중...</p>
+            <p className="text-xs text-purple-500">DALL-E 3 처리 중 (최대 30초)</p>
+          </div>
+          <div className="ml-auto flex gap-1">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="w-1 h-6 bg-purple-500 rounded-full animate-pulse"
+                style={{ animationDelay: `${i * 100}ms`, opacity: 0.4 + i * 0.12 }}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -1131,27 +1165,50 @@ export function ChatView() {
             )}
 
             {showModelDropdown && (
-              <div className="absolute bottom-8 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-72 max-h-80 overflow-y-auto">
-                {enabledModels.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => {
-                      setSelectedModel(m.id);
-                      setShowModelDropdown(false);
-                    }}
-                    className={`w-full text-left px-3 py-2.5 hover:bg-gray-700 transition-colors ${
-                      m.id === selectedModel ? 'bg-gray-700' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-medium ${m.id === selectedModel ? 'text-blue-400' : 'text-gray-200'}`}>{m.name}</span>
-                      <span className="text-xs text-gray-500 ml-2 shrink-0">${m.inputPrice}/{m.outputPrice}</span>
+              <div className="absolute bottom-8 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-80 max-h-96 overflow-y-auto">
+                {(['openai', 'anthropic', 'google', 'custom'] as const).map((provider) => {
+                  const providerModels = enabledModels.filter((m) => m.provider === provider);
+                  if (providerModels.length === 0) return null;
+                  const providerLabel: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', custom: 'Custom' };
+                  const providerColor: Record<string, string> = { openai: 'text-green-400', anthropic: 'text-orange-400', google: 'text-blue-400', custom: 'text-gray-400' };
+                  return (
+                    <div key={provider}>
+                      <div className={`px-3 py-1.5 text-xs font-semibold ${providerColor[provider]} bg-gray-900/50 border-b border-gray-700 uppercase tracking-wider`}>
+                        {providerLabel[provider]}
+                      </div>
+                      {providerModels.map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => { setSelectedModel(m.id); setShowModelDropdown(false); }}
+                          className={`w-full text-left px-3 py-2.5 hover:bg-gray-700 transition-colors flex items-start gap-2 ${
+                            m.id === selectedModel ? 'bg-gray-700/80' : ''
+                          }`}
+                        >
+                          <Check size={14} className={`mt-0.5 shrink-0 ${m.id === selectedModel ? 'text-blue-400' : 'opacity-0'}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-sm font-medium ${m.id === selectedModel ? 'text-blue-400' : 'text-gray-200'}`}>{m.name}</span>
+                              {m.features.includes('vision') && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0 rounded bg-emerald-900/60 text-emerald-400 border border-emerald-800/50">
+                                  <Eye size={9} />V
+                                </span>
+                              )}
+                              {m.features.includes('thinking') && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0 rounded bg-violet-900/60 text-violet-400 border border-violet-800/50">
+                                  <Brain size={9} />T
+                                </span>
+                              )}
+                              <span className="text-xs text-gray-500 ml-auto shrink-0">${m.inputPrice}/{m.outputPrice}</span>
+                            </div>
+                            {m.description && (
+                              <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                    {m.description && (
-                      <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
-                    )}
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1217,8 +1274,9 @@ export function ChatView() {
               style={{ minHeight: '36px' }}
             />
             {isStreaming ? (
-              <button onClick={handleStop} className="p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white touch-target flex items-center justify-center">
-                <Square size={18} />
+              <button onClick={handleStop} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white touch-target flex items-center gap-1.5 font-medium text-sm shadow-lg shadow-red-900/40">
+                <Square size={16} fill="currentColor" />
+                <span className="hidden sm:inline">중지</span>
               </button>
             ) : (
               <button

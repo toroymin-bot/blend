@@ -141,6 +141,19 @@ function WebDAVForm({ onAdd }: { onAdd: (cfg: WebDAVConfig, name: string) => voi
   );
 }
 
+// ── Relative time helper ─────────────────────────────────────────────────────
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return '방금 전';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  const d = Math.floor(h / 24);
+  return `${d}일 전`;
+}
+
 // ── Main View ─────────────────────────────────────────────────────────────────
 
 export function DataSourceView() {
@@ -150,6 +163,7 @@ export function DataSourceView() {
   const [addMode, setAddMode] = useState<AddMode>(null);
   const [syncProgress, setSyncProgress] = useState<Record<string, IndexProgress>>({});
   const [syncing, setSyncing] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => { loadFromStorage(); }, []);
 
@@ -194,6 +208,8 @@ export function DataSourceView() {
       });
       // Reload document store so new docs appear in RAG
       await loadFromDB();
+      setToast(`${source.name} 동기화 완료 — ${indexed}개 파일 인덱싱됨`);
+      setTimeout(() => setToast(null), 3000);
     } catch (e: unknown) {
       setStatus(source.id, 'error', (e as Error).message);
     } finally {
@@ -216,7 +232,14 @@ export function DataSourceView() {
   ];
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-900 p-6">
+    <div className="h-full overflow-y-auto bg-gray-900 p-6 relative">
+      {/* Sync complete toast */}
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 bg-green-800 border border-green-600 rounded-full text-sm text-green-100 shadow-xl flex items-center gap-2">
+          <Check size={14} className="text-green-300" />
+          {toast}
+        </div>
+      )}
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-6">
@@ -280,7 +303,12 @@ export function DataSourceView() {
               const isSyncing = syncing.has(src.id);
 
               return (
-                <div key={src.id} className="bg-gray-800 border border-gray-700 rounded-xl p-4">
+                <div key={src.id} className={`bg-gray-800 rounded-xl p-4 border ${
+                  src.status === 'connected' ? 'border-green-700/50' :
+                  src.status === 'error' ? 'border-red-700/50' :
+                  src.status === 'syncing' ? 'border-blue-700/50' :
+                  'border-gray-700'
+                }`}>
                   <div className="flex items-start gap-3">
                     <SourceIcon type={src.type} />
                     <div className="flex-1 min-w-0">
@@ -294,8 +322,8 @@ export function DataSourceView() {
 
                       {/* Stats */}
                       <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                        {src.indexedCount != null && <span>{src.indexedCount}개 파일 인덱싱됨</span>}
-                        {src.lastSync && <span>마지막 동기화: {new Date(src.lastSync).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+                        {src.indexedCount != null && <span>{src.indexedCount}개 파일</span>}
+                        {src.lastSync && <span>동기화 {relativeTime(src.lastSync)}</span>}
                         {src.error && <span className="text-red-400">{src.error}</span>}
                       </div>
 

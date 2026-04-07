@@ -117,18 +117,26 @@ async function embedTextsGoogle(texts: string[], apiKey: string): Promise<number
 export async function generateEmbeddings(
   doc: ParsedDocument,
   apiKey: string,
-  provider: 'openai' | 'google'
+  provider: 'openai' | 'google',
+  onProgress?: (percent: number) => void
 ): Promise<ParsedDocument> {
   const texts = doc.chunks.map((c) => c.text);
-  const vectors =
-    provider === 'openai'
-      ? await embedTextsOpenAI(texts, apiKey)
-      : await embedTextsGoogle(texts, apiKey);
+  const total = texts.length;
+  const result: number[][] = [];
+
+  const batchFn = provider === 'openai' ? embedTextsOpenAI : embedTextsGoogle;
+
+  for (let i = 0; i < texts.length; i += 100) {
+    const batch = texts.slice(i, i + 100);
+    const vectors = await batchFn(batch, apiKey);
+    result.push(...vectors);
+    if (onProgress) onProgress(Math.round(((i + batch.length) / total) * 100));
+  }
 
   return {
     ...doc,
     embeddingModel: provider,
-    chunks: doc.chunks.map((chunk, i) => ({ ...chunk, embedding: vectors[i] })),
+    chunks: doc.chunks.map((chunk, i) => ({ ...chunk, embedding: result[i] })),
   };
 }
 
