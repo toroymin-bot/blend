@@ -12,6 +12,7 @@ import { ModelCompareView } from '@/modules/models/model-compare-view';
 import { PluginsView } from '@/modules/plugins/plugins-view';
 import { DocumentPluginView } from '@/modules/plugins/document-plugin-view';
 import { DataSourceView } from '@/modules/datasources/datasource-view';
+import { MeetingView } from '@/modules/meeting/meeting-view';
 import { WelcomeView } from '@/modules/ui/welcome-view';
 import { useKeyboardShortcuts, ShortcutHelpModal } from '@/modules/ui/keyboard-shortcuts';
 import { useAPIKeyStore } from '@/stores/api-key-store';
@@ -108,6 +109,7 @@ export default function Home() {
   const renderContent = () => {
     switch (activeTab) {
       case 'chat': return <ChatView />;
+      case 'meeting': return <MeetingView />;
       case 'models': return <ModelsView />;
       case 'settings': return <SettingsView />;
       case 'agents': return <AgentsView onStartChat={() => handleTabChange('chat')} />;

@@ -150,3 +150,37 @@ export interface DataSource {
   lastSync?: number;
   error?: string;
 }
+
+// ── Meeting Analysis ──────────────────────────────────────────────────────────
+
+export interface TranscriptSegment {
+  speaker: string;      // "화자 1", "화자 2", ...
+  text: string;
+  startTime?: number;   // 초 단위
+  endTime?: number;
+}
+
+export interface ActionItem {
+  task: string;
+  owner?: string;       // 담당자 (화자 이름)
+  deadline?: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface MeetingAnalysis {
+  id: string;
+  title: string;
+  source: 'file' | 'youtube';
+  sourceUrl?: string;
+  createdAt: number;
+  rawTranscript: string;
+  segments: TranscriptSegment[];
+  topics: string[];
+  actionItems: ActionItem[];
+  decisions: string[];
+  summary: {
+    oneLiner: string;
+    bullets: string[];
+    full: string;
+  };
+}
