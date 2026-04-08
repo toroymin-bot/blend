@@ -197,9 +197,9 @@ export function MeetingView() {
   };
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Meeting list sidebar */}
-      <div className="w-56 flex-shrink-0 bg-surface-2 border-r border-border-token flex flex-col">
+    <div className="flex flex-col md:flex-row h-full overflow-hidden">
+      {/* Meeting list sidebar — desktop only */}
+      <div className="hidden md:flex md:w-56 flex-shrink-0 bg-surface-2 border-r border-border-token flex-col">
         <div className="p-3 border-b border-border-token">
           <h2 className="text-sm font-semibold text-on-surface flex items-center gap-2">
             <Mic size={14} />
