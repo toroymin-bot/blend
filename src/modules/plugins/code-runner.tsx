@@ -26,6 +26,7 @@ export function CodeRunner({ code, language }: CodeRunnerProps) {
     setShowOutput(true);
 
     const logs: string[] = [];
+    let completed = false;
 
     const sandboxHTML = `<!DOCTYPE html>
 <html>
@@ -64,6 +65,7 @@ export function CodeRunner({ code, language }: CodeRunnerProps) {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'done' || event.data?.type === 'error') {
         window.removeEventListener('message', handleMessage);
+        completed = true;
         setResult({
           logs: event.data.logs || [],
           error: event.data.error,
@@ -74,10 +76,10 @@ export function CodeRunner({ code, language }: CodeRunnerProps) {
 
     window.addEventListener('message', handleMessage);
 
-    // Safety timeout
+    // Safety timeout — use local `completed` flag instead of stale `isRunning` state closure
     setTimeout(() => {
       window.removeEventListener('message', handleMessage);
-      if (isRunning) {
+      if (!completed) {
         setResult({ logs, error: '실행 시간 초과 (5초)' });
         setIsRunning(false);
       }
