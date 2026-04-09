@@ -75,7 +75,8 @@ function BarChartSVG({ labels, values, title }: ChartData) {
 
 function LineChartSVG({ labels, values, title }: ChartData) {
   const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
+  // Use actual data min so positive-only datasets don't waste space with a forced 0 baseline
+  const min = Math.min(...values);
   const range = max - min || 1;
   const w = 400;
   const h = 200;

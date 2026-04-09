@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   whisperForm.append('file', file);
   whisperForm.append('model', 'whisper-1');
   whisperForm.append('response_format', 'verbose_json');
-  whisperForm.append('language', 'ko');
+  // No language specified — let Whisper auto-detect (supports Korean, English, and others)
 
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',

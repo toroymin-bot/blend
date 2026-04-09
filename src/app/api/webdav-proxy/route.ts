@@ -32,6 +32,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid URL scheme' }, { status: 400 });
     }
 
+    // Block SSRF: disallow localhost and private IP ranges
+    const hostname = targetUrl.hostname.toLowerCase();
+    const isPrivate =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+      /^169\.254\./.test(hostname);
+    if (isPrivate) {
+      return NextResponse.json({ error: 'Access to private/internal addresses is not allowed' }, { status: 400 });
+    }
+
     const headers: Record<string, string> = {
       Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
     };

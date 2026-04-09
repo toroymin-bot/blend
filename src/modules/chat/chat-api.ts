@@ -297,32 +297,47 @@ async function handleGoogle(
 
   if (stream && res.body) {
     let fullText = '';
+    let usage: { input: number; output: number } | undefined;
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
+    let lineBuffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n').filter((l) => l.startsWith('data: '));
+      lineBuffer += decoder.decode(value, { stream: true });
+      const parts = lineBuffer.split('\n');
+      lineBuffer = parts.pop() ?? '';
 
-      for (const line of lines) {
+      for (const line of parts) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
         try {
-          const json = JSON.parse(line.slice(6));
+          const json = JSON.parse(trimmed.slice(6));
           const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) {
             fullText += text;
             onChunk?.(text);
           }
+          // Collect usage from each chunk (last one wins)
+          if (json.usageMetadata) {
+            usage = {
+              input: json.usageMetadata.promptTokenCount ?? 0,
+              output: json.usageMetadata.candidatesTokenCount ?? 0,
+            };
+          }
         } catch {}
       }
     }
-    onDone?.(fullText);
+    onDone?.(fullText, usage);
   } else {
     const json = await res.json();
     const content = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    onDone?.(content);
+    const usage = json.usageMetadata
+      ? { input: json.usageMetadata.promptTokenCount ?? 0, output: json.usageMetadata.candidatesTokenCount ?? 0 }
+      : undefined;
+    onDone?.(content, usage);
   }
 }
 
