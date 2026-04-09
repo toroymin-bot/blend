@@ -247,11 +247,11 @@ export function DataSourceView() {
             <HardDrive size={24} /> 데이터 소스 (기업용)
           </h1>
           <p className="text-sm text-gray-400 mt-1">
-            로컬 드라이브·USB·Google Drive·OneDrive·NAS를 RAG 소스로 연결하세요
+            내 파일·드라이브·클라우드를 연결하면 AI가 내 자료를 참고해 답해줘요
           </p>
           {!embeddingKey && (
             <p className="text-xs text-yellow-500 mt-1">
-              ⚠ 임베딩 API 키 없음 — 키워드 검색만 사용됩니다 (설정에서 OpenAI 또는 Google 키 입력)
+              ⚠ AI 검색 키가 없어요 — 지금은 단어 검색만 돼요 (설정에서 OpenAI 또는 Google 키를 넣으면 똑똑해져요)
             </p>
           )}
         </div>
@@ -296,7 +296,7 @@ export function DataSourceView() {
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-gray-500 mb-2">
-              인덱싱된 파일은 모든 채팅의 RAG 검색에 자동으로 포함됩니다
+              연결된 파일은 모든 대화에서 AI가 자동으로 참고해요
             </p>
             {sources.map((src) => {
               const progress = syncProgress[src.id];
@@ -387,13 +387,13 @@ export function DataSourceView() {
 
         {/* Info box */}
         <div className="mt-8 bg-gray-800/50 rounded-xl p-4 border border-dashed border-gray-700 text-xs text-gray-500 space-y-1">
-          <p className="font-medium text-gray-400 mb-2">동작 방식</p>
-          <p>• 소스 추가 → 지원 파일(xlsx, csv, txt, md, pdf) 자동 스캔</p>
-          <p>• 파싱 → 청크 분할 → 임베딩 벡터 생성 → IndexedDB 영구 저장</p>
-          <p>• 채팅 질문 시 모든 소스에서 시맨틱/키워드 검색 자동 적용</p>
-          <p>• <span className="text-blue-400">로컬 드라이브</span>: 페이지 새로고침 후 폴더 재연결 필요 (브라우저 보안 정책)</p>
-          <p>• <span className="text-blue-400">클라우드</span>: 토큰 만료(1시간) 시 재연결 필요</p>
-          <p className="text-gray-600 mt-2">* 파일 내용은 로컬 IndexedDB에만 저장됩니다. 서버 전송 없음.</p>
+          <p className="font-medium text-gray-400 mb-2">이렇게 동작해요</p>
+          <p>• 파일을 연결하면 엑셀·CSV·텍스트·PDF 등을 자동으로 읽어요</p>
+          <p>• 읽은 내용을 AI가 빠르게 찾을 수 있게 내 브라우저 안에 저장해요</p>
+          <p>• 채팅에서 질문하면 연결된 파일에서 관련 내용을 자동으로 찾아줘요</p>
+          <p>• <span className="text-blue-400">내 컴퓨터 폴더</span>: 페이지를 새로고침하면 폴더를 다시 선택해야 해요 (브라우저 보안 규칙)</p>
+          <p>• <span className="text-blue-400">클라우드(구글 드라이브 등)</span>: 1시간 후 자동 로그아웃되면 다시 연결해야 해요</p>
+          <p className="text-gray-600 mt-2">* 내 파일 내용은 내 브라우저에만 저장돼요. 서버로 보내지 않아요.</p>
         </div>
       </div>
     </div>

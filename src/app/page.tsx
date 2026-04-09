@@ -23,7 +23,7 @@ import { useChatStore } from '@/stores/chat-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { usePluginStore } from '@/stores/plugin-store';
 import { useDocumentStore } from '@/stores/document-store';
-import { Menu } from 'lucide-react';
+import { Menu, ChevronRight } from 'lucide-react';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('chat');
@@ -152,7 +152,7 @@ export default function Home() {
         >
           <Menu size={20} />
         </button>
-        <span className="text-sm font-medium text-on-surface">Blend</span>
+        <span className="text-xl font-bold text-on-surface">Blend</span>
       </div>
 
       {/* Mobile overlay */}
@@ -168,6 +168,7 @@ export default function Home() {
         fixed md:relative z-50 h-full
         transition-transform duration-200
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        ${!mobileOpen ? 'pointer-events-none md:pointer-events-auto' : ''}
       `}>
         <Sidebar
           activeTab={activeTab}
@@ -185,6 +186,20 @@ export default function Home() {
 
       {/* Shortcut help modal */}
       {showShortcutHelp && <ShortcutHelpModal onClose={() => setShowShortcutHelp(false)} />}
+
+      {/* Global left-edge ">" button — visible on any screen when sidebar is closed */}
+      {!mobileOpen && (
+        <button
+          onClick={() => {
+            setMobileOpen(true);
+            window.dispatchEvent(new Event('blend:open-nav'));
+          }}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-30 w-3 h-24 bg-gray-600 hover:bg-gray-400 text-white rounded-r-full flex items-center justify-center transition-colors md:hidden"
+          title="메뉴 열기"
+        >
+          <ChevronRight size={10} />
+        </button>
+      )}
     </div>
   );
 }

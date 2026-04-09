@@ -72,6 +72,7 @@ export function ChatView() {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const tokenHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -79,6 +80,18 @@ export function ChatView() {
   useEffect(() => {
     loadPlugins();
   }, []);
+
+  // Close model dropdown when clicking outside
+  useEffect(() => {
+    if (!showModelDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setShowModelDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showModelDropdown]);
 
   const handleCopyMessage = async (msgId: string, content: string) => {
     await navigator.clipboard.writeText(content);
@@ -773,37 +786,26 @@ export function ChatView() {
         }}
       >
         {!chat || chat.messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full px-4">
-            <div className="text-center w-full max-w-md">
-              <h1 className="text-4xl font-bold mb-2">
-                <span className="text-on-surface">Blend</span>
+          <div className="flex items-center justify-center h-full px-6">
+            <div className="text-center w-full max-w-lg">
+              {/* Logo mark */}
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white mx-auto mb-6 shadow-lg shadow-blue-500/20">
+                B
+              </div>
+              {/* Motto */}
+              <h1 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-3">
+                세상의 모든 AI를<br className="sm:hidden" /> 하나의 앱에서
               </h1>
-              <p className="text-on-surface-muted mb-6">AI와 대화를 시작하세요</p>
+              <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                대화 · 이미지 생성 · 회사 파일 검색까지
+              </p>
+              {/* Active agent badge */}
               {getActiveAgent() && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900/30 rounded-lg text-sm text-blue-300 mb-6">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900/30 rounded-lg text-sm text-blue-300 mt-6">
                   <span className="text-lg">{getActiveAgent()?.icon}</span>
                   <span>에이전트: {getActiveAgent()?.name}</span>
                 </div>
               )}
-              {/* Suggested prompts */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {[
-                  { label: '코드 리뷰해줘', sub: '내 코드의 문제점과 개선 방법' },
-                  { label: '번역해줘', sub: '한국어 ↔ 영어 번역' },
-                  { label: '요약해줘', sub: '긴 텍스트를 핵심만 정리' },
-                  { label: '이메일 작성해줘', sub: '목적에 맞는 이메일 초안' },
-                  { label: '아이디어 떠올려줘', sub: '창의적인 아이디어 브레인스토밍' },
-                ].map((p) => (
-                  <button
-                    key={p.label}
-                    onClick={() => { setInput(p.label); setTimeout(() => inputRef.current?.focus(), 50); }}
-                    className="text-left px-4 py-3 rounded-xl border border-border-token bg-surface-2 hover:bg-gray-700 transition-colors"
-                  >
-                    <p className="text-sm font-medium text-on-surface">{p.label}</p>
-                    <p className="text-xs text-on-surface-muted mt-0.5">{p.sub}</p>
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
         ) : (
@@ -1087,7 +1089,7 @@ export function ChatView() {
       <div className="border-t border-border-token p-4 pb-4 mobile-input-area" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
         <div className="max-w-3xl mx-auto">
           {/* Model selector */}
-          <div className="flex items-center gap-2 mb-2 relative">
+          <div ref={modelDropdownRef} className="flex items-center gap-2 mb-2 relative">
             <button
               onClick={() => setShowModelDropdown(!showModelDropdown)}
               className="flex items-center gap-1 px-3 py-1 rounded-lg bg-gray-800 text-sm text-gray-300 hover:bg-gray-700"
@@ -1262,17 +1264,7 @@ export function ChatView() {
                 e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
               }}
               onKeyDown={handleKeyDown}
-              placeholder={
-                isInstalled('image-gen') && isInstalled('web-search')
-                  ? '메시지, URL, ?검색어, /image 프롬프트... (Shift+Enter로 줄바꿈)'
-                  : isInstalled('image-gen')
-                  ? '메시지 또는 /image 프롬프트를 입력하세요... (Shift+Enter로 줄바꿈)'
-                  : isInstalled('web-search')
-                  ? '메시지 또는 ?검색어, !search 검색어... (Shift+Enter로 줄바꿈)'
-                  : isInstalled('url-reader')
-                  ? '메시지 또는 URL을 입력하세요... (Shift+Enter로 줄바꿈)'
-                  : '메시지를 입력하세요... (Shift+Enter로 줄바꿈)'
-              }
+              placeholder="메시지를 입력하세요..."
               rows={1}
               className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 outline-none resize-none max-h-40 px-2 py-1"
               style={{ minHeight: '36px' }}

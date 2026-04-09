@@ -42,9 +42,14 @@ export function ModelsView() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="font-medium text-white">{model.name}</span>
-                        {selectedModel === model.id && (
-                          <span className="ml-2 text-xs text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">기본</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-white">{model.name}</span>
+                          {selectedModel === model.id && (
+                            <span className="text-xs text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">기본</span>
+                          )}
+                        </div>
+                        {model.description && (
+                          <p className="text-xs text-gray-400 mt-0.5">{model.description}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-gray-500">

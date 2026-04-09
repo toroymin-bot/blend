@@ -30,14 +30,25 @@ export function ModelCompareView() {
   const [isRunning, setIsRunning] = useState(false);
   const abortRefs = useRef<Map<string, AbortController>>(new Map());
 
-  const availableModels = DEFAULT_MODELS.filter((m) => m.enabled && hasKey(m.provider));
+  const availableModels = DEFAULT_MODELS.filter((m) => m.enabled);
 
-  const MAX_COMPARE_MODELS = 3;
+  const MAX_COMPARE_MODELS = 4;
+
+  const activeSelectedCount = selectedModels.filter((id) => {
+    const m = availableModels.find((m) => m.id === id);
+    return m && hasKey(m.provider);
+  }).length;
 
   const toggleModel = (modelId: string) => {
+    const model = availableModels.find((m) => m.id === modelId);
+    if (!model || !hasKey(model.provider)) return;
     setSelectedModels((prev) => {
       if (prev.includes(modelId)) return prev.filter((id) => id !== modelId);
-      if (prev.length >= MAX_COMPARE_MODELS) return prev; // cap at 3
+      const activeCount = prev.filter((id) => {
+        const m = availableModels.find((m) => m.id === id);
+        return m && hasKey(m.provider);
+      }).length;
+      if (activeCount >= MAX_COMPARE_MODELS) return prev;
       return [...prev, modelId];
     });
   };
@@ -46,7 +57,12 @@ export function ModelCompareView() {
     if (!prompt.trim() || selectedModels.length === 0) return;
     setIsRunning(true);
 
-    const initialResults: ModelResult[] = selectedModels.map((modelId) => ({
+    const modelsToRun = selectedModels.filter((id) => {
+      const m = getModelById(id);
+      return m && hasKey(m.provider);
+    });
+
+    const initialResults: ModelResult[] = modelsToRun.map((modelId) => ({
       modelId,
       modelName: getModelById(modelId)?.name || modelId,
       content: '',
@@ -55,7 +71,7 @@ export function ModelCompareView() {
     }));
     setResults(initialResults);
 
-    const promises = selectedModels.map(async (modelId) => {
+    const promises = modelsToRun.map(async (modelId) => {
       const model = getModelById(modelId);
       if (!model) return;
 
@@ -130,28 +146,33 @@ export function ModelCompareView() {
         <div className="flex flex-wrap gap-2 mb-4">
           {availableModels.map((m) => {
             const isSelected = selectedModels.includes(m.id);
-            const isDisabled = !isSelected && selectedModels.length >= MAX_COMPARE_MODELS;
+            const noKey = !hasKey(m.provider);
+            const isDisabled = noKey || (!isSelected && activeSelectedCount >= MAX_COMPARE_MODELS);
             return (
               <button
                 key={m.id}
                 onClick={() => toggleModel(m.id)}
                 disabled={isDisabled}
-                title={isDisabled ? `최대 ${MAX_COMPARE_MODELS}개까지 선택 가능` : undefined}
-                className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                title={noKey ? `${m.provider} API 키가 없어요 (설정에서 추가)` : isDisabled ? `최대 ${MAX_COMPARE_MODELS}개까지 선택 가능` : undefined}
+                className={`px-3 py-1.5 rounded-lg text-xs transition-colors text-left ${
                   isSelected
                     ? 'bg-blue-600 text-white'
+                    : noKey
+                    ? 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
                     : isDisabled
                     ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                 }`}
               >
-                {m.name}
+                <span className={noKey ? 'line-through' : ''}>{m.name}</span>
+                {m.description && (
+                  <span className={`block text-[10px] mt-0.5 ${isSelected ? 'text-blue-200' : noKey ? 'text-gray-700' : 'text-gray-500'}`}>
+                    {m.description}
+                  </span>
+                )}
               </button>
             );
           })}
-          {availableModels.length === 0 && (
-            <p className="text-sm text-gray-500">설정에서 API 키를 먼저 입력해주세요</p>
-          )}
         </div>
 
         {/* Prompt input */}
@@ -250,7 +271,7 @@ export function ModelCompareView() {
 
         {/* Results grid */}
         {results.length > 0 && (
-          <div className={`grid gap-4 ${results.length === 1 ? 'grid-cols-1' : results.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <div className={`grid gap-4 ${results.length === 1 ? 'grid-cols-1' : results.length === 2 ? 'grid-cols-2' : results.length === 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
             {results.map((result) => (
               <div key={result.modelId} className="bg-gray-800 rounded-xl p-4 flex flex-col">
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-700">

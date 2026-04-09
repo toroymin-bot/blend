@@ -4,7 +4,7 @@ import { useChatStore } from '@/stores/chat-store';
 import { useAgentStore } from '@/stores/agent-store';
 import { downloadChat } from '@/modules/chat/export-chat';
 import { ChatTags } from '@/modules/chat/chat-tags';
-import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, FileText, HardDrive, Mic } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, FileText, HardDrive, Mic } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 
 // Mobile bottom tab bar — 3 primary tabs
@@ -57,6 +57,8 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
   const { activeAgentId, getActiveAgent } = useAgentStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsed, setCollapsed] = useState(false);
+  const [navExpanded, setNavExpanded] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [folderPopoverChatId, setFolderPopoverChatId] = useState<string | null>(null);
@@ -74,6 +76,25 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     window.addEventListener('blend:focus-sidebar-search', handler);
     return () => window.removeEventListener('blend:focus-sidebar-search', handler);
   }, []);
+
+  // Global nav open event (from left-edge ">" button in page.tsx)
+  useEffect(() => {
+    const handler = () => setNavExpanded(true);
+    window.addEventListener('blend:open-nav', handler);
+    return () => window.removeEventListener('blend:open-nav', handler);
+  }, []);
+
+  // Close drawer when clicking outside sidebar
+  useEffect(() => {
+    if (!navExpanded) return;
+    const handler = (e: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setNavExpanded(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [navExpanded]);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | null>(null);
 
@@ -124,70 +145,101 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
   const activeAgent = getActiveAgent();
 
   const tabs = [
-    { id: 'chat', icon: MessageSquare, label: '채팅' },
-    { id: 'meeting', icon: Mic, label: '회의 분석' },
-    { id: 'agents', icon: Bot, label: '에이전트' },
-    { id: 'prompts', icon: BookText, label: '프롬프트' },
-    { id: 'documents', icon: FileText, label: '문서 RAG' },
-    { id: 'datasources', icon: HardDrive, label: '데이터 소스' },
-    { id: 'plugins', icon: Puzzle, label: '플러그인' },
-    { id: 'models', icon: Cpu, label: '모델' },
-    { id: 'compare', icon: GitCompareArrows, label: '모델 비교' },
-    { id: 'dashboard', icon: BarChart3, label: '비용 분석' },
-    { id: 'settings', icon: Settings, label: '설정' },
+    { id: 'chat', icon: MessageSquare, label: '채팅', desc: 'AI와 대화하기' },
+    { id: 'meeting', icon: Mic, label: '회의 분석', desc: '녹음·유튜브 내용 정리' },
+    { id: 'agents', icon: Bot, label: '에이전트', desc: '특정 역할의 AI 만들기' },
+    { id: 'prompts', icon: BookText, label: '프롬프트', desc: '자주 쓰는 명령어 저장' },
+    { id: 'documents', icon: FileText, label: '문서 RAG', desc: '내 문서로 AI에게 질문' },
+    { id: 'datasources', icon: HardDrive, label: '데이터 소스', desc: 'AI가 참고할 정보 연결' },
+    { id: 'plugins', icon: Puzzle, label: '플러그인', desc: 'AI 기능 추가하기' },
+    { id: 'models', icon: Cpu, label: '모델', desc: 'AI 종류 선택하기' },
+    { id: 'compare', icon: GitCompareArrows, label: '모델 비교', desc: '여러 AI 나란히 비교' },
+    { id: 'dashboard', icon: BarChart3, label: '비용 분석', desc: 'AI 사용 비용 확인' },
+    { id: 'settings', icon: Settings, label: '설정', desc: '앱 설정 변경' },
   ];
 
   return (
-    <div className="flex h-full">
-      {/* Icon bar */}
-      <div className="w-14 bg-surface flex flex-col items-center py-3 gap-1 border-r border-border-token">
-        <button
-          onClick={() => {
-            createChat();
-            onTabChange('chat');
-          }}
-          className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white mb-2"
-          title="새 채팅 (⌘N)"
-        >
-          <Plus size={20} />
-        </button>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => {
-              if (activeTab === tab.id && tab.id === 'chat') {
-                setCollapsed(!collapsed);
-              } else {
-                onTabChange(tab.id);
-                if (tab.id === 'chat') setCollapsed(false);
-              }
-            }}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-              activeTab === tab.id ? 'bg-surface-2 text-on-surface' : 'text-on-surface-muted hover:text-on-surface hover:bg-surface-2'
-            }`}
-            title={tab.label}
-          >
-            <tab.icon size={20} />
-          </button>
-        ))}
+    <div ref={sidebarRef} className="flex h-full relative">
+      {/* Unified nav — expands inline from w-14 to w-60 */}
+      <div className={`flex flex-col py-3 gap-1 relative flex-shrink-0 transition-all duration-200 border-r ${
+        navExpanded
+          ? 'w-60 bg-gray-900 border-white/10'
+          : 'w-14 bg-surface border-border-token'
+      }`}>
 
-        {/* Spacer */}
-        <div className="flex-1" />
+        {/* Scrollable tabs with bottom gradient fade */}
+        <div className="relative flex-1 min-h-0 w-full flex flex-col">
+          <div
+            className={`h-full overflow-y-auto flex flex-col pb-10 gap-0.5 ${navExpanded ? 'px-2' : 'items-center px-2'}`}
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setNavExpanded(false);
+                  if (activeTab === tab.id && tab.id === 'chat') {
+                    setCollapsed(!collapsed);
+                  } else {
+                    onTabChange(tab.id);
+                    if (tab.id === 'chat') setCollapsed(false);
+                  }
+                }}
+                className={`flex items-center gap-3 rounded-lg transition-colors flex-shrink-0 ${
+                  navExpanded
+                    ? `w-full px-3 py-2.5 text-left ${activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-white/10'}`
+                    : `w-10 h-10 justify-center ${activeTab === tab.id ? 'bg-surface-2 text-on-surface' : 'text-on-surface-muted hover:text-on-surface hover:bg-surface-2'}`
+                }`}
+                title={!navExpanded ? tab.label : undefined}
+              >
+                <tab.icon size={20} className="flex-shrink-0" />
+                {navExpanded && (
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium leading-tight truncate">{tab.label}</div>
+                    <div className={`text-xs leading-tight truncate mt-0.5 ${activeTab === tab.id ? 'text-blue-200' : 'text-gray-500'}`}>{tab.desc}</div>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+          {/* Bottom gradient fade */}
+          <div className={`absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t to-transparent pointer-events-none ${
+            navExpanded ? 'from-gray-900 via-gray-900/80' : 'from-surface via-surface/80'
+          }`} />
+        </div>
 
         {/* Active agent indicator */}
         {activeAgent && (
-          <div className="w-10 h-10 rounded-lg bg-blue-900/50 flex items-center justify-center text-lg" title={`에이전트: ${activeAgent.name}`}>
-            {activeAgent.icon || '🤖'}
+          <div
+            className={`flex items-center rounded-lg bg-blue-900/50 flex-shrink-0 mx-2 ${navExpanded ? 'px-3 py-2 gap-3' : 'w-10 h-10 justify-center'}`}
+            title={`에이전트: ${activeAgent.name}`}
+          >
+            <span className="text-lg">{activeAgent.icon || '🤖'}</span>
+            {navExpanded && <span className="text-sm text-blue-300 truncate">{activeAgent.name}</span>}
           </div>
         )}
 
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="w-10 h-10 rounded-lg text-on-surface-muted hover:text-on-surface hover:bg-surface-2 flex items-center justify-center"
-          title={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
+          className={`flex items-center gap-3 rounded-lg text-on-surface-muted hover:text-on-surface hover:bg-surface-2 flex-shrink-0 mx-2 transition-colors ${
+            navExpanded ? 'px-3 py-2' : 'w-10 h-10 justify-center'
+          }`}
+          title={collapsed ? '목록 펼치기' : '목록 접기'}
         >
           {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+          {navExpanded && <span className="text-sm">{collapsed ? '목록 펼치기' : '목록 접기'}</span>}
+        </button>
+
+        {/* Toggle button on right edge:
+            - expanded OR mobileOpen: always visible so user can toggle
+            - collapsed + sidebar closed on mobile: hidden (avoids leaking outside off-screen sidebar) */}
+        <button
+          onClick={() => setNavExpanded(!navExpanded)}
+          className={`${navExpanded || mobileOpen ? 'flex' : 'hidden md:flex'} absolute right-0 top-1/2 -translate-y-1/2 translate-x-full w-3 h-24 bg-gray-600 hover:bg-gray-400 items-center justify-center text-white z-10 transition-colors rounded-r-full`}
+          title={navExpanded ? '메뉴 접기' : '메뉴 보기'}
+        >
+          {navExpanded ? <ChevronLeft size={10} /> : <ChevronRight size={10} />}
         </button>
       </div>
 
@@ -195,15 +247,24 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
       {activeTab === 'chat' && !collapsed && (
         <div className="w-60 bg-surface-2 border-r border-border-token flex flex-col">
           <div className="p-3 border-b border-border-token space-y-2">
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Escape') { setSearchQuery(''); searchInputRef.current?.blur(); } }}
-              placeholder="대화 검색... (⌘K)"
-              className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
-            />
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => { createChat(); onTabChange('chat'); }}
+                className="flex-shrink-0 w-7 h-7 rounded-md bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white"
+                title="새 채팅 (⌘N)"
+              >
+                <Plus size={14} />
+              </button>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') { setSearchQuery(''); searchInputRef.current?.blur(); } }}
+                placeholder="대화 검색..."
+                className="flex-1 min-w-0 px-2.5 py-1.5 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
             {/* Date filter buttons */}
             <div className="flex gap-1">
               {([

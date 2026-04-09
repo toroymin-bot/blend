@@ -17,7 +17,7 @@ const AVAILABLE_PLUGINS: PluginItem[] = [
   {
     id: 'web-search',
     name: '웹 검색',
-    description: 'Brave Search로 최신 정보를 검색합니다. "!search 검색어" 또는 "?검색어" 패턴 사용',
+    description: '구글처럼 최신 뉴스와 정보를 검색해줘요. 채팅에서 "?검색어"로 쓰면 돼요',
     icon: <Search size={20} />,
     category: '검색',
     comingSoon: false,
@@ -25,7 +25,7 @@ const AVAILABLE_PLUGINS: PluginItem[] = [
   {
     id: 'image-gen',
     name: '이미지 생성',
-    description: 'DALL-E 3로 이미지를 생성합니다. "/image 프롬프트" 패턴 사용 (OpenAI 키 필요)',
+    description: '말로 설명하면 그림을 그려줘요. "/image 그림 설명"으로 써요 (OpenAI 키 필요)',
     icon: <Image size={20} />,
     category: '이미지',
     comingSoon: false,
@@ -33,7 +33,7 @@ const AVAILABLE_PLUGINS: PluginItem[] = [
   {
     id: 'code-runner',
     name: '코드 실행',
-    description: 'JavaScript 코드를 안전한 샌드박스 환경에서 실행합니다',
+    description: 'AI가 만들어 준 코드를 바로 실행해서 결과를 보여줘요',
     icon: <Code size={20} />,
     category: '개발',
     comingSoon: false,
@@ -41,7 +41,7 @@ const AVAILABLE_PLUGINS: PluginItem[] = [
   {
     id: 'chart-render',
     name: '차트 생성',
-    description: 'AI 응답의 JSON 데이터를 자동으로 차트로 시각화합니다',
+    description: '숫자 데이터가 나오면 자동으로 그래프로 만들어줘요',
     icon: <BarChart3 size={20} />,
     category: '데이터',
     comingSoon: false,
@@ -49,7 +49,7 @@ const AVAILABLE_PLUGINS: PluginItem[] = [
   {
     id: 'url-reader',
     name: 'URL 읽기',
-    description: '채팅에서 URL을 입력하면 내용을 자동으로 가져와 AI 컨텍스트에 포함합니다',
+    description: '링크를 붙여넣으면 그 페이지 내용을 AI가 읽고 대답해줘요',
     icon: <Zap size={20} />,
     category: '생산성',
     comingSoon: false,
@@ -117,7 +117,7 @@ export function PluginsView() {
                     </div>
                     <div>
                       <h3 className="font-medium text-white text-sm">{plugin.name}</h3>
-                      <span className="text-xs text-gray-600">{plugin.category}</span>
+                      <span className="text-xs" style={{ color: '#adadb2' }}>{plugin.category}</span>
                     </div>
                   </div>
                   {plugin.comingSoon ? (

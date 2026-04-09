@@ -8,8 +8,35 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { AIProvider } from '@/types';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2, ExternalLink, Loader, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2, ExternalLink, Loader, AlertCircle, HelpCircle } from 'lucide-react';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
+
+const API_GUIDE_STEPS: Record<string, { emoji: string; title: string; desc: string }[]> = {
+  openai: [
+    { emoji: '🌐', title: '사이트 접속', desc: 'platform.openai.com 을 열어요' },
+    { emoji: '👤', title: '회원가입 / 로그인', desc: '이메일로 계정을 만들거나 로그인해요' },
+    { emoji: '💳', title: '카드 등록', desc: 'Billing → Add payment method 에서 신용카드를 등록해요 (카드 없으면 사용 불가)' },
+    { emoji: '🗂️', title: 'API keys 메뉴 클릭', desc: '왼쪽 메뉴에서 "API keys" 를 찾아요' },
+    { emoji: '➕', title: '새 키 만들기', desc: '"Create new secret key" 버튼을 눌러요' },
+    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'sk-... 로 시작하는 긴 문자를 복사해서 위 칸에 넣어요' },
+  ],
+  anthropic: [
+    { emoji: '🌐', title: '사이트 접속', desc: 'console.anthropic.com 을 열어요' },
+    { emoji: '👤', title: '회원가입 / 로그인', desc: '이메일로 계정을 만들거나 로그인해요' },
+    { emoji: '💳', title: '카드 등록', desc: 'Plans → Add credit card 에서 신용카드를 등록해요 (카드 없으면 사용 불가)' },
+    { emoji: '🗂️', title: 'API Keys 메뉴 클릭', desc: '왼쪽 메뉴에서 "API Keys" 를 찾아요' },
+    { emoji: '➕', title: '새 키 만들기', desc: '"Create Key" 버튼을 눌러요' },
+    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'sk-ant-... 로 시작하는 문자를 복사해서 위 칸에 넣어요' },
+  ],
+  google: [
+    { emoji: '🌐', title: '사이트 접속', desc: 'aistudio.google.com 을 열어요' },
+    { emoji: '👤', title: '구글 계정으로 로그인', desc: '구글 계정 (Gmail) 으로 바로 로그인해요' },
+    { emoji: '🔑', title: '"Get API key" 클릭', desc: '화면 왼쪽에서 "Get API key" 를 눌러요' },
+    { emoji: '➕', title: '새 키 만들기', desc: '"Create API key" 버튼을 눌러요' },
+    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'AIza... 로 시작하는 문자를 복사해서 위 칸에 넣어요' },
+    { emoji: '🎉', title: '무료로 바로 사용', desc: '카드 등록 없이도 무료 티어로 바로 사용할 수 있어요' },
+  ],
+};
 
 const PROVIDERS: {
   id: AIProvider;
@@ -57,6 +84,7 @@ export function SettingsView() {
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [testingKey, setTestingKey] = useState<Record<string, boolean>>({});
   const [testResult, setTestResult] = useState<Record<string, 'ok' | 'fail' | null>>({});
+  const [guideProvider, setGuideProvider] = useState<string | null>(null);
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [showAddModel, setShowAddModel] = useState(false);
@@ -119,7 +147,11 @@ export function SettingsView() {
         ok = res.ok;
       } else if (providerId === 'anthropic') {
         const res = await fetch('https://api.anthropic.com/v1/models', {
-          headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+          headers: {
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
         });
         ok = res.ok;
       } else if (providerId === 'google') {
@@ -142,8 +174,62 @@ export function SettingsView() {
     }
   };
 
+  const guideData = guideProvider ? API_GUIDE_STEPS[guideProvider] : null;
+  const guideProviderInfo = PROVIDERS.find((p) => p.id === guideProvider);
+
   return (
     <div className="h-full overflow-y-auto bg-surface p-6">
+      {/* API Key Guide Modal */}
+      {guideProvider && guideData && (
+        <>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60" onClick={() => setGuideProvider(null)} />
+            <div className="relative z-10 w-full max-w-sm bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+              {/* Header */}
+              <div className="px-5 pt-5 pb-4 border-b border-gray-700 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">API 키 받는 방법</p>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <span style={{ color: guideProviderInfo?.color }}>●</span>
+                    {guideProviderInfo?.name}
+                  </h2>
+                </div>
+                <button onClick={() => setGuideProvider(null)} className="text-gray-500 hover:text-white p-1">
+                  <X size={18} />
+                </button>
+              </div>
+              {/* Steps */}
+              <div className="px-5 py-4 space-y-4">
+                {guideData.map((step, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                      {i + 1}
+                    </div>
+                    <div className="flex items-start gap-2.5 pt-0.5">
+                      <span className="text-xl leading-none">{step.emoji}</span>
+                      <div>
+                        <p className="text-sm font-medium text-white leading-tight">{step.title}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{step.desc}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Footer */}
+              <div className="px-5 pb-5">
+                <a
+                  href={guideProviderInfo?.keyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium text-white transition-colors"
+                >
+                  사이트 바로 가기 <ExternalLink size={14} />
+                </a>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold text-on-surface mb-6">설정</h1>
 
@@ -218,16 +304,24 @@ export function SettingsView() {
                     </button>
                   )}
                 </div>
-                {/* Get key link */}
+                {/* Get key link + guide button */}
                 {!keys[provider.id] && (
-                  <a
-                    href={provider.keyUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 mt-2"
-                  >
-                    API 키 발급받기 <ExternalLink size={11} />
-                  </a>
+                  <div className="flex items-center gap-3 mt-2">
+                    <a
+                      href={provider.keyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      API 키 발급받기 <ExternalLink size={11} />
+                    </a>
+                    <button
+                      onClick={() => setGuideProvider(provider.id)}
+                      className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200"
+                    >
+                      <HelpCircle size={12} /> 어떻게 받아요?
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
@@ -240,7 +334,7 @@ export function SettingsView() {
             <Cpu size={20} /> 커스텀 모델 엔드포인트
           </h2>
           <p className="text-sm text-on-surface-muted mb-4">
-            Ollama, OpenRouter, LM Studio 등 OpenAI 호환 API를 연결합니다.
+            내 컴퓨터에서 돌리는 AI(Ollama 등)나 다른 AI 서비스를 연결해요.
           </p>
 
           {/* Existing custom models */}
@@ -368,7 +462,7 @@ export function SettingsView() {
           <h2 className="text-lg font-semibold text-on-surface mb-4">비용 알림</h2>
           <div className="bg-surface-2 rounded-xl p-4">
             <p className="text-sm text-on-surface-muted mb-3">
-              일일 API 비용이 설정한 한도를 초과하면 경고 알림이 표시됩니다. 0으로 설정하면 비활성화됩니다.
+              하루에 이 금액 이상 AI를 쓰면 알림을 줘요. 0으로 두면 알림이 없어요.
             </p>
             <div className="flex items-center gap-3">
               <label className="text-sm text-on-surface whitespace-nowrap">일일 한도 (USD)</label>
@@ -394,7 +488,7 @@ export function SettingsView() {
           <h2 className="text-lg font-semibold text-on-surface mb-4">글로벌 시스템 프롬프트</h2>
           <div className="bg-surface-2 rounded-xl p-4">
             <p className="text-sm text-on-surface-muted mb-2">
-              모든 대화에 자동으로 적용되는 시스템 프롬프트입니다. 에이전트 사용 시 에이전트 프롬프트가 우선합니다.
+              모든 대화에 기본으로 적용되는 AI 성격 설정이에요. 에이전트를 쓸 땐 에이전트 설정이 우선이에요.
             </p>
             <textarea
               value={systemPrompt}

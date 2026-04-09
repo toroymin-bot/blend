@@ -16,7 +16,7 @@ const PROVIDERS = [
 
 const FEATURES = [
   { icon: <Bot size={18} />, text: '6개 이상의 최신 AI 모델' },
-  { icon: <FileText size={18} />, text: 'Excel/CSV 문서 RAG 검색' },
+  { icon: <FileText size={18} />, text: '내 문서에서 AI가 알아서 찾아줘요' },
   { icon: <Zap size={18} />, text: '스트리밍 응답 + 비용 추적' },
   { icon: <Globe size={18} />, text: '웹 검색, 이미지 생성, 코드 실행' },
 ];

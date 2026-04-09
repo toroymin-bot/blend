@@ -49,7 +49,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-on-surface">AI 에이전트</h1>
-            <p className="text-sm text-on-surface-muted mt-1">특정 작업에 특화된 AI 어시스턴트를 만들고 사용하세요</p>
+            <p className="text-sm text-on-surface-muted mt-1">내가 원하는 역할의 AI를 직접 만들어서 써요</p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -195,7 +195,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                     className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {DEFAULT_MODELS.filter((m) => m.enabled).map((m) => (
-                      <option key={m.id} value={m.id}>{m.name} (${m.inputPrice}/${m.outputPrice})</option>
+                      <option key={m.id} value={m.id}>{m.name} — {m.description} (${m.inputPrice}/${m.outputPrice})</option>
                     ))}
                   </select>
                 </div>
@@ -205,7 +205,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                     ? setEditingAgent({ ...editingAgent, systemPrompt: e.target.value })
                     : setNewAgent({ ...newAgent, systemPrompt: e.target.value })
                   }
-                  placeholder="시스템 프롬프트 (이 에이전트의 역할과 행동 규칙을 정의하세요)"
+                  placeholder="이 AI에게 줄 역할을 써요 (예: 넌 친절한 영어 선생님이야. 항상 쉽고 짧게 설명해줘.)"
                   rows={6}
                   className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none resize-none focus:ring-1 focus:ring-blue-500"
                 />

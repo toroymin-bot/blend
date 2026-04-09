@@ -23,6 +23,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
   const [variableModal, setVariableModal] = useState<{ prompt: Prompt } | null>(null);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [allActive, setAllActive] = useState(true);
   const importFileRef = useRef<HTMLInputElement>(null);
 
   const filteredPrompts = getFilteredPrompts();
@@ -234,9 +235,16 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
         {/* Tag filter */}
         <div className="flex flex-wrap gap-2 mb-4">
           <button
-            onClick={() => setSelectedTag(null)}
+            onClick={() => {
+              if (allActive && !selectedTag) {
+                setAllActive(false);
+              } else {
+                setAllActive(true);
+                setSelectedTag(null);
+              }
+            }}
             className={`px-3 py-1 rounded-full text-xs ${
-              !selectedTag ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              allActive && !selectedTag ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
             }`}
           >
             전체
@@ -244,9 +252,17 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
           {allTags.map((tag) => (
             <button
               key={tag}
-              onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+              onClick={() => {
+                if (selectedTag === tag) {
+                  setSelectedTag(null);
+                  setAllActive(true);
+                } else {
+                  setSelectedTag(tag);
+                  setAllActive(false);
+                }
+              }}
               className={`px-3 py-1 rounded-full text-xs flex items-center gap-1 ${
-                selectedTag === tag ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                (allActive && !selectedTag) || selectedTag === tag ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
             >
               <Tag size={10} /> {tag}
@@ -304,7 +320,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                     </button>
                   </div>
                 </div>
-                <p className="text-sm text-on-surface-muted line-clamp-2 mb-2">{prompt.content}</p>
+                <p className="text-sm mb-2" style={{ color: '#c7c7cc' }}>{prompt.description || prompt.content}</p>
                 <div className="flex items-center gap-2">
                   {prompt.tags.map((tag) => (
                     <span key={tag} className="text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded">

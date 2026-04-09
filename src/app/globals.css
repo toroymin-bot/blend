@@ -2,39 +2,39 @@
 @import "highlight.js/styles/github-dark.css";
 
 :root {
-  --bg-primary: #111827;
-  --bg-secondary: #1f2937;
-  --bg-tertiary: #374151;
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --accent: #3b82f6;
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #252525;
+  --bg-tertiary: #333333;
+  --text-primary: #ebebeb;
+  --text-secondary: #8a8a8e;
+  --accent: #4a90e2;
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
 
   /* Design token CSS variables (dark default) */
-  --surface: #111827;
-  --surface-2: #1f2937;
-  --on-surface: #f3f4f6;
-  --on-surface-muted: #9ca3af;
-  --border: #374151;
-  --accent-token: #3b82f6;
+  --surface: #1a1a1a;
+  --surface-2: #252525;
+  --on-surface: #ebebeb;
+  --on-surface-muted: #adadb2;
+  --border: #3a3a3a;
+  --accent-token: #4a90e2;
 }
 
 /* Dark theme (default) */
 [data-theme="dark"] {
-  --bg-primary: #111827;
-  --bg-secondary: #1f2937;
-  --bg-tertiary: #374151;
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --accent: #3b82f6;
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #252525;
+  --bg-tertiary: #333333;
+  --text-primary: #ebebeb;
+  --text-secondary: #adadb2;
+  --accent: #4a90e2;
 
   /* Design token CSS variables */
-  --surface: #111827;
-  --surface-2: #1f2937;
-  --on-surface: #f3f4f6;
-  --on-surface-muted: #9ca3af;
-  --border: #374151;
-  --accent-token: #3b82f6;
+  --surface: #1a1a1a;
+  --surface-2: #252525;
+  --on-surface: #ebebeb;
+  --on-surface-muted: #adadb2;
+  --border: #3a3a3a;
+  --accent-token: #4a90e2;
 }
 
 /* Light theme */
@@ -83,6 +83,23 @@
   --color-on-surface-muted: var(--on-surface-muted);
   --color-border-token: var(--border);
   --color-accent-token: var(--accent-token);
+
+  /* Override Tailwind gray palette — Claude app dark theme */
+  --color-gray-950: #0f0f0f;
+  --color-gray-900: #1a1a1a;
+  --color-gray-800: #252525;
+  --color-gray-700: #333333;
+  --color-gray-600: #4a4a4a;
+  --color-gray-500: #8e8e93;
+  --color-gray-400: #adadb2;
+  --color-gray-300: #c7c7cc;
+  --color-gray-200: #d1d1d6;
+  --color-gray-100: #e5e5ea;
+  --color-gray-50:  #f2f2f7;
+}
+
+html {
+  font-size: 17px;
 }
 
 body {
