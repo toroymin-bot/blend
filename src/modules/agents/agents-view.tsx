@@ -195,7 +195,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                     className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {DEFAULT_MODELS.filter((m) => m.enabled).map((m) => (
-                      <option key={m.id} value={m.id}>{m.name} — {m.description} (${m.inputPrice}/${m.outputPrice})</option>
+                      <option key={m.id} value={m.id}>{m.name} — {m.description}</option>
                     ))}
                   </select>
                 </div>

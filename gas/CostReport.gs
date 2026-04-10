@@ -9,6 +9,9 @@
 //   GCP_PROJECT_ID        : BigQuery 프로젝트 ID (예: my-project-123)
 //   GCP_BILLING_DATASET   : BigQuery 결제 내보내기 데이터셋 이름 (예: billing_export)
 
+// [2026-04-10 12:10] roy@ai4min.com으로만 보내면 toroymin@gmail.com 받은편지함에 미도착 (임시 변경)
+// [2026-04-10 13:00] 사용자 요청으로 roy@ai4min.com으로 복원
+// var RECIPIENT = 'toroymin@gmail.com';
 var RECIPIENT = 'roy@ai4min.com';
 
 function sendCostReport() {
@@ -107,7 +110,10 @@ function fetchAnthropicCosts() {
 
     buckets.forEach(function(b) {
       var cost = 0;
-      (b.costs||[]).forEach(function(c) { cost += parseFloat(c.amount||0)/100; });
+      // [2026-04-10 14:35] 버그수정: b.costs → b.results (실제 API 응답 필드명)
+      // [2026-04-10 14:35] 버그수정: /100 제거 — amount는 USD 직접값 ("2.1337" 형태), cents가 아님
+      // (b.costs||[]).forEach(function(c) { cost += parseFloat(c.amount||0)/100; }); // 구버전
+      (b.results||[]).forEach(function(c) { cost += parseFloat(c.amount||0); });
       var ts = new Date(b.starting_at||0).getTime();
       daily.push({
         date: Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'MM/dd'),
@@ -212,6 +218,18 @@ function buildCostHTML(openai, anthropic, gemini) {
   var all = [openai, anthropic, gemini];
   var providers   = all.filter(function(p){return p.available;});
   var unavailable = all.filter(function(p){return !p.available;});
+  // [2026-04-10 12:20] p.month 등이 number가 아닐 때 toFixed 오류 방지 — 모든 숫자 필드 강제 변환
+  providers = providers.map(function(p) {
+    return {
+      available: p.available, provider: p.provider || '', icon: p.icon || '',
+      color: p.color || '#999',
+      today:     +(p.today)     || 0,
+      week:      +(p.week)      || 0,
+      month:     +(p.month)     || 0,
+      thismonth: +(p.thismonth) || 0,
+      daily:     p.daily        || []
+    };
+  });
 
   // ---- 합산 ----
   var totalToday=0, totalWeek=0, totalMonth=0, totalThisMonth=0;
@@ -299,7 +317,8 @@ function buildCostHTML(openai, anthropic, gemini) {
   providers.forEach(function(p) {
     (p.daily||[]).forEach(function(d) {
       if (!dayMap[d.date]) dayMap[d.date] = 0;
-      dayMap[d.date] += d.cost;
+      // [2026-04-10 12:20] d.cost가 number가 아닐 경우 toFixed 오류 방지
+      dayMap[d.date] += +(d.cost) || 0;
     });
   });
   var sortedDays = Object.keys(dayMap).sort();
@@ -309,7 +328,9 @@ function buildCostHTML(openai, anthropic, gemini) {
 
   var dailyRows = '';
   sortedDays.slice(-7).forEach(function(date) {
-    var cost = dayMap[date];
+    // [2026-04-10 12:20] cost 타입 강제 변환 — "cost.toFixed is not a function" 오류 방지
+    // var cost = dayMap[date];
+    var cost = +(dayMap[date]) || 0;
     var barW = Math.round((cost/maxDay)*100);
     dailyRows +=
       '<tr style="border-bottom:1px solid #f5f5f5;">' +
@@ -382,6 +403,88 @@ function statRow(label, value) {
     '<td style="padding:9px 16px;font-size:13px;color:#555;">'+label+'</td>' +
     '<td style="padding:9px 16px;font-size:13px;font-weight:700;color:#222;text-align:right;">'+value+'</td>' +
     '</tr>';
+}
+
+// ============================================================
+// [2026-04-10 14:10] 비용 API 디버그 — 각 API 원본 응답 및 파싱값 로그
+// 비용이 $0으로 표시되는 원인 파악용
+// ============================================================
+function debugCosts() {
+  var tz = Session.getScriptTimeZone();
+  var now = new Date();
+  Logger.log('=== debugCosts START ===');
+  Logger.log('현재 시간: ' + now.toISOString() + ' / TZ: ' + tz);
+
+  // ---- 1. OpenAI ----
+  Logger.log('\n--- OpenAI ---');
+  try {
+    var key = PropertiesService.getScriptProperties().getProperty('OPENAI_ADMIN_KEY');
+    if (!key) { Logger.log('OPENAI_ADMIN_KEY 없음'); }
+    else {
+      var nowTs = Math.floor(Date.now()/1000);
+      var day30Ts = nowTs - 86400*30;
+      var day1Ts  = nowTs - 86400;
+      Logger.log('쿼리 범위: ' + new Date(day30Ts*1000).toISOString() + ' ~ ' + new Date(nowTs*1000).toISOString());
+      Logger.log('오늘 기준 start_time >= ' + day1Ts + ' (' + new Date(day1Ts*1000).toISOString() + ')');
+      var url = 'https://api.openai.com/v1/organization/costs?start_time=' + day30Ts + '&bucket_width=1d&limit=31';
+      var res = UrlFetchApp.fetch(url, {headers:{'Authorization':'Bearer '+key}, muteHttpExceptions:true});
+      Logger.log('HTTP 상태: ' + res.getResponseCode());
+      var body = res.getContentText();
+      Logger.log('응답 (첫 800자): ' + body.substring(0, 800));
+      var json = JSON.parse(body);
+      var buckets = json.data || [];
+      Logger.log('버킷 수: ' + buckets.length);
+      buckets.forEach(function(b) {
+        var cost = 0;
+        (b.results||[]).forEach(function(r) { cost += (r.amount||{}).value || 0; });
+        Logger.log('  버킷 start_time=' + b.start_time + ' (' + new Date(b.start_time*1000).toISOString() + ') cost=' + cost + (b.start_time >= day1Ts ? ' ← 오늘 포함' : ''));
+      });
+      var parsed = fetchOpenAICosts();
+      Logger.log('fetchOpenAICosts 결과: today=' + parsed.today + ' week=' + parsed.week + ' month=' + parsed.month + ' available=' + parsed.available);
+    }
+  } catch(e) { Logger.log('OpenAI 오류: ' + e.message); }
+
+  // ---- 2. Anthropic ----
+  Logger.log('\n--- Anthropic ---');
+  try {
+    var aKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_ADMIN_KEY');
+    if (!aKey) { Logger.log('ANTHROPIC_ADMIN_KEY 없음'); }
+    else {
+      var day30ago = new Date(now.getTime() - 30*86400000);
+      var startAt = day30ago.toISOString().split('.')[0]+'Z';
+      var endAt   = now.toISOString().split('.')[0]+'Z';
+      Logger.log('쿼리 범위: ' + startAt + ' ~ ' + endAt);
+      // [2026-04-10 14:30] 최근 5일만 조회해서 결과 구조 확인
+      var recent5start = new Date(now.getTime() - 5*86400000).toISOString().split('.')[0]+'Z';
+      var url1b = 'https://api.anthropic.com/v1/organizations/cost_report?starting_at=' + recent5start + '&ending_at=' + endAt + '&bucket_width=1d&limit=5';
+      var res1b = UrlFetchApp.fetch(url1b, {headers:{'x-api-key':aKey,'anthropic-version':'2023-06-01'}, muteHttpExceptions:true});
+      Logger.log('[cost_report 최근5일] HTTP: ' + res1b.getResponseCode());
+      var body1b = res1b.getContentText();
+      Logger.log('[cost_report 최근5일] 전체응답: ' + body1b);
+
+      // 버킷별 results 구조 확인
+      var json1b = JSON.parse(body1b);
+      (json1b.data||[]).forEach(function(b) {
+        Logger.log('  버킷 ' + b.starting_at + ' results.length=' + (b.results||[]).length + ' results=' + JSON.stringify(b.results||[]).substring(0,300));
+      });
+
+      var parsed2 = fetchAnthropicCosts();
+      Logger.log('fetchAnthropicCosts 결과: today=' + parsed2.today + ' week=' + parsed2.week + ' month=' + parsed2.month + ' available=' + parsed2.available + (parsed2.reason ? ' reason='+parsed2.reason : ''));
+    }
+  } catch(e) { Logger.log('Anthropic 오류: ' + e.message); }
+
+  // ---- 3. Gemini (BigQuery) ----
+  Logger.log('\n--- Gemini (BigQuery) ---');
+  try {
+    var gProject = PropertiesService.getScriptProperties().getProperty('GCP_PROJECT_ID');
+    var gDataset = PropertiesService.getScriptProperties().getProperty('GCP_BILLING_DATASET');
+    Logger.log('GCP_PROJECT_ID: ' + (gProject || '❌ 없음'));
+    Logger.log('GCP_BILLING_DATASET: ' + (gDataset || '❌ 없음'));
+    var parsedG = fetchGeminiCosts();
+    Logger.log('fetchGeminiCosts 결과: available=' + parsedG.available + (parsedG.reason ? ' reason='+parsedG.reason : '') + (parsedG.available ? ' today=' + parsedG.today + ' month=' + parsedG.month : ''));
+  } catch(e) { Logger.log('Gemini 오류: ' + e.message); }
+
+  Logger.log('\n=== debugCosts END ===');
 }
 
 // ============================================================

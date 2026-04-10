@@ -54,7 +54,6 @@ export function ModelsView() {
                       </div>
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span>{(model.contextLength / 1000).toFixed(0)}K ctx</span>
-                        <span>↓${model.inputPrice} ↑${model.outputPrice}</span>
                       </div>
                     </div>
                     <div className="flex gap-1 mt-2">

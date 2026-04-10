@@ -1,4 +1,66 @@
+// [2026-04-10 12:15] GAS 에디터 드롭다운 기본 선택이 getAvailableModel이라 직접 선택 불가
+// 파일 최상단에 runAll 추가 → 첫 번째 함수로 자동 선택됨
+// [2026-04-10 13:52] 각 비용 API 응답 확인
+// function runAll() { debugCosts(); }
+
+// [2026-04-10 14:40] Anthropic 버그 수정 확인 후 실제 발송 복원
+function runAll() { setTodayData(); sendBlendDailyReport(); sendCostReport(); }
+function runDevReport() { setTodayData(); sendBlendDailyReport(); }
+// [2026-04-10 13:50] Script Properties에 어떤 키가 설정됐는지 확인 (값은 노출 안 함)
+function checkKeys() {
+  var props = PropertiesService.getScriptProperties().getProperties();
+  var keys = Object.keys(props);
+  Logger.log('설정된 키 목록: ' + JSON.stringify(keys));
+  Logger.log('OPENAI_ADMIN_KEY: ' + (props['OPENAI_ADMIN_KEY'] ? '설정됨 (길이:' + props['OPENAI_ADMIN_KEY'].length + ')' : '❌ 없음'));
+  Logger.log('ANTHROPIC_ADMIN_KEY: ' + (props['ANTHROPIC_ADMIN_KEY'] ? '설정됨 (길이:' + props['ANTHROPIC_ADMIN_KEY'].length + ')' : '❌ 없음'));
+  Logger.log('GCP_PROJECT_ID: ' + (props['GCP_PROJECT_ID'] ? '설정됨: ' + props['GCP_PROJECT_ID'] : '❌ 없음'));
+  Logger.log('GEMINI_API_KEY: ' + (props['GEMINI_API_KEY'] ? '설정됨 (길이:' + props['GEMINI_API_KEY'].length + ')' : '❌ 없음'));
+}
+
+// [2026-04-10 13:00] 오늘 실제 개발 내용을 BLEND_REPORT_DATA에 저장
+// blend-daily-dev가 GAS에 POST하지 않아 항상 기본값(Day7, 파일25개)이 표시되던 문제 해결
+// 매일 blend-daily-dev 완료 후 이 데이터를 업데이트해야 함
+function setTodayData() {
+  var data = {
+    dayNumber: 22,
+    files: 57,
+    lines: 10680,
+    features: 25,
+    cost: '$0',
+    newFeatures: [
+      'Google Gemini usage tracking 수정 — streaming/non-streaming usageMetadata 파싱 (chat-api.ts)',
+      'Whisper 언어 하드코딩 제거 — ko 고정 → 자동감지 (transcribe/route.ts)',
+      'WebDAV SSRF 취약점 차단 — localhost/내부IP 블록리스트 (webdav-proxy/route.ts)',
+      '라인 차트 Y축 0 강제 → 실제 최솟값 기준 (chart-render.tsx)',
+      'Code Runner 5초 타임아웃 미작동 수정 — stale closure 문제 (code-runner.tsx)',
+      'RAG 키워드 필터 수정 — 한국어 2글자 단어(문서/내용/회의) 검색 누락 (document-plugin.ts)'
+    ],
+    issues: [
+      {issue: 'Google Gemini 비용 추적 누락', solution: 'usageMetadata 파싱 추가 (streaming + non-streaming)'},
+      {issue: 'Whisper 한국어 고정', solution: 'language 파라미터 제거 → 자동 감지'},
+      {issue: 'WebDAV SSRF 취약점', solution: '내부IP 패턴 블록리스트 적용'},
+      {issue: '차트 Y축 0 강제', solution: '실제 최솟값 기준으로 계산'},
+      {issue: 'Code Runner 버튼 영구 비활성화', solution: 'completed 플래그 변수로 타임아웃 추적'},
+      {issue: 'RAG 검색 실패 — 한국어 2글자 단어 누락', solution: '길이 필터 >= 2 + 요약 요청 감지'}
+    ],
+    tomorrowPlan: ['QA 계속 — 잠재 이슈 13건 순차 수정', 'Confluence 업데이트', '코드 품질 개선'],
+    confluenceLinks: [
+      {title: 'Blend QA 2026-04-09', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/8192001'},
+      {title: 'Blend Space', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend'}
+    ],
+    githubLinks: [],
+    runStart: '01:07',
+    runEnd: '01:11',
+    totalCommits: 3
+  };
+  PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
+  Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files');
+}
+
 var GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || '';
+// [2026-04-10 12:10] roy@ai4min.com으로만 보내면 toroymin@gmail.com 받은편지함에 미도착 (임시 변경)
+// [2026-04-10 13:00] 사용자 요청으로 roy@ai4min.com으로 복원
+// var RECIPIENT_EMAIL = 'toroymin@gmail.com';
 var RECIPIENT_EMAIL = 'roy@ai4min.com';
 var BLEND_SPACE = 'https://ai4min.atlassian.net/wiki/spaces/Blend';
 var MODEL_PRIORITY = ['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash','gemini-1.5-flash'];
@@ -152,4 +214,6 @@ function buildReportHTML(d) {
 
 function doPost(e){try{PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA',e.postData.contents);return ContentService.createTextOutput('ok')}catch(err){return ContentService.createTextOutput('error')}}
 function testSendReport(){sendBlendDailyReport()}
+// [2026-04-10] 임시 래퍼 — CostReport.gs가 GAS 에디터에서 로드 안 될 때 사용. 완료 후 삭제 가능.
+function runCostReportNow(){sendCostReport()}
 function createDailyTrigger(){ScriptApp.getProjectTriggers().forEach(function(t){if(t.getHandlerFunction()==='sendBlendDailyReport'||t.getHandlerFunction()==='sendMorningReport')ScriptApp.deleteTrigger(t)});ScriptApp.newTrigger('sendMorningReport').timeBased().everyDays(1).atHour(8).nearMinute(35).create();Logger.log('Trigger created: sendMorningReport 8:35 AM daily')}

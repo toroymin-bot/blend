@@ -1204,7 +1204,6 @@ export function ChatView() {
                                   <Brain size={9} />T
                                 </span>
                               )}
-                              <span className="text-xs text-gray-500 ml-auto shrink-0">${m.inputPrice}/{m.outputPrice}</span>
                             </div>
                             {m.description && (
                               <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
