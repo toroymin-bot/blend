@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { usePromptStore } from '@/stores/prompt-store';
 import { Prompt } from '@/types';
 import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X, Upload, Download, ChevronDown, MessageSquare } from 'lucide-react';
@@ -20,7 +20,8 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [newPrompt, setNewPrompt] = useState({ title: '', content: '', tags: '' });
-  const [variableModal, setVariableModal] = useState<{ prompt: Prompt } | null>(null);
+  const [variableModal, setVariableModal] = useState<{ prompt: Prompt; copyOnly?: boolean } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [allActive, setAllActive] = useState(true);
@@ -43,12 +44,21 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
     setShowCreateModal(false);
   };
 
+  const copyToClipboard = useCallback((content: string, id: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  }, []);
+
   const handleUse = (prompt: Prompt) => {
     if (prompt.variables && prompt.variables.length > 0) {
-      // Open variable modal instead of using blocking window.prompt()
       setVariableModal({ prompt });
+    } else if (onUsePrompt) {
+      onUsePrompt(prompt.content);
     } else {
-      onUsePrompt?.(prompt.content);
+      // Fallback: copy to clipboard
+      copyToClipboard(prompt.content, prompt.id);
     }
   };
 
@@ -58,8 +68,20 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
     Object.entries(values).forEach(([key, val]) => {
       content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
     });
-    onUsePrompt?.(content);
+    if (variableModal.copyOnly || !onUsePrompt) {
+      copyToClipboard(content, variableModal.prompt.id);
+    } else {
+      onUsePrompt(content);
+    }
     setVariableModal(null);
+  };
+
+  const handleCopyPrompt = (prompt: Prompt) => {
+    if (prompt.variables && prompt.variables.length > 0) {
+      setVariableModal({ prompt, copyOnly: true });
+    } else {
+      copyToClipboard(prompt.content, prompt.id);
+    }
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,8 +320,8 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                       </button>
                     )}
                     <button
-                      onClick={() => handleUse(prompt)}
-                      className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded"
+                      onClick={() => handleCopyPrompt(prompt)}
+                      className={`p-1.5 hover:bg-gray-700 rounded transition-colors ${copiedId === prompt.id ? 'text-green-400' : 'text-gray-400 hover:text-blue-400'}`}
                       title="클립보드에 복사"
                     >
                       <Copy size={14} />
