@@ -810,11 +810,12 @@ export function ChatView() {
           </div>
         ) : (
           <div className="max-w-3xl mx-auto py-4 px-4">
-            {chat.messages.map((msg) => {
+            {(() => {
               const matches = searchMatches();
-              const idx = matches.length > 0 ? ((searchMatchIndex % matches.length) + matches.length) % matches.length : 0;
+              const matchIdx = matches.length > 0 ? ((searchMatchIndex % matches.length) + matches.length) % matches.length : 0;
+              return chat.messages.map((msg) => {
               const isSearchMatch = searchQuery.trim() !== '' && matches.includes(msg.id);
-              const isCurrentMatch = isSearchMatch && matches[idx] === msg.id;
+              const isCurrentMatch = isSearchMatch && matches[matchIdx] === msg.id;
               return (
               <div
                 key={msg.id}
@@ -1003,7 +1004,8 @@ export function ChatView() {
                 </div>
               </div>
               );
-            })}
+            });
+            })()}
             {isStreaming && isWaiting && !streamingText && (
               <div className="mb-4">
                 <div className="rounded-2xl px-4 py-4 bg-gray-800 max-w-[85%]">

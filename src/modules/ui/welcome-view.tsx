@@ -10,7 +10,7 @@ interface WelcomeViewProps {
 
 const PROVIDERS = [
   { id: 'openai' as const, name: 'OpenAI', placeholder: 'sk-...', color: '#10a37f', models: 'GPT-4o, GPT-4.1, o3, o4-mini', keyUrl: 'https://platform.openai.com/api-keys' },
-  { id: 'anthropic' as const, name: 'Anthropic', placeholder: 'sk-ant-...', color: '#d4a574', models: 'Claude Opus 4, Sonnet 4, Haiku 3.5', keyUrl: 'https://console.anthropic.com/settings/keys' },
+  { id: 'anthropic' as const, name: 'Anthropic', placeholder: 'sk-ant-...', color: '#d4a574', models: 'Claude Opus 4, Sonnet 4, Haiku 4.5', keyUrl: 'https://console.anthropic.com/settings/keys' },
   { id: 'google' as const, name: 'Google', placeholder: 'AIza...', color: '#4285f4', models: 'Gemini 2.5 Pro, 2.0 Flash', keyUrl: 'https://aistudio.google.com/app/apikey', note: '무료 티어 제공' },
 ];
 

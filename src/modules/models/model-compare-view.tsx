@@ -25,7 +25,7 @@ export function ModelCompareView() {
   const { getKey, hasKey } = useAPIKeyStore();
   const { addRecord } = useUsageStore();
   const [prompt, setPrompt] = useState('');
-  const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o-mini', 'claude-haiku-4-5', 'gemini-2.0-flash']);
+  const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o-mini', 'claude-haiku-4-5-20251001', 'gemini-2.0-flash']);
   const [results, setResults] = useState<ModelResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const abortRefs = useRef<Map<string, AbortController>>(new Map());

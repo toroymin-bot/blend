@@ -3,23 +3,26 @@
 import { DEFAULT_MODELS, getProviderColor } from './model-registry';
 import { useChatStore } from '@/stores/chat-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
+import { useSettingsStore } from '@/stores/settings-store';
 
 export function ModelsView() {
   const { selectedModel, setSelectedModel } = useChatStore();
   const { hasKey } = useAPIKeyStore();
+  const { customModels } = useSettingsStore();
 
-  const providers = [...new Set(DEFAULT_MODELS.map((m) => m.provider))];
+  const allModels = [...DEFAULT_MODELS, ...customModels];
+  const providers = [...new Set(allModels.map((m) => m.provider))];
 
   return (
     <div className="h-full overflow-y-auto bg-gray-900 p-6">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold text-white mb-6">모델 관리</h1>
         <p className="text-gray-400 text-sm mb-6">
-          총 {DEFAULT_MODELS.length}개 모델 | 사용 가능: {DEFAULT_MODELS.filter((m) => hasKey(m.provider)).length}개
+          총 {allModels.length}개 모델 | 사용 가능: {allModels.filter((m) => hasKey(m.provider)).length}개
         </p>
 
         {providers.map((provider) => {
-          const models = DEFAULT_MODELS.filter((m) => m.provider === provider);
+          const models = allModels.filter((m) => m.provider === provider);
           const color = getProviderColor(provider);
           const keySet = hasKey(provider);
 

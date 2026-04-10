@@ -60,7 +60,7 @@ const PROVIDERS: {
     name: 'Anthropic',
     color: '#d4a574',
     placeholder: 'sk-ant-...',
-    models: 'Claude Opus 4, Sonnet 4, Haiku 3.5',
+    models: 'Claude Opus 4, Sonnet 4, Haiku 4.5',
     keyUrl: 'https://console.anthropic.com/settings/keys',
   },
   {
