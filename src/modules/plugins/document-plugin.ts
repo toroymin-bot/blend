@@ -47,7 +47,11 @@ function extractKeywords(query: string): string[] {
     .toLowerCase()
     .split(/[\s,\.!?:;()\[\]{}'"]+/)
     .map((w) => w.replace(/[^\w가-힣]/g, ''))
-    .filter((w) => w.length > 2 && !STOPWORDS.has(w));
+    // [2026-04-10] 한국어 2글자 단어("문서","내용","회의" 등) 필터링 버그 수정
+    // 기존: w.length > 2 → 한국어 2글자 단어 전부 제거되어 RAG 검색 실패
+    // 수정: 한국어는 2글자부터, 영어는 3글자부터 허용
+    // .filter((w) => w.length > 2 && !STOPWORDS.has(w))  // 구버전
+    .filter((w) => (w.match(/[가-힣]/) ? w.length >= 2 : w.length > 2) && !STOPWORDS.has(w));
 }
 
 // ── Cosine similarity ─────────────────────────────────────────────────────────
@@ -365,6 +369,18 @@ export async function buildContext(
   } else {
     // ── Keyword search path ───────────────────────────────────────────────
     relevant = searchKeyword(query, docs.flatMap((d) => d.chunks), 6);
+  }
+
+  // [2026-04-10] 검색 결과 0개일 때 요약 요청 감지 → 첫 청크 반환
+  // 기존: 바로 "찾을 수 없습니다" 반환 → "문서 내용이 뭔데" 같은 질문에도 실패
+  // 수정: "내용/요약/뭔데/전체" 등 요약 요청이면 첫 4개 청크를 반환
+  if (relevant.length === 0) {
+    const summaryTriggers = ['내용', '요약', '뭔데', '뭐야', '뭐가', '전체', '알려줘', '설명', '어떤', '있어'];
+    const isSummaryRequest = summaryTriggers.some((k) => query.includes(k)) || extractKeywords(query).length === 0;
+    if (isSummaryRequest) {
+      const allChunks = docs.flatMap((d) => d.chunks);
+      relevant = allChunks.slice(0, 4);
+    }
   }
 
   // ── No results — inject explicit "not found" instruction ─────────────────
