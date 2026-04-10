@@ -4,6 +4,8 @@
 import { useEffect } from 'react';
 import { useSettingsStore } from '@/stores/settings-store';
 import { CostAlertToast } from '@/modules/ui/cost-alert-toast';
+// [2026-04-10 15:00] 스플래시 스크린 추가
+import { SplashScreen } from '@/modules/ui/splash-screen';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { settings, loadFromStorage } = useSettingsStore();
@@ -35,6 +37,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* [2026-04-10 15:00] 접속 시 1초 스플래시 */}
+      <SplashScreen />
       {children}
       <CostAlertToast />
     </>
