@@ -22,11 +22,12 @@ export function MobileBottomBar({ activeTab, onTabChange }: MobileBottomBarProps
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border-token flex items-stretch justify-around" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      {/* [2026-04-12 01:07] UX 개선: 모바일 터치 영역 최소 44px 확보 (WCAG 2.1) */}
       {mobileTabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
-          className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors ${
+          className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-3 min-h-[44px] transition-colors ${
             activeTab === tab.id
               ? 'text-blue-400'
               : 'text-gray-500 hover:text-gray-300'

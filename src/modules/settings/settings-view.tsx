@@ -169,7 +169,17 @@ export function SettingsView() {
 
   const handleClearAll = () => {
     if (confirm('모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-      localStorage.clear();
+      // [2026-04-12 01:07] BUG-011 수정: localStorage.clear() → blend: 접두사 키만 삭제
+      // 기존: localStorage.clear() → 다른 브라우저 앱 데이터까지 삭제되는 버그
+      // 수정: blend: 또는 blend- 로 시작하는 키만 삭제
+      const keysToDelete: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('blend') || key.startsWith('blend:') || key.startsWith('blend-'))) {
+          keysToDelete.push(key);
+        }
+      }
+      keysToDelete.forEach((key) => localStorage.removeItem(key));
       window.location.reload();
     }
   };

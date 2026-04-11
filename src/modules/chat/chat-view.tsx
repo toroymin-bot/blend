@@ -306,7 +306,9 @@ export function ChatView() {
     if (/content.policy|safety|blocked|moderation/i.test(error)) return '🛡 콘텐츠 정책에 의해 요청이 차단되었습니다. 다른 방식으로 질문해주세요.';
     if (/timeout|aborted|cancelled/i.test(error)) return '⏰ 요청 시간이 초과되었습니다. 다시 시도해주세요.';
     if (/insufficient.*funds|billing|payment/i.test(error)) return '💳 API 크레딧이 부족합니다. 해당 서비스의 결제 설정을 확인해주세요.';
-    return error;
+    // [2026-04-12 01:07] BUG-016 개선: 알 수 없는 오류도 한국어로 표시
+    if (error && error.length > 0) return `⚠️ 오류가 발생했습니다: ${error}`;
+    return '⚠️ 알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
   };
 
   // Helper: stream AI response given a fully-prepared messages array
@@ -786,26 +788,69 @@ export function ChatView() {
         }}
       >
         {!chat || chat.messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full px-6">
+          // [2026-04-12 01:07] UX 개선: 빈 상태에 시작 가이드 + 클릭 가능한 예시 질문 추가
+          <div className="flex items-center justify-center h-full px-6 py-8 overflow-y-auto">
             <div className="text-center w-full max-w-lg">
               {/* Logo mark */}
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white mx-auto mb-6 shadow-lg shadow-blue-500/20">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white mx-auto mb-5 shadow-lg shadow-blue-500/20">
                 B
               </div>
               {/* Motto */}
-              <h1 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-3">
-                세상의 모든 AI를<br className="sm:hidden" /> 하나의 앱에서
+              <h1 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
+                무엇을 도와드릴까요?
               </h1>
-              <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
-                대화 · 이미지 생성 · 회사 파일 검색까지
+              <p className="text-sm text-gray-400 leading-relaxed mb-6">
+                아래 예시를 클릭하거나 직접 입력하세요
               </p>
               {/* Active agent badge */}
               {getActiveAgent() && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900/30 rounded-lg text-sm text-blue-300 mt-6">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900/30 rounded-lg text-sm text-blue-300 mb-5">
                   <span className="text-lg">{getActiveAgent()?.icon}</span>
                   <span>에이전트: {getActiveAgent()?.name}</span>
                 </div>
               )}
+              {/* Quick-start suggestions */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 text-left">
+                {[
+                  { icon: '💡', text: '이 개념을 쉽게 설명해줘: 양자 컴퓨터', label: '개념 설명' },
+                  { icon: '✍️', text: '이메일 초안을 작성해줘 — 회의 일정 조율', label: '글쓰기 도움' },
+                  { icon: '🔍', text: '?파이썬으로 CSV 파일 읽는 방법', label: '웹 검색' },
+                  { icon: '🎨', text: '/image 한국의 아름다운 가을 산 풍경', label: '이미지 생성' },
+                ].map((s) => (
+                  <button
+                    key={s.text}
+                    onClick={() => {
+                      const input = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="메시지를 입력하세요..."]');
+                      if (input) {
+                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                        nativeInputValueSetter?.call(input, s.text);
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.focus();
+                      }
+                    }}
+                    className="flex items-start gap-2.5 p-3 bg-gray-800/60 hover:bg-gray-700/80 border border-gray-700/50 hover:border-gray-600 rounded-xl text-left transition-colors min-h-[44px]"
+                    title={s.label}
+                  >
+                    <span className="text-base flex-shrink-0 mt-0.5">{s.icon}</span>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-0.5">{s.label}</p>
+                      <p className="text-sm text-gray-300 leading-snug">{s.text}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {/* 구독/업그레이드 유도 메시지 */}
+              <div className="flex items-center justify-center gap-1.5 text-xs text-gray-600">
+                <span>💳</span>
+                <span>API 키 없이 시작하고 싶으신가요?</span>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('blend:open-settings'))}
+                  className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
+                  title="설정에서 API 키를 등록하거나 무료 Google API를 사용해보세요"
+                >
+                  Google AI 무료로 시작하기 →
+                </button>
+              </div>
             </div>
           </div>
         ) : (

@@ -79,6 +79,13 @@ export default function Home() {
     }
   };
 
+  // [2026-04-12 01:07] UX 개선: 빈 상태 업그레이드 버튼에서 설정 화면 열기
+  useEffect(() => {
+    const handler = () => setActiveTab('settings');
+    window.addEventListener('blend:open-settings', handler);
+    return () => window.removeEventListener('blend:open-settings', handler);
+  }, []);
+
   const shortcuts = useMemo(() => [
     { key: 'n', meta: true, action: () => { createChat(); setActiveTab('chat'); }, description: '새 채팅' },
     { key: ',', meta: true, action: () => setActiveTab('settings'), description: '설정' },
