@@ -22,41 +22,49 @@ function checkKeys() {
 // [2026-04-10 13:00] 오늘 실제 개발 내용을 BLEND_REPORT_DATA에 저장
 // blend-daily-dev가 GAS에 POST하지 않아 항상 기본값(Day7, 파일25개)이 표시되던 문제 해결
 // 매일 blend-daily-dev 완료 후 이 데이터를 업데이트해야 함
+// [2026-04-12 01:07] blend-daily-dev 자동 업데이트
 function setTodayData() {
   var data = {
-    dayNumber: 22,
-    files: 57,
-    lines: 10680,
-    features: 25,
+    dayNumber: 23,
+    files: 75,
+    lines: 11420,
+    features: 30,
     cost: '$0',
     newFeatures: [
-      'Google Gemini usage tracking 수정 — streaming/non-streaming usageMetadata 파싱 (chat-api.ts)',
-      'Whisper 언어 하드코딩 제거 — ko 고정 → 자동감지 (transcribe/route.ts)',
-      'WebDAV SSRF 취약점 차단 — localhost/내부IP 블록리스트 (webdav-proxy/route.ts)',
-      '라인 차트 Y축 0 강제 → 실제 최솟값 기준 (chart-render.tsx)',
-      'Code Runner 5초 타임아웃 미작동 수정 — stale closure 문제 (code-runner.tsx)',
-      'RAG 키워드 필터 수정 — 한국어 2글자 단어(문서/내용/회의) 검색 누락 (document-plugin.ts)'
+      'M1: 정적 빌드 전환 (output: export) — 6개 API 라우트 OCP 주석처리, $0 서버 비용 달성',
+      'M1: image-gen/web-search/url-reader/transcribe/youtube-transcript/webdav 클라이언트 직접 호출 전환',
+      'M2: 절약 대시보드 추가 — AI 서비스 개별 구독료 vs Blend API 비용 시각화 (cost-savings-dashboard.tsx)',
+      'M3: QA 100 시나리오 코드 리뷰 + Confluence 문서화 (PASS 67/FAIL 23/SKIP 10, BUG-011 등 Critical 발견)',
+      'M4: 빈 채팅 상태 개선 — 클릭 가능한 예시 질문 4개 + Google AI 무료 유도 CTA',
+      'M4: BUG-011 Critical 수정 — localStorage.clear() → blend: 접두사 키만 삭제 (다른 앱 데이터 보호)',
+      'M4: 한국어 오류 메시지 개선 — 미지원 오류도 한국어로 표시, 모바일 터치 영역 44px 확보',
+      'M5: RAG 5-2단계 — 글자 수 기반 청킹 → 문단/문장 경계 청킹 (한국어 종결 패턴 포함)',
+      'M5: RAG 5-3단계 — 순수 벡터 검색 → BM25 하이브리드 검색 (벡터 0.7 + BM25 0.3 가중치)'
     ],
     issues: [
-      {issue: 'Google Gemini 비용 추적 누락', solution: 'usageMetadata 파싱 추가 (streaming + non-streaming)'},
-      {issue: 'Whisper 한국어 고정', solution: 'language 파라미터 제거 → 자동 감지'},
-      {issue: 'WebDAV SSRF 취약점', solution: '내부IP 패턴 블록리스트 적용'},
-      {issue: '차트 Y축 0 강제', solution: '실제 최솟값 기준으로 계산'},
-      {issue: 'Code Runner 버튼 영구 비활성화', solution: 'completed 플래그 변수로 타임아웃 추적'},
-      {issue: 'RAG 검색 실패 — 한국어 2글자 단어 누락', solution: '길이 필터 >= 2 + 요약 요청 감지'}
+      {issue: 'output:export 빌드 실패 (API 라우트 6개)', solution: 'POST 핸들러 OCP 주석처리 + force-static GET 스텁 추가'},
+      {issue: 'BUG-011 Critical: localStorage.clear() 범위 오류', solution: 'blend: 접두사 키만 선택 삭제'},
+      {issue: 'BUG-016: 일부 오류 영문 반환', solution: '미지원 오류도 한국어 래퍼로 표시'},
+      {issue: 'RAG 글자 수 기반 청킹 — 문장 중간 절단', solution: '문단/문장 경계 기반 splitByBoundary 함수'},
+      {issue: 'RAG 순수 벡터 검색 — 정확한 키워드 매칭 부족', solution: 'BM25 하이브리드 검색으로 재정렬'}
     ],
-    tomorrowPlan: ['QA 계속 — 잠재 이슈 13건 순차 수정', 'Confluence 업데이트', '코드 품질 개선'],
+    tomorrowPlan: [
+      'BUG-008: 대용량 PDF OOM 방지 (페이지 수 제한 50)',
+      'BUG-004: 삭제된 모델 선택 시 null 체크',
+      'BUG-012: 일일 비용 한도 초과 시 전송 차단 구현',
+      'BUG-007: DALL-E 이미지 URL 만료 대응 (base64 저장)'
+    ],
     confluenceLinks: [
-      {title: 'Blend QA 2026-04-09', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/8192001'},
-      {title: 'Blend Space', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend'}
+      {title: 'Blend QA 리포트 — 2026-04-12', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9437185'},
+      {title: 'DATA & AI 스페이스', url: 'https://ai4min.atlassian.net/wiki/spaces/DA'}
     ],
     githubLinks: [],
     runStart: '01:07',
-    runEnd: '01:11',
-    totalCommits: 3
+    runEnd: '02:45',
+    totalCommits: 4
   };
   PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
-  Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files');
+  Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files, ' + data.totalCommits + ' commits');
 }
 
 var GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || '';
