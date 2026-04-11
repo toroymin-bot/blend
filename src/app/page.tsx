@@ -8,6 +8,7 @@ import { ModelsView } from '@/modules/models/models-view';
 import { PromptsView } from '@/modules/prompts/prompts-view';
 import { AgentsView } from '@/modules/agents/agents-view';
 import { DashboardView } from '@/modules/ui/dashboard-view';
+import { CostSavingsDashboard } from '@/modules/ui/cost-savings-dashboard';
 import { ModelCompareView } from '@/modules/models/model-compare-view';
 import { PluginsView } from '@/modules/plugins/plugins-view';
 import { DocumentPluginView } from '@/modules/plugins/document-plugin-view';
@@ -123,6 +124,7 @@ export default function Home() {
       case 'datasources': return <DataSourceView />;
       case 'compare': return <ModelCompareView />;
       case 'dashboard': return <DashboardView />;
+      case 'savings': return <CostSavingsDashboard />;
       default: return <ChatView />;
     }
   };

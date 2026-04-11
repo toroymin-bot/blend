@@ -4,7 +4,7 @@ import { useChatStore } from '@/stores/chat-store';
 import { useAgentStore } from '@/stores/agent-store';
 import { downloadChat } from '@/modules/chat/export-chat';
 import { ChatTags } from '@/modules/chat/chat-tags';
-import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, FileText, HardDrive, Mic } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, FileText, HardDrive, Mic, Sparkles } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 
 // Mobile bottom tab bar — 3 primary tabs
@@ -155,6 +155,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     { id: 'models', icon: Cpu, label: '모델', desc: 'AI 종류 선택하기' },
     { id: 'compare', icon: GitCompareArrows, label: '모델 비교', desc: '여러 AI 나란히 비교' },
     { id: 'dashboard', icon: BarChart3, label: '비용 분석', desc: 'AI 사용 비용 확인' },
+    { id: 'savings', icon: Sparkles, label: '절약 대시보드', desc: 'Blend로 얼마나 절약하나?' },
     { id: 'settings', icon: Settings, label: '설정', desc: '앱 설정 변경' },
   ];
 
