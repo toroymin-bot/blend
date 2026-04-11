@@ -259,20 +259,90 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
   return chunks;
 }
 
+// [2026-04-12 01:07] 기존 글자 수 기반 청킹 비활성화 (5-2단계 개선)
+// function splitByCharCount(text: string, chunkSize: number, overlap: number): string[] {
+//   const chunks: string[] = [];
+//   for (let i = 0; i < text.length; i += chunkSize - overlap) {
+//     chunks.push(text.slice(i, i + chunkSize));
+//     if (i + chunkSize >= text.length) break;
+//   }
+//   return chunks;
+// }
+
+// ── 5-2단계: 문단/문장 경계 기반 청킹 ─────────────────────────────────────────
+
+/**
+ * 문단(\\n\\n) → 문장(.!?。\\n) 경계에서만 청크를 자름.
+ * 최대 청크 크기를 유지하되 자연스러운 경계에서 분리.
+ * 한국어 문장 종결 패턴 포함.
+ */
+function splitByBoundary(text: string, maxChunkSize = 1500, overlap = 150): string[] {
+  // 1) 문단 분리
+  const paragraphs = text.split(/\n{2,}/).filter((p) => p.trim().length > 0);
+  const chunks: string[] = [];
+  let buffer = '';
+
+  for (const para of paragraphs) {
+    if (buffer.length + para.length + 2 <= maxChunkSize) {
+      buffer = buffer ? buffer + '\n\n' + para : para;
+    } else {
+      // buffer가 찼거나, 단일 문단이 maxChunkSize 초과
+      if (buffer) {
+        chunks.push(buffer.trim());
+        // 오버랩: 이전 청크의 마지막 overlap 글자를 다음 청크 시작으로
+        const tail = buffer.slice(-overlap).trim();
+        buffer = tail ? tail + '\n\n' + para : para;
+      } else {
+        // 단일 문단이 maxChunkSize 초과 → 문장 단위로 분리
+        const sentences = splitBySentence(para, maxChunkSize, overlap);
+        chunks.push(...sentences.slice(0, -1));
+        buffer = sentences[sentences.length - 1] ?? '';
+      }
+    }
+  }
+  if (buffer.trim()) chunks.push(buffer.trim());
+  return chunks;
+}
+
+/**
+ * 문장 경계에서 분리 (문단 하나가 maxChunkSize를 초과할 때 사용).
+ * 종결 기준: '. ', '! ', '? ', '。', '\n', '다. ', '요. ', '죠. '
+ */
+function splitBySentence(text: string, maxChunkSize: number, overlap: number): string[] {
+  // 문장 종결 패턴 (한국어 포함)
+  const sentenceEnd = /(?<=[.!?。])\s+|(?<=다\.)\s+|(?<=요\.)\s+|(?<=죠\.)\s+|\n/g;
+  const parts: string[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = sentenceEnd.exec(text)) !== null) {
+    parts.push(text.slice(last, m.index + m[0].length));
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+
+  const chunks: string[] = [];
+  let buffer = '';
+  for (const part of parts) {
+    if (buffer.length + part.length <= maxChunkSize) {
+      buffer += part;
+    } else {
+      if (buffer.trim()) chunks.push(buffer.trim());
+      const tail = buffer.slice(-overlap);
+      buffer = tail + part;
+    }
+  }
+  if (buffer.trim()) chunks.push(buffer.trim());
+  return chunks;
+}
+
 async function parsePlainText(file: File): Promise<DocumentChunk[]> {
   const text = await file.text();
-  const CHUNK_SIZE = 1500;
-  const OVERLAP = 150;
-  const chunks: DocumentChunk[] = [];
-
-  for (let i = 0; i < text.length; i += CHUNK_SIZE - OVERLAP) {
-    const slice = text.slice(i, i + CHUNK_SIZE);
-    if (slice.trim()) {
-      chunks.push({ text: slice, source: `${file.name} (문자 ${i}–${i + slice.length})` });
-    }
-    if (i + CHUNK_SIZE >= text.length) break;
-  }
-  return chunks;
+  // [2026-04-12 01:07] 5-2단계: 글자 수 기반 → 문단/문장 경계 기반 청킹
+  const parts = splitByBoundary(text, 1500, 150);
+  return parts.map((slice, i) => ({
+    text: slice,
+    source: `${file.name} (청크 ${i + 1}/${parts.length})`,
+  }));
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
@@ -321,6 +391,103 @@ function searchKeyword(
     .map((s) => s.chunk);
 }
 
+// ── 5-3단계: BM25 키워드 점수 계산 ───────────────────────────────────────────
+
+// 하이브리드 가중치 상수
+const HYBRID_VECTOR_WEIGHT = 0.7;
+const HYBRID_KEYWORD_WEIGHT = 0.3;
+
+// BM25 파라미터
+const BM25_K1 = 1.5;
+const BM25_B = 0.75;
+
+/** BM25 키워드 점수 계산 (0~1 정규화 포함) */
+function computeBM25Scores(query: string, chunks: DocumentChunk[]): Map<DocumentChunk, number> {
+  const keywords = extractKeywords(query);
+  if (keywords.length === 0) return new Map();
+
+  const avgDocLen = chunks.reduce((s, c) => s + c.text.length, 0) / Math.max(chunks.length, 1);
+  const N = chunks.length;
+
+  // IDF 계산: log((N - df + 0.5) / (df + 0.5) + 1)
+  const df = new Map<string, number>();
+  for (const kw of keywords) {
+    let count = 0;
+    for (const chunk of chunks) {
+      if (chunk.text.toLowerCase().includes(kw)) count++;
+    }
+    df.set(kw, count);
+  }
+
+  const rawScores = new Map<DocumentChunk, number>();
+  let maxScore = 0;
+
+  for (const chunk of chunks) {
+    const lower = chunk.text.toLowerCase();
+    const docLen = chunk.text.length;
+    let score = 0;
+
+    for (const kw of keywords) {
+      // TF 계산
+      let tf = 0;
+      let pos = 0;
+      while ((pos = lower.indexOf(kw, pos)) !== -1) { tf++; pos++; }
+      if (tf === 0) continue;
+
+      // IDF
+      const dfVal = df.get(kw) ?? 0;
+      const idf = Math.log((N - dfVal + 0.5) / (dfVal + 0.5) + 1);
+
+      // BM25 TF 정규화
+      const tfNorm = (tf * (BM25_K1 + 1)) / (tf + BM25_K1 * (1 - BM25_B + BM25_B * (docLen / avgDocLen)));
+      score += idf * tfNorm;
+    }
+
+    rawScores.set(chunk, score);
+    if (score > maxScore) maxScore = score;
+  }
+
+  // 0~1 정규화
+  const normalized = new Map<DocumentChunk, number>();
+  for (const [chunk, score] of rawScores) {
+    normalized.set(chunk, maxScore > 0 ? score / maxScore : 0);
+  }
+  return normalized;
+}
+
+/** 하이브리드 검색: 벡터 0.7 + BM25 0.3 가중치로 재정렬 */
+function searchHybrid(
+  queryVec: number[],
+  query: string,
+  chunks: DocumentChunk[],
+  topK: number
+): DocumentChunk[] {
+  const embeddedChunks = chunks.filter((c) => c.embedding);
+  if (embeddedChunks.length === 0) return searchKeyword(query, chunks, topK);
+
+  // 벡터 점수 (0~1)
+  const vectorScores = new Map<DocumentChunk, number>();
+  for (const chunk of embeddedChunks) {
+    vectorScores.set(chunk, cosineSimilarity(queryVec, chunk.embedding!));
+  }
+
+  // BM25 점수 (0~1)
+  const bm25Scores = computeBM25Scores(query, embeddedChunks);
+
+  // 하이브리드 점수 = 벡터 * 0.7 + BM25 * 0.3
+  return embeddedChunks
+    .map((chunk) => {
+      const vScore = vectorScores.get(chunk) ?? 0;
+      const kScore = bm25Scores.get(chunk) ?? 0;
+      const hybridScore = HYBRID_VECTOR_WEIGHT * vScore + HYBRID_KEYWORD_WEIGHT * kScore;
+      return { chunk, hybridScore };
+    })
+    .filter((s) => s.hybridScore > 0.1) // 최소 관련도 임계값
+    .sort((a, b) => b.hybridScore - a.hybridScore)
+    .slice(0, topK)
+    .map((s) => s.chunk);
+}
+
 // ── Context builder ───────────────────────────────────────────────────────────
 
 /**
@@ -343,7 +510,7 @@ export async function buildContext(
   let relevant: DocumentChunk[] = [];
   let usedSemantic = false;
 
-  // ── Semantic search path ──────────────────────────────────────────────────
+  // ── Semantic + BM25 하이브리드 검색 경로 (5-3단계) ──────────────────────────
   if (embeddedDocs.length > 0 && apiKey && provider) {
     try {
       // Embed the query using the same model that was used for the chunks
@@ -354,7 +521,9 @@ export async function buildContext(
           : await embedTextsGoogle([query], apiKey);
 
       const embeddedChunks = embeddedDocs.flatMap((d) => d.chunks);
-      relevant = searchSemantic(queryVec, embeddedChunks, 6);
+      // [2026-04-12 01:07] 5-3단계: 순수 벡터 검색 → 하이브리드 검색 (BM25 0.3 가중치 추가)
+      // 기존: relevant = searchSemantic(queryVec, embeddedChunks, 6);
+      relevant = searchHybrid(queryVec, query, embeddedChunks, 6);
       usedSemantic = true;
 
       // If there are docs without embeddings, also run keyword search on them
@@ -387,7 +556,7 @@ export async function buildContext(
   // This is the most important hallucination prevention measure:
   // without it, the LLM uses its training data to fill in the gap.
   if (relevant.length === 0) {
-    const method = usedSemantic ? '시맨틱 검색' : '키워드 검색';
+    const method = usedSemantic ? '하이브리드 검색 (벡터 0.7 + BM25 0.3)' : '키워드 검색';
     return (
       `[문서 검색 결과: 없음 (${method})]\n` +
       `업로드된 문서에서 이 질문과 관련된 내용을 찾을 수 없습니다.\n` +
@@ -397,7 +566,7 @@ export async function buildContext(
   }
 
   // ── Build context block ───────────────────────────────────────────────────
-  const method = usedSemantic ? '시맨틱 검색' : '키워드 검색';
+  const method = usedSemantic ? '하이브리드 검색 (벡터 0.7 + BM25 0.3)' : '키워드 검색';
   const lines = relevant.map((c) => `[출처: ${c.source}]\n${c.text}`).join('\n\n---\n\n');
   return (
     `[문서 검색 결과: ${relevant.length}개 청크 (${method})]\n` +
