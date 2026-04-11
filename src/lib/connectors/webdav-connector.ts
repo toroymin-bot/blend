@@ -1,8 +1,7 @@
 // Blend - WebDAV Connector (NAS: Synology, QNAP, Nextcloud, etc.)
-// All requests go through /api/webdav-proxy to avoid browser CORS restrictions.
-// Supports PROPFIND (directory listing) + GET (file download).
-
-const PROXY = '/api/webdav-proxy';
+// [2026-04-12 01:07] 기능: 서버 프록시 → 클라이언트 직접 WebDAV 호출 전환 — 이유: output:'export' 정적 빌드
+// 주의: WebDAV 서버가 CORS를 허용해야 동작 (Nextcloud는 허용, Synology/QNAP는 설정 필요)
+// 기존: /api/webdav-proxy를 통한 서버사이드 프록시
 const SUPPORTED_EXTS = new Set(['xlsx', 'xls', 'csv', 'txt', 'md', 'pdf']);
 
 export interface WebDAVItem {
@@ -13,25 +12,33 @@ export interface WebDAVItem {
   lastModified?: string;
 }
 
-interface ProxyRequest {
-  method: 'PROPFIND' | 'GET';
-  serverUrl: string;
-  path: string;
-  username: string;
-  password: string;
-  depth?: string;
-}
+// [2026-04-12 01:07] 기존 서버 프록시 방식 비활성화
+// interface ProxyRequest { method: 'PROPFIND' | 'GET'; serverUrl: string; path: string; username: string; password: string; depth?: string; }
+// const PROXY = '/api/webdav-proxy';
+// async function callProxy(req: ProxyRequest): Promise<Response> {
+//   const res = await fetch(PROXY, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
+//   if (!res.ok) { const msg = await res.text().catch(() => String(res.status)); throw new Error(`WebDAV 오류: ${msg}`); }
+//   return res;
+// }
 
-async function callProxy(req: ProxyRequest): Promise<Response> {
-  const res = await fetch(PROXY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
-  });
-  if (!res.ok) {
-    const msg = await res.text().catch(() => String(res.status));
-    throw new Error(`WebDAV 오류: ${msg}`);
+/** 클라이언트에서 WebDAV 서버로 직접 요청 (서버가 CORS 허용해야 동작) */
+async function callDirect(method: 'PROPFIND' | 'GET', serverUrl: string, path: string, username: string, password: string, depth?: string): Promise<Response> {
+  const targetUrl = path.startsWith('http') ? path : `${serverUrl.replace(/\/$/, '')}${path}`;
+  const headers: Record<string, string> = {
+    'Authorization': `Basic ${btoa(`${username}:${password}`)}`,
+  };
+  if (method === 'PROPFIND') {
+    headers['Depth'] = depth ?? '1';
+    headers['Content-Type'] = 'application/xml';
   }
+  const res = await fetch(targetUrl, {
+    method,
+    headers,
+    body: method === 'PROPFIND'
+      ? '<?xml version="1.0"?><D:propfind xmlns:D="DAV:"><D:allprop/></D:propfind>'
+      : undefined,
+  });
+  if (!res.ok) throw new Error(`WebDAV 오류: HTTP ${res.status} — CORS가 허용되지 않는 서버일 수 있습니다`);
   return res;
 }
 
@@ -63,7 +70,7 @@ export async function scanWebDAVPath(
   password: string
 ): Promise<WebDAVItem[]> {
   const normPath = basePath.endsWith('/') ? basePath : basePath + '/';
-  const res = await callProxy({ method: 'PROPFIND', serverUrl, path: normPath, username, password, depth: '1' });
+  const res = await callDirect('PROPFIND', serverUrl, normPath, username, password, '1');
   const xml = await res.text();
   const items = parsePropfind(xml, normPath);
   const result: WebDAVItem[] = [];
@@ -88,7 +95,7 @@ export async function downloadWebDAVFile(
   username: string,
   password: string
 ): Promise<File> {
-  const res = await callProxy({ method: 'GET', serverUrl, path: item.path, username, password });
+  const res = await callDirect('GET', serverUrl, item.path, username, password);
   const blob = await res.blob();
   return new File([blob], item.name);
 }
@@ -100,5 +107,5 @@ export async function testWebDAVConnection(
   username: string,
   password: string
 ): Promise<void> {
-  await callProxy({ method: 'PROPFIND', serverUrl, path: basePath || '/', username, password, depth: '0' });
+  await callDirect('PROPFIND', serverUrl, basePath || '/', username, password, '0');
 }

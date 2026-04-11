@@ -134,19 +134,24 @@ export function MeetingView() {
     setStep('transcribing');
     setErrorMsg('');
 
+    // [2026-04-12 01:07] 기능: 서버 API → 클라이언트 직접 Whisper 호출 — 이유: output:'export' 정적 빌드
+    // 기존: fetch('/api/transcribe', { headers: { 'X-API-Key': openaiKey }, body: formData })
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/transcribe', {
+      formData.append('model', 'whisper-1');
+      formData.append('response_format', 'verbose_json');
+      const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
-        headers: { 'X-API-Key': openaiKey },
+        headers: { 'Authorization': `Bearer ${openaiKey}` },
         body: formData,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `전사 실패: ${res.status}`);
+        throw new Error((err as { error?: { message?: string } })?.error?.message || `전사 실패: ${res.status}`);
       }
-      const { text } = await res.json();
+      const data = await res.json();
+      const text = data.text ?? '';
       await processTranscript(text, file.name.replace(/\.[^.]+$/, ''), 'file');
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : '전사 중 오류가 발생했습니다.');
@@ -154,22 +159,51 @@ export function MeetingView() {
     }
   }, [getKey, processTranscript]);
 
+  // [2026-04-12 01:07] YouTube 자막: 서버 API → 클라이언트 직접 호출 (youtube-transcript Node.js 라이브러리 대체)
+  // YouTube의 공개 timedtext XML API 활용 (CORS 허용)
+  function extractVideoId(url: string): string | null {
+    try {
+      const u = new URL(url);
+      if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0];
+      if (u.hostname.includes('youtube.com')) {
+        const v = u.searchParams.get('v');
+        if (v) return v;
+        const em = u.pathname.match(/\/(?:embed|shorts)\/([^/?]+)/);
+        if (em) return em[1];
+      }
+    } catch {}
+    return null;
+  }
+
+  async function fetchYouTubeTranscriptClient(videoId: string): Promise<{ rawText: string; title: string }> {
+    // YouTube timedtext API — returns XML captions
+    const langs = ['ko', 'en', ''];
+    for (const lang of langs) {
+      const langParam = lang ? `&lang=${lang}` : '';
+      const url = `https://www.youtube.com/api/timedtext?v=${videoId}&fmt=srv3${langParam}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const xml = await res.text();
+        if (!xml || xml.trim() === '') continue;
+        const matches = xml.match(/<text[^>]*>([^<]*)<\/text>/g) || [];
+        if (matches.length === 0) continue;
+        const rawText = matches.map((m) => m.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')).join(' ').replace(/\s+/g, ' ').trim();
+        if (rawText) return { rawText, title: `YouTube 회의 (${videoId})` };
+      } catch {}
+    }
+    throw new Error('자막을 찾을 수 없습니다. 자막이 없는 영상이거나 비공개 영상입니다.');
+  }
+
   const handleYoutube = useCallback(async () => {
     if (!youtubeUrl.trim()) return;
     setStep('transcribing');
     setErrorMsg('');
 
     try {
-      const res = await fetch('/api/youtube-transcript', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: youtubeUrl.trim() }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `자막 추출 실패: ${res.status}`);
-      }
-      const { rawText, title } = await res.json();
+      const videoId = extractVideoId(youtubeUrl.trim());
+      if (!videoId) throw new Error('올바른 YouTube URL이 아닙니다.');
+      const { rawText, title } = await fetchYouTubeTranscriptClient(videoId);
       await processTranscript(rawText, title || 'YouTube 회의', 'youtube', youtubeUrl.trim());
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : '자막 추출 중 오류가 발생했습니다.');

@@ -1,76 +1,12 @@
-// Blend - WebDAV Proxy API Route
-// Proxies PROPFIND and GET requests to a WebDAV server server-side,
-// bypassing browser CORS restrictions.
-// All auth credentials are passed per-request from the client (BYOK model).
+// [2026-04-12 01:07] 기능: WebDAV CORS 프록시 — 비활성화 이유: output:'export' 정적 빌드
+// WebDAV는 서버 없이는 CORS 제한으로 대부분의 서버에서 동작 불가
 
-import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = 'force-static';
 
-const ALLOWED_METHODS = new Set(['PROPFIND', 'GET']);
-
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { method, serverUrl, path, username, password, depth } = body as {
-      method: string;
-      serverUrl: string;
-      path: string;
-      username: string;
-      password: string;
-      depth?: string;
-    };
-
-    if (!ALLOWED_METHODS.has(method)) {
-      return NextResponse.json({ error: `Method ${method} not allowed` }, { status: 400 });
-    }
-    if (!serverUrl || !path) {
-      return NextResponse.json({ error: 'serverUrl and path are required' }, { status: 400 });
-    }
-
-    // Validate URL scheme — only http/https allowed
-    const targetUrl = new URL(path.startsWith('http') ? path : `${serverUrl.replace(/\/$/, '')}${path}`);
-    if (!['http:', 'https:'].includes(targetUrl.protocol)) {
-      return NextResponse.json({ error: 'Invalid URL scheme' }, { status: 400 });
-    }
-
-    // Block SSRF: disallow localhost and private IP ranges
-    const hostname = targetUrl.hostname.toLowerCase();
-    const isPrivate =
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '::1' ||
-      /^10\./.test(hostname) ||
-      /^192\.168\./.test(hostname) ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
-      /^169\.254\./.test(hostname);
-    if (isPrivate) {
-      return NextResponse.json({ error: 'Access to private/internal addresses is not allowed' }, { status: 400 });
-    }
-
-    const headers: Record<string, string> = {
-      Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
-    };
-    if (method === 'PROPFIND') {
-      headers['Depth'] = depth ?? '1';
-      headers['Content-Type'] = 'application/xml';
-    }
-
-    const upstream = await fetch(targetUrl.toString(), {
-      method,
-      headers,
-      body: method === 'PROPFIND'
-        ? '<?xml version="1.0"?><D:propfind xmlns:D="DAV:"><D:allprop/></D:propfind>'
-        : undefined,
-    });
-
-    const contentType = upstream.headers.get('content-type') ?? 'application/octet-stream';
-    const data = await upstream.arrayBuffer();
-
-    return new NextResponse(data, {
-      status: upstream.status,
-      headers: { 'Content-Type': contentType },
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+export async function GET() {
+  return new Response(JSON.stringify({ disabled: true, message: 'WebDAV proxy requires a server. Use direct WebDAV if your server supports CORS.' }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
+
+/* 원본 서버 핸들러는 webdav-connector.ts에서 직접 WebDAV 시도로 대체됨 */

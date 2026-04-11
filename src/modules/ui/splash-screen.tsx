@@ -8,10 +8,10 @@ export function SplashScreen() {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    // 700ms 후 페이드 시작
-    const fadeTimer = setTimeout(() => setFading(true), 700);
-    // 1000ms 후 DOM에서 제거
-    const hideTimer = setTimeout(() => setHidden(true), 1000);
+    // 1200ms 후 페이드 시작
+    const fadeTimer = setTimeout(() => setFading(true), 1200);
+    // 1500ms 후 DOM에서 제거
+    const hideTimer = setTimeout(() => setHidden(true), 1500);
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(hideTimer);

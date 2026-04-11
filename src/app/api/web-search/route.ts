@@ -1,5 +1,9 @@
-// Blend - Web Search API Route (Brave Search + DuckDuckGo fallback)
+// [2026-04-12 01:07] 기능: 서버사이드 웹검색 (Brave+DDG) — 비활성화 이유: output:'export' 정적 빌드
+// 클라이언트가 DuckDuckGo API를 직접 호출하도록 web-search.ts 변환됨
 
+export const dynamic = 'force-static';
+
+/* ── 원본 서버 핸들러 (비활성화) ─────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server';
 
 export interface WebSearchResult {
@@ -140,6 +144,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<WebSearchResp
 }
 
 // Availability check — always available (DuckDuckGo fallback)
-export async function GET(): Promise<NextResponse<{ available: boolean }>> {
-  return NextResponse.json({ available: true });
+// export async function GET(): Promise<NextResponse<{ available: boolean }>> {
+//   return NextResponse.json({ available: true });
+// }
+─────────────────────────────────────────────────────────────────────────── */
+
+export async function GET() {
+  return new Response(JSON.stringify({ available: true, static: true }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
 }

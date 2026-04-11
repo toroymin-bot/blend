@@ -7,25 +7,42 @@ export interface ImageGenResult {
   error?: string;
 }
 
-/**
- * Call the server-side DALL-E 3 image generation route.
- * apiKey is the OpenAI key from api-key-store (BYOK).
- */
+// [2026-04-12 01:07] 기능: 서버 API → 클라이언트 직접 호출 전환 — 이유: output:'export' 정적 빌드
+// OpenAI API는 브라우저 CORS를 허용하므로 직접 호출 가능
 export async function generateImage(prompt: string, apiKey: string): Promise<ImageGenResult> {
   try {
-    const res = await fetch('/api/image-gen', {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    const res = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, apiKey }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', quality: 'standard' }),
+      signal: controller.signal,
     });
-
-    const data: ImageGenResult = await res.json();
-    return data;
+    clearTimeout(timeout);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = (err as { error?: { message?: string } })?.error?.message || `OpenAI API 오류: ${res.status}`;
+      return { error: msg };
+    }
+    const data = await res.json() as { data?: { url?: string }[] };
+    const url = data.data?.[0]?.url;
+    if (!url) return { error: '이미지 URL을 받지 못했습니다' };
+    return { url };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return { error: msg };
   }
 }
+
+// [2026-04-12 01:07] 기존 서버 프록시 버전 비활성화
+// async function generateImageViaServer(prompt: string, apiKey: string): Promise<ImageGenResult> {
+//   const res = await fetch('/api/image-gen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, apiKey }) });
+//   return await res.json();
+// }
 
 /**
  * Extract /image command from user input.
