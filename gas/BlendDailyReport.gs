@@ -4,7 +4,9 @@
 // function runAll() { debugCosts(); }
 
 // [2026-04-10 14:40] Anthropic 버그 수정 확인 후 실제 발송 복원
-function runAll() { setTodayData(); sendBlendDailyReport(); sendCostReport(); }
+// [2026-04-11 10:30] Web App 배포 후 curl 방식으로 전환 — runAll은 dev report만 담당
+// function runAll() { setTodayData(); sendBlendDailyReport(); sendCostReport(); } // 구버전 (both)
+function runAll() { setTodayData(); sendBlendDailyReport(); }  // dev report only (blend-morning-report용)
 function runDevReport() { setTodayData(); sendBlendDailyReport(); }
 // [2026-04-10 13:50] Script Properties에 어떤 키가 설정됐는지 확인 (값은 노출 안 함)
 function checkKeys() {
@@ -213,6 +215,30 @@ function buildReportHTML(d) {
 }
 
 function doPost(e){try{PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA',e.postData.contents);return ContentService.createTextOutput('ok')}catch(err){return ContentService.createTextOutput('error')}}
+
+// [2026-04-11] Web App GET handler — curl로 action 파라미터 전달해 함수 실행
+// action=sendDevReport  → sendBlendDailyReport()
+// action=sendCostReport → sendCostReport()
+// action=setData&data={json} → BLEND_REPORT_DATA 업데이트
+function doGet(e) {
+  var action = (e.parameter || {}).action || '';
+  try {
+    if (action === 'sendDevReport') {
+      sendBlendDailyReport();
+      return ContentService.createTextOutput('dev report sent');
+    } else if (action === 'sendCostReport') {
+      sendCostReport();
+      return ContentService.createTextOutput('cost report sent');
+    } else if (action === 'setData') {
+      var data = (e.parameter || {}).data || '{}';
+      PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', data);
+      return ContentService.createTextOutput('data set');
+    }
+    return ContentService.createTextOutput('unknown action: ' + action);
+  } catch(err) {
+    return ContentService.createTextOutput('error: ' + err.message);
+  }
+}
 function testSendReport(){sendBlendDailyReport()}
 // [2026-04-10] 임시 래퍼 — CostReport.gs가 GAS 에디터에서 로드 안 될 때 사용. 완료 후 삭제 가능.
 function runCostReportNow(){sendCostReport()}
