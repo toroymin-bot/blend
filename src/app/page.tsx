@@ -14,6 +14,7 @@ import { PluginsView } from '@/modules/plugins/plugins-view';
 import { DocumentPluginView } from '@/modules/plugins/document-plugin-view';
 import { DataSourceView } from '@/modules/datasources/datasource-view';
 import { MeetingView } from '@/modules/meeting/meeting-view';
+import { SecurityView } from '@/modules/ui/security-view';
 import { WelcomeView } from '@/modules/ui/welcome-view';
 import { useKeyboardShortcuts, ShortcutHelpModal } from '@/modules/ui/keyboard-shortcuts';
 import { useAPIKeyStore } from '@/stores/api-key-store';
@@ -132,6 +133,7 @@ export default function Home() {
       case 'compare': return <ModelCompareView />;
       case 'dashboard': return <DashboardView />;
       case 'savings': return <CostSavingsDashboard />;
+      case 'security': return <SecurityView />;
       default: return <ChatView />;
     }
   };
