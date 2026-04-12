@@ -431,7 +431,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: '최신 GPT-5 — 뭐든 잘하는 AI',
+    description: 'GPT-5 기본형 — 글·코딩 모두 능숙',
     enabled: false,
   },
   {
@@ -519,7 +519,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: '최신 GPT-5 — 뭐든 잘하는 AI',
+    description: 'GPT-5 최고급 — 가장 강력',
     enabled: false,
   },
   {
@@ -552,7 +552,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: '최신 GPT-5 — 뭐든 잘하는 AI',
+    description: 'GPT-5.1 기본형 — 글·코딩 모두 능숙',
     enabled: false,
   },
   {
@@ -618,7 +618,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: '최신 GPT-5 — 뭐든 잘하는 AI',
+    description: 'GPT-5.2 기본형 — 글·코딩 모두 능숙',
     enabled: false,
   },
   {
@@ -640,7 +640,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: '최신 GPT-5 — 뭐든 잘하는 AI',
+    description: 'GPT-5.2 최고급 — 가장 강력',
     enabled: false,
   },
   {
@@ -706,7 +706,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: '최신 GPT-5 — 뭐든 잘하는 AI',
+    description: 'GPT-5.4 기본형 — 글·코딩 모두 능숙',
     enabled: false,
   },
   {
@@ -728,7 +728,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: '최신 GPT-5 — 뭐든 잘하는 AI',
+    description: 'GPT-5.4 최고급 — 가장 강력',
     enabled: false,
   },
   {
