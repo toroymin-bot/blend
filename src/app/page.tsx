@@ -153,8 +153,11 @@ export default function Home() {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-border-token px-3 py-2 flex items-center gap-3">
+      {/* Mobile header — safe-area-inset-top으로 iOS 노치/Dynamic Island 겹침 방지 */}
+      <div
+        className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-border-token px-3 flex items-center gap-3"
+        style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))', paddingBottom: '0.5rem' }}
+      >
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="p-2 text-on-surface-muted hover:text-on-surface"
@@ -188,7 +191,13 @@ export default function Home() {
       </div>
 
       {/* Main content - mobile: add top padding for header and bottom padding for tab bar */}
-      <main className="flex-1 pt-11 pb-16 md:pt-0 md:pb-0 overflow-hidden">{renderContent()}</main>
+      <main
+        className="flex-1 md:pt-0 md:pb-0 overflow-hidden"
+        style={{
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 2.75rem)',
+          paddingBottom: '4rem',
+        }}
+      >{renderContent()}</main>
 
       {/* Mobile bottom tab bar */}
       <MobileBottomBar activeTab={activeTab} onTabChange={handleTabChange} />
@@ -203,7 +212,7 @@ export default function Home() {
             setMobileOpen(true);
             window.dispatchEvent(new Event('blend:open-nav'));
           }}
-          className="fixed left-0 top-1/2 -translate-y-1/2 z-30 w-3 h-24 bg-gray-600 hover:bg-gray-400 text-white rounded-r-full flex items-center justify-center transition-colors md:hidden"
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-30 w-[18px] h-24 bg-gray-600 hover:bg-gray-400 text-white rounded-r-full flex items-center justify-center transition-colors md:hidden"
           title="메뉴 열기"
         >
           <ChevronRight size={10} />

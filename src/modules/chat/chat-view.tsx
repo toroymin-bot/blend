@@ -274,7 +274,7 @@ export function ChatView() {
       await sendChatRequest({
         messages: titleMessages,
         model: selectedModel,
-        provider: provider as 'openai' | 'anthropic' | 'google' | 'custom',
+        provider: provider as 'openai' | 'anthropic' | 'google' | 'deepseek' | 'groq' | 'custom',
         apiKey: apiKey ?? '',
         stream: true,
         onChunk: (t) => { titleText += t; },
@@ -674,6 +674,8 @@ export function ChatView() {
   };
 
   const chartRenderEnabled = isInstalled('chart-render');
+  // Show images when image-gen plugin is installed OR when message content has embedded data: images
+  // (the latter comes from Gemini image-generation models)
   const imageGenEnabledForRender = isInstalled('image-gen');
 
   return (
@@ -912,7 +914,7 @@ export function ChatView() {
                       })()}
 
                       {/* Image rendering: show images from URLs detected in AI response */}
-                      {imageGenEnabledForRender && (() => {
+                      {(imageGenEnabledForRender || msg.content.includes('data:image/')) && (() => {
                         const imgUrls = extractImageURLs(msg.content);
                         if (imgUrls.length === 0) return null;
                         return (
@@ -1219,11 +1221,11 @@ export function ChatView() {
 
             {showModelDropdown && (
               <div className="absolute bottom-8 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-80 max-h-96 overflow-y-auto">
-                {(['openai', 'anthropic', 'google', 'custom'] as const).map((provider) => {
+                {(['openai', 'anthropic', 'google', 'deepseek', 'groq', 'custom'] as const).map((provider) => {
                   const providerModels = enabledModels.filter((m) => m.provider === provider);
                   if (providerModels.length === 0) return null;
-                  const providerLabel: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', custom: 'Custom' };
-                  const providerColor: Record<string, string> = { openai: 'text-green-400', anthropic: 'text-orange-400', google: 'text-blue-400', custom: 'text-gray-400' };
+                  const providerLabel: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', deepseek: 'DeepSeek', groq: 'Groq', custom: 'Custom' };
+                  const providerColor: Record<string, string> = { openai: 'text-green-400', anthropic: 'text-orange-400', google: 'text-blue-400', deepseek: 'text-indigo-400', groq: 'text-red-400', custom: 'text-gray-400' };
                   return (
                     <div key={provider}>
                       <div className={`px-3 py-1.5 text-xs font-semibold ${providerColor[provider]} bg-gray-900/50 border-b border-gray-700 uppercase tracking-wider`}>

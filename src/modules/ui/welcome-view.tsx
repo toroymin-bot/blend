@@ -12,6 +12,8 @@ const PROVIDERS = [
   { id: 'openai' as const, name: 'OpenAI', placeholder: 'sk-...', color: '#10a37f', models: 'GPT-4o, GPT-4.1, o3, o4-mini', keyUrl: 'https://platform.openai.com/api-keys' },
   { id: 'anthropic' as const, name: 'Anthropic', placeholder: 'sk-ant-...', color: '#d4a574', models: 'Claude Opus 4, Sonnet 4, Haiku 4.5', keyUrl: 'https://console.anthropic.com/settings/keys' },
   { id: 'google' as const, name: 'Google', placeholder: 'AIza...', color: '#4285f4', models: 'Gemini 2.5 Pro, 2.0 Flash', keyUrl: 'https://aistudio.google.com/app/apikey', note: '무료 티어 제공' },
+  { id: 'deepseek' as const, name: 'DeepSeek', placeholder: 'sk-...', color: '#4D6BFE', models: 'DeepSeek-V3, DeepSeek-R1', keyUrl: 'https://platform.deepseek.com/api_keys', note: '초저가' },
+  { id: 'groq' as const, name: 'Groq', placeholder: 'gsk_...', color: '#F55036', models: 'Llama 3.3 70B, Mixtral 8x7B', keyUrl: 'https://console.groq.com/keys', note: '무료 티어 · 초고속' },
 ];
 
 const FEATURES = [
@@ -23,18 +25,22 @@ const FEATURES = [
 
 export function WelcomeView({ onComplete }: WelcomeViewProps) {
   const { setKey, hasKey } = useAPIKeyStore();
-  const [keys, setKeys] = useState({ openai: '', anthropic: '', google: '' });
+  const [keys, setKeys] = useState({ openai: '', anthropic: '', google: '', deepseek: '', groq: '' });
   const [step, setStep] = useState<'intro' | 'keys'>('intro');
 
   const handleSave = () => {
     if (keys.openai.trim()) setKey('openai', keys.openai.trim());
     if (keys.anthropic.trim()) setKey('anthropic', keys.anthropic.trim());
     if (keys.google.trim()) setKey('google', keys.google.trim());
+    if (keys.deepseek.trim()) setKey('deepseek', keys.deepseek.trim());
+    if (keys.groq.trim()) setKey('groq', keys.groq.trim());
     onComplete();
   };
 
   const hasAnyKey = keys.openai.trim() || keys.anthropic.trim() || keys.google.trim() ||
-    hasKey('openai') || hasKey('anthropic') || hasKey('google');
+    keys.deepseek.trim() || keys.groq.trim() ||
+    hasKey('openai') || hasKey('anthropic') || hasKey('google') ||
+    hasKey('deepseek') || hasKey('groq');
 
   if (step === 'intro') {
     return (

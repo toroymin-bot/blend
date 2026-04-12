@@ -31,6 +31,9 @@ export function requestOneDriveAccessToken(
       state: 'onedrive',
     });
 
+    // Clear stale result before opening popup
+    try { localStorage.removeItem('blend:oauth_result'); } catch {}
+
     const popup = window.open(
       `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?${params}`,
       'onedrive-oauth',
@@ -39,28 +42,67 @@ export function requestOneDriveAccessToken(
 
     if (!popup) { reject(new Error('팝업이 차단되었습니다.')); return; }
 
-    const handler = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin) return;
-      if (e.data?.type === 'OAUTH_TOKEN' && e.data?.provider === 'onedrive') {
-        window.removeEventListener('message', handler);
-        clearInterval(poll);
-        resolve(e.data.token as string);
-      }
-      if (e.data?.type === 'OAUTH_ERROR' && e.data?.provider === 'onedrive') {
-        window.removeEventListener('message', handler);
-        clearInterval(poll);
-        reject(new Error(e.data.error));
-      }
-    };
-    window.addEventListener('message', handler);
+    let settled = false;
 
+    const done = (token: string) => {
+      if (settled) return; settled = true;
+      cleanup(); resolve(token);
+    };
+    const fail = (msg: string) => {
+      if (settled) return; settled = true;
+      cleanup(); reject(new Error(msg));
+    };
+
+    // 1. window.message (desktop browsers)
+    const msgHandler = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type === 'OAUTH_TOKEN' && e.data?.provider === 'onedrive') done(e.data.token as string);
+      if (e.data?.type === 'OAUTH_ERROR' && e.data?.provider === 'onedrive') fail(e.data.error);
+    };
+    window.addEventListener('message', msgHandler);
+
+    // 2. BroadcastChannel (iOS Safari / Firefox — opener is null when tab opens)
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('oauth_callback');
+      bc.onmessage = (e) => {
+        if (e.data?.type === 'OAUTH_TOKEN' && e.data?.provider === 'onedrive') done(e.data.token as string);
+        if (e.data?.type === 'OAUTH_ERROR' && e.data?.provider === 'onedrive') fail(e.data.error);
+      };
+    } catch {}
+
+    // 3. localStorage polling fallback
     const poll = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(poll);
-        window.removeEventListener('message', handler);
-        reject(new Error('OAuth 팝업이 닫혔습니다.'));
-      }
+      try {
+        const raw = localStorage.getItem('blend:oauth_result');
+        if (raw) {
+          const data = JSON.parse(raw);
+          const age = Date.now() - (data.ts ?? 0);
+          if (age < 30_000) {
+            if (data.type === 'OAUTH_TOKEN' && data.provider === 'onedrive') {
+              try { localStorage.removeItem('blend:oauth_result'); } catch {}
+              done(data.token as string); return;
+            }
+            if (data.type === 'OAUTH_ERROR' && data.provider === 'onedrive') {
+              try { localStorage.removeItem('blend:oauth_result'); } catch {}
+              fail(data.error); return;
+            }
+          } else {
+            try { localStorage.removeItem('blend:oauth_result'); } catch {}
+          }
+        }
+      } catch {}
+
+      try {
+        if (popup.closed && !settled) fail('OAuth 팝업이 닫혔습니다.');
+      } catch {}
     }, 500);
+
+    const cleanup = () => {
+      window.removeEventListener('message', msgHandler);
+      clearInterval(poll);
+      try { bc?.close(); } catch {}
+    };
   });
 }
 

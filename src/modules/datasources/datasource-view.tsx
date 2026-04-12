@@ -34,18 +34,21 @@ function sourceTypeLabel(type: DataSource['type']): string {
 
 type AddMode = null | 'local' | 'google-drive' | 'onedrive' | 'webdav';
 
+// Pre-configured OAuth Client IDs (set via Vercel env vars)
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID ?? '';
+const ONEDRIVE_CLIENT_ID = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID ?? '';
+
 function GoogleDriveForm({ onAdd }: { onAdd: (cfg: GoogleDriveConfig, name: string) => void }) {
-  const [clientId, setClientId] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   const handle = async () => {
-    if (!clientId.trim()) { setErr('Client ID를 입력해주세요.'); return; }
+    if (!GOOGLE_CLIENT_ID) { setErr('Google OAuth Client ID가 설정되지 않았습니다. 관리자에게 문의하세요.'); return; }
     setErr(''); setBusy(true);
     try {
-      const token = await requestGoogleAccessToken(clientId.trim());
+      const token = await requestGoogleAccessToken(GOOGLE_CLIENT_ID);
       onAdd(
-        { type: 'google-drive', clientId: clientId.trim(), accessToken: token, tokenExpiry: Date.now() + 3600_000 },
+        { type: 'google-drive', clientId: GOOGLE_CLIENT_ID, accessToken: token, tokenExpiry: Date.now() + 3600_000 },
         'Google Drive'
       );
     } catch (e: unknown) {
@@ -56,32 +59,34 @@ function GoogleDriveForm({ onAdd }: { onAdd: (cfg: GoogleDriveConfig, name: stri
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-400">
-        Google Cloud Console에서 OAuth 2.0 클라이언트 ID를 생성하고,
-        승인된 리디렉션 URI에 <code className="bg-gray-700 px-1 rounded">{typeof window !== 'undefined' ? window.location.origin : ''}/oauth-callback</code>을 추가해주세요.{' '}
-        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-blue-400 inline-flex items-center gap-0.5">콘솔 열기<ExternalLink size={10} /></a>
+        구글 계정으로 로그인하면 Google Drive 파일을 AI가 읽을 수 있어요. (읽기 전용)
       </p>
-      <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="OAuth 2.0 Client ID" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500" />
       {err && <p className="text-xs text-red-400">{err}</p>}
-      <button onClick={handle} disabled={busy} className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2">
-        {busy ? <><Loader size={14} className="animate-spin" />인증 중...</> : 'Google 계정 연결'}
+      <button onClick={handle} disabled={busy} className="w-full py-2.5 bg-white hover:bg-gray-100 disabled:bg-gray-700 text-gray-800 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+        {busy ? (
+          <><Loader size={14} className="animate-spin text-gray-600" />로그인 중...</>
+        ) : (
+          <>
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>
+            Google 로그인
+          </>
+        )}
       </button>
     </div>
   );
 }
 
 function OneDriveForm({ onAdd }: { onAdd: (cfg: OneDriveConfig, name: string) => void }) {
-  const [clientId, setClientId] = useState('');
-  const [tenantId, setTenantId] = useState('common');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   const handle = async () => {
-    if (!clientId.trim()) { setErr('Client ID를 입력해주세요.'); return; }
+    if (!ONEDRIVE_CLIENT_ID) { setErr('OneDrive OAuth Client ID가 설정되지 않았습니다. 관리자에게 문의하세요.'); return; }
     setErr(''); setBusy(true);
     try {
-      const token = await requestOneDriveAccessToken(clientId.trim(), tenantId.trim() || 'common');
+      const token = await requestOneDriveAccessToken(ONEDRIVE_CLIENT_ID, 'common');
       onAdd(
-        { type: 'onedrive', clientId: clientId.trim(), tenantId: tenantId.trim() || 'common', accessToken: token, tokenExpiry: Date.now() + 3600_000 },
+        { type: 'onedrive', clientId: ONEDRIVE_CLIENT_ID, tenantId: 'common', accessToken: token, tokenExpiry: Date.now() + 3600_000 },
         'OneDrive'
       );
     } catch (e: unknown) {
@@ -92,14 +97,18 @@ function OneDriveForm({ onAdd }: { onAdd: (cfg: OneDriveConfig, name: string) =>
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-400">
-        Azure 포털에서 앱을 등록하고 리디렉션 URI에 <code className="bg-gray-700 px-1 rounded">{typeof window !== 'undefined' ? window.location.origin : ''}/oauth-callback</code>을 추가해주세요.{' '}
-        <a href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer" className="text-blue-400 inline-flex items-center gap-0.5">Azure 포털<ExternalLink size={10} /></a>
+        Microsoft 계정으로 로그인하면 OneDrive 파일을 AI가 읽을 수 있어요. (읽기 전용)
       </p>
-      <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Azure App Client ID" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500" />
-      <input value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="Tenant ID (기본: common)" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500" />
       {err && <p className="text-xs text-red-400">{err}</p>}
-      <button onClick={handle} disabled={busy} className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2">
-        {busy ? <><Loader size={14} className="animate-spin" />인증 중...</> : 'Microsoft 계정 연결'}
+      <button onClick={handle} disabled={busy} className="w-full py-2.5 bg-[#0078d4] hover:bg-[#106ebe] disabled:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+        {busy ? (
+          <><Loader size={14} className="animate-spin" />로그인 중...</>
+        ) : (
+          <>
+            <svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+            Microsoft 로그인
+          </>
+        )}
       </button>
     </div>
   );

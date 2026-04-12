@@ -59,6 +59,15 @@ export function extractImagePrompt(input: string): string | null {
  * Returns all https image URLs found in the text.
  */
 export function extractImageURLs(text: string): string[] {
-  const regex = /https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)(?:\?\S*)?/gi;
-  return (text.match(regex) || []);
+  // Match https:// image URLs
+  const httpRegex = /https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)(?:\?\S*)?/gi;
+  const httpUrls = text.match(httpRegex) || [];
+  // Also match markdown image syntax with data: URLs — ![...](data:image/...;base64,...)
+  const dataRegex = /!\[[^\]]*\]\((data:image\/[^;]+;base64,[^)]+)\)/g;
+  const dataUrls: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = dataRegex.exec(text)) !== null) {
+    dataUrls.push(m[1]);
+  }
+  return [...httpUrls, ...dataUrls];
 }

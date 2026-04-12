@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { useUsageStore } from '@/stores/usage-store';
 import { sendChatRequest } from '@/modules/chat/chat-api';
-import { getModelById, calculateCost, DEFAULT_MODELS } from './model-registry';
+import { getModelById, calculateCost, DEFAULT_MODELS, getModelCategory, MODEL_CATEGORY_META, PROVIDER_META, ModelCategory } from './model-registry';
 import { Send, Square, Clock, DollarSign, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -25,12 +25,14 @@ export function ModelCompareView() {
   const { getKey, hasKey } = useAPIKeyStore();
   const { addRecord } = useUsageStore();
   const [prompt, setPrompt] = useState('');
-  const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o-mini', 'claude-haiku-4-5-20251001', 'gemini-2.0-flash']);
+  const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o-mini', 'claude-haiku-4-5-20251001', 'gemini-2.0-flash-lite']);
   const [results, setResults] = useState<ModelResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const abortRefs = useRef<Map<string, AbortController>>(new Map());
 
   const availableModels = DEFAULT_MODELS.filter((m) => m.enabled);
+  const providers = [...new Set(availableModels.map((m) => m.provider))];
+  const [activeProvider, setActiveProvider] = useState<string>(providers[0] ?? 'openai');
 
   const MAX_COMPARE_MODELS = 4;
 
@@ -142,38 +144,104 @@ export function ModelCompareView() {
           <span className="text-gray-600">(최대 {MAX_COMPARE_MODELS}개)</span>
         </p>
 
-        {/* Model selector */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          {availableModels.map((m) => {
-            const isSelected = selectedModels.includes(m.id);
-            const noKey = !hasKey(m.provider);
-            const isDisabled = noKey || (!isSelected && activeSelectedCount >= MAX_COMPARE_MODELS);
-            return (
-              <button
-                key={m.id}
-                onClick={() => toggleModel(m.id)}
-                disabled={isDisabled}
-                title={noKey ? `${m.provider} API 키가 없어요 (설정에서 추가)` : isDisabled ? `최대 ${MAX_COMPARE_MODELS}개까지 선택 가능` : undefined}
-                className={`px-3 py-1.5 rounded-lg text-xs transition-colors text-left ${
-                  isSelected
-                    ? 'bg-blue-600 text-white'
-                    : noKey
-                    ? 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
-                    : isDisabled
-                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
-              >
-                <span className={noKey ? 'line-through' : ''}>{m.name}</span>
-                {m.description && (
-                  <span className={`block text-[10px] mt-0.5 ${isSelected ? 'text-blue-200' : noKey ? 'text-gray-700' : 'text-gray-500'}`}>
-                    {m.description}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* Model selector — provider tabs + category groups */}
+        <div className="mb-4 bg-gray-800/60 rounded-2xl overflow-hidden border border-gray-700">
+          {/* Provider tabs */}
+          <div className="flex overflow-x-auto border-b border-gray-700">
+            {providers.map((p) => {
+              const meta = PROVIDER_META[p] ?? { label: p, color: '#6b7280' };
+              const hasAnyKey = hasKey(p);
+              return (
+                <button
+                  key={p}
+                  onClick={() => setActiveProvider(p)}
+                  className={`flex-shrink-0 px-4 py-2.5 text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                    activeProvider === p
+                      ? 'border-b-2 text-white bg-gray-700/50'
+                      : 'text-gray-400 hover:text-gray-200'
+                  } ${!hasAnyKey ? 'opacity-50' : ''}`}
+                  style={activeProvider === p ? { borderBottomColor: meta.color } : {}}
+                >
+                  <span style={{ color: meta.color }}>●</span>
+                  {meta.label}
+                  {!hasAnyKey && <span className="text-[9px] text-red-400">키없음</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Category groups for active provider */}
+          <div className="p-3 space-y-3">
+            {(Object.entries(MODEL_CATEGORY_META) as [ModelCategory, typeof MODEL_CATEGORY_META[ModelCategory]][])
+              .sort((a, b) => a[1].order - b[1].order)
+              .map(([catKey, catMeta]) => {
+                const catModels = availableModels.filter(
+                  (m) => m.provider === activeProvider && getModelCategory(m) === catKey
+                );
+                if (catModels.length === 0) return null;
+                return (
+                  <div key={catKey}>
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      {catMeta.emoji} {catMeta.label}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {catModels.map((m) => {
+                        const isSelected = selectedModels.includes(m.id);
+                        const noKey = !hasKey(m.provider);
+                        const isDisabled = noKey || (!isSelected && activeSelectedCount >= MAX_COMPARE_MODELS);
+                        const provColor = PROVIDER_META[m.provider]?.color ?? '#6b7280';
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => toggleModel(m.id)}
+                            disabled={isDisabled}
+                            title={noKey ? `${m.provider} API 키가 없어요` : isDisabled ? `최대 ${MAX_COMPARE_MODELS}개` : m.description ?? ''}
+                            className={`px-2.5 py-1.5 rounded-xl text-xs transition-all text-left border ${
+                              isSelected
+                                ? 'text-white border-transparent shadow-sm'
+                                : noKey
+                                ? 'bg-gray-800/30 text-gray-600 border-gray-700/50 cursor-not-allowed'
+                                : isDisabled
+                                ? 'bg-gray-800/50 text-gray-600 border-gray-700 cursor-not-allowed'
+                                : 'bg-gray-800 text-gray-300 border-gray-700 hover:border-gray-500 hover:text-white'
+                            }`}
+                            style={isSelected ? { backgroundColor: provColor + '33', borderColor: provColor } : {}}
+                          >
+                            <div className="font-medium leading-tight">{m.name}</div>
+                            {m.description && (
+                              <div className={`text-[10px] mt-0.5 leading-tight ${isSelected ? 'text-gray-200' : 'text-gray-500'}`}>
+                                {m.description}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </div>
+
+        {/* Selected models summary */}
+        {selectedModels.filter(id => availableModels.find(m => m.id === id)).length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            <span className="text-xs text-gray-500 self-center">선택됨:</span>
+            {selectedModels.map((id) => {
+              const m = availableModels.find((m) => m.id === id);
+              if (!m || !hasKey(m.provider)) return null;
+              const provColor = PROVIDER_META[m.provider]?.color ?? '#6b7280';
+              return (
+                <span key={id} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs text-white"
+                  style={{ backgroundColor: provColor + '44', border: `1px solid ${provColor}66` }}>
+                  <span style={{ color: provColor }}>●</span>
+                  {m.name}
+                  <button onClick={() => toggleModel(id)} className="ml-0.5 text-gray-300 hover:text-white">×</button>
+                </span>
+              );
+            })}
+          </div>
+        )}
 
         {/* Prompt input */}
         <div className="flex gap-2 mb-6">

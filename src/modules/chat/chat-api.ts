@@ -73,6 +73,8 @@ const ENDPOINTS: Record<AIProvider, string> = {
   openai: 'https://api.openai.com/v1/chat/completions',
   anthropic: 'https://api.anthropic.com/v1/messages',
   google: '', // constructed dynamically
+  deepseek: 'https://api.deepseek.com/v1/chat/completions',
+  groq: 'https://api.groq.com/openai/v1/chat/completions',
   custom: '',
 };
 
@@ -86,6 +88,10 @@ export async function sendChatRequest(req: ChatRequest) {
       await handleAnthropic(messages, model, apiKey, stream, onChunk, onDone, signal);
     } else if (provider === 'google') {
       await handleGoogle(messages, model, apiKey, stream, onChunk, onDone, signal);
+    } else if (provider === 'deepseek') {
+      await handleOpenAICompat(messages, model, apiKey, ENDPOINTS.deepseek, stream, onChunk, onDone, signal);
+    } else if (provider === 'groq') {
+      await handleOpenAICompat(messages, model, apiKey, ENDPOINTS.groq, stream, onChunk, onDone, signal);
     } else if (provider === 'custom' && baseUrl) {
       await handleCustom(messages, model, apiKey, baseUrl, stream, onChunk, onDone, signal);
     }
@@ -280,12 +286,19 @@ async function handleGoogle(
       parts: toGoogleParts(m.content),
     }));
 
+  // Image-generation models need responseModalities to include IMAGE
+  const isImageModel = /image/i.test(model);
+  const generationConfig = isImageModel
+    ? { responseModalities: ['TEXT', 'IMAGE'] }
+    : undefined;
+
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents,
       systemInstruction: systemMsg ? { parts: [{ text: typeof systemMsg.content === 'string' ? systemMsg.content : '' }] } : undefined,
+      ...(generationConfig ? { generationConfig } : {}),
     }),
     signal,
   });
@@ -294,6 +307,20 @@ async function handleGoogle(
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error?.message || `Google API error: ${res.status}`);
   }
+
+  // Helper: extract text + inline images from Google parts array
+  const extractGoogleParts = (partsArr: any[]): string => {
+    let result = '';
+    for (const part of partsArr) {
+      if (part.text) {
+        result += part.text;
+      } else if (part.inlineData?.data && part.inlineData?.mimeType) {
+        // Embed image as markdown so the chat renderer shows it
+        result += `\n![generated image](data:${part.inlineData.mimeType};base64,${part.inlineData.data})\n`;
+      }
+    }
+    return result;
+  };
 
   if (stream && res.body) {
     let fullText = '';
@@ -307,18 +334,21 @@ async function handleGoogle(
       if (done) break;
 
       lineBuffer += decoder.decode(value, { stream: true });
-      const parts = lineBuffer.split('\n');
-      lineBuffer = parts.pop() ?? '';
+      const lines = lineBuffer.split('\n');
+      lineBuffer = lines.pop() ?? '';
 
-      for (const line of parts) {
+      for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed.startsWith('data: ')) continue;
         try {
           const json = JSON.parse(trimmed.slice(6));
-          const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            fullText += text;
-            onChunk?.(text);
+          const partsArr = json.candidates?.[0]?.content?.parts;
+          if (partsArr?.length) {
+            const chunk = extractGoogleParts(partsArr);
+            if (chunk) {
+              fullText += chunk;
+              onChunk?.(chunk);
+            }
           }
           // Collect usage from each chunk (last one wins)
           if (json.usageMetadata) {
@@ -333,10 +363,77 @@ async function handleGoogle(
     onDone?.(fullText, usage);
   } else {
     const json = await res.json();
-    const content = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const partsArr = json.candidates?.[0]?.content?.parts ?? [];
+    const content = partsArr.length ? extractGoogleParts(partsArr) : '';
     const usage = json.usageMetadata
       ? { input: json.usageMetadata.promptTokenCount ?? 0, output: json.usageMetadata.candidatesTokenCount ?? 0 }
       : undefined;
+    onDone?.(content, usage);
+  }
+}
+
+// ── DeepSeek / Groq — OpenAI-compatible with fixed base URL ──────────────────
+async function handleOpenAICompat(
+  messages: ChatRequestMessage[],
+  model: string,
+  apiKey: string,
+  endpoint: string,
+  stream: boolean,
+  onChunk?: (text: string) => void,
+  onDone?: (fullText: string, usage?: { input: number; output: number }) => void,
+  signal?: AbortSignal
+) {
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: messages.map((m) => ({ role: m.role, content: toOpenAIContent(m.content) })),
+      stream,
+      stream_options: stream ? { include_usage: true } : undefined,
+    }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error: ${res.status}`);
+  }
+
+  if (stream && res.body) {
+    let fullText = '';
+    let usage: { input: number; output: number } | undefined;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let lineBuffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      lineBuffer += decoder.decode(value, { stream: true });
+      const parts = lineBuffer.split('\n');
+      lineBuffer = parts.pop() ?? '';
+      for (const line of parts) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const json = JSON.parse(data);
+          const content = json.choices?.[0]?.delta?.content;
+          if (content) { fullText += content; onChunk?.(content); }
+          if (json.usage) usage = { input: json.usage.prompt_tokens, output: json.usage.completion_tokens };
+        } catch {}
+      }
+    }
+    onDone?.(fullText, usage);
+  } else {
+    const json = await res.json();
+    const content = json.choices?.[0]?.message?.content || '';
+    const usage = json.usage ? { input: json.usage.prompt_tokens, output: json.usage.completion_tokens } : undefined;
     onDone?.(content, usage);
   }
 }

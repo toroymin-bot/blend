@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { usePromptStore } from '@/stores/prompt-store';
 import { Prompt } from '@/types';
 import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X, Upload, Download, ChevronDown, MessageSquare } from 'lucide-react';
@@ -26,9 +26,29 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [allActive, setAllActive] = useState(true);
   const importFileRef = useRef<HTMLInputElement>(null);
+  const tagScrollRef = useRef<HTMLDivElement>(null);
+  const [tagFade, setTagFade] = useState({ left: false, right: true });
 
   const filteredPrompts = getFilteredPrompts();
   const allTags = getAllTags();
+
+  useEffect(() => {
+    const el = tagScrollRef.current;
+    if (!el) return;
+    const update = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = el;
+      setTagFade({
+        left: scrollLeft > 8,
+        right: scrollLeft < scrollWidth - clientWidth - 8,
+      });
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    // 태그 목록 변경 시 재계산
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => { el.removeEventListener('scroll', update); ro.disconnect(); };
+  }, [allTags.length]);
 
   const handleCreate = () => {
     if (!newPrompt.title.trim() || !newPrompt.content.trim()) return;
@@ -181,20 +201,21 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
   return (
     <div className="h-full overflow-y-auto bg-surface p-6">
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-on-surface">프롬프트 라이브러리</h1>
-          <div className="flex items-center gap-2">
+        {/* 헤더: 모바일에서 타이틀 한 줄 + 버튼들 한 줄 분리 */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+          <h1 className="text-xl font-bold text-on-surface whitespace-nowrap">프롬프트 라이브러리</h1>
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Export dropdown */}
             <div className="relative">
               <button
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300"
                 title="프롬프트 내보내기"
               >
-                <Download size={16} /> 내보내기 <ChevronDown size={13} />
+                <Download size={14} /> <span className="hidden sm:inline">내보내기</span> <ChevronDown size={11} />
               </button>
               {showExportDropdown && (
-                <div className="absolute top-10 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-40">
+                <div className="absolute top-9 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-36">
                   <button
                     onClick={handleExportJSON}
                     className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-t-lg"
@@ -212,10 +233,10 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
             </div>
             <button
               onClick={() => importFileRef.current?.click()}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300"
               title="JSON 또는 CSV 파일에서 프롬프트 가져오기"
             >
-              <Upload size={16} /> 가져오기
+              <Upload size={14} /> <span className="hidden sm:inline">가져오기</span><span className="sm:hidden">가져오기</span>
             </button>
             <input
               ref={importFileRef}
@@ -226,9 +247,9 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
             />
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs text-white whitespace-nowrap"
             >
-              <Plus size={16} /> 새 프롬프트
+              <Plus size={14} /> 새 프롬프트
             </button>
           </div>
         </div>
@@ -254,8 +275,25 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
           </div>
         </div>
 
-        {/* Tag filter */}
-        <div className="flex flex-wrap gap-2 mb-4">
+        {/* Tag filter — 가로 스크롤 1줄 + 양쪽 페이드 힌트 */}
+        <div className="relative mb-4">
+          {/* 왼쪽 페이드 — 스크롤 후 표시 */}
+          <div
+            className="absolute left-0 top-0 bottom-1 w-8 pointer-events-none z-10 transition-opacity duration-200"
+            style={{
+              background: 'linear-gradient(to right, var(--surface), transparent)',
+              opacity: tagFade.left ? 1 : 0,
+            }}
+          />
+          {/* 오른쪽 페이드 — 더 스크롤할 내용이 있을 때 */}
+          <div
+            className="absolute right-0 top-0 bottom-1 w-12 pointer-events-none z-10 transition-opacity duration-200"
+            style={{
+              background: 'linear-gradient(to left, var(--surface), transparent)',
+              opacity: tagFade.right ? 1 : 0,
+            }}
+          />
+        <div ref={tagScrollRef} className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <button
             onClick={() => {
               if (allActive && !selectedTag) {
@@ -265,7 +303,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                 setSelectedTag(null);
               }
             }}
-            className={`px-3 py-1 rounded-full text-xs ${
+            className={`flex-shrink-0 px-3 py-1 rounded-full text-xs ${
               allActive && !selectedTag ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
             }`}
           >
@@ -283,13 +321,14 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                   setAllActive(false);
                 }
               }}
-              className={`px-3 py-1 rounded-full text-xs flex items-center gap-1 ${
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs flex items-center gap-1 ${
                 (allActive && !selectedTag) || selectedTag === tag ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
             >
               <Tag size={10} /> {tag}
             </button>
           ))}
+        </div>
         </div>
 
         {/* Prompt list */}

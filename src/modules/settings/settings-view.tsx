@@ -36,6 +36,22 @@ const API_GUIDE_STEPS: Record<string, { emoji: string; title: string; desc: stri
     { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'AIza... 로 시작하는 문자를 복사해서 위 칸에 넣어요' },
     { emoji: '🎉', title: '무료로 바로 사용', desc: '카드 등록 없이도 무료 티어로 바로 사용할 수 있어요' },
   ],
+  deepseek: [
+    { emoji: '🌐', title: '사이트 접속', desc: 'platform.deepseek.com 을 열어요' },
+    { emoji: '👤', title: '회원가입 / 로그인', desc: '이메일로 계정을 만들거나 로그인해요' },
+    { emoji: '💳', title: '크레딧 충전', desc: 'Top Up 메뉴에서 소량 충전해요 (매우 저렴)' },
+    { emoji: '🗂️', title: 'API Keys 메뉴 클릭', desc: '왼쪽 메뉴에서 "API Keys" 를 찾아요' },
+    { emoji: '➕', title: '새 키 만들기', desc: '"Create new API key" 버튼을 눌러요' },
+    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'sk-... 로 시작하는 문자를 복사해서 위 칸에 넣어요' },
+  ],
+  groq: [
+    { emoji: '🌐', title: '사이트 접속', desc: 'console.groq.com 을 열어요' },
+    { emoji: '👤', title: '회원가입 / 로그인', desc: '이메일 또는 GitHub으로 로그인해요' },
+    { emoji: '🗂️', title: 'API Keys 메뉴 클릭', desc: '왼쪽 메뉴에서 "API Keys" 를 찾아요' },
+    { emoji: '➕', title: '새 키 만들기', desc: '"Create API Key" 버튼을 눌러요' },
+    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'gsk_... 로 시작하는 문자를 복사해서 위 칸에 넣어요' },
+    { emoji: '🎉', title: '무료로 바로 사용', desc: '카드 등록 없이도 무료 티어로 바로 사용할 수 있어요' },
+  ],
 };
 
 const PROVIDERS: {
@@ -71,6 +87,24 @@ const PROVIDERS: {
     models: 'Gemini 2.0 Flash, Gemini 2.5 Pro',
     keyUrl: 'https://aistudio.google.com/app/apikey',
     note: '무료 티어 제공',
+  },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    color: '#4D6BFE',
+    placeholder: 'sk-...',
+    models: 'DeepSeek-V3, DeepSeek-R1',
+    keyUrl: 'https://platform.deepseek.com/api_keys',
+    note: '초저가',
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    color: '#F55036',
+    placeholder: 'gsk_...',
+    models: 'Llama 3.3 70B, Mixtral 8x7B',
+    keyUrl: 'https://console.groq.com/keys',
+    note: '무료 티어 · 초고속',
   },
 ];
 
@@ -156,6 +190,12 @@ export function SettingsView() {
         ok = res.ok;
       } else if (providerId === 'google') {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        ok = res.ok;
+      } else if (providerId === 'deepseek') {
+        const res = await fetch('https://api.deepseek.com/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+        ok = res.ok;
+      } else if (providerId === 'groq') {
+        const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
         ok = res.ok;
       }
       setTestResult((s) => ({ ...s, [providerId]: ok ? 'ok' : 'fail' }));

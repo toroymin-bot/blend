@@ -44,7 +44,7 @@ export interface AIModel {
   description?: string; // short user-facing description
 }
 
-export type AIProvider = 'openai' | 'anthropic' | 'google' | 'custom';
+export type AIProvider = 'openai' | 'anthropic' | 'google' | 'deepseek' | 'groq' | 'custom';
 
 export type ModelFeature = 'vision' | 'streaming' | 'function_calling' | 'thinking';
 
