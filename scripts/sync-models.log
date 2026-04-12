@@ -218,4 +218,26 @@
 [2026-04-12T06:35:40.600Z] Vercel 배포 시작...
 [2026-04-12T06:36:16.905Z] 배포 완료: https://blend.ai4min.com
 [2026-04-12T06:36:16.905Z] === 완료 ===
+[2026-04-12T09:05:54.260Z] === Blend Model Sync 시작 ===
+[2026-04-12T09:05:54.262Z] Pulling env vars from Vercel...
+[2026-04-12T09:05:55.320Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-12T09:05:56.162Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-12T09:05:56.163Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-12T09:05:56.164Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-12T09:05:56.164Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-12T09:05:56.165Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-12T09:05:56.165Z]   ⛔ 비활성화: deepseek-chat (API에서 사라짐)
+[2026-04-12T09:05:56.166Z]   ⛔ 비활성화: deepseek-reasoner (API에서 사라짐)
+[2026-04-12T09:05:56.166Z]   ⛔ 비활성화: llama-3.3-70b-versatile (API에서 사라짐)
+[2026-04-12T09:05:56.166Z]   ⛔ 비활성화: llama-3.1-8b-instant (API에서 사라짐)
+[2026-04-12T09:05:56.171Z]   ✅ 신규 추가: nano-banana-pro-preview (enabled=false)
+[2026-04-12T09:05:56.172Z] 
+변경 요약:
+[2026-04-12T09:05:56.172Z]   추가: nano-banana-pro-preview
+[2026-04-12T09:05:56.172Z]   비활성화: claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash, deepseek-chat, deepseek-reasoner, llama-3.3-70b-versatile, llama-3.1-8b-instant
+[2026-04-12T09:05:56.173Z] model-registry.ts 저장 완료.
+[2026-04-12T09:05:56.235Z] Git commit 완료.
+[2026-04-12T09:05:56.236Z] Vercel 배포 시작...
+[2026-04-12T09:06:31.380Z] 배포 완료: https://blend.ai4min.com
+[2026-04-12T09:06:31.383Z] === 완료 ===
 
