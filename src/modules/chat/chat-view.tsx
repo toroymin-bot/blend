@@ -41,7 +41,7 @@ export function ChatView() {
   const { addRecord, checkDailyLimit, getTodayCost } = useUsageStore();
   const { systemPrompt, customModels, settings } = useSettingsStore();
   const { isInstalled, loadFromStorage: loadPlugins } = usePluginStore();
-  const { getActiveDocs } = useDocumentStore();
+  const { getActiveDocs, loadFromDB } = useDocumentStore();
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
@@ -79,6 +79,7 @@ export function ChatView() {
 
   useEffect(() => {
     loadPlugins();
+    loadFromDB(); // 데이터소스 문서 IndexedDB에서 로드
   }, []);
 
   // Close model dropdown when clicking outside
@@ -614,6 +615,8 @@ export function ChatView() {
     const activeAgent = getActiveAgent();
     const allMessages: import('@/modules/chat/chat-api').ChatRequestMessage[] = [];
     const sysPrompt = activeAgent?.systemPrompt || systemPrompt;
+    // NOTE: loadFromDB()가 useEffect에서 호출된 후에야 activeDocs에 문서가 담긴다.
+    // chat-view 마운트 시 반드시 loadFromDB()를 호출해야 함. (재발 방지)
     const activeDocs = getActiveDocs();
     const embeddingApiKey = getKey('openai') || getKey('google') || undefined;
     const embeddingProvider: 'openai' | 'google' | undefined = getKey('openai') ? 'openai' : getKey('google') ? 'google' : undefined;
