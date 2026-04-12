@@ -150,6 +150,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     { id: 'compare', icon: GitCompareArrows, label: '채팅 비교', desc: '여러 AI 나란히 비교' },
     { id: 'documents', icon: FileText, label: '문서 RAG', desc: '내 문서로 AI에게 질문' },
     { id: 'datasources', icon: HardDrive, label: '데이터 소스', desc: 'AI가 참고할 정보 연결' },
+    { id: 'meeting', icon: Mic, label: '회의 분석', desc: '녹음·유튜브 내용 정리' },
     { id: 'agents', icon: Bot, label: '에이전트', desc: '특정 역할의 AI 만들기' },
     { id: 'prompts', icon: BookText, label: '프롬프트', desc: '자주 쓰는 명령어 저장' },
     { id: 'plugins', icon: Puzzle, label: '플러그인', desc: 'AI 기능 추가하기' },
@@ -157,7 +158,6 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     { id: 'savings', icon: Sparkles, label: '절약 대시보드', desc: 'Blend로 얼마나 절약하나?' },
     { id: 'dashboard', icon: BarChart3, label: '비용 분석', desc: 'AI 사용 비용 확인' },
     { id: 'settings', icon: Settings, label: '설정', desc: '앱 설정 변경' },
-    { id: 'meeting', icon: Mic, label: '회의 분석', desc: '녹음·유튜브 내용 정리' },
     { id: 'security', icon: Shield, label: '보안', desc: '내 데이터 보안 안내' },
   ];
 
