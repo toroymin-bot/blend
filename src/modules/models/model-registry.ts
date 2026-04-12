@@ -1296,7 +1296,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     outputPrice: 0.24,
     features: ['streaming', 'function_calling'],
     description: 'MoE 구조 — 다국어·코드 균형',
-    enabled: true,
+    enabled: false, // decommissioned by Groq
   },
   {
     id: 'gemma2-9b-it',
