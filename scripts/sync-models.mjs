@@ -209,10 +209,16 @@ function guessFeatures(id, provider) {
   return [...new Set(features)];
 }
 
+// ── 날짜 suffix 여부 판별 ─────────────────────────────────────────────────────
+function isDateSuffixed(id) {
+  return /-\d{4}-\d{2}-\d{2}$/.test(id) || /-\d{8}$/.test(id);
+}
+
 // ── 신규 모델을 활성화할지 결정 ───────────────────────────────────────────────
 function shouldEnable(id) {
   const lc = id.toLowerCase();
-  // 실험적(exp)/preview/legacy 모델은 기본 disabled
+  // 날짜 고정 버전 / 실험적 / preview / legacy → 항상 disabled
+  if (isDateSuffixed(lc)) return false;
   if (/exp$|preview|legacy|001$|002$/.test(lc)) return false;
   // 최신 주요 모델만 enabled
   if (/gpt-4\.1|gpt-4o|o3|o4-mini/.test(lc)) return true;
@@ -226,18 +232,50 @@ function guessDescription(id, provider) {
   const lc = id.toLowerCase();
 
   if (provider === 'openai') {
-    if (/o3$/.test(lc)) return '어려운 수학·퀴즈도 척척 푸는 AI';
-    if (/o4-mini|o3-mini|o1-mini/.test(lc)) return '어려운 문제를 빠르게 푸는 작은 AI';
-    if (/o1$/.test(lc)) return '깊게 생각해서 답하는 AI';
-    if (/gpt-5/.test(lc) && /nano/.test(lc)) return '번개같이 빠른 초소형 AI';
-    if (/gpt-5/.test(lc) && /mini/.test(lc)) return '빠르고 똑똑한 작은 AI';
-    if (/gpt-5/.test(lc)) return '최신 GPT-5 — 뭐든 잘하는 AI';
-    if (/gpt-4\.1$/.test(lc)) return '코딩·분석을 제일 잘하는 AI';
-    if (/gpt-4\.1-mini/.test(lc)) return '빠르고 저렴한 GPT-4.1 축소판';
-    if (/gpt-4o$/.test(lc)) return '글·그림·대화 모두 잘하는 AI';
-    if (/gpt-4o-mini/.test(lc)) return '가볍고 빠른 일상 대화 AI';
-    if (/gpt-4/.test(lc)) return '강력한 GPT-4 계열 AI';
-    if (/gpt-3\.5/.test(lc)) return '가장 가벼운 GPT — 단순 작업용';
+    if (/o3$/.test(lc)) return '수학·논리 최고 수준 추론';
+    if (/o4-mini/.test(lc)) return '추론 특화 — o3보다 빠르고 저렴';
+    if (/o3-mini/.test(lc)) return '어려운 문제를 빠르게 푸는 추론 AI';
+    if (/o1-pro/.test(lc)) return 'o1 최고급 — 가장 어려운 문제용';
+    if (/o1-mini/.test(lc)) return '추론 경량판 — 빠르고 저렴';
+    if (/o1$/.test(lc)) return '깊게 생각해서 정확하게 답하는 AI';
+    // GPT-5 계열 — 모델명 세분화
+    if (/gpt-5/.test(lc) && /chat-latest/.test(lc)) {
+      const ver = lc.match(/gpt-(5[\d.]*)/)?.[1] || '5';
+      return `항상 최신 GPT-${ver}로 자동 연결`;
+    }
+    if (/gpt-5/.test(lc) && /codex-max/.test(lc)) return '어려운 코딩도 거뜬한 GPT-5 최강판';
+    if (/gpt-5/.test(lc) && /codex-mini/.test(lc)) return 'GPT-5 코딩 경량판 — 빠르고 저렴';
+    if (/gpt-5/.test(lc) && /codex/.test(lc)) {
+      const ver = lc.match(/gpt-(5[\d.]*)/)?.[1] || '5';
+      return `GPT-${ver} 코딩 전문 버전`;
+    }
+    if (/gpt-5/.test(lc) && /pro/.test(lc)) {
+      const ver = lc.match(/gpt-(5[\d.]*)/)?.[1] || '5';
+      return `GPT-${ver} 최고급 — 가장 강력`;
+    }
+    if (/gpt-5/.test(lc) && /nano/.test(lc)) {
+      const ver = lc.match(/gpt-(5[\d.]*)/)?.[1] || '5';
+      return `GPT-${ver} 초소형 — 번개처럼 빠름`;
+    }
+    if (/gpt-5/.test(lc) && /mini/.test(lc)) {
+      const ver = lc.match(/gpt-(5[\d.]*)/)?.[1] || '5';
+      return `GPT-${ver} 경량판 — 빠르고 저렴`;
+    }
+    if (/gpt-5/.test(lc)) {
+      const ver = lc.match(/gpt-(5[\d.]*)/)?.[1] || '5';
+      return `GPT-${ver} 기본형 — 글·코딩 모두 능숙`;
+    }
+    if (/gpt-4\.1-nano/.test(lc)) return 'GPT-4.1 초소형 — 가장 작고 빠름';
+    if (/gpt-4\.1-mini/.test(lc)) return 'GPT-4.1 경량 — 빠르고 저렴';
+    if (/gpt-4\.1$/.test(lc)) return '코딩·분석 최강 — 가장 최신 GPT-4';
+    if (/gpt-4o-mini/.test(lc)) return '가볍고 빠른 일상 대화용';
+    if (/gpt-4o$/.test(lc)) return '글·이미지 모두 잘 이해하는 AI';
+    if (/gpt-4-turbo/.test(lc)) return '빠른 GPT-4 터보 기본형';
+    if (/gpt-4/.test(lc)) return '강력한 GPT-4 기본형';
+    if (/gpt-3\.5.*instruct/.test(lc)) return '명령을 잘 따르는 구형 GPT-3.5';
+    if (/gpt-3\.5.*16k/.test(lc)) return '긴 문서도 처리하는 구형 GPT-3.5';
+    if (/gpt-3\.5/.test(lc)) return '초저가 — 단순 질문·번역용';
+    if (/image/.test(lc)) return '텍스트로 그림을 그려주는 AI';
   }
 
   if (provider === 'anthropic') {
@@ -374,7 +412,20 @@ async function main() {
     }
   }
 
-  // 2a. 기존 모델 중 placeholder 설명("신규 모델" 또는 "새로 나온") → 개선된 설명으로 교체
+  // 2a. 날짜 suffix 모델이 enabled 상태면 → 비활성화
+  for (const id of registryIds) {
+    if (isDateSuffixed(id)) {
+      const wasEnabled = new RegExp(`id:\\s*'${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'[\\s\\S]*?enabled:\\s*true`).test(content);
+      if (wasEnabled) {
+        log(`  🔕 날짜 버전 비활성화: ${id}`);
+        content = setModelEnabled(content, id, false);
+        changed = true;
+      }
+    }
+  }
+
+  // 2b. 기존 모델 중 제네릭/중복 설명 → 개선된 설명으로 교체
+  const STALE_DESC = /신규 모델|새로 나온|뭐든 잘하는 AI/;
   for (const apiModel of allApiModels) {
     if (!registryIds.has(apiModel.id)) continue;
     const placeholderRe = new RegExp(
@@ -382,7 +433,7 @@ async function main() {
       'g'
     );
     content = content.replace(placeholderRe, (match, pre, desc, post) => {
-      if (/신규 모델|새로 나온/.test(desc)) {
+      if (STALE_DESC.test(desc)) {
         const newDesc = guessDescription(apiModel.id, apiModel.provider);
         if (newDesc !== desc) {
           log(`  📝 설명 업데이트: ${apiModel.id} → "${newDesc}"`);
