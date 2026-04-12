@@ -475,6 +475,40 @@ export function ChatView() {
     setInput('');
     setAttachedImages([]);
 
+    // DALL-E 모델 선택 시 — 모든 메시지를 이미지 생성 프롬프트로 처리
+    const isDalleModel = ['dall-e-3', 'dall-e-2', 'gpt-image-1'].includes(selectedModel);
+    if (isDalleModel) {
+      const openaiKey = getKey('openai');
+      if (!openaiKey) {
+        addMessage(chatId, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: '🔑 OpenAI API 키가 필요해요. 설정 탭에서 API 키를 입력해주세요.',
+          createdAt: Date.now(),
+        });
+        return;
+      }
+      setIsGeneratingImage(true);
+      const result = await generateImage(userContent, openaiKey);
+      setIsGeneratingImage(false);
+      if (result.error) {
+        addMessage(chatId, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `🎨 이미지 생성 실패: ${result.error}`,
+          createdAt: Date.now(),
+        });
+      } else {
+        addMessage(chatId, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `![generated](${result.url})\n\n*"${userContent.slice(0, 80)}${userContent.length > 80 ? '...' : ''}"*`,
+          createdAt: Date.now(),
+        });
+      }
+      return;
+    }
+
     // Image Generation plugin: handle /image command
     const imageGenEnabled = isInstalled('image-gen');
     if (imageGenEnabled) {
