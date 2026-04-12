@@ -38,8 +38,8 @@ export function ChatView() {
   const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle, editMessage } = useChatStore();
   const { getKey, hasKey } = useAPIKeyStore();
   const { getActiveAgent } = useAgentStore();
-  const { addRecord } = useUsageStore();
-  const { systemPrompt, customModels } = useSettingsStore();
+  const { addRecord, checkDailyLimit, getTodayCost } = useUsageStore();
+  const { systemPrompt, customModels, settings } = useSettingsStore();
   const { isInstalled, loadFromStorage: loadPlugins } = usePluginStore();
   const { getActiveDocs } = useDocumentStore();
   const [input, setInput] = useState('');
@@ -425,8 +425,40 @@ export function ChatView() {
       chatId = createChat();
     }
 
-    const currentModel = getModelById(selectedModel);
-    if (!currentModel) return;
+    // [2026-04-13 00:00] BUG-004: 삭제된 모델 선택 시 null 체크 + 사용 가능한 첫 번째 모델로 자동 폴백
+    // 기존: if (!currentModel) return;  — 아무 안내 없이 조용히 실패
+    let currentModel = getModelById(selectedModel, customModels);
+    if (!currentModel) {
+      const fallback = [...DEFAULT_MODELS, ...customModels].find((m) => m.enabled);
+      if (!fallback) {
+        addMessage(chatId, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: '⚠️ 선택된 모델을 찾을 수 없고, 사용 가능한 모델도 없습니다. 설정에서 모델을 활성화해 주세요.',
+          createdAt: Date.now(),
+        });
+        return;
+      }
+      setSelectedModel(fallback.id);
+      currentModel = fallback;
+      addMessage(chatId, {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `⚠️ 선택된 모델을 찾을 수 없어 **${fallback.name}**으로 자동 전환되었습니다.`,
+        createdAt: Date.now(),
+      });
+    }
+
+    // [2026-04-13 00:00] BUG-012: 일일 API 비용 한도 초과 시 전송 차단
+    if (checkDailyLimit(settings.dailyCostLimit)) {
+      addMessage(chatId, {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `🚫 오늘의 API 비용 한도($${settings.dailyCostLimit.toFixed(2)})를 초과했습니다. 현재 오늘 사용액: $${getTodayCost().toFixed(4)}.\n\n한도를 조정하려면 **설정(⌘,) → 일일 비용 한도**에서 변경하세요.`,
+        createdAt: Date.now(),
+      });
+      return;
+    }
 
     if (!hasKey(currentModel.provider)) {
       addMessage(chatId, {

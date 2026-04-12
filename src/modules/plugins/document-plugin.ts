@@ -217,6 +217,9 @@ async function parseCsv(file: File): Promise<DocumentChunk[]> {
   return chunks;
 }
 
+// [2026-04-13 00:00] BUG-008: 대용량 PDF OOM 방지 — 50페이지 제한
+const PDF_MAX_PAGES = 50;
+
 async function parsePdf(file: File): Promise<DocumentChunk[]> {
   const pdfjsLib = await import('pdfjs-dist');
   // Use the bundled worker from node_modules
@@ -229,11 +232,21 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
   const chunks: DocumentChunk[] = [];
 
+  // [2026-04-13 00:00] BUG-008: 50페이지 초과 시 경고 청크 삽입 후 제한
+  if (pdf.numPages > PDF_MAX_PAGES) {
+    chunks.push({
+      text: `[경고] 이 PDF는 ${pdf.numPages}페이지로, 처리 가능한 최대 페이지 수(${PDF_MAX_PAGES}페이지)를 초과합니다. 처음 ${PDF_MAX_PAGES}페이지만 분석됩니다. 전체 문서를 분석하려면 페이지 범위를 나누어 업로드해 주세요.`,
+      source: `${file.name} (경고: ${pdf.numPages}페이지 중 ${PDF_MAX_PAGES}페이지만 처리)`,
+    });
+  }
+
   // Group pages into chunks of 3 pages each for manageable context size
   const PAGE_GROUP = 3;
+  // [2026-04-13 00:00] BUG-008: 처리 페이지를 PDF_MAX_PAGES로 제한
+  const effectivePages = Math.min(pdf.numPages, PDF_MAX_PAGES);
 
-  for (let start = 1; start <= pdf.numPages; start += PAGE_GROUP) {
-    const end = Math.min(start + PAGE_GROUP - 1, pdf.numPages);
+  for (let start = 1; start <= effectivePages; start += PAGE_GROUP) {
+    const end = Math.min(start + PAGE_GROUP - 1, effectivePages);
     const pageTexts: string[] = [];
 
     for (let p = start; p <= end; p++) {

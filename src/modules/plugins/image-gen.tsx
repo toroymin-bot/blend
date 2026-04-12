@@ -31,6 +31,23 @@ export async function generateImage(prompt: string, apiKey: string): Promise<Ima
     const data = await res.json() as { data?: { url?: string }[] };
     const url = data.data?.[0]?.url;
     if (!url) return { error: '이미지 URL을 받지 못했습니다' };
+    // [2026-04-13 00:00] BUG-007: DALL-E URL은 1시간 후 만료 → 즉시 base64로 변환하여 로컬 저장
+    // 기존: return { url };  — 히스토리에서 이미지 사라지는 문제
+    try {
+      const imgRes = await fetch(url);
+      if (imgRes.ok) {
+        const blob = await imgRes.blob();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        return { url: base64 };
+      }
+    } catch {
+      // base64 변환 실패 시 원본 URL 반환 (임시 표시 가능)
+    }
     return { url };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
