@@ -111,9 +111,12 @@ function fetchAnthropicCosts() {
     buckets.forEach(function(b) {
       var cost = 0;
       // [2026-04-10 14:35] 버그수정: b.costs → b.results (실제 API 응답 필드명)
-      // [2026-04-10 14:35] 버그수정: /100 제거 — amount는 USD 직접값 ("2.1337" 형태), cents가 아님
-      // (b.costs||[]).forEach(function(c) { cost += parseFloat(c.amount||0)/100; }); // 구버전
-      (b.results||[]).forEach(function(c) { cost += parseFloat(c.amount||0); });
+      // [2026-04-10 14:35] 버그수정: /100 제거 — amount는 USD 직접값 ("2.1337" 형태), cents가 아님  ← 잘못된 판단
+      // (b.costs||[]).forEach(function(c) { cost += parseFloat(c.amount||0)/100; }); // 구버전 (b.costs)
+      // [2026-04-12 검증] Anthropic 콘솔 4월 실제 합계 ~$0.20 vs GAS 보고 $19.72 = 정확히 100배 차이
+      //   → amount 필드 단위는 USD cents (1/100달러). /100 복원 필수.
+      // (b.results||[]).forEach(function(c) { cost += parseFloat(c.amount||0); }); // [2026-04-10] /100 잘못 제거한 버전
+      (b.results||[]).forEach(function(c) { cost += parseFloat(c.amount||0) / 100; });
       var ts = new Date(b.starting_at||0).getTime();
       daily.push({
         date: Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), 'MM/dd'),
