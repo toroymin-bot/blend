@@ -147,17 +147,17 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
 
   const tabs = [
     { id: 'chat', icon: MessageSquare, label: '채팅', desc: 'AI와 대화하기' },
-    { id: 'meeting', icon: Mic, label: '회의 분석', desc: '녹음·유튜브 내용 정리' },
-    { id: 'agents', icon: Bot, label: '에이전트', desc: '특정 역할의 AI 만들기' },
-    { id: 'prompts', icon: BookText, label: '프롬프트', desc: '자주 쓰는 명령어 저장' },
+    { id: 'compare', icon: GitCompareArrows, label: '채팅 비교', desc: '여러 AI 나란히 비교' },
     { id: 'documents', icon: FileText, label: '문서 RAG', desc: '내 문서로 AI에게 질문' },
     { id: 'datasources', icon: HardDrive, label: '데이터 소스', desc: 'AI가 참고할 정보 연결' },
+    { id: 'agents', icon: Bot, label: '에이전트', desc: '특정 역할의 AI 만들기' },
+    { id: 'prompts', icon: BookText, label: '프롬프트', desc: '자주 쓰는 명령어 저장' },
     { id: 'plugins', icon: Puzzle, label: '플러그인', desc: 'AI 기능 추가하기' },
     { id: 'models', icon: Cpu, label: '모델', desc: 'AI 종류 선택하기' },
-    { id: 'compare', icon: GitCompareArrows, label: '모델 비교', desc: '여러 AI 나란히 비교' },
-    { id: 'dashboard', icon: BarChart3, label: '비용 분석', desc: 'AI 사용 비용 확인' },
     { id: 'savings', icon: Sparkles, label: '절약 대시보드', desc: 'Blend로 얼마나 절약하나?' },
+    { id: 'dashboard', icon: BarChart3, label: '비용 분석', desc: 'AI 사용 비용 확인' },
     { id: 'settings', icon: Settings, label: '설정', desc: '앱 설정 변경' },
+    { id: 'meeting', icon: Mic, label: '회의 분석', desc: '녹음·유튜브 내용 정리' },
   ];
 
   return (
@@ -238,7 +238,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
             - collapsed + sidebar closed on mobile: hidden (avoids leaking outside off-screen sidebar) */}
         <button
           onClick={() => setNavExpanded(!navExpanded)}
-          className={`${navExpanded || mobileOpen ? 'flex' : 'hidden md:flex'} absolute right-0 top-1/2 -translate-y-1/2 translate-x-full w-3 h-24 bg-gray-600 hover:bg-gray-400 items-center justify-center text-white z-10 transition-colors rounded-r-full`}
+          className={`${navExpanded || mobileOpen ? 'flex' : 'hidden md:flex'} absolute right-0 top-1/2 -translate-y-1/2 translate-x-full w-[18px] h-24 bg-gray-600 hover:bg-gray-400 items-center justify-center text-white z-10 transition-colors rounded-r-full`}
           title={navExpanded ? '메뉴 접기' : '메뉴 보기'}
         >
           {navExpanded ? <ChevronLeft size={10} /> : <ChevronRight size={10} />}
