@@ -26,42 +26,36 @@ function checkKeys() {
 function setTodayData() {
   var data = {
     dayNumber: 23,
-    files: 75,
-    lines: 11420,
-    features: 30,
+    files: 61,
+    lines: 13263,
+    features: 34,
     cost: '$0',
     newFeatures: [
-      'M1: 정적 빌드 전환 (output: export) — 6개 API 라우트 OCP 주석처리, $0 서버 비용 달성',
-      'M1: image-gen/web-search/url-reader/transcribe/youtube-transcript/webdav 클라이언트 직접 호출 전환',
-      'M2: 절약 대시보드 추가 — AI 서비스 개별 구독료 vs Blend API 비용 시각화 (cost-savings-dashboard.tsx)',
-      'M3: QA 100 시나리오 코드 리뷰 + Confluence 문서화 (PASS 67/FAIL 23/SKIP 10, BUG-011 등 Critical 발견)',
-      'M4: 빈 채팅 상태 개선 — 클릭 가능한 예시 질문 4개 + Google AI 무료 유도 CTA',
-      'M4: BUG-011 Critical 수정 — localStorage.clear() → blend: 접두사 키만 삭제 (다른 앱 데이터 보호)',
-      'M4: 한국어 오류 메시지 개선 — 미지원 오류도 한국어로 표시, 모바일 터치 영역 44px 확보',
-      'M5: RAG 5-2단계 — 글자 수 기반 청킹 → 문단/문장 경계 청킹 (한국어 종결 패턴 포함)',
-      'M5: RAG 5-3단계 — 순수 벡터 검색 → BM25 하이브리드 검색 (벡터 0.7 + BM25 0.3 가중치)'
+      'BUG-008 수정: parsePdf() 50페이지 제한 + 초과 시 한국어 경고 청크 삽입 (OOM 방지)',
+      'BUG-004 수정: handleSend() 삭제된 모델 null 체크 → 첫 enabled 모델 자동 폴백 + 안내 메시지',
+      'BUG-012 수정: handleSend() dailyCostLimit 초과 시 전송 차단 + 설정 유도 한국어 안내',
+      'BUG-007 수정: generateImage() DALL-E URL 생성 직후 base64 변환 로컬 저장 (URL 만료 대응)'
     ],
     issues: [
-      {issue: 'output:export 빌드 실패 (API 라우트 6개)', solution: 'POST 핸들러 OCP 주석처리 + force-static GET 스텁 추가'},
-      {issue: 'BUG-011 Critical: localStorage.clear() 범위 오류', solution: 'blend: 접두사 키만 선택 삭제'},
-      {issue: 'BUG-016: 일부 오류 영문 반환', solution: '미지원 오류도 한국어 래퍼로 표시'},
-      {issue: 'RAG 글자 수 기반 청킹 — 문장 중간 절단', solution: '문단/문장 경계 기반 splitByBoundary 함수'},
-      {issue: 'RAG 순수 벡터 검색 — 정확한 키워드 매칭 부족', solution: 'BM25 하이브리드 검색으로 재정렬'}
+      {issue: 'BUG-008: 대용량 PDF(100페이지+) OOM 크래시', solution: 'PDF_MAX_PAGES=50 제한 + effectivePages 변수로 루프 범위 제한'},
+      {issue: 'BUG-004: 삭제된 커스텀 모델 선택 후 전송 시 null 참조 오류', solution: 'getModelById null 체크 → DEFAULT_MODELS 중 첫 enabled 모델 폴백'},
+      {issue: 'BUG-012: 일일 비용 한도 설정해도 전송 미차단', solution: 'checkDailyLimit() 호출 → 한도 초과 시 메시지 차단 및 설정 안내'},
+      {issue: 'BUG-007: DALL-E 이미지 1시간 후 히스토리에서 사라짐', solution: 'URL fetch 후 FileReader로 base64 변환, 실패 시 원본 URL 폴백'}
     ],
     tomorrowPlan: [
-      'BUG-008: 대용량 PDF OOM 방지 (페이지 수 제한 50)',
-      'BUG-004: 삭제된 모델 선택 시 null 체크',
-      'BUG-012: 일일 비용 한도 초과 시 전송 차단 구현',
-      'BUG-007: DALL-E 이미지 URL 만료 대응 (base64 저장)'
+      'BUG-013(신규): /image 명령 경로에도 일일 비용 한도 체크 적용',
+      'BUG-014(신규): DALL-E base64 변환 fetch 타임아웃 처리 추가',
+      'BUG-005, BUG-006: 미수정 버그 백로그 검토',
+      'QA 자동화: 주요 시나리오 자동 테스트 스크립트 작성 검토'
     ],
     confluenceLinks: [
-      {title: 'Blend QA 리포트 — 2026-04-12', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9437185'},
-      {title: 'DATA & AI 스페이스', url: 'https://ai4min.atlassian.net/wiki/spaces/DA'}
+      {title: 'Blend QA 리포트 — 2026-04-13', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9437205'},
+      {title: 'Blend QA 리포트 — 2026-04-12', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9437185'}
     ],
     githubLinks: [],
-    runStart: '01:07',
-    runEnd: '02:45',
-    totalCommits: 4
+    runStart: '00:00',
+    runEnd: '00:30',
+    totalCommits: 1
   };
   PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
   Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files, ' + data.totalCommits + ' commits');
