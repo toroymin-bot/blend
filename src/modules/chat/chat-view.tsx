@@ -1141,10 +1141,15 @@ export function ChatView() {
           <div ref={modelDropdownRef} className="flex items-center gap-2 mb-2 relative">
             <button
               onClick={() => setShowModelDropdown(!showModelDropdown)}
-              className="flex items-center gap-1 px-3 py-1 rounded-lg bg-gray-800 text-sm text-gray-300 hover:bg-gray-700"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-left"
             >
-              {model?.name || selectedModel}
-              <ChevronDown size={14} />
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-gray-200 leading-tight">{model?.name || selectedModel}</div>
+                {model?.description && (
+                  <div className="text-xs text-gray-500 leading-tight truncate max-w-[220px]">{model.description}</div>
+                )}
+              </div>
+              <ChevronDown size={14} className="shrink-0 text-gray-400" />
             </button>
             {/* Active plugin indicators */}
             {isInstalled('url-reader') && (
