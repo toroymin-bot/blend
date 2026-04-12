@@ -21,6 +21,28 @@ interface ModelResult {
   cost?: number;
 }
 
+// ── 에러 → 친화적 메시지 변환 ────────────────────────────────────────────────
+function friendlyError(raw: string): { icon: string; msg: string } {
+  const e = raw.toLowerCase();
+  if (/insufficient.balance|insufficient_balance|balance|credit|quota|billing|payment|topup|top.up/i.test(e))
+    return { icon: '💳', msg: '크레딧 충전 필요' };
+  if (/decommission|no longer support|deprecated|removed|sunset/i.test(e))
+    return { icon: '🚫', msg: '지원 종료된 모델' };
+  if (/no longer available|not available to new/i.test(e))
+    return { icon: '🚫', msg: '신규 사용자에게 제공 종료된 모델' };
+  if (/invalid.api.key|invalid_api_key|incorrect.api.key|unauthorized|401/i.test(e))
+    return { icon: '🔑', msg: 'API 키를 확인해주세요' };
+  if (/rate.limit|too.many.request|429/i.test(e))
+    return { icon: '⏳', msg: '요청 한도 초과 — 잠시 후 다시 시도하세요' };
+  if (/model.not.found|does.not.exist|no such model|404/i.test(e))
+    return { icon: '❓', msg: '모델을 찾을 수 없어요' };
+  if (/context.length|max.tokens|too.long|input.too/i.test(e))
+    return { icon: '📏', msg: '입력이 너무 길어요 — 내용을 줄여보세요' };
+  if (/network|fetch|connect|timeout|econnrefused/i.test(e))
+    return { icon: '🌐', msg: '네트워크 오류 — 인터넷 연결을 확인해주세요' };
+  return { icon: '⚠️', msg: '응답 실패' };
+}
+
 export function ModelCompareView() {
   const { getKey, hasKey } = useAPIKeyStore();
   const { addRecord } = useUsageStore();
@@ -361,16 +383,15 @@ export function ModelCompareView() {
                 </div>
                 <div className="flex-1 overflow-y-auto max-h-96">
                   {result.error ? (
-                    <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-3 space-y-1">
-                      <p className="text-xs font-semibold text-red-400">⚠️ 응답 실패</p>
-                      <p className="text-xs text-red-300/80 leading-relaxed">{result.error}</p>
-                      {/balance|credit|quota/i.test(result.error) && (
-                        <p className="text-xs text-yellow-400/70 mt-1">💡 API 키 잔액을 확인하세요.</p>
-                      )}
-                      {/deprecated|no longer available/i.test(result.error) && (
-                        <p className="text-xs text-yellow-400/70 mt-1">💡 모델 목록에서 다른 모델로 교체하세요.</p>
-                      )}
-                    </div>
+                    (() => {
+                      const { icon, msg } = friendlyError(result.error);
+                      return (
+                        <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-gray-700/40 border border-gray-600/40">
+                          <span className="text-lg shrink-0">{icon}</span>
+                          <span className="text-sm text-gray-300">{msg}</span>
+                        </div>
+                      );
+                    })()
                   ) : (
                     <div className="prose prose-invert prose-sm max-w-none">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.content}</ReactMarkdown>
