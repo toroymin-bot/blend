@@ -885,7 +885,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     outputPrice: 0.3,
     features: ['vision', 'streaming'],
     description: '구글 가장 저렴 — 일상 작업',
-    enabled: true,
+    enabled: false, // deprecated — "no longer available to new users"
   },
   {
     id: 'gemini-1.5-pro',

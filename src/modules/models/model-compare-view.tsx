@@ -25,7 +25,7 @@ export function ModelCompareView() {
   const { getKey, hasKey } = useAPIKeyStore();
   const { addRecord } = useUsageStore();
   const [prompt, setPrompt] = useState('');
-  const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o-mini', 'claude-haiku-4-5-20251001', 'gemini-2.0-flash-lite']);
+  const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o-mini', 'claude-haiku-4-5-20251001', 'gemini-2.5-flash']);
   const [results, setResults] = useState<ModelResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const abortRefs = useRef<Map<string, AbortController>>(new Map());
@@ -361,7 +361,16 @@ export function ModelCompareView() {
                 </div>
                 <div className="flex-1 overflow-y-auto max-h-96">
                   {result.error ? (
-                    <p className="text-red-400 text-sm">{result.error}</p>
+                    <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-3 space-y-1">
+                      <p className="text-xs font-semibold text-red-400">⚠️ 응답 실패</p>
+                      <p className="text-xs text-red-300/80 leading-relaxed">{result.error}</p>
+                      {/balance|credit|quota/i.test(result.error) && (
+                        <p className="text-xs text-yellow-400/70 mt-1">💡 API 키 잔액을 확인하세요.</p>
+                      )}
+                      {/deprecated|no longer available/i.test(result.error) && (
+                        <p className="text-xs text-yellow-400/70 mt-1">💡 모델 목록에서 다른 모델로 교체하세요.</p>
+                      )}
+                    </div>
                   ) : (
                     <div className="prose prose-invert prose-sm max-w-none">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.content}</ReactMarkdown>
