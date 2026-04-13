@@ -160,7 +160,7 @@ export function ModelCompareView() {
   return (
     <div className="h-full overflow-y-auto bg-gray-900 p-6">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-2">모델 비교</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">채팅 비교</h1>
         <p className="text-sm text-gray-400 mb-4">
           같은 질문을 여러 모델에 동시에 보내고 결과를 비교합니다{' '}
           <span className="text-gray-600">(최대 {MAX_COMPARE_MODELS}개)</span>

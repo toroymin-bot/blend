@@ -21,6 +21,8 @@ import { generateImage, extractImagePrompt, extractImageURLs } from '@/modules/p
 import { downloadChat, downloadChatAsPDF, downloadChatAsJSON } from '@/modules/chat/export-chat';
 import { useDocumentStore } from '@/stores/document-store';
 import { buildContext } from '@/modules/plugins/document-plugin';
+import { routeToModel } from '@/lib/model-router';
+import { AUTO_MATCH_AGENT_ID } from '@/stores/agent-store';
 
 // ── Inline text highlight helper ──────────────────────────────────────────────
 function highlightText(text: string, query: string): React.ReactNode {
@@ -66,6 +68,8 @@ export function ChatView() {
   // Image attachment state
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // 자동 AI 매칭 상태
+  const [autoMatchInfo, setAutoMatchInfo] = useState<{ modelName: string; label: string } | null>(null);
   // Chat summary state
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryText, setSummaryText] = useState('');
@@ -450,6 +454,21 @@ export function ChatView() {
       });
     }
 
+    // ── 자동 AI 매칭: 질문 내용 분석 → 최적 모델로 currentModel 오버라이드 ──
+    // setSelectedModel은 비동기라 위에서 쓸 수 없으므로 currentModel을 직접 교체
+    const routingAgent = getActiveAgent();
+    if (routingAgent?.id === AUTO_MATCH_AGENT_ID) {
+      const allEnabled = [...DEFAULT_MODELS, ...customModels].filter((m) => m.enabled);
+      const route = routeToModel(input.trim(), attachedImages.length > 0, allEnabled, hasKey);
+      const routedModel = getModelById(route.modelId, customModels);
+      if (routedModel && hasKey(routedModel.provider)) {
+        currentModel = routedModel;
+        setAutoMatchInfo({ modelName: routedModel.name, label: route.label });
+      }
+    } else {
+      setAutoMatchInfo(null);
+    }
+
     // [2026-04-13 00:00] BUG-012: 일일 API 비용 한도 초과 시 전송 차단
     if (checkDailyLimit(settings.dailyCostLimit)) {
       addMessage(chatId, {
@@ -736,7 +755,9 @@ export function ChatView() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // [2026-04-13] BUG-013: 한국어 IME 조합 중 Enter 시 마지막 글자가 별도 메시지로 전송되는 버그
+    // isComposing=true 이면 IME가 아직 글자를 조합 중 → 전송하지 않고 IME가 글자 확정하도록 대기
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSend();
     }
@@ -806,7 +827,13 @@ export function ChatView() {
         <div className="px-4 py-2 border-b border-border-token flex items-center gap-2 bg-surface-2">
           <span className="text-lg">{getActiveAgent()?.icon}</span>
           <span className="text-sm text-on-surface">{getActiveAgent()?.name}</span>
-          <span className="text-xs text-on-surface-muted">· {getActiveAgent()?.model}</span>
+          {getActiveAgent()?.id === AUTO_MATCH_AGENT_ID ? (
+            <span className="text-xs text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-full">
+              {autoMatchInfo ? `${autoMatchInfo.label} → ${autoMatchInfo.modelName}` : '질문에 맞는 AI 자동 선택'}
+            </span>
+          ) : (
+            <span className="text-xs text-on-surface-muted">· {getActiveAgent()?.model}</span>
+          )}
         </div>
       )}
 
@@ -875,9 +902,16 @@ export function ChatView() {
               </p>
               {/* Active agent badge */}
               {getActiveAgent() && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900/30 rounded-lg text-sm text-blue-300 mb-5">
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm mb-5 ${
+                  getActiveAgent()?.id === AUTO_MATCH_AGENT_ID
+                    ? 'bg-violet-900/30 text-violet-300'
+                    : 'bg-blue-900/30 text-blue-300'
+                }`}>
                   <span className="text-lg">{getActiveAgent()?.icon}</span>
                   <span>에이전트: {getActiveAgent()?.name}</span>
+                  {getActiveAgent()?.id === AUTO_MATCH_AGENT_ID && (
+                    <span className="text-xs opacity-70">— 질문마다 최적 AI 자동 선택</span>
+                  )}
                 </div>
               )}
               {/* Quick-start suggestions */}
@@ -1009,7 +1043,7 @@ export function ChatView() {
                         value={editingMsgContent}
                         onChange={(e) => setEditingMsgContent(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEditSave(msg.id); }
+                          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); handleEditSave(msg.id); }
                           if (e.key === 'Escape') { setEditingMsgId(null); setEditingMsgContent(''); }
                         }}
                         autoFocus
@@ -1213,9 +1247,26 @@ export function ChatView() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-left"
             >
               <div className="min-w-0">
-                <div className="text-sm font-medium text-gray-200 leading-tight">{model?.name || selectedModel}</div>
-                {model?.description && (
-                  <div className="text-xs text-gray-500 leading-tight truncate max-w-[220px]">{model.description}</div>
+                {getActiveAgent()?.id === AUTO_MATCH_AGENT_ID ? (
+                  <>
+                    <div className="text-sm font-medium text-violet-300 leading-tight flex items-center gap-1">
+                      🤖 자동 AI 매칭
+                    </div>
+                    {autoMatchInfo ? (
+                      <div className="text-xs text-gray-400 leading-tight truncate max-w-[220px]">
+                        {autoMatchInfo.label} → {autoMatchInfo.modelName}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500 leading-tight">질문에 맞는 AI를 자동 선택</div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="text-sm font-medium text-gray-200 leading-tight">{model?.name || selectedModel}</div>
+                    {model?.description && (
+                      <div className="text-xs text-gray-500 leading-tight truncate max-w-[220px]">{model.description}</div>
+                    )}
+                  </>
                 )}
               </div>
               <ChevronDown size={14} className="shrink-0 text-gray-400" />

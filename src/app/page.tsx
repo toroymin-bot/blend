@@ -25,6 +25,7 @@ import { useChatStore } from '@/stores/chat-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { usePluginStore } from '@/stores/plugin-store';
 import { useDocumentStore } from '@/stores/document-store';
+import { useDataSourceStore } from '@/stores/datasource-store';
 import { Menu, ChevronRight } from 'lucide-react';
 
 export default function Home() {
@@ -41,6 +42,7 @@ export default function Home() {
   const settingsStore = useSettingsStore();
   const pluginStore = usePluginStore();
   const { loadFromDB: loadDocumentsFromDB } = useDocumentStore();
+  const { loadFromStorage: loadDataSources } = useDataSourceStore();
 
   useEffect(() => {
     apiKeyStore.loadFromStorage();
@@ -50,6 +52,7 @@ export default function Home() {
     usageStore.loadFromStorage();
     settingsStore.loadFromStorage();
     pluginStore.loadFromStorage();
+    loadDataSources(); // [2026-04-13] BUG-010: 앱 시작 시 datasource 설정 복원
     loadDocumentsFromDB();
     // Show welcome on first launch (no key set, never welcomed)
     const welcomed = localStorage.getItem('blend:welcomed');

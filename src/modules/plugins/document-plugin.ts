@@ -269,6 +269,17 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
     }
   }
 
+  // [2026-04-13] BUG-009: 이미지 전용 PDF — 텍스트 레이어 없음 처리
+  // 스캔본·HEIC→PDF 변환 파일 등은 pdfjs로 텍스트 추출 불가
+  // 경고 청크를 삽입해 AI가 "이미지 PDF"임을 사용자에게 안내하도록 함
+  const textChunks = chunks.filter((c) => !c.text.startsWith('[경고]'));
+  if (textChunks.length === 0) {
+    chunks.push({
+      text: `[이미지 전용 PDF] 이 파일(${file.name})은 스캔 이미지 또는 이미지 기반 PDF로, 텍스트 레이어가 없습니다. PDF에서 텍스트를 추출할 수 없어 RAG 검색이 불가능합니다. OCR 처리된 PDF나 텍스트 기반 문서를 업로드해 주세요.`,
+      source: `${file.name} (이미지 PDF — 텍스트 없음)`,
+    });
+  }
+
   return chunks;
 }
 
@@ -517,8 +528,9 @@ export async function buildContext(
 ): Promise<string> {
   if (docs.length === 0) return '';
 
-  const embeddedDocs = docs.filter((d) => d.embeddingModel && d.chunks.some((c) => c.embedding));
-  const plainDocs = docs.filter((d) => !d.embeddingModel);
+  // [2026-04-13] BUG-009: 청크 없는 문서(이미지 PDF 등) 방어 처리 — d.chunks.length > 0 추가
+  const embeddedDocs = docs.filter((d) => d.embeddingModel && d.chunks.length > 0 && d.chunks.some((c) => c.embedding));
+  const plainDocs = docs.filter((d) => !d.embeddingModel && d.chunks.length > 0);
 
   let relevant: DocumentChunk[] = [];
   let usedSemantic = false;
@@ -565,17 +577,14 @@ export async function buildContext(
     }
   }
 
-  // ── No results — inject explicit "not found" instruction ─────────────────
-  // This is the most important hallucination prevention measure:
-  // without it, the LLM uses its training data to fill in the gap.
+  // ── No results — 빈 문자열 반환 (일반 지식으로 답변 허용) ──────────────────
+  // [2026-04-13] BUG-011: 문서와 무관한 일반 질문도 "문서에 없습니다"로 차단되는 문제
+  // 이전: 검색 결과 없을 때 "반드시 문서에서만 답변하라"는 강제 명령 주입
+  //   → 버스 노선, 날씨, 수학 등 문서와 무관한 모든 질문까지 차단됨
+  // 수정: 검색 결과가 없으면 빈 문자열 반환 → AI가 일반 지식으로 자유롭게 답변
+  //   → 문서에서 관련 내용을 찾은 경우에만 "이 문서 기반으로 답변" 제약 적용
   if (relevant.length === 0) {
-    const method = usedSemantic ? '하이브리드 검색 (벡터 0.7 + BM25 0.3)' : '키워드 검색';
-    return (
-      `[문서 검색 결과: 없음 (${method})]\n` +
-      `업로드된 문서에서 이 질문과 관련된 내용을 찾을 수 없습니다.\n` +
-      `반드시 "업로드된 문서에서 관련 내용을 찾을 수 없습니다"라고만 답변하세요. ` +
-      `문서에 없는 내용을 추측하거나 일반 지식으로 보완하지 마세요.`
-    );
+    return '';
   }
 
   // ── Build context block ───────────────────────────────────────────────────

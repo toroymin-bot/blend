@@ -4,7 +4,7 @@
 
 import { DataSource, GoogleDriveConfig, OneDriveConfig, WebDAVConfig, LocalSourceConfig } from '@/types';
 import { parseDocument, generateEmbeddings, ParsedDocument } from '@/modules/plugins/document-plugin';
-import { saveDocument, getAllDocuments, deleteDocument } from '@/lib/vector-db';
+import { saveDocument, getAllDocuments, deleteDocument, getActiveDocIds, setActiveDocIds } from '@/lib/vector-db';
 
 // ── Connector imports ─────────────────────────────────────────────────────────
 import { scanLocalDirectory, readLocalFile, verifyLocalPermission } from './connectors/local-connector';
@@ -122,6 +122,12 @@ export async function indexSource(
       }
 
       await saveDocument(doc);
+      // [2026-04-13] BUG-010: datasource 동기화 후 activeDocIds에 추가 누락 → RAG 검색 안 됨
+      // saveDocument()만 호출하면 IndexedDB에 저장되지만 active 목록에는 없어서 buildContext()가 무시
+      const currentActive = await getActiveDocIds();
+      if (!currentActive.includes(doc.id)) {
+        await setActiveDocIds([...currentActive, doc.id]);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       progress.errors.push(`${f.name}: ${msg}`);

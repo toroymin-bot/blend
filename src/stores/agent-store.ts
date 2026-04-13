@@ -20,7 +20,19 @@ interface AgentState {
 
 const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
+export const AUTO_MATCH_AGENT_ID = 'agent-auto-match';
+
 const DEFAULT_AGENTS: Agent[] = [
+  // ── 자동 AI 매칭 (기본 에이전트) ─────────────────────────────────────────
+  {
+    id: AUTO_MATCH_AGENT_ID,
+    name: '자동 AI 매칭',
+    description: '질문 내용을 분석해서 가장 적합한 AI 모델을 자동으로 선택합니다.',
+    systemPrompt: '',  // 시스템 프롬프트 없음 — 순수 모델 라우팅만
+    model: '__auto__', // 내부 신호: 자동 선택 모드
+    icon: '🤖',
+    createdAt: Date.now(),
+  },
   {
     id: 'agent-translator',
     name: '번역가',
@@ -88,7 +100,7 @@ const DEFAULT_AGENTS: Agent[] = [
 
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: DEFAULT_AGENTS,
-  activeAgentId: null,
+  activeAgentId: AUTO_MATCH_AGENT_ID, // 기본: 자동 AI 매칭
 
   addAgent: (agent) => {
     const newAgent: Agent = { ...agent, id: generateId(), createdAt: Date.now() };
@@ -119,7 +131,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     get().saveToStorage();
   },
 
-  setActiveAgent: (id) => set({ activeAgentId: id }),
+  setActiveAgent: (id) => {
+    set({ activeAgentId: id });
+    if (typeof window !== 'undefined') {
+      if (id) localStorage.setItem('blend:activeAgentId', id);
+      else localStorage.removeItem('blend:activeAgentId');
+    }
+  },
 
   incrementUsage: (id) => {
     set((state) => ({
@@ -137,12 +155,23 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     if (typeof window === 'undefined') return;
     try {
       const stored = localStorage.getItem('blend:agents');
-      if (stored) set({ agents: JSON.parse(stored) });
+      const storedActive = localStorage.getItem('blend:activeAgentId');
+      if (stored) {
+        const parsed: Agent[] = JSON.parse(stored);
+        // auto-match 에이전트가 없으면 맨 앞에 추가 (마이그레이션)
+        const hasAutoMatch = parsed.some((a) => a.id === AUTO_MATCH_AGENT_ID);
+        const agents = hasAutoMatch ? parsed : [DEFAULT_AGENTS[0], ...parsed];
+        set({ agents });
+      }
+      if (storedActive) set({ activeAgentId: storedActive });
     } catch {}
   },
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('blend:agents', JSON.stringify(get().agents));
+    const { agents, activeAgentId } = get();
+    localStorage.setItem('blend:agents', JSON.stringify(agents));
+    if (activeAgentId) localStorage.setItem('blend:activeAgentId', activeAgentId);
+    else localStorage.removeItem('blend:activeAgentId');
   },
 }));
