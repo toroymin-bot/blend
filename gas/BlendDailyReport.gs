@@ -25,36 +25,37 @@ function checkKeys() {
 // [2026-04-12 01:07] blend-daily-dev 자동 업데이트
 function setTodayData() {
   var data = {
-    dayNumber: 23,
-    files: 61,
-    lines: 13263,
-    features: 34,
+    dayNumber: 25,
+    files: 62,
+    lines: 13551,
+    features: 36,
     cost: '$0',
     newFeatures: [
-      'BUG-008 수정: parsePdf() 50페이지 제한 + 초과 시 한국어 경고 청크 삽입 (OOM 방지)',
-      'BUG-004 수정: handleSend() 삭제된 모델 null 체크 → 첫 enabled 모델 자동 폴백 + 안내 메시지',
-      'BUG-012 수정: handleSend() dailyCostLimit 초과 시 전송 차단 + 설정 유도 한국어 안내',
-      'BUG-007 수정: generateImage() DALL-E URL 생성 직후 base64 변환 로컬 저장 (URL 만료 대응)'
+      '자동 AI 매칭 에이전트: 질문 내용 분석 → 최적 모델 자동 선택 (model-router.ts, 9가지 카테고리)',
+      'AUTO_MATCH_AGENT_ID 에이전트 기본값 설정 + localStorage activeAgentId 영속화',
+      'BUG-013 수정: 한국어 IME 조합 중 Enter 키로 메시지 분리 전송되던 버그 (isComposing 체크)',
+      '자동 매칭 결과 violet 배지 UI 표시 (헤더 + 모델 선택 드롭다운 + 빈 화면 에이전트 배지)',
+      'BUG-019 발견: /image 명령 경로 일일 비용 한도 체크 미적용',
+      'BUG-020 발견: 자동 AI 매칭 시 enabled 모델 없을 때 폴백 미처리'
     ],
     issues: [
-      {issue: 'BUG-008: 대용량 PDF(100페이지+) OOM 크래시', solution: 'PDF_MAX_PAGES=50 제한 + effectivePages 변수로 루프 범위 제한'},
-      {issue: 'BUG-004: 삭제된 커스텀 모델 선택 후 전송 시 null 참조 오류', solution: 'getModelById null 체크 → DEFAULT_MODELS 중 첫 enabled 모델 폴백'},
-      {issue: 'BUG-012: 일일 비용 한도 설정해도 전송 미차단', solution: 'checkDailyLimit() 호출 → 한도 초과 시 메시지 차단 및 설정 안내'},
-      {issue: 'BUG-007: DALL-E 이미지 1시간 후 히스토리에서 사라짐', solution: 'URL fetch 후 FileReader로 base64 변환, 실패 시 원본 URL 폴백'}
+      {issue: 'BUG-013: 한국어 IME 조합 중 Enter로 마지막 글자가 별도 메시지 전송', solution: 'e.nativeEvent.isComposing 체크 추가 — 조합 중 Enter는 IME 확정만 처리'},
+      {issue: 'BUG-019(신규): dailyCostLimit 초과 시 /image 명령 경로는 차단 안 됨', solution: '다음 스프린트: imageGenEnabled 분기 상단에 checkDailyLimit 호출 추가 예정'},
+      {issue: 'BUG-020(신규): AUTO_MATCH 에이전트에서 enabled 모델이 없으면 null 참조 가능', solution: '다음 스프린트: routeToModel 반환값 + routedModel null 체크 강화 예정'}
     ],
     tomorrowPlan: [
-      'BUG-013(신규): /image 명령 경로에도 일일 비용 한도 체크 적용',
-      'BUG-014(신규): DALL-E base64 변환 fetch 타임아웃 처리 추가',
-      'BUG-005, BUG-006: 미수정 버그 백로그 검토',
-      'QA 자동화: 주요 시나리오 자동 테스트 스크립트 작성 검토'
+      'BUG-019 수정: /image 명령 및 DALL-E 모델 경로에도 일일 비용 한도 체크 적용',
+      'BUG-020 수정: 자동 AI 매칭 폴백 처리 — enabled 모델 없을 때 selectedModel 유지',
+      'BUG-005 수정: 긴 코드 블록 렌더링 스크롤 오버플로우',
+      'BUG-006 수정: 다크모드 드롭다운 색상 이상'
     ],
     confluenceLinks: [
-      {title: 'Blend QA 리포트 — 2026-04-13', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9437205'},
-      {title: 'Blend QA 리포트 — 2026-04-12', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9437185'}
+      {title: 'Blend QA 리포트 — 2026-04-14', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9568326'},
+      {title: 'Blend QA 리포트 — 2026-04-13', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9437205'}
     ],
     githubLinks: [],
-    runStart: '00:00',
-    runEnd: '00:30',
+    runStart: '15:50',
+    runEnd: '16:40',
     totalCommits: 1
   };
   PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
