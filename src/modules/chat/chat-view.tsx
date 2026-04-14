@@ -933,18 +933,7 @@ export function ChatView() {
                   </button>
                 ))}
               </div>
-              {/* 구독/업그레이드 유도 메시지 */}
-              <div className="flex items-center justify-center gap-1.5 text-xs text-gray-600">
-                <span>💳</span>
-                <span>{t('chat.no_api_key_question')}</span>
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('blend:open-settings'))}
-                  className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
-                  title="설정에서 API 키를 등록하거나 무료 Google API를 사용해보세요"
-                >
-                  {t('chat.no_api_key_prompt')}
-                </button>
-              </div>
+              {/* 구독/업그레이드 유도 메시지 — 비활성화 */}
             </div>
           </div>
         ) : (
