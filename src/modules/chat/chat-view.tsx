@@ -497,7 +497,9 @@ export function ChatView() {
     setAttachedImages([]);
 
     // DALL-E 모델 선택 시 — 모든 메시지를 이미지 생성 프롬프트로 처리
-    const isDalleModel = ['dall-e-3', 'dall-e-2', 'gpt-image-1'].includes(selectedModel);
+    // currentModel은 자동 AI 매칭으로 교체될 수 있으므로 selectedModel과 함께 체크
+    const DALLE_MODEL_IDS = ['dall-e-3', 'dall-e-2', 'gpt-image-1'];
+    const isDalleModel = DALLE_MODEL_IDS.includes(selectedModel) || DALLE_MODEL_IDS.includes(currentModel.id);
     if (isDalleModel) {
       const openaiKey = getKey('openai');
       if (!openaiKey) {
