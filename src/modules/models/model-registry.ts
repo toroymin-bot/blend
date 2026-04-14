@@ -447,7 +447,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     features: ['vision'],
     description: 'Generate high-quality images from text',
     descriptionKo: '텍스트로 고품질 이미지를 만들어요',
-    enabled: true, // [2026-04-14] 자동 AI 매칭 이미지 생성 라우팅용
+    enabled: false, // [2026-04-14] 자동 AI 매칭 이미지 생성 라우팅용
   },
   {
     id: 'gpt-image-1',
@@ -1375,7 +1375,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     features: ['streaming', 'function_calling'],
     description: 'Best Chinese coding & reasoning — GPT-4 quality at 1/10 price',
     descriptionKo: '중국발 최강 코딩·추론 — GPT-4급을 1/10 가격에',
-    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
+    enabled: false, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
     id: 'deepseek-reasoner',
@@ -1387,7 +1387,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     features: ['streaming', 'thinking'],
     description: 'o1-level reasoning — specialized for math, logic, and code',
     descriptionKo: 'o1급 추론 모델 — 수학·논리·코드 특화',
-    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
+    enabled: false, // [2026-04-14] sync-bot 오비활성화 복구
   },
 
   // ── Groq ──────────────────────────────────────────────────────────────────
@@ -1401,7 +1401,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     features: ['streaming', 'function_calling'],
     description: 'Meta latest 70B — fast and balanced',
     descriptionKo: 'Meta 최신 70B — 빠르고 균형 잡힌 성능',
-    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
+    enabled: false, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
     id: 'llama-3.1-8b-instant',
@@ -1413,7 +1413,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     features: ['streaming', 'function_calling'],
     description: 'Ultra-fast ultra-cheap — for simple Q&A',
     descriptionKo: '초고속 초저가 — 간단 질의응답용',
-    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
+    enabled: false, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
     id: 'mixtral-8x7b-32768',
@@ -1437,7 +1437,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     features: ['streaming'],
     description: 'Google lightweight open model — everyday chat',
     descriptionKo: 'Google 경량 오픈모델 — 일상 대화용',
-    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
+    enabled: false, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
     id: 'nano-banana-pro-preview',
