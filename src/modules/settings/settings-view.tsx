@@ -8,8 +8,9 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { AIProvider } from '@/types';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2, ExternalLink, Loader, AlertCircle, HelpCircle } from 'lucide-react';
+import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2, ExternalLink, Loader, AlertCircle, HelpCircle, Globe } from 'lucide-react';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
+import { useTranslation } from '@/lib/i18n';
 
 const API_GUIDE_STEPS: Record<string, { emoji: string; title: string; desc: string }[]> = {
   openai: [
@@ -115,6 +116,7 @@ export function SettingsView() {
   const agentStore = useAgentStore();
   const usageStore = useUsageStore();
   const { systemPrompt, setSystemPrompt, settings, updateSettings, systemPromptPresets, addSystemPromptPreset, removeSystemPromptPreset, customModels, addCustomModel, removeCustomModel } = useSettingsStore();
+  const { t, lang, setLang } = useTranslation();
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [testingKey, setTestingKey] = useState<Record<string, boolean>>({});
   const [testResult, setTestResult] = useState<Record<string, 'ok' | 'fail' | null>>({});
@@ -505,6 +507,33 @@ export function SettingsView() {
             <p className="text-xs text-on-surface-muted">
               {settings.theme === 'system' ? '시스템 설정을 따릅니다' : settings.theme === 'light' ? '라이트 모드가 적용됩니다' : '다크 모드가 적용됩니다'}
             </p>
+          </div>
+        </section>
+
+        {/* ── Language Selector ── */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
+            <Globe size={20} /> {t('settings.language')}
+          </h2>
+          <div className="bg-surface-2 rounded-xl p-4">
+            <p className="text-sm text-on-surface-muted mb-3">{t('settings.language_desc')}</p>
+            <div className="flex gap-2">
+              {(['ko', 'en'] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    lang === l
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'
+                  }`}
+                >
+                  <span>{l === 'ko' ? '🇰🇷' : '🇺🇸'}</span>
+                  <span>{l === 'ko' ? t('settings.language_ko') : t('settings.language_en')}</span>
+                  {lang === l && <Check size={14} />}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 

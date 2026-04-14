@@ -1261,7 +1261,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     outputPrice: 1.1,
     features: ['streaming', 'function_calling'],
     description: '중국발 최강 코딩·추론 — GPT-4급을 1/10 가격에',
-    enabled: false,
+    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
     id: 'deepseek-reasoner',
@@ -1272,7 +1272,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     outputPrice: 2.19,
     features: ['streaming', 'thinking'],
     description: 'o1급 추론 모델 — 수학·논리·코드 특화',
-    enabled: false,
+    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
   },
 
   // ── Groq ──────────────────────────────────────────────────────────────────
@@ -1285,7 +1285,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     outputPrice: 0.79,
     features: ['streaming', 'function_calling'],
     description: 'Meta 최신 70B — 빠르고 균형 잡힌 성능',
-    enabled: false,
+    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
     id: 'llama-3.1-8b-instant',
@@ -1296,7 +1296,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     outputPrice: 0.08,
     features: ['streaming', 'function_calling'],
     description: '초고속 초저가 — 간단 질의응답용',
-    enabled: false,
+    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
     id: 'mixtral-8x7b-32768',
@@ -1318,7 +1318,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     outputPrice: 0.2,
     features: ['streaming'],
     description: 'Google 경량 오픈모델 — 일상 대화용',
-    enabled: false,
+    enabled: true, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
     id: 'nano-banana-pro-preview',
