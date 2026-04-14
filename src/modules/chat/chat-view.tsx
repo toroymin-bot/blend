@@ -41,7 +41,7 @@ export function ChatView() {
   const { t } = useTranslation();
   const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle, editMessage } = useChatStore();
   const { getKey, hasKey } = useAPIKeyStore();
-  const { getActiveAgent } = useAgentStore();
+  const { getActiveAgent, setActiveAgent } = useAgentStore();
   const { addRecord, checkDailyLimit, getTodayCost } = useUsageStore();
   const { systemPrompt, customModels, settings } = useSettingsStore();
   const { isInstalled, loadFromStorage: loadPlugins } = usePluginStore();
@@ -1325,8 +1325,28 @@ export function ChatView() {
 
             {showModelDropdown && (
               <div className="absolute bottom-8 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-80 max-h-96 overflow-y-auto">
+                {/* 자동 AI 매칭 — 항상 최상단 고정 */}
+                <div className="border-b border-gray-700">
+                  <button
+                    onClick={() => { setActiveAgent(AUTO_MATCH_AGENT_ID); setShowModelDropdown(false); }}
+                    className={`w-full text-left px-3 py-2.5 hover:bg-gray-700 transition-colors flex items-start gap-2 ${
+                      getActiveAgent()?.id === AUTO_MATCH_AGENT_ID ? 'bg-violet-900/30' : ''
+                    }`}
+                  >
+                    <Check size={14} className={`mt-0.5 shrink-0 ${getActiveAgent()?.id === AUTO_MATCH_AGENT_ID ? 'text-violet-400' : 'opacity-0'}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-sm font-medium ${getActiveAgent()?.id === AUTO_MATCH_AGENT_ID ? 'text-violet-300' : 'text-gray-200'}`}>
+                          🤖 {t('chat.auto_match')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{t('chat.auto_select_hint')}</p>
+                    </div>
+                  </button>
+                </div>
+                {/* 모델 목록 — 수동 선택 시 자동 매칭 해제 */}
                 {(['openai', 'anthropic', 'google', 'deepseek', 'groq', 'custom'] as const).map((provider) => {
-                  const providerModels = enabledModels.filter((m) => m.provider === provider);
+                  const providerModels = enabledModels.filter((m) => m.provider === provider && !['dall-e-3', 'dall-e-2', 'gpt-image-1'].includes(m.id));
                   if (providerModels.length === 0) return null;
                   const providerLabel: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', deepseek: 'DeepSeek', groq: 'Groq', custom: 'Custom' };
                   const providerColor: Record<string, string> = { openai: 'text-green-400', anthropic: 'text-orange-400', google: 'text-blue-400', deepseek: 'text-indigo-400', groq: 'text-red-400', custom: 'text-gray-400' };
@@ -1335,35 +1355,42 @@ export function ChatView() {
                       <div className={`px-3 py-1.5 text-xs font-semibold ${providerColor[provider]} bg-gray-900/50 border-b border-gray-700 uppercase tracking-wider`}>
                         {providerLabel[provider]}
                       </div>
-                      {providerModels.map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => { setSelectedModel(m.id); setShowModelDropdown(false); }}
-                          className={`w-full text-left px-3 py-2.5 hover:bg-gray-700 transition-colors flex items-start gap-2 ${
-                            m.id === selectedModel ? 'bg-gray-700/80' : ''
-                          }`}
-                        >
-                          <Check size={14} className={`mt-0.5 shrink-0 ${m.id === selectedModel ? 'text-blue-400' : 'opacity-0'}`} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-sm font-medium ${m.id === selectedModel ? 'text-blue-400' : 'text-gray-200'}`}>{m.name}</span>
-                              {m.features.includes('vision') && (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0 rounded bg-emerald-900/60 text-emerald-400 border border-emerald-800/50">
-                                  <Eye size={9} />V
-                                </span>
-                              )}
-                              {m.features.includes('thinking') && (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0 rounded bg-violet-900/60 text-violet-400 border border-violet-800/50">
-                                  <Brain size={9} />T
-                                </span>
+                      {providerModels.map((m) => {
+                        const isManualSelected = getActiveAgent()?.id !== AUTO_MATCH_AGENT_ID && m.id === selectedModel;
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => {
+                              setSelectedModel(m.id);
+                              setActiveAgent(null); // 수동 선택 → 자동 매칭 해제
+                              setShowModelDropdown(false);
+                            }}
+                            className={`w-full text-left px-3 py-2.5 hover:bg-gray-700 transition-colors flex items-start gap-2 ${
+                              isManualSelected ? 'bg-gray-700/80' : ''
+                            }`}
+                          >
+                            <Check size={14} className={`mt-0.5 shrink-0 ${isManualSelected ? 'text-blue-400' : 'opacity-0'}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-sm font-medium ${isManualSelected ? 'text-blue-400' : 'text-gray-200'}`}>{m.name}</span>
+                                {m.features.includes('vision') && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0 rounded bg-emerald-900/60 text-emerald-400 border border-emerald-800/50">
+                                    <Eye size={9} />V
+                                  </span>
+                                )}
+                                {m.features.includes('thinking') && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0 rounded bg-violet-900/60 text-violet-400 border border-violet-800/50">
+                                    <Brain size={9} />T
+                                  </span>
+                                )}
+                              </div>
+                              {m.description && (
+                                <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
                               )}
                             </div>
-                            {m.description && (
-                              <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
-                            )}
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                   );
                 })}
