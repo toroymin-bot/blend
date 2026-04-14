@@ -1,243 +1,501 @@
-[2026-04-12T06:35:29.876Z] === Blend Model Sync 시작 ===
-[2026-04-12T06:35:29.883Z] [DRY RUN 모드 — 실제 변경 없음]
-[2026-04-12T06:35:29.883Z] Pulling env vars from Vercel...
-[2026-04-12T06:35:30.927Z] Keys loaded: anthropic=true, openai=true, google=true
-[2026-04-12T06:35:31.596Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
-[2026-04-12T06:35:31.597Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
-[2026-04-12T06:35:31.598Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
-[2026-04-12T06:35:31.599Z]   ✅ 신규 추가: gpt-4-0613 (enabled=false)
-[2026-04-12T06:35:31.600Z]   ✅ 신규 추가: gpt-4 (enabled=false)
-[2026-04-12T06:35:31.600Z]   ✅ 신규 추가: gpt-5.4-mini (enabled=false)
-[2026-04-12T06:35:31.601Z]   ✅ 신규 추가: gpt-5.4 (enabled=false)
-[2026-04-12T06:35:31.601Z]   ✅ 신규 추가: gpt-5.4-nano-2026-03-17 (enabled=false)
-[2026-04-12T06:35:31.602Z]   ✅ 신규 추가: gpt-5.4-nano (enabled=false)
-[2026-04-12T06:35:31.602Z]   ✅ 신규 추가: gpt-5.4-mini-2026-03-17 (enabled=false)
-[2026-04-12T06:35:31.602Z]   ✅ 신규 추가: gpt-3.5-turbo-instruct (enabled=false)
-[2026-04-12T06:35:31.603Z]   ✅ 신규 추가: gpt-3.5-turbo-instruct-0914 (enabled=false)
-[2026-04-12T06:35:31.603Z]   ✅ 신규 추가: gpt-3.5-turbo-1106 (enabled=false)
-[2026-04-12T06:35:31.603Z]   ✅ 신규 추가: gpt-3.5-turbo-0125 (enabled=false)
-[2026-04-12T06:35:31.604Z]   ✅ 신규 추가: gpt-4-turbo (enabled=false)
-[2026-04-12T06:35:31.604Z]   ✅ 신규 추가: gpt-4-turbo-2024-04-09 (enabled=false)
-[2026-04-12T06:35:31.604Z]   ✅ 신규 추가: gpt-4o-2024-05-13 (enabled=true)
-[2026-04-12T06:35:31.604Z]   ✅ 신규 추가: gpt-4o-mini-2024-07-18 (enabled=true)
-[2026-04-12T06:35:31.605Z]   ✅ 신규 추가: gpt-4o-2024-08-06 (enabled=true)
-[2026-04-12T06:35:31.605Z]   ✅ 신규 추가: o1-2024-12-17 (enabled=false)
-[2026-04-12T06:35:31.605Z]   ✅ 신규 추가: o1 (enabled=false)
-[2026-04-12T06:35:31.605Z]   ✅ 신규 추가: o3-mini (enabled=true)
-[2026-04-12T06:35:31.606Z]   ✅ 신규 추가: o3-mini-2025-01-31 (enabled=true)
-[2026-04-12T06:35:31.606Z]   ✅ 신규 추가: gpt-4o-2024-11-20 (enabled=true)
-[2026-04-12T06:35:31.606Z]   ✅ 신규 추가: o1-pro-2025-03-19 (enabled=false)
-[2026-04-12T06:35:31.606Z]   ✅ 신규 추가: o1-pro (enabled=false)
-[2026-04-12T06:35:31.606Z]   ✅ 신규 추가: o3-2025-04-16 (enabled=true)
-[2026-04-12T06:35:31.607Z]   ✅ 신규 추가: o4-mini-2025-04-16 (enabled=true)
-[2026-04-12T06:35:31.607Z]   ✅ 신규 추가: gpt-4.1-2025-04-14 (enabled=true)
-[2026-04-12T06:35:31.607Z]   ✅ 신규 추가: gpt-4.1-mini-2025-04-14 (enabled=true)
-[2026-04-12T06:35:31.608Z]   ✅ 신규 추가: gpt-4.1-nano-2025-04-14 (enabled=true)
-[2026-04-12T06:35:31.608Z]   ✅ 신규 추가: gpt-4.1-nano (enabled=true)
-[2026-04-12T06:35:31.609Z]   ✅ 신규 추가: gpt-image-1 (enabled=false)
-[2026-04-12T06:35:31.609Z]   ✅ 신규 추가: gpt-5-chat-latest (enabled=false)
-[2026-04-12T06:35:31.610Z]   ✅ 신규 추가: gpt-5-2025-08-07 (enabled=false)
-[2026-04-12T06:35:31.610Z]   ✅ 신규 추가: gpt-5 (enabled=false)
-[2026-04-12T06:35:31.610Z]   ✅ 신규 추가: gpt-5-mini-2025-08-07 (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-5-mini (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-5-nano-2025-08-07 (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-5-nano (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-5-codex (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-image-1-mini (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-5-pro-2025-10-06 (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-5-pro (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-5.1-chat-latest (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-5.1-2025-11-13 (enabled=false)
-[2026-04-12T06:35:31.611Z]   ✅ 신규 추가: gpt-5.1 (enabled=false)
-[2026-04-12T06:35:31.612Z]   ✅ 신규 추가: gpt-5.1-codex (enabled=false)
-[2026-04-12T06:35:31.612Z]   ✅ 신규 추가: gpt-5.1-codex-mini (enabled=false)
-[2026-04-12T06:35:31.612Z]   ✅ 신규 추가: gpt-5.1-codex-max (enabled=false)
-[2026-04-12T06:35:31.612Z]   ✅ 신규 추가: gpt-image-1.5 (enabled=false)
-[2026-04-12T06:35:31.612Z]   ✅ 신규 추가: gpt-5.2-2025-12-11 (enabled=false)
-[2026-04-12T06:35:31.612Z]   ✅ 신규 추가: gpt-5.2 (enabled=false)
-[2026-04-12T06:35:31.612Z]   ✅ 신규 추가: gpt-5.2-pro-2025-12-11 (enabled=false)
-[2026-04-12T06:35:31.612Z]   ✅ 신규 추가: gpt-5.2-pro (enabled=false)
-[2026-04-12T06:35:31.612Z]   ✅ 신규 추가: gpt-5.2-chat-latest (enabled=false)
-[2026-04-12T06:35:31.613Z]   ✅ 신규 추가: gpt-5.2-codex (enabled=false)
-[2026-04-12T06:35:31.613Z]   ✅ 신규 추가: gpt-5.3-codex (enabled=false)
-[2026-04-12T06:35:31.613Z]   ✅ 신규 추가: gpt-5.3-chat-latest (enabled=false)
-[2026-04-12T06:35:31.613Z]   ✅ 신규 추가: gpt-5.4-2026-03-05 (enabled=false)
-[2026-04-12T06:35:31.613Z]   ✅ 신규 추가: gpt-5.4-pro (enabled=false)
-[2026-04-12T06:35:31.613Z]   ✅ 신규 추가: gpt-5.4-pro-2026-03-05 (enabled=false)
-[2026-04-12T06:35:31.613Z]   ✅ 신규 추가: gpt-3.5-turbo-16k (enabled=false)
-[2026-04-12T06:35:31.614Z]   ✅ 신규 추가: claude-opus-4-5-20251101 (enabled=true)
-[2026-04-12T06:35:31.614Z]   ✅ 신규 추가: claude-sonnet-4-5-20250929 (enabled=true)
-[2026-04-12T06:35:31.614Z]   ✅ 신규 추가: claude-opus-4-1-20250805 (enabled=true)
-[2026-04-12T06:35:31.614Z]   ✅ 신규 추가: claude-opus-4-20250514 (enabled=true)
-[2026-04-12T06:35:31.614Z]   ✅ 신규 추가: claude-sonnet-4-20250514 (enabled=true)
-[2026-04-12T06:35:31.614Z]   ✅ 신규 추가: gemini-2.0-flash (enabled=true)
-[2026-04-12T06:35:31.614Z]   ✅ 신규 추가: gemini-2.0-flash-001 (enabled=false)
-[2026-04-12T06:35:31.615Z]   ✅ 신규 추가: gemini-2.0-flash-lite-001 (enabled=false)
-[2026-04-12T06:35:31.615Z]   ✅ 신규 추가: gemini-2.5-flash-preview-tts (enabled=false)
-[2026-04-12T06:35:31.615Z]   ✅ 신규 추가: gemini-2.5-pro-preview-tts (enabled=false)
-[2026-04-12T06:35:31.615Z]   ✅ 신규 추가: gemma-3-1b-it (enabled=false)
-[2026-04-12T06:35:31.615Z]   ✅ 신규 추가: gemma-3-4b-it (enabled=false)
-[2026-04-12T06:35:31.615Z]   ✅ 신규 추가: gemma-3-12b-it (enabled=false)
-[2026-04-12T06:35:31.615Z]   ✅ 신규 추가: gemma-3-27b-it (enabled=false)
-[2026-04-12T06:35:31.615Z]   ✅ 신규 추가: gemma-3n-e4b-it (enabled=false)
-[2026-04-12T06:35:31.615Z]   ✅ 신규 추가: gemma-3n-e2b-it (enabled=false)
-[2026-04-12T06:35:31.616Z]   ✅ 신규 추가: gemma-4-26b-a4b-it (enabled=false)
-[2026-04-12T06:35:31.616Z]   ✅ 신규 추가: gemma-4-31b-it (enabled=false)
-[2026-04-12T06:35:31.616Z]   ✅ 신규 추가: gemini-flash-latest (enabled=false)
-[2026-04-12T06:35:31.616Z]   ✅ 신규 추가: gemini-flash-lite-latest (enabled=false)
-[2026-04-12T06:35:31.616Z]   ✅ 신규 추가: gemini-pro-latest (enabled=false)
-[2026-04-12T06:35:31.616Z]   ✅ 신규 추가: gemini-2.5-flash-lite (enabled=true)
-[2026-04-12T06:35:31.616Z]   ✅ 신규 추가: gemini-2.5-flash-image (enabled=true)
-[2026-04-12T06:35:31.616Z]   ✅ 신규 추가: gemini-3-pro-preview (enabled=false)
-[2026-04-12T06:35:31.617Z]   ✅ 신규 추가: gemini-3-flash-preview (enabled=false)
-[2026-04-12T06:35:31.617Z]   ✅ 신규 추가: gemini-3.1-pro-preview (enabled=false)
-[2026-04-12T06:35:31.617Z]   ✅ 신규 추가: gemini-3.1-pro-preview-customtools (enabled=false)
-[2026-04-12T06:35:31.617Z]   ✅ 신규 추가: gemini-3.1-flash-lite-preview (enabled=false)
-[2026-04-12T06:35:31.617Z]   ✅ 신규 추가: gemini-3-pro-image-preview (enabled=false)
-[2026-04-12T06:35:31.617Z]   ✅ 신규 추가: nano-banana-pro-preview (enabled=false)
-[2026-04-12T06:35:31.617Z]   ✅ 신규 추가: gemini-3.1-flash-image-preview (enabled=false)
-[2026-04-12T06:35:31.617Z]   ✅ 신규 추가: lyria-3-clip-preview (enabled=false)
-[2026-04-12T06:35:31.618Z]   ✅ 신규 추가: lyria-3-pro-preview (enabled=false)
-[2026-04-12T06:35:31.618Z]   ✅ 신규 추가: gemini-robotics-er-1.5-preview (enabled=false)
-[2026-04-12T06:35:31.618Z]   ✅ 신규 추가: gemini-2.5-computer-use-preview-10-2025 (enabled=false)
-[2026-04-12T06:35:31.618Z]   ✅ 신규 추가: deep-research-pro-preview-12-2025 (enabled=false)
-[2026-04-12T06:35:31.618Z] 
+[2026-04-12T21:05:58.720Z] === Blend Model Sync 시작 ===
+[2026-04-12T21:05:58.727Z] Pulling env vars from Vercel...
+[2026-04-12T21:05:59.832Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-12T21:06:00.723Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-12T21:06:00.725Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-12T21:06:00.726Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-12T21:06:00.726Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-12T21:06:00.727Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-12T21:06:00.728Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-12T21:06:00.728Z]   ⛔ 비활성화: deepseek-chat (API에서 사라짐)
+[2026-04-12T21:06:00.729Z]   ⛔ 비활성화: deepseek-reasoner (API에서 사라짐)
+[2026-04-12T21:06:00.729Z]   ⛔ 비활성화: llama-3.3-70b-versatile (API에서 사라짐)
+[2026-04-12T21:06:00.729Z]   ⛔ 비활성화: llama-3.1-8b-instant (API에서 사라짐)
+[2026-04-12T21:06:00.730Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-12T21:06:00.731Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-12T21:06:00.731Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-12T21:06:00.732Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-12T21:06:00.732Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-12T21:06:00.732Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-12T21:06:00.733Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-12T21:06:00.733Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-12T21:06:00.734Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-12T21:06:00.734Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-12T21:06:00.734Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-12T21:06:00.735Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-12T21:06:00.735Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-12T21:06:00.736Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-12T21:06:00.736Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-12T21:06:00.736Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-12T21:06:00.737Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-12T21:06:00.737Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-12T21:06:00.738Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-12T21:06:00.738Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-12T21:06:00.739Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-12T21:06:00.739Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-12T21:06:00.740Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-12T21:06:00.740Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-12T21:06:00.740Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-12T21:06:00.741Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-12T21:06:00.741Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-12T21:06:00.741Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-12T21:06:00.742Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-12T21:06:00.742Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-12T21:06:00.743Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-12T21:06:00.743Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-12T21:06:00.749Z]   ✅ 신규 추가: nano-banana-pro-preview (enabled=false)
+[2026-04-12T21:06:00.750Z] 
 변경 요약:
-[2026-04-12T06:35:31.618Z]   추가: gpt-4-0613, gpt-4, gpt-5.4-mini, gpt-5.4, gpt-5.4-nano-2026-03-17, gpt-5.4-nano, gpt-5.4-mini-2026-03-17, gpt-3.5-turbo-instruct, gpt-3.5-turbo-instruct-0914, gpt-3.5-turbo-1106, gpt-3.5-turbo-0125, gpt-4-turbo, gpt-4-turbo-2024-04-09, gpt-4o-2024-05-13, gpt-4o-mini-2024-07-18, gpt-4o-2024-08-06, o1-2024-12-17, o1, o3-mini, o3-mini-2025-01-31, gpt-4o-2024-11-20, o1-pro-2025-03-19, o1-pro, o3-2025-04-16, o4-mini-2025-04-16, gpt-4.1-2025-04-14, gpt-4.1-mini-2025-04-14, gpt-4.1-nano-2025-04-14, gpt-4.1-nano, gpt-image-1, gpt-5-chat-latest, gpt-5-2025-08-07, gpt-5, gpt-5-mini-2025-08-07, gpt-5-mini, gpt-5-nano-2025-08-07, gpt-5-nano, gpt-5-codex, gpt-image-1-mini, gpt-5-pro-2025-10-06, gpt-5-pro, gpt-5.1-chat-latest, gpt-5.1-2025-11-13, gpt-5.1, gpt-5.1-codex, gpt-5.1-codex-mini, gpt-5.1-codex-max, gpt-image-1.5, gpt-5.2-2025-12-11, gpt-5.2, gpt-5.2-pro-2025-12-11, gpt-5.2-pro, gpt-5.2-chat-latest, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-chat-latest, gpt-5.4-2026-03-05, gpt-5.4-pro, gpt-5.4-pro-2026-03-05, gpt-3.5-turbo-16k, claude-opus-4-5-20251101, claude-sonnet-4-5-20250929, claude-opus-4-1-20250805, claude-opus-4-20250514, claude-sonnet-4-20250514, gemini-2.0-flash, gemini-2.0-flash-001, gemini-2.0-flash-lite-001, gemini-2.5-flash-preview-tts, gemini-2.5-pro-preview-tts, gemma-3-1b-it, gemma-3-4b-it, gemma-3-12b-it, gemma-3-27b-it, gemma-3n-e4b-it, gemma-3n-e2b-it, gemma-4-26b-a4b-it, gemma-4-31b-it, gemini-flash-latest, gemini-flash-lite-latest, gemini-pro-latest, gemini-2.5-flash-lite, gemini-2.5-flash-image, gemini-3-pro-preview, gemini-3-flash-preview, gemini-3.1-pro-preview, gemini-3.1-pro-preview-customtools, gemini-3.1-flash-lite-preview, gemini-3-pro-image-preview, nano-banana-pro-preview, gemini-3.1-flash-image-preview, lyria-3-clip-preview, lyria-3-pro-preview, gemini-robotics-er-1.5-preview, gemini-2.5-computer-use-preview-10-2025, deep-research-pro-preview-12-2025
-[2026-04-12T06:35:31.618Z]   비활성화: claude-3-5-sonnet-20241022, claude-3-haiku-20240307
-[2026-04-12T06:35:31.618Z] [DRY RUN] 변경 내용 미적용.
-[2026-04-12T06:35:31.619Z] === 완료 ===
-[2026-04-12T06:35:38.831Z] === Blend Model Sync 시작 ===
-[2026-04-12T06:35:38.832Z] Pulling env vars from Vercel...
-[2026-04-12T06:35:39.801Z] Keys loaded: anthropic=true, openai=true, google=true
-[2026-04-12T06:35:40.503Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
-[2026-04-12T06:35:40.505Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
-[2026-04-12T06:35:40.505Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
-[2026-04-12T06:35:40.508Z]   ✅ 신규 추가: gpt-4-0613 (enabled=false)
-[2026-04-12T06:35:40.509Z]   ✅ 신규 추가: gpt-4 (enabled=false)
-[2026-04-12T06:35:40.510Z]   ✅ 신규 추가: gpt-5.4-mini (enabled=false)
-[2026-04-12T06:35:40.510Z]   ✅ 신규 추가: gpt-5.4 (enabled=false)
-[2026-04-12T06:35:40.511Z]   ✅ 신규 추가: gpt-5.4-nano-2026-03-17 (enabled=false)
-[2026-04-12T06:35:40.511Z]   ✅ 신규 추가: gpt-5.4-nano (enabled=false)
-[2026-04-12T06:35:40.511Z]   ✅ 신규 추가: gpt-5.4-mini-2026-03-17 (enabled=false)
-[2026-04-12T06:35:40.512Z]   ✅ 신규 추가: gpt-3.5-turbo-instruct (enabled=false)
-[2026-04-12T06:35:40.512Z]   ✅ 신규 추가: gpt-3.5-turbo-instruct-0914 (enabled=false)
-[2026-04-12T06:35:40.513Z]   ✅ 신규 추가: gpt-3.5-turbo-1106 (enabled=false)
-[2026-04-12T06:35:40.514Z]   ✅ 신규 추가: gpt-3.5-turbo-0125 (enabled=false)
-[2026-04-12T06:35:40.514Z]   ✅ 신규 추가: gpt-4-turbo (enabled=false)
-[2026-04-12T06:35:40.514Z]   ✅ 신규 추가: gpt-4-turbo-2024-04-09 (enabled=false)
-[2026-04-12T06:35:40.515Z]   ✅ 신규 추가: gpt-4o-2024-05-13 (enabled=true)
-[2026-04-12T06:35:40.515Z]   ✅ 신규 추가: gpt-4o-mini-2024-07-18 (enabled=true)
-[2026-04-12T06:35:40.515Z]   ✅ 신규 추가: gpt-4o-2024-08-06 (enabled=true)
-[2026-04-12T06:35:40.516Z]   ✅ 신규 추가: o1-2024-12-17 (enabled=false)
-[2026-04-12T06:35:40.516Z]   ✅ 신규 추가: o1 (enabled=false)
-[2026-04-12T06:35:40.516Z]   ✅ 신규 추가: o3-mini (enabled=true)
-[2026-04-12T06:35:40.517Z]   ✅ 신규 추가: o3-mini-2025-01-31 (enabled=true)
-[2026-04-12T06:35:40.517Z]   ✅ 신규 추가: gpt-4o-2024-11-20 (enabled=true)
-[2026-04-12T06:35:40.517Z]   ✅ 신규 추가: o1-pro-2025-03-19 (enabled=false)
-[2026-04-12T06:35:40.518Z]   ✅ 신규 추가: o1-pro (enabled=false)
-[2026-04-12T06:35:40.518Z]   ✅ 신규 추가: o3-2025-04-16 (enabled=true)
-[2026-04-12T06:35:40.518Z]   ✅ 신규 추가: o4-mini-2025-04-16 (enabled=true)
-[2026-04-12T06:35:40.519Z]   ✅ 신규 추가: gpt-4.1-2025-04-14 (enabled=true)
-[2026-04-12T06:35:40.519Z]   ✅ 신규 추가: gpt-4.1-mini-2025-04-14 (enabled=true)
-[2026-04-12T06:35:40.520Z]   ✅ 신규 추가: gpt-4.1-nano-2025-04-14 (enabled=true)
-[2026-04-12T06:35:40.520Z]   ✅ 신규 추가: gpt-4.1-nano (enabled=true)
-[2026-04-12T06:35:40.520Z]   ✅ 신규 추가: gpt-image-1 (enabled=false)
-[2026-04-12T06:35:40.521Z]   ✅ 신규 추가: gpt-5-chat-latest (enabled=false)
-[2026-04-12T06:35:40.521Z]   ✅ 신규 추가: gpt-5-2025-08-07 (enabled=false)
-[2026-04-12T06:35:40.521Z]   ✅ 신규 추가: gpt-5 (enabled=false)
-[2026-04-12T06:35:40.521Z]   ✅ 신규 추가: gpt-5-mini-2025-08-07 (enabled=false)
-[2026-04-12T06:35:40.521Z]   ✅ 신규 추가: gpt-5-mini (enabled=false)
-[2026-04-12T06:35:40.521Z]   ✅ 신규 추가: gpt-5-nano-2025-08-07 (enabled=false)
-[2026-04-12T06:35:40.522Z]   ✅ 신규 추가: gpt-5-nano (enabled=false)
-[2026-04-12T06:35:40.522Z]   ✅ 신규 추가: gpt-5-codex (enabled=false)
-[2026-04-12T06:35:40.522Z]   ✅ 신규 추가: gpt-image-1-mini (enabled=false)
-[2026-04-12T06:35:40.522Z]   ✅ 신규 추가: gpt-5-pro-2025-10-06 (enabled=false)
-[2026-04-12T06:35:40.522Z]   ✅ 신규 추가: gpt-5-pro (enabled=false)
-[2026-04-12T06:35:40.522Z]   ✅ 신규 추가: gpt-5.1-chat-latest (enabled=false)
-[2026-04-12T06:35:40.522Z]   ✅ 신규 추가: gpt-5.1-2025-11-13 (enabled=false)
-[2026-04-12T06:35:40.523Z]   ✅ 신규 추가: gpt-5.1 (enabled=false)
-[2026-04-12T06:35:40.523Z]   ✅ 신규 추가: gpt-5.1-codex (enabled=false)
-[2026-04-12T06:35:40.523Z]   ✅ 신규 추가: gpt-5.1-codex-mini (enabled=false)
-[2026-04-12T06:35:40.523Z]   ✅ 신규 추가: gpt-5.1-codex-max (enabled=false)
-[2026-04-12T06:35:40.523Z]   ✅ 신규 추가: gpt-image-1.5 (enabled=false)
-[2026-04-12T06:35:40.523Z]   ✅ 신규 추가: gpt-5.2-2025-12-11 (enabled=false)
-[2026-04-12T06:35:40.523Z]   ✅ 신규 추가: gpt-5.2 (enabled=false)
-[2026-04-12T06:35:40.523Z]   ✅ 신규 추가: gpt-5.2-pro-2025-12-11 (enabled=false)
-[2026-04-12T06:35:40.524Z]   ✅ 신규 추가: gpt-5.2-pro (enabled=false)
-[2026-04-12T06:35:40.524Z]   ✅ 신규 추가: gpt-5.2-chat-latest (enabled=false)
-[2026-04-12T06:35:40.524Z]   ✅ 신규 추가: gpt-5.2-codex (enabled=false)
-[2026-04-12T06:35:40.524Z]   ✅ 신규 추가: gpt-5.3-codex (enabled=false)
-[2026-04-12T06:35:40.524Z]   ✅ 신규 추가: gpt-5.3-chat-latest (enabled=false)
-[2026-04-12T06:35:40.524Z]   ✅ 신규 추가: gpt-5.4-2026-03-05 (enabled=false)
-[2026-04-12T06:35:40.524Z]   ✅ 신규 추가: gpt-5.4-pro (enabled=false)
-[2026-04-12T06:35:40.525Z]   ✅ 신규 추가: gpt-5.4-pro-2026-03-05 (enabled=false)
-[2026-04-12T06:35:40.525Z]   ✅ 신규 추가: gpt-3.5-turbo-16k (enabled=false)
-[2026-04-12T06:35:40.525Z]   ✅ 신규 추가: claude-opus-4-5-20251101 (enabled=true)
-[2026-04-12T06:35:40.525Z]   ✅ 신규 추가: claude-sonnet-4-5-20250929 (enabled=true)
-[2026-04-12T06:35:40.525Z]   ✅ 신규 추가: claude-opus-4-1-20250805 (enabled=true)
-[2026-04-12T06:35:40.525Z]   ✅ 신규 추가: claude-opus-4-20250514 (enabled=true)
-[2026-04-12T06:35:40.525Z]   ✅ 신규 추가: claude-sonnet-4-20250514 (enabled=true)
-[2026-04-12T06:35:40.525Z]   ✅ 신규 추가: gemini-2.0-flash (enabled=true)
-[2026-04-12T06:35:40.526Z]   ✅ 신규 추가: gemini-2.0-flash-001 (enabled=false)
-[2026-04-12T06:35:40.526Z]   ✅ 신규 추가: gemini-2.0-flash-lite-001 (enabled=false)
-[2026-04-12T06:35:40.526Z]   ✅ 신규 추가: gemini-2.5-flash-preview-tts (enabled=false)
-[2026-04-12T06:35:40.526Z]   ✅ 신규 추가: gemini-2.5-pro-preview-tts (enabled=false)
-[2026-04-12T06:35:40.527Z]   ✅ 신규 추가: gemma-3-1b-it (enabled=false)
-[2026-04-12T06:35:40.527Z]   ✅ 신규 추가: gemma-3-4b-it (enabled=false)
-[2026-04-12T06:35:40.527Z]   ✅ 신규 추가: gemma-3-12b-it (enabled=false)
-[2026-04-12T06:35:40.527Z]   ✅ 신규 추가: gemma-3-27b-it (enabled=false)
-[2026-04-12T06:35:40.527Z]   ✅ 신규 추가: gemma-3n-e4b-it (enabled=false)
-[2026-04-12T06:35:40.528Z]   ✅ 신규 추가: gemma-3n-e2b-it (enabled=false)
-[2026-04-12T06:35:40.528Z]   ✅ 신규 추가: gemma-4-26b-a4b-it (enabled=false)
-[2026-04-12T06:35:40.528Z]   ✅ 신규 추가: gemma-4-31b-it (enabled=false)
-[2026-04-12T06:35:40.528Z]   ✅ 신규 추가: gemini-flash-latest (enabled=false)
-[2026-04-12T06:35:40.529Z]   ✅ 신규 추가: gemini-flash-lite-latest (enabled=false)
-[2026-04-12T06:35:40.529Z]   ✅ 신규 추가: gemini-pro-latest (enabled=false)
-[2026-04-12T06:35:40.530Z]   ✅ 신규 추가: gemini-2.5-flash-lite (enabled=true)
-[2026-04-12T06:35:40.530Z]   ✅ 신규 추가: gemini-2.5-flash-image (enabled=true)
-[2026-04-12T06:35:40.530Z]   ✅ 신규 추가: gemini-3-pro-preview (enabled=false)
-[2026-04-12T06:35:40.530Z]   ✅ 신규 추가: gemini-3-flash-preview (enabled=false)
-[2026-04-12T06:35:40.531Z]   ✅ 신규 추가: gemini-3.1-pro-preview (enabled=false)
-[2026-04-12T06:35:40.531Z]   ✅ 신규 추가: gemini-3.1-pro-preview-customtools (enabled=false)
-[2026-04-12T06:35:40.531Z]   ✅ 신규 추가: gemini-3.1-flash-lite-preview (enabled=false)
-[2026-04-12T06:35:40.532Z]   ✅ 신규 추가: gemini-3-pro-image-preview (enabled=false)
-[2026-04-12T06:35:40.532Z]   ✅ 신규 추가: nano-banana-pro-preview (enabled=false)
-[2026-04-12T06:35:40.532Z]   ✅ 신규 추가: gemini-3.1-flash-image-preview (enabled=false)
-[2026-04-12T06:35:40.532Z]   ✅ 신규 추가: lyria-3-clip-preview (enabled=false)
-[2026-04-12T06:35:40.533Z]   ✅ 신규 추가: lyria-3-pro-preview (enabled=false)
-[2026-04-12T06:35:40.533Z]   ✅ 신규 추가: gemini-robotics-er-1.5-preview (enabled=false)
-[2026-04-12T06:35:40.533Z]   ✅ 신규 추가: gemini-2.5-computer-use-preview-10-2025 (enabled=false)
-[2026-04-12T06:35:40.533Z]   ✅ 신규 추가: deep-research-pro-preview-12-2025 (enabled=false)
-[2026-04-12T06:35:40.534Z] 
+[2026-04-12T21:06:00.750Z]   추가: nano-banana-pro-preview
+[2026-04-12T21:06:00.750Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash, deepseek-chat, deepseek-reasoner, llama-3.3-70b-versatile, llama-3.1-8b-instant
+[2026-04-12T21:06:00.751Z] model-registry.ts 저장 완료.
+[2026-04-12T21:06:00.832Z] Git commit 완료.
+[2026-04-12T21:06:00.833Z] Vercel 배포 시작...
+[2026-04-12T21:06:36.822Z] 배포 완료: https://blend.ai4min.com
+[2026-04-12T21:06:36.823Z] === 완료 ===
+[2026-04-13T00:15:37.069Z] === Blend Model Sync 시작 ===
+[2026-04-13T00:15:37.076Z] Pulling env vars from Vercel...
+[2026-04-13T00:15:38.876Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-13T00:15:39.691Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-13T00:15:39.693Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-13T00:15:39.694Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-13T00:15:39.695Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-13T00:15:39.695Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-13T00:15:39.696Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-13T00:15:39.697Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-13T00:15:39.698Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-13T00:15:39.698Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-13T00:15:39.699Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-13T00:15:39.700Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-13T00:15:39.700Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-13T00:15:39.700Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-13T00:15:39.701Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-13T00:15:39.701Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-13T00:15:39.702Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-13T00:15:39.703Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-13T00:15:39.703Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-13T00:15:39.704Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-13T00:15:39.704Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-13T00:15:39.705Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-13T00:15:39.705Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-13T00:15:39.706Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-13T00:15:39.706Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-13T00:15:39.707Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-13T00:15:39.707Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-13T00:15:39.708Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-13T00:15:39.709Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-13T00:15:39.709Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-13T00:15:39.710Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-13T00:15:39.710Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-13T00:15:39.711Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-13T00:15:39.711Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-13T00:15:39.712Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-13T00:15:39.712Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-13T00:15:39.713Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-13T00:15:39.714Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-13T00:15:39.714Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-13T00:15:39.723Z] 
 변경 요약:
-[2026-04-12T06:35:40.534Z]   추가: gpt-4-0613, gpt-4, gpt-5.4-mini, gpt-5.4, gpt-5.4-nano-2026-03-17, gpt-5.4-nano, gpt-5.4-mini-2026-03-17, gpt-3.5-turbo-instruct, gpt-3.5-turbo-instruct-0914, gpt-3.5-turbo-1106, gpt-3.5-turbo-0125, gpt-4-turbo, gpt-4-turbo-2024-04-09, gpt-4o-2024-05-13, gpt-4o-mini-2024-07-18, gpt-4o-2024-08-06, o1-2024-12-17, o1, o3-mini, o3-mini-2025-01-31, gpt-4o-2024-11-20, o1-pro-2025-03-19, o1-pro, o3-2025-04-16, o4-mini-2025-04-16, gpt-4.1-2025-04-14, gpt-4.1-mini-2025-04-14, gpt-4.1-nano-2025-04-14, gpt-4.1-nano, gpt-image-1, gpt-5-chat-latest, gpt-5-2025-08-07, gpt-5, gpt-5-mini-2025-08-07, gpt-5-mini, gpt-5-nano-2025-08-07, gpt-5-nano, gpt-5-codex, gpt-image-1-mini, gpt-5-pro-2025-10-06, gpt-5-pro, gpt-5.1-chat-latest, gpt-5.1-2025-11-13, gpt-5.1, gpt-5.1-codex, gpt-5.1-codex-mini, gpt-5.1-codex-max, gpt-image-1.5, gpt-5.2-2025-12-11, gpt-5.2, gpt-5.2-pro-2025-12-11, gpt-5.2-pro, gpt-5.2-chat-latest, gpt-5.2-codex, gpt-5.3-codex, gpt-5.3-chat-latest, gpt-5.4-2026-03-05, gpt-5.4-pro, gpt-5.4-pro-2026-03-05, gpt-3.5-turbo-16k, claude-opus-4-5-20251101, claude-sonnet-4-5-20250929, claude-opus-4-1-20250805, claude-opus-4-20250514, claude-sonnet-4-20250514, gemini-2.0-flash, gemini-2.0-flash-001, gemini-2.0-flash-lite-001, gemini-2.5-flash-preview-tts, gemini-2.5-pro-preview-tts, gemma-3-1b-it, gemma-3-4b-it, gemma-3-12b-it, gemma-3-27b-it, gemma-3n-e4b-it, gemma-3n-e2b-it, gemma-4-26b-a4b-it, gemma-4-31b-it, gemini-flash-latest, gemini-flash-lite-latest, gemini-pro-latest, gemini-2.5-flash-lite, gemini-2.5-flash-image, gemini-3-pro-preview, gemini-3-flash-preview, gemini-3.1-pro-preview, gemini-3.1-pro-preview-customtools, gemini-3.1-flash-lite-preview, gemini-3-pro-image-preview, nano-banana-pro-preview, gemini-3.1-flash-image-preview, lyria-3-clip-preview, lyria-3-pro-preview, gemini-robotics-er-1.5-preview, gemini-2.5-computer-use-preview-10-2025, deep-research-pro-preview-12-2025
-[2026-04-12T06:35:40.534Z]   비활성화: claude-3-5-sonnet-20241022, claude-3-haiku-20240307
-[2026-04-12T06:35:40.535Z] model-registry.ts 저장 완료.
-[2026-04-12T06:35:40.600Z] Git commit 완료.
-[2026-04-12T06:35:40.600Z] Vercel 배포 시작...
-[2026-04-12T06:36:16.905Z] 배포 완료: https://blend.ai4min.com
-[2026-04-12T06:36:16.905Z] === 완료 ===
-[2026-04-12T09:05:54.260Z] === Blend Model Sync 시작 ===
-[2026-04-12T09:05:54.262Z] Pulling env vars from Vercel...
-[2026-04-12T09:05:55.320Z] Keys loaded: anthropic=true, openai=true, google=true
-[2026-04-12T09:05:56.162Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
-[2026-04-12T09:05:56.163Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
-[2026-04-12T09:05:56.164Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
-[2026-04-12T09:05:56.164Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
-[2026-04-12T09:05:56.165Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
-[2026-04-12T09:05:56.165Z]   ⛔ 비활성화: deepseek-chat (API에서 사라짐)
-[2026-04-12T09:05:56.166Z]   ⛔ 비활성화: deepseek-reasoner (API에서 사라짐)
-[2026-04-12T09:05:56.166Z]   ⛔ 비활성화: llama-3.3-70b-versatile (API에서 사라짐)
-[2026-04-12T09:05:56.166Z]   ⛔ 비활성화: llama-3.1-8b-instant (API에서 사라짐)
-[2026-04-12T09:05:56.171Z]   ✅ 신규 추가: nano-banana-pro-preview (enabled=false)
-[2026-04-12T09:05:56.172Z] 
+[2026-04-13T00:15:39.723Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash
+[2026-04-13T00:15:39.724Z] model-registry.ts 저장 완료.
+[2026-04-13T00:15:39.801Z] Git commit 경고 (무시 가능): Command failed: cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend" && git commit -m "chore: sync models — disable 5 deprecated"
+[2026-04-13T00:15:39.802Z] Vercel 배포 시작...
+[2026-04-13T00:16:15.699Z] 배포 완료: https://blend.ai4min.com
+[2026-04-13T00:16:15.700Z] === 완료 ===
+[2026-04-13T03:06:01.334Z] === Blend Model Sync 시작 ===
+[2026-04-13T03:06:01.341Z] Pulling env vars from Vercel...
+[2026-04-13T03:06:02.405Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-13T03:06:03.687Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-13T03:06:03.689Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-13T03:06:03.691Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-13T03:06:03.692Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-13T03:06:03.693Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-13T03:06:03.694Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-13T03:06:03.694Z]   ⛔ 비활성화: deepseek-chat (API에서 사라짐)
+[2026-04-13T03:06:03.695Z]   ⛔ 비활성화: deepseek-reasoner (API에서 사라짐)
+[2026-04-13T03:06:03.695Z]   ⛔ 비활성화: llama-3.3-70b-versatile (API에서 사라짐)
+[2026-04-13T03:06:03.696Z]   ⛔ 비활성화: llama-3.1-8b-instant (API에서 사라짐)
+[2026-04-13T03:06:03.697Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-13T03:06:03.698Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-13T03:06:03.698Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-13T03:06:03.699Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-13T03:06:03.699Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-13T03:06:03.700Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-13T03:06:03.701Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-13T03:06:03.701Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-13T03:06:03.702Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-13T03:06:03.702Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-13T03:06:03.703Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-13T03:06:03.703Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-13T03:06:03.704Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-13T03:06:03.704Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-13T03:06:03.705Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-13T03:06:03.706Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-13T03:06:03.706Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-13T03:06:03.706Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-13T03:06:03.707Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-13T03:06:03.708Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-13T03:06:03.708Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-13T03:06:03.709Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-13T03:06:03.709Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-13T03:06:03.709Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-13T03:06:03.710Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-13T03:06:03.710Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-13T03:06:03.711Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-13T03:06:03.711Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-13T03:06:03.712Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-13T03:06:03.712Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-13T03:06:03.713Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-13T03:06:03.714Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-13T03:06:03.720Z] 
 변경 요약:
-[2026-04-12T09:05:56.172Z]   추가: nano-banana-pro-preview
-[2026-04-12T09:05:56.172Z]   비활성화: claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash, deepseek-chat, deepseek-reasoner, llama-3.3-70b-versatile, llama-3.1-8b-instant
-[2026-04-12T09:05:56.173Z] model-registry.ts 저장 완료.
-[2026-04-12T09:05:56.235Z] Git commit 완료.
-[2026-04-12T09:05:56.236Z] Vercel 배포 시작...
-[2026-04-12T09:06:31.380Z] 배포 완료: https://blend.ai4min.com
-[2026-04-12T09:06:31.383Z] === 완료 ===
+[2026-04-13T03:06:03.720Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash, deepseek-chat, deepseek-reasoner, llama-3.3-70b-versatile, llama-3.1-8b-instant
+[2026-04-13T03:06:03.721Z] model-registry.ts 저장 완료.
+[2026-04-13T03:06:03.778Z] Git commit 경고 (무시 가능): Command failed: cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend" && git commit -m "chore: sync models — disable 9 deprecated"
+[2026-04-13T03:06:03.778Z] Vercel 배포 시작...
+[2026-04-13T03:06:39.531Z] 배포 완료: https://blend.ai4min.com
+[2026-04-13T03:06:39.533Z] === 완료 ===
+[2026-04-13T06:06:02.621Z] === Blend Model Sync 시작 ===
+[2026-04-13T06:06:02.628Z] Pulling env vars from Vercel...
+[2026-04-13T06:06:04.109Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-13T06:06:05.819Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-13T06:06:05.821Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-13T06:06:05.823Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-13T06:06:05.824Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-13T06:06:05.825Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-13T06:06:05.826Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-13T06:06:05.827Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-13T06:06:05.827Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-13T06:06:05.829Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-13T06:06:05.829Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-13T06:06:05.830Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-13T06:06:05.830Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-13T06:06:05.831Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-13T06:06:05.831Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-13T06:06:05.832Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-13T06:06:05.833Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-13T06:06:05.833Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-13T06:06:05.834Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-13T06:06:05.835Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-13T06:06:05.835Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-13T06:06:05.836Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-13T06:06:05.836Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-13T06:06:05.837Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-13T06:06:05.837Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-13T06:06:05.838Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-13T06:06:05.839Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-13T06:06:05.839Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-13T06:06:05.840Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-13T06:06:05.840Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-13T06:06:05.841Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-13T06:06:05.841Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-13T06:06:05.842Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-13T06:06:05.842Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-13T06:06:05.843Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-13T06:06:05.844Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-13T06:06:05.844Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-13T06:06:05.845Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-13T06:06:05.846Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-13T06:06:05.851Z] 
+변경 요약:
+[2026-04-13T06:06:05.852Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash
+[2026-04-13T06:06:05.853Z] model-registry.ts 저장 완료.
+[2026-04-13T06:06:05.909Z] Git commit 경고 (무시 가능): Command failed: cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend" && git commit -m "chore: sync models — disable 5 deprecated"
+[2026-04-13T06:06:05.909Z] Vercel 배포 시작...
+[2026-04-13T06:06:42.641Z] 배포 완료: https://blend.ai4min.com
+[2026-04-13T06:06:42.641Z] === 완료 ===
+[2026-04-13T09:06:06.986Z] === Blend Model Sync 시작 ===
+[2026-04-13T09:06:06.993Z] Pulling env vars from Vercel...
+[2026-04-13T09:06:08.914Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-13T09:06:09.792Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-13T09:06:09.795Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-13T09:06:09.796Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-13T09:06:09.798Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-13T09:06:09.799Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-13T09:06:09.800Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-13T09:06:09.801Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-13T09:06:09.803Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-13T09:06:09.804Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-13T09:06:09.805Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-13T09:06:09.806Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-13T09:06:09.807Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-13T09:06:09.808Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-13T09:06:09.808Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-13T09:06:09.809Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-13T09:06:09.810Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-13T09:06:09.811Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-13T09:06:09.811Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-13T09:06:09.812Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-13T09:06:09.813Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-13T09:06:09.813Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-13T09:06:09.814Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-13T09:06:09.815Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-13T09:06:09.815Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-13T09:06:09.816Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-13T09:06:09.816Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-13T09:06:09.817Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-13T09:06:09.818Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-13T09:06:09.818Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-13T09:06:09.819Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-13T09:06:09.820Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-13T09:06:09.820Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-13T09:06:09.821Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-13T09:06:09.821Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-13T09:06:09.821Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-13T09:06:09.822Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-13T09:06:09.822Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-13T09:06:09.823Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-13T09:06:09.829Z] 
+변경 요약:
+[2026-04-13T09:06:09.830Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash
+[2026-04-13T09:06:09.831Z] model-registry.ts 저장 완료.
+[2026-04-13T09:06:09.884Z] Git commit 경고 (무시 가능): Command failed: cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend" && git commit -m "chore: sync models — disable 5 deprecated"
+[2026-04-13T09:06:09.884Z] Vercel 배포 시작...
+[2026-04-13T09:06:45.948Z] 배포 완료: https://blend.ai4min.com
+[2026-04-13T09:06:45.949Z] === 완료 ===
+[2026-04-13T12:06:06.377Z] === Blend Model Sync 시작 ===
+[2026-04-13T12:06:06.383Z] Pulling env vars from Vercel...
+[2026-04-13T12:06:07.416Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-13T12:06:08.728Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-13T12:06:08.730Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-13T12:06:08.732Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-13T12:06:08.733Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-13T12:06:08.734Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-13T12:06:08.735Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-13T12:06:08.737Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-13T12:06:08.738Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-13T12:06:08.739Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-13T12:06:08.740Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-13T12:06:08.740Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-13T12:06:08.741Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-13T12:06:08.742Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-13T12:06:08.743Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-13T12:06:08.744Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-13T12:06:08.744Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-13T12:06:08.745Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-13T12:06:08.746Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-13T12:06:08.746Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-13T12:06:08.747Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-13T12:06:08.748Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-13T12:06:08.748Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-13T12:06:08.749Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-13T12:06:08.750Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-13T12:06:08.750Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-13T12:06:08.751Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-13T12:06:08.751Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-13T12:06:08.752Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-13T12:06:08.753Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-13T12:06:08.753Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-13T12:06:08.754Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-13T12:06:08.755Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-13T12:06:08.755Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-13T12:06:08.756Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-13T12:06:08.756Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-13T12:06:08.757Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-13T12:06:08.757Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-13T12:06:08.758Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-13T12:06:08.763Z] 
+변경 요약:
+[2026-04-13T12:06:08.764Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash
+[2026-04-13T12:06:08.765Z] model-registry.ts 저장 완료.
+[2026-04-13T12:06:08.824Z] Git commit 경고 (무시 가능): Command failed: cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend" && git commit -m "chore: sync models — disable 5 deprecated"
+[2026-04-13T12:06:08.824Z] Vercel 배포 시작...
+[2026-04-13T12:06:45.154Z] 배포 완료: https://blend.ai4min.com
+[2026-04-13T12:06:45.155Z] === 완료 ===
+[2026-04-13T15:06:06.918Z] === Blend Model Sync 시작 ===
+[2026-04-13T15:06:06.924Z] Pulling env vars from Vercel...
+[2026-04-13T15:06:07.954Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-13T15:06:08.791Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-13T15:06:08.792Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-13T15:06:08.793Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-13T15:06:08.793Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-13T15:06:08.794Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-13T15:06:08.795Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-13T15:06:08.795Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-13T15:06:08.796Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-13T15:06:08.796Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-13T15:06:08.797Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-13T15:06:08.797Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-13T15:06:08.798Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-13T15:06:08.798Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-13T15:06:08.800Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-13T15:06:08.804Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-13T15:06:08.805Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-13T15:06:08.805Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-13T15:06:08.805Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-13T15:06:08.806Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-13T15:06:08.806Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-13T15:06:08.807Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-13T15:06:08.807Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-13T15:06:08.808Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-13T15:06:08.808Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-13T15:06:08.809Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-13T15:06:08.809Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-13T15:06:08.809Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-13T15:06:08.810Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-13T15:06:08.810Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-13T15:06:08.811Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-13T15:06:08.811Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-13T15:06:08.812Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-13T15:06:08.812Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-13T15:06:08.813Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-13T15:06:08.814Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-13T15:06:08.814Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-13T15:06:08.814Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-13T15:06:08.815Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-13T15:06:08.820Z] 
+변경 요약:
+[2026-04-13T15:06:08.822Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash
+[2026-04-13T15:06:08.823Z] model-registry.ts 저장 완료.
+[2026-04-13T15:06:08.891Z] Git commit 경고 (무시 가능): Command failed: cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend" && git commit -m "chore: sync models — disable 5 deprecated"
+[2026-04-13T15:06:08.892Z] Vercel 배포 시작...
+[2026-04-13T15:06:45.027Z] 배포 완료: https://blend.ai4min.com
+[2026-04-13T15:06:45.029Z] === 완료 ===
+[2026-04-13T18:06:07.771Z] === Blend Model Sync 시작 ===
+[2026-04-13T18:06:07.778Z] Pulling env vars from Vercel...
+[2026-04-13T18:06:09.617Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-13T18:06:10.436Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-13T18:06:10.438Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-13T18:06:10.439Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-13T18:06:10.440Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-13T18:06:10.440Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-13T18:06:10.441Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-13T18:06:10.443Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-13T18:06:10.443Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-13T18:06:10.444Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-13T18:06:10.444Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-13T18:06:10.445Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-13T18:06:10.446Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-13T18:06:10.446Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-13T18:06:10.447Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-13T18:06:10.447Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-13T18:06:10.448Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-13T18:06:10.448Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-13T18:06:10.449Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-13T18:06:10.449Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-13T18:06:10.450Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-13T18:06:10.450Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-13T18:06:10.451Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-13T18:06:10.451Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-13T18:06:10.452Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-13T18:06:10.452Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-13T18:06:10.453Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-13T18:06:10.453Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-13T18:06:10.454Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-13T18:06:10.454Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-13T18:06:10.455Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-13T18:06:10.455Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-13T18:06:10.456Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-13T18:06:10.456Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-13T18:06:10.456Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-13T18:06:10.457Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-13T18:06:10.457Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-13T18:06:10.458Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-13T18:06:10.458Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-13T18:06:10.465Z] 
+변경 요약:
+[2026-04-13T18:06:10.465Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash
+[2026-04-13T18:06:10.466Z] model-registry.ts 저장 완료.
+[2026-04-13T18:06:10.526Z] Git commit 경고 (무시 가능): Command failed: cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend" && git commit -m "chore: sync models — disable 5 deprecated"
+[2026-04-13T18:06:10.526Z] Vercel 배포 시작...
+[2026-04-13T18:06:53.570Z] 배포 완료: https://blend.ai4min.com
+[2026-04-13T18:06:53.571Z] === 완료 ===
+[2026-04-13T21:06:07.779Z] === Blend Model Sync 시작 ===
+[2026-04-13T21:06:07.786Z] Pulling env vars from Vercel...
+[2026-04-13T21:06:08.906Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-13T21:06:09.694Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-13T21:06:09.696Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-13T21:06:09.697Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-13T21:06:09.697Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-13T21:06:09.698Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-13T21:06:09.699Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-13T21:06:09.700Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-13T21:06:09.700Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-13T21:06:09.701Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-13T21:06:09.701Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-13T21:06:09.702Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-13T21:06:09.702Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-13T21:06:09.702Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-13T21:06:09.703Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-13T21:06:09.703Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-13T21:06:09.704Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-13T21:06:09.704Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-13T21:06:09.705Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-13T21:06:09.705Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-13T21:06:09.706Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-13T21:06:09.706Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-13T21:06:09.707Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-13T21:06:09.708Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-13T21:06:09.708Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-13T21:06:09.708Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-13T21:06:09.709Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-13T21:06:09.709Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-13T21:06:09.710Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-13T21:06:09.710Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-13T21:06:09.711Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-13T21:06:09.711Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-13T21:06:09.711Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-13T21:06:09.712Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-13T21:06:09.712Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-13T21:06:09.713Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-13T21:06:09.713Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-13T21:06:09.714Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-13T21:06:09.714Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-13T21:06:09.720Z] 
+변경 요약:
+[2026-04-13T21:06:09.720Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash
+[2026-04-13T21:06:09.721Z] model-registry.ts 저장 완료.
+[2026-04-13T21:06:09.786Z] Git commit 경고 (무시 가능): Command failed: cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend" && git commit -m "chore: sync models — disable 5 deprecated"
+[2026-04-13T21:06:09.786Z] Vercel 배포 시작...
+[2026-04-13T21:06:48.510Z] 배포 완료: https://blend.ai4min.com
+[2026-04-13T21:06:48.511Z] === 완료 ===
+[2026-04-14T00:06:09.022Z] === Blend Model Sync 시작 ===
+[2026-04-14T00:06:09.033Z] Pulling env vars from Vercel...
+[2026-04-14T00:06:10.076Z] Keys loaded: anthropic=true, openai=true, google=true
+[2026-04-14T00:06:10.903Z] API 조회 완료: OpenAI=67, Anthropic=8, Google=34
+[2026-04-14T00:06:10.905Z]   ⛔ 비활성화: dall-e-3 (API에서 사라짐)
+[2026-04-14T00:06:10.905Z]   ⛔ 비활성화: claude-3-5-sonnet-20241022 (API에서 사라짐)
+[2026-04-14T00:06:10.906Z]   ⛔ 비활성화: claude-3-haiku-20240307 (API에서 사라짐)
+[2026-04-14T00:06:10.907Z]   ⛔ 비활성화: gemini-1.5-pro (API에서 사라짐)
+[2026-04-14T00:06:10.908Z]   ⛔ 비활성화: gemini-1.5-flash (API에서 사라짐)
+[2026-04-14T00:06:10.909Z]   🔕 날짜 버전 비활성화: gpt-5.4-nano-2026-03-17
+[2026-04-14T00:06:10.909Z]   🔕 날짜 버전 비활성화: gpt-5.4-mini-2026-03-17
+[2026-04-14T00:06:10.910Z]   🔕 날짜 버전 비활성화: gpt-4-turbo-2024-04-09
+[2026-04-14T00:06:10.910Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-05-13
+[2026-04-14T00:06:10.911Z]   🔕 날짜 버전 비활성화: gpt-4o-mini-2024-07-18
+[2026-04-14T00:06:10.911Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-08-06
+[2026-04-14T00:06:10.912Z]   🔕 날짜 버전 비활성화: o1-2024-12-17
+[2026-04-14T00:06:10.912Z]   🔕 날짜 버전 비활성화: o3-mini-2025-01-31
+[2026-04-14T00:06:10.913Z]   🔕 날짜 버전 비활성화: gpt-4o-2024-11-20
+[2026-04-14T00:06:10.914Z]   🔕 날짜 버전 비활성화: o1-pro-2025-03-19
+[2026-04-14T00:06:10.914Z]   🔕 날짜 버전 비활성화: o3-2025-04-16
+[2026-04-14T00:06:10.915Z]   🔕 날짜 버전 비활성화: o4-mini-2025-04-16
+[2026-04-14T00:06:10.915Z]   🔕 날짜 버전 비활성화: gpt-4.1-2025-04-14
+[2026-04-14T00:06:10.916Z]   🔕 날짜 버전 비활성화: gpt-4.1-mini-2025-04-14
+[2026-04-14T00:06:10.916Z]   🔕 날짜 버전 비활성화: gpt-4.1-nano-2025-04-14
+[2026-04-14T00:06:10.916Z]   🔕 날짜 버전 비활성화: gpt-5-2025-08-07
+[2026-04-14T00:06:10.917Z]   🔕 날짜 버전 비활성화: gpt-5-mini-2025-08-07
+[2026-04-14T00:06:10.917Z]   🔕 날짜 버전 비활성화: gpt-5-nano-2025-08-07
+[2026-04-14T00:06:10.918Z]   🔕 날짜 버전 비활성화: gpt-5-pro-2025-10-06
+[2026-04-14T00:06:10.919Z]   🔕 날짜 버전 비활성화: gpt-5.1-2025-11-13
+[2026-04-14T00:06:10.920Z]   🔕 날짜 버전 비활성화: gpt-5.2-2025-12-11
+[2026-04-14T00:06:10.921Z]   🔕 날짜 버전 비활성화: gpt-5.2-pro-2025-12-11
+[2026-04-14T00:06:10.921Z]   🔕 날짜 버전 비활성화: gpt-5.4-2026-03-05
+[2026-04-14T00:06:10.922Z]   🔕 날짜 버전 비활성화: gpt-5.4-pro-2026-03-05
+[2026-04-14T00:06:10.922Z]   🔕 날짜 버전 비활성화: claude-haiku-4-5-20251001
+[2026-04-14T00:06:10.923Z]   🔕 날짜 버전 비활성화: claude-3-5-sonnet-20241022
+[2026-04-14T00:06:10.923Z]   🔕 날짜 버전 비활성화: claude-3-haiku-20240307
+[2026-04-14T00:06:10.924Z]   🔕 날짜 버전 비활성화: claude-opus-4-5-20251101
+[2026-04-14T00:06:10.924Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-5-20250929
+[2026-04-14T00:06:10.925Z]   🔕 날짜 버전 비활성화: claude-opus-4-1-20250805
+[2026-04-14T00:06:10.925Z]   🔕 날짜 버전 비활성화: claude-opus-4-20250514
+[2026-04-14T00:06:10.926Z]   🔕 날짜 버전 비활성화: claude-sonnet-4-20250514
+[2026-04-14T00:06:10.933Z] 
+변경 요약:
+[2026-04-14T00:06:10.934Z]   비활성화: dall-e-3, claude-3-5-sonnet-20241022, claude-3-haiku-20240307, gemini-1.5-pro, gemini-1.5-flash
+[2026-04-14T00:06:10.935Z] model-registry.ts 저장 완료.
+[2026-04-14T00:06:11.015Z] Git commit 경고 (무시 가능): Command failed: cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend" && git commit -m "chore: sync models — disable 5 deprecated"
+[2026-04-14T00:06:11.016Z] Vercel 배포 시작...
+[2026-04-14T00:06:54.475Z] 배포 완료: https://blend.ai4min.com
+[2026-04-14T00:06:54.477Z] === 완료 ===
 

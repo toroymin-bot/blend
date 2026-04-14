@@ -822,18 +822,12 @@ export function ChatView() {
         onChange={(e) => { if (e.target.files) handleImageFiles(e.target.files); e.target.value = ''; }}
       />
 
-      {/* Header with active agent */}
-      {getActiveAgent() && (
+      {/* Header with active agent — 자동 AI 매칭은 하단 버튼에 표시되므로 헤더 숨김 */}
+      {getActiveAgent() && getActiveAgent()?.id !== AUTO_MATCH_AGENT_ID && (
         <div className="px-4 py-2 border-b border-border-token flex items-center gap-2 bg-surface-2">
           <span className="text-lg">{getActiveAgent()?.icon}</span>
           <span className="text-sm text-on-surface">{getActiveAgent()?.name}</span>
-          {getActiveAgent()?.id === AUTO_MATCH_AGENT_ID ? (
-            <span className="text-xs text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-full">
-              {autoMatchInfo ? `${autoMatchInfo.label} → ${autoMatchInfo.modelName}` : '질문에 맞는 AI 자동 선택'}
-            </span>
-          ) : (
-            <span className="text-xs text-on-surface-muted">· {getActiveAgent()?.model}</span>
-          )}
+          <span className="text-xs text-on-surface-muted">· {getActiveAgent()?.model}</span>
         </div>
       )}
 
@@ -900,27 +894,20 @@ export function ChatView() {
               <p className="text-sm text-gray-400 leading-relaxed mb-6">
                 아래 예시를 클릭하거나 직접 입력하세요
               </p>
-              {/* Active agent badge */}
-              {getActiveAgent() && (
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm mb-5 ${
-                  getActiveAgent()?.id === AUTO_MATCH_AGENT_ID
-                    ? 'bg-violet-900/30 text-violet-300'
-                    : 'bg-blue-900/30 text-blue-300'
-                }`}>
+              {/* Active agent badge — 자동 AI 매칭은 하단 버튼에 표시되므로 배너 숨김 */}
+              {getActiveAgent() && getActiveAgent()?.id !== AUTO_MATCH_AGENT_ID && (
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm mb-5 bg-blue-900/30 text-blue-300">
                   <span className="text-lg">{getActiveAgent()?.icon}</span>
                   <span>에이전트: {getActiveAgent()?.name}</span>
-                  {getActiveAgent()?.id === AUTO_MATCH_AGENT_ID && (
-                    <span className="text-xs opacity-70">— 질문마다 최적 AI 자동 선택</span>
-                  )}
                 </div>
               )}
               {/* Quick-start suggestions */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 text-left">
                 {[
-                  { icon: '💡', text: '이 개념을 쉽게 설명해줘: 양자 컴퓨터', label: '개념 설명' },
                   { icon: '✍️', text: '이메일 초안을 작성해줘 — 회의 일정 조율', label: '글쓰기 도움' },
                   { icon: '🔍', text: '?파이썬으로 CSV 파일 읽는 방법', label: '웹 검색' },
                   { icon: '🎨', text: '/image 한국의 아름다운 가을 산 풍경', label: '이미지 생성' },
+                  { icon: '💻', text: 'JavaScript로 할 일 목록 앱 만드는 방법', label: '코딩 도움' },
                 ].map((s) => (
                   <button
                     key={s.text}

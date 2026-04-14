@@ -6,6 +6,7 @@ import { downloadChat } from '@/modules/chat/export-chat';
 import { ChatTags } from '@/modules/chat/chat-tags';
 import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, FileText, HardDrive, Mic, Sparkles, Shield } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useTranslation } from '@/lib/i18n';
 
 // Mobile bottom tab bar — 3 primary tabs
 interface MobileBottomBarProps {

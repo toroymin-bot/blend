@@ -8,7 +8,9 @@ import { APIKeyConfig, AIProvider } from '@/types';
 // Vercel 환경변수에 NEXT_PUBLIC_*_API_KEY 설정 필요
 const isQAPath = (): boolean => {
   if (typeof window === 'undefined') return false;
-  return window.location.pathname.startsWith('/qatest');
+  const p = window.location.pathname;
+  // /qatest, /ko/qatest, /en/qatest 모두 QA 경로로 인식
+  return p.startsWith('/qatest') || p.includes('/qatest');
 };
 
 const getEnvKey = (provider: AIProvider): string => {
