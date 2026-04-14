@@ -10,6 +10,7 @@ export type RouteCategory =
   | 'creative'     // 창작/글쓰기/카피라이팅
   | 'translation'  // 번역
   | 'vision'       // 이미지 분석 (이미지 첨부 시)
+  | 'image_gen'    // 이미지 생성 (DALL-E)
   | 'data'         // 데이터 분석/SQL/통계
   | 'simple'       // 짧은 질문/간단한 답변
   | 'long_doc'     // 긴 문서 분석/요약
@@ -17,6 +18,14 @@ export type RouteCategory =
 
 // ── 카테고리별 키워드 (한국어 + 영어) ─────────────────────────────────────
 const KW: Record<Exclude<RouteCategory, 'vision' | 'general'>, string[]> = {
+  image_gen: [
+    '그려줘', '그려 줘', '그림 그려', '이미지 만들어', '이미지 생성', '이미지 그려',
+    '사진 만들어', '사진 생성', '그림 만들어', '그림체', '삽화', '일러스트',
+    '/image', 'draw', 'create image', 'generate image', 'make an image',
+    'create a picture', 'generate a picture', 'make a picture',
+    'illustrate', 'paint', 'sketch', 'visualize',
+    'image of', 'picture of', 'photo of', 'artwork',
+  ],
   translation: [
     '번역', '영어로', '한국어로', '일본어로', '중국어로', '영어 번역', '한영',
     '영한', '한글로', '번역해', '번역 해줘', '영문으로',
@@ -70,6 +79,7 @@ const ROUTE_MAP: Record<RouteCategory, string[]> = {
   creative:    ['claude-sonnet-4-6', 'gpt-4o', 'gpt-4.1'],
   translation: ['gpt-4o-mini', 'gpt-4.1-mini', 'claude-haiku-4-5-20251001'],
   vision:      ['gpt-4o', 'claude-sonnet-4-6', 'gemini-2.5-pro'],
+  image_gen:   ['dall-e-3', 'gpt-image-1'],
   data:        ['gemini-2.5-pro', 'gpt-4o', 'claude-sonnet-4-6'],
   simple:      ['gpt-4o-mini', 'gpt-4.1-mini', 'claude-haiku-4-5-20251001'],
   long_doc:    ['claude-sonnet-4-6', 'gemini-2.5-pro', 'gpt-4o'],
@@ -85,6 +95,7 @@ export function getCategoryLabels(): Record<RouteCategory, string> {
     creative:    isEn ? '✍️ Creative Writing'   : '✍️ 창작/글쓰기',
     translation: isEn ? '🌐 Translation'        : '🌐 번역',
     vision:      isEn ? '👁️ Image Analysis'    : '👁️ 이미지 분석',
+    image_gen:   isEn ? '🎨 Image Generation'  : '🎨 이미지 생성',
     data:        isEn ? '📊 Data Analysis'      : '📊 데이터 분석',
     simple:      isEn ? '⚡ Quick Question'     : '⚡ 간단 질문',
     long_doc:    isEn ? '📄 Document Analysis'  : '📄 문서 분석',
@@ -100,8 +111,8 @@ export function detectCategory(query: string, hasImages: boolean): RouteCategory
 
   const q = query.toLowerCase();
 
-  // 우선순위 순서로 체크
-  for (const cat of ['translation', 'coding', 'data', 'reasoning', 'creative', 'long_doc', 'simple'] as const) {
+  // 우선순위 순서로 체크 (image_gen 최우선 — 이미지 생성 요청은 명확하므로)
+  for (const cat of ['image_gen', 'translation', 'coding', 'data', 'reasoning', 'creative', 'long_doc', 'simple'] as const) {
     if (KW[cat].some((k) => q.includes(k.toLowerCase()))) return cat;
   }
 
