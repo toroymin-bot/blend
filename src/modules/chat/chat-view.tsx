@@ -39,9 +39,9 @@ function highlightText(text: string, query: string): React.ReactNode {
 
 export function ChatView() {
   const { t } = useTranslation();
-  const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle, editMessage } = useChatStore();
+  const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle, editMessage, updateChatMeta } = useChatStore();
   const { getKey, hasKey } = useAPIKeyStore();
-  const { getActiveAgent, setActiveAgent } = useAgentStore();
+  const { getActiveAgent, setActiveAgent, activeAgentId } = useAgentStore();
   const { addRecord, checkDailyLimit, getTodayCost } = useUsageStore();
   const { systemPrompt, customModels, settings } = useSettingsStore();
   const { isInstalled, loadFromStorage: loadPlugins } = usePluginStore();
@@ -82,11 +82,47 @@ export function ChatView() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // 채팅 전환 시 복원 중인지 추적 (save effect 방지용)
+  const restoringRef = useRef(false);
+  const prevChatIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadPlugins();
     loadFromDB(); // 데이터소스 문서 IndexedDB에서 로드
   }, []);
+
+  // ── 채팅 전환 시 모델·에이전트 복원 ──────────────────────────────────────
+  useEffect(() => {
+    if (!currentChatId || currentChatId === prevChatIdRef.current) return;
+    prevChatIdRef.current = currentChatId;
+
+    const chats = useChatStore.getState().chats;
+    const targetChat = chats.find((c) => c.id === currentChatId);
+    if (!targetChat) return;
+
+    restoringRef.current = true;
+    // agentId가 저장되어 있으면 복원, 없으면 자동 AI 매칭으로 기본값
+    const savedAgentId = Object.prototype.hasOwnProperty.call(targetChat, 'agentId')
+      ? targetChat.agentId
+      : AUTO_MATCH_AGENT_ID;
+    setActiveAgent(savedAgentId ?? null);
+    setSelectedModel(targetChat.model || 'gpt-4o-mini');
+    setAutoMatchInfo(null);
+    // 다음 tick에 플래그 해제 (save effects가 이 렌더 이후 실행되므로)
+    Promise.resolve().then(() => { restoringRef.current = false; });
+  }, [currentChatId]);
+
+  // ── 모델 변경 시 현재 채팅에 저장 ────────────────────────────────────────
+  useEffect(() => {
+    if (restoringRef.current || !currentChatId) return;
+    updateChatMeta(currentChatId, { model: selectedModel });
+  }, [selectedModel, currentChatId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 에이전트 변경 시 현재 채팅에 저장 ────────────────────────────────────
+  useEffect(() => {
+    if (restoringRef.current || !currentChatId) return;
+    updateChatMeta(currentChatId, { agentId: activeAgentId });
+  }, [activeAgentId, currentChatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close model dropdown when clicking outside
   useEffect(() => {

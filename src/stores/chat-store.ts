@@ -16,6 +16,7 @@ interface ChatState {
   setCurrentChat: (id: string | null) => void;
   addMessage: (chatId: string, message: ChatMessage) => void;
   updateChatTitle: (chatId: string, title: string) => void;
+  updateChatMeta: (chatId: string, updates: { model?: string; agentId?: string | null }) => void;
   setSelectedModel: (model: string) => void;
   createFolder: (name: string) => void;
   deleteFolder: (folderId: string) => void;
@@ -96,6 +97,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   updateChatTitle: (chatId, title) => {
     set((state) => ({
       chats: state.chats.map((c) => (c.id === chatId ? { ...c, title } : c)),
+    }));
+    get().saveToStorage();
+  },
+
+  updateChatMeta: (chatId, updates) => {
+    set((state) => ({
+      chats: state.chats.map((c) => (c.id === chatId ? { ...c, ...updates } : c)),
     }));
     get().saveToStorage();
   },

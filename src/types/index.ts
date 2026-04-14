@@ -17,6 +17,7 @@ export interface Chat {
   title: string;
   messages: ChatMessage[];
   model: string;
+  agentId?: string | null;  // 채팅별 에이전트 (null = 수동 모델, AUTO_MATCH_AGENT_ID = 자동 매칭)
   folderId?: string;
   pinned?: boolean;
   createdAt: number;
