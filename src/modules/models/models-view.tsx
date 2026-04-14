@@ -7,7 +7,11 @@ import { useAPIKeyStore } from '@/stores/api-key-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { Check } from 'lucide-react';
 import { AIProvider } from '@/types';
-import { useTranslation } from '@/lib/i18n';
+import { useTranslation, getCurrentLanguage } from '@/lib/i18n';
+import { AIModel } from '@/types';
+
+const modelDesc = (m: AIModel) =>
+  (getCurrentLanguage() === 'ko' ? m.descriptionKo || m.description : m.description) ?? '';
 
 export function ModelsView() {
   const { t } = useTranslation();
@@ -177,9 +181,9 @@ export function ModelsView() {
                                   </span>
                                 </div>
                               </div>
-                              {model.description && (
+                              {modelDesc(model) && (
                                 <p className={`text-xs mt-0.5 ${isSelected ? 'text-gray-300' : noKey ? 'text-gray-700' : 'text-gray-500'}`}>
-                                  {model.description}
+                                  {modelDesc(model)}
                                 </p>
                               )}
                               {/* Feature badges */}

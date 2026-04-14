@@ -41,7 +41,8 @@ export interface AIModel {
   features: ModelFeature[];
   enabled: boolean;
   baseUrl?: string;    // custom endpoint (OpenAI-compatible)
-  description?: string; // short user-facing description
+  description?: string;   // short user-facing description (English)
+  descriptionKo?: string; // Korean description
 }
 
 export type AIProvider = 'openai' | 'anthropic' | 'google' | 'deepseek' | 'groq' | 'custom';

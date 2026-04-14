@@ -8,7 +8,8 @@ import { getModelById, calculateCost, DEFAULT_MODELS, getModelCategory, MODEL_CA
 import { Send, Square, Clock, DollarSign, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useTranslation } from '@/lib/i18n';
+import { useTranslation, getCurrentLanguage } from '@/lib/i18n';
+import { AIModel } from '@/types';
 
 interface ModelResult {
   modelId: string;
@@ -43,6 +44,9 @@ function getFriendlyErrorKey(raw: string): { icon: string; msgKey: string } {
     return { icon: '🌐', msgKey: 'compare_errors.network_error' };
   return { icon: '⚠️', msgKey: 'compare_errors.generic_error' };
 }
+
+const modelDesc = (m: AIModel) =>
+  (getCurrentLanguage() === 'ko' ? m.descriptionKo || m.description : m.description) ?? '';
 
 export function ModelCompareView() {
   const { t } = useTranslation();
@@ -220,7 +224,7 @@ export function ModelCompareView() {
                             key={m.id}
                             onClick={() => toggleModel(m.id)}
                             disabled={isDisabled}
-                            title={noKey ? t('compare.no_key', { provider: m.provider }) : isDisabled ? t('compare.max_models', { count: MAX_COMPARE_MODELS }) : m.description ?? ''}
+                            title={noKey ? t('compare.no_key', { provider: m.provider }) : isDisabled ? t('compare.max_models', { count: MAX_COMPARE_MODELS }) : modelDesc(m)}
                             className={`px-2.5 py-1.5 rounded-xl text-xs transition-all text-left border ${
                               isSelected
                                 ? 'text-white border-transparent shadow-sm'
@@ -233,9 +237,9 @@ export function ModelCompareView() {
                             style={isSelected ? { backgroundColor: provColor + '33', borderColor: provColor } : {}}
                           >
                             <div className="font-medium leading-tight">{m.name}</div>
-                            {m.description && (
+                            {modelDesc(m) && (
                               <div className={`text-[10px] mt-0.5 leading-tight ${isSelected ? 'text-gray-200' : 'text-gray-500'}`}>
-                                {m.description}
+                                {modelDesc(m)}
                               </div>
                             )}
                           </button>
