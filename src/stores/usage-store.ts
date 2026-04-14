@@ -43,7 +43,11 @@ export const useUsageStore = create<UsageState>((set, get) => ({
 
   addRecord: (record) => {
     const newRecord = { ...record, id: generateId() };
-    set((state) => ({ records: [...state.records, newRecord] }));
+    // [2026-04-15 02:00] 비활성화 — records 무한 축적으로 localStorage 쿼터 초과 위험
+    // set((state) => ({ records: [...state.records, newRecord] }));
+    // [2026-04-15 02:00] 수정 — 90일(7776000000ms) 이상 된 레코드 자동 정리 후 추가
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    set((state) => ({ records: [...state.records.filter((r) => r.timestamp >= cutoff), newRecord] }));
     get().saveToStorage();
   },
 

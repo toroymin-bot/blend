@@ -393,7 +393,10 @@ export const DEFAULT_MODELS: AIModel[] = [
     id: 'gpt-4.1-2025-04-14',
     name: 'GPT 4.1 2025 04 14',
     provider: 'openai',
-    contextLength: 128000,
+    // [2026-04-15 02:00] 비활성화 — 잘못된 컨텍스트 길이 (GPT-4.1은 1M+ 토큰)
+    // contextLength: 128000,
+    // [2026-04-15 02:00] 수정 — GPT-4.1 실제 컨텍스트 길이
+    contextLength: 1047576,
     inputPrice: 2,
     outputPrice: 8,
     features: ['streaming', 'vision', 'function_calling'],
@@ -417,9 +420,13 @@ export const DEFAULT_MODELS: AIModel[] = [
     id: 'gpt-4.1-nano-2025-04-14',
     name: 'GPT 4.1 Nano 2025 04 14',
     provider: 'openai',
-    contextLength: 128000,
-    inputPrice: 2,
-    outputPrice: 8,
+    contextLength: 1047576,
+    // [2026-04-15 02:00] 비활성화 — 잘못된 가격
+    // inputPrice: 2,
+    // outputPrice: 8,
+    // [2026-04-15 02:00] 수정 — GPT-4.1 Nano 실제 가격
+    inputPrice: 0.1,
+    outputPrice: 0.4,
     features: ['streaming', 'vision', 'function_calling'],
     description: 'Fast and affordable GPT-4.1 compact',
     descriptionKo: '빠르고 저렴한 GPT-4.1 축소판',
@@ -429,9 +436,13 @@ export const DEFAULT_MODELS: AIModel[] = [
     id: 'gpt-4.1-nano',
     name: 'GPT 4.1 Nano',
     provider: 'openai',
-    contextLength: 128000,
-    inputPrice: 2,
-    outputPrice: 8,
+    contextLength: 1047576,
+    // [2026-04-15 02:00] 비활성화 — 잘못된 가격 (GPT-4.1 전체 모델 가격이 잘못 입력됨)
+    // inputPrice: 2,
+    // outputPrice: 8,
+    // [2026-04-15 02:00] 수정 — GPT-4.1 Nano 실제 가격: $0.1/1M input, $0.4/1M output
+    inputPrice: 0.1,
+    outputPrice: 0.4,
     features: ['streaming', 'vision', 'function_calling'],
     description: 'GPT-4.1 Nano — smallest and fastest',
     descriptionKo: 'GPT-4.1 초소형 — 가장 작고 빠름',

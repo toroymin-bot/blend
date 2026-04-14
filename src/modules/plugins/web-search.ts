@@ -25,7 +25,13 @@ export interface WebSearchResponse {
 /** DuckDuckGo Instant Answers API — 브라우저에서 직접 호출 (CORS 허용) */
 async function searchDuckDuckGo(query: string): Promise<WebSearchResult[]> {
   const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1&t=blend`;
-  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  // [2026-04-15 02:00] 비활성화 — 타임아웃 없이 무한 대기 가능
+  // const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  // [2026-04-15 02:00] 수정 — 10초 타임아웃 추가 (AbortController)
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
+  clearTimeout(timeout);
   if (!res.ok) throw new Error(`DuckDuckGo API error: ${res.status}`);
   const data = await res.json();
   const results: WebSearchResult[] = [];
