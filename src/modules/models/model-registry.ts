@@ -447,7 +447,7 @@ export const DEFAULT_MODELS: AIModel[] = [
     features: ['vision'],
     description: 'Generate high-quality images from text',
     descriptionKo: '텍스트로 고품질 이미지를 만들어요',
-    enabled: true, // [2026-04-14] 자동 AI 매칭 이미지 생성 라우팅용
+    enabled: false, // [2026-04-14] 자동 AI 매칭 이미지 생성 라우팅용
   },
   {
     id: 'gpt-image-1',
