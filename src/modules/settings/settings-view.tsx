@@ -521,7 +521,19 @@ export function SettingsView() {
               {(['ko', 'en'] as const).map((l) => (
                 <button
                   key={l}
-                  onClick={() => setLang(l)}
+                  onClick={() => {
+                    // URL-based routing: navigate to /ko/ or /en/ so the language is reflected in the URL
+                    setLang(l);
+                    if (typeof window !== 'undefined') {
+                      const currentPath = window.location.pathname;
+                      const seg = currentPath.split('/')[1];
+                      if (seg === 'ko' || seg === 'en') {
+                        // Replace lang segment and navigate
+                        const rest = currentPath.split('/').slice(2).join('/');
+                        window.location.href = `/${l}/${rest ? rest + '/' : ''}`;
+                      }
+                    }
+                  }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     lang === l
                       ? 'bg-blue-600 text-white'

@@ -90,10 +90,15 @@ export function useTranslation(): UseTranslationResult {
 
 /**
  * Standalone helper for getting the current language without React hooks.
- * Reads from localStorage directly (for use outside components).
+ * URL path takes priority (same logic as getLangFromPath), then falls back to localStorage.
  */
 export function getCurrentLanguage(): Language {
   if (typeof window === 'undefined') return 'ko';
+  // URL takes priority — same rule as getLangFromPath()
+  const seg = window.location.pathname.split('/')[1];
+  if (seg === 'en') return 'en';
+  if (seg === 'ko') return 'ko';
+  // Fallback: read from localStorage
   try {
     const stored = localStorage.getItem('blend:settings');
     if (stored) {

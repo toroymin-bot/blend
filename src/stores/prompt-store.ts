@@ -292,7 +292,17 @@ export const usePromptStore = create<PromptState>((set, get) => ({
     if (typeof window === 'undefined') return;
     try {
       const stored = localStorage.getItem('blend:prompts');
-      if (stored) set({ prompts: JSON.parse(stored) });
+      if (stored) {
+        const saved: Prompt[] = JSON.parse(stored);
+        // Replace saved default prompts (id starts with 'default-') with the
+        // language-appropriate version so /en/ shows English defaults.
+        const langDefaults = getDefaultPrompts();
+        const defaultMap = new Map(langDefaults.map((p) => [p.id, p]));
+        const merged = saved.map((p) =>
+          defaultMap.has(p.id) ? { ...defaultMap.get(p.id)!, isFavorite: p.isFavorite } : p
+        );
+        set({ prompts: merged });
+      }
     } catch {}
   },
 

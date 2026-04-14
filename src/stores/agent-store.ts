@@ -214,9 +214,18 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       const storedActive = localStorage.getItem('blend:activeAgentId');
       if (stored) {
         const parsed: Agent[] = JSON.parse(stored);
+        // Replace saved default agents (id starts with 'agent-') with the
+        // language-appropriate version so /en/ shows English names.
+        const langDefaults = getDefaultAgents();
+        const defaultMap = new Map(langDefaults.map((a) => [a.id, a]));
+        const merged = parsed.map((a) =>
+          defaultMap.has(a.id)
+            ? { ...defaultMap.get(a.id)!, usageCount: a.usageCount }
+            : a
+        );
         // auto-match 에이전트가 없으면 맨 앞에 추가 (마이그레이션)
-        const hasAutoMatch = parsed.some((a) => a.id === AUTO_MATCH_AGENT_ID);
-        const agents = hasAutoMatch ? parsed : [getDefaultAgents()[0], ...parsed];
+        const hasAutoMatch = merged.some((a) => a.id === AUTO_MATCH_AGENT_ID);
+        const agents = hasAutoMatch ? merged : [langDefaults[0], ...merged];
         set({ agents });
       }
       if (storedActive) set({ activeAgentId: storedActive });
