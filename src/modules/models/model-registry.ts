@@ -1451,6 +1451,17 @@ export const DEFAULT_MODELS: AIModel[] = [
     descriptionKo: '전문가 수준의 구글 AI',
     enabled: false,
   },
+  {
+    id: 'gemini-robotics-er-1.6-preview',
+    name: 'Gemini Robotics-ER 1.6 Preview',
+    provider: 'google',
+    contextLength: 131072,
+    inputPrice: 0.1,
+    outputPrice: 0.4,
+    features: ['streaming', 'vision'],
+    description: '작고 빠른 경량 AI',
+    enabled: false,
+  },
 ];
 
 export function getModelById(id: string, customModels: AIModel[] = []): AIModel | undefined {
