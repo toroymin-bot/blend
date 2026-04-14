@@ -23,40 +23,43 @@ function checkKeys() {
 // blend-daily-dev가 GAS에 POST하지 않아 항상 기본값(Day7, 파일25개)이 표시되던 문제 해결
 // 매일 blend-daily-dev 완료 후 이 데이터를 업데이트해야 함
 // [2026-04-12 01:07] blend-daily-dev 자동 업데이트
+// [2026-04-15 02:00] Day 12 업데이트 — 소스C 자체 테스트 5건 수정
 function setTodayData() {
   var data = {
-    dayNumber: 25,
-    files: 62,
-    lines: 13551,
-    features: 36,
+    dayNumber: 12,
+    files: 67,
+    lines: 14179,
+    features: 5,
     cost: '$0',
     newFeatures: [
-      '자동 AI 매칭 에이전트: 질문 내용 분석 → 최적 모델 자동 선택 (model-router.ts, 9가지 카테고리)',
-      'AUTO_MATCH_AGENT_ID 에이전트 기본값 설정 + localStorage activeAgentId 영속화',
-      'BUG-013 수정: 한국어 IME 조합 중 Enter 키로 메시지 분리 전송되던 버그 (isComposing 체크)',
-      '자동 매칭 결과 violet 배지 UI 표시 (헤더 + 모델 선택 드롭다운 + 빈 화면 에이전트 배지)',
-      'BUG-019 발견: /image 명령 경로 일일 비용 한도 체크 미적용',
-      'BUG-020 발견: 자동 AI 매칭 시 enabled 모델 없을 때 폴백 미처리'
+      '[소스C-1] gpt-4.1-nano 가격 오류 수정: inputPrice $2→$0.1, outputPrice $8→$0.4 (활성 모델 비용 계산 오류)',
+      '[소스C-2] gpt-4.1-nano-2025-04-14 동일 가격 수정 + contextLength 128000→1047576',
+      '[소스C-3] gpt-4.1-2025-04-14 contextLength 128000→1047576 (GPT-4.1은 1M+ 컨텍스트)',
+      '[소스C-4] web-search.ts DuckDuckGo 타임아웃 추가: AbortController + 10초 setTimeout',
+      '[소스C-5] usage-store.ts 90일 이상 레코드 자동 정리 — localStorage 쿼터 초과 방지'
     ],
     issues: [
-      {issue: 'BUG-013: 한국어 IME 조합 중 Enter로 마지막 글자가 별도 메시지 전송', solution: 'e.nativeEvent.isComposing 체크 추가 — 조합 중 Enter는 IME 확정만 처리'},
-      {issue: 'BUG-019(신규): dailyCostLimit 초과 시 /image 명령 경로는 차단 안 됨', solution: '다음 스프린트: imageGenEnabled 분기 상단에 checkDailyLimit 호출 추가 예정'},
-      {issue: 'BUG-020(신규): AUTO_MATCH 에이전트에서 enabled 모델이 없으면 null 참조 가능', solution: '다음 스프린트: routeToModel 반환값 + routedModel null 체크 강화 예정'}
+      {issue: 'gpt-4.1-nano 가격이 GPT-4.1 전체 모델 가격($2/$8)으로 잘못 설정됨', solution: 'Nano 실제 가격($0.1/$0.4)으로 수정 — 사용자 비용 계산 20배 차이 해소'},
+      {issue: 'DuckDuckGo 검색 함수에 타임아웃 없어 느린 네트워크에서 무한 대기 가능', solution: 'AbortController + 10초 타임아웃 추가'},
+      {issue: 'usage-store records 무제한 축적으로 localStorage 5MB 쿼터 초과 위험', solution: 'addRecord 시 90일 이상 레코드 자동 정리'}
     ],
     tomorrowPlan: [
-      'BUG-019 수정: /image 명령 및 DALL-E 모델 경로에도 일일 비용 한도 체크 적용',
-      'BUG-020 수정: 자동 AI 매칭 폴백 처리 — enabled 모델 없을 때 selectedModel 유지',
-      'BUG-005 수정: 긴 코드 블록 렌더링 스크롤 오버플로우',
-      'BUG-006 수정: 다크모드 드롭다운 색상 이상'
+      'getCostByDay 대용량 records 성능 최적화 (캐싱 또는 인덱싱)',
+      '소스C 성능 카테고리 심화 점검',
+      '모델 레지스트리 추가 검증 (Claude 최신 모델 가격 확인)'
     ],
     confluenceLinks: [
-      {title: 'Blend QA 리포트 — 2026-04-14', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9568326'},
-      {title: 'Blend QA 리포트 — 2026-04-13', url: 'https://ai4min.atlassian.net/wiki/spaces/DA/pages/9437205'}
+      {title: 'Blend 개발 일지 — 2026-04-15', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/10747905'},
+      {title: 'Blend 개발 일지 — 2026-04-14', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/10747905'}
     ],
     githubLinks: [],
-    runStart: '15:50',
-    runEnd: '16:40',
-    totalCommits: 1
+    runStart: '01:50',
+    runEnd: '02:15',
+    totalCommits: 1,
+    qaFailCount: 0,
+    qaNewTests: 10,
+    selfTestCount: 100,
+    selfTestIssues: 5
   };
   PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
   Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files, ' + data.totalCommits + ' commits');
