@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Blend - AI Chat Interface",
-  description: "BYOK AI Chat Interface - Bring Your Own Key",
+  description: "모든 AI 구독 — 하나로, 더 싸게, 더 스마트하게",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

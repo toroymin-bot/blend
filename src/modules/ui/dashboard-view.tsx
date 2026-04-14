@@ -3,6 +3,7 @@
 import { useUsageStore } from '@/stores/usage-store';
 import { getProviderColor } from '@/modules/models/model-registry';
 import { BarChart3, DollarSign, Zap, TrendingUp, Clock, Activity } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 // ── SVG Bar Chart ──────────────────────────────────────────────────────────────
 function SVGBarChart({ data }: { data: { date: string; cost: number; requests: number }[] }) {
@@ -185,6 +186,7 @@ function ModelCostBars({ data }: { data: { model: string; cost: number }[] }) {
 }
 
 export function DashboardView() {
+  const { t } = useTranslation();
   const {
     getTotalCost, getTodayCost, getThisMonthCost,
     getCostByModel, getCostByProvider, getCostByDay,
@@ -214,7 +216,7 @@ export function DashboardView() {
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-2 mb-6">
           <BarChart3 size={24} className="text-blue-400" />
-          <h1 className="text-2xl font-bold text-on-surface">API 비용 분석</h1>
+          <h1 className="text-2xl font-bold text-on-surface">{t('dashboard.page_title')}</h1>
         </div>
 
         {/* Summary cards */}
@@ -222,29 +224,29 @@ export function DashboardView() {
           <div className="bg-surface-2 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign size={16} className="text-green-400" />
-              <span className="text-sm text-on-surface-muted">오늘 비용</span>
+              <span className="text-sm text-on-surface-muted">{t('dashboard.today_cost')}</span>
             </div>
             <p className="text-2xl font-bold text-on-surface">${todayCost.toFixed(4)}</p>
           </div>
           <div className="bg-surface-2 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp size={16} className="text-blue-400" />
-              <span className="text-sm text-on-surface-muted">이번 달</span>
+              <span className="text-sm text-on-surface-muted">{t('dashboard.month_cost')}</span>
             </div>
             <p className="text-2xl font-bold text-on-surface">${monthCost.toFixed(4)}</p>
           </div>
           <div className="bg-gradient-to-br from-yellow-900/40 to-surface-2 rounded-xl p-4 border border-yellow-700/30">
             <div className="flex items-center gap-2 mb-1">
               <DollarSign size={16} className="text-yellow-400" />
-              <span className="text-sm text-on-surface-muted">총 누적 비용</span>
+              <span className="text-sm text-on-surface-muted">{t('dashboard.total_accumulated')}</span>
             </div>
             <p className="text-3xl font-bold text-yellow-300">${totalCost.toFixed(4)}</p>
-            <p className="text-xs text-on-surface-muted mt-1">{totalRequests}회 API 호출</p>
+            <p className="text-xs text-on-surface-muted mt-1">{t('dashboard.api_calls', { count: totalRequests })}</p>
           </div>
           <div className="bg-surface-2 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <Zap size={16} className="text-purple-400" />
-              <span className="text-sm text-on-surface-muted">총 요청</span>
+              <span className="text-sm text-on-surface-muted">{t('dashboard.total_requests')}</span>
             </div>
             <p className="text-2xl font-bold text-on-surface">{totalRequests}</p>
           </div>
@@ -252,12 +254,12 @@ export function DashboardView() {
 
         {/* SVG Daily cost bar chart — 7 days */}
         <div className="bg-surface-2 rounded-xl p-4 mb-4">
-          <h2 className="text-sm font-medium text-on-surface-muted mb-3">최근 7일 일별 비용 (SVG 바 차트)</h2>
+          <h2 className="text-sm font-medium text-on-surface-muted mb-3">{t('dashboard.daily_cost_7')}</h2>
           {totalRequests === 0 ? (
             <div className="text-center text-on-surface-muted py-8">
               <Clock size={32} className="mx-auto mb-2 opacity-50" />
-              <p>아직 사용 데이터가 없습니다</p>
-              <p className="text-xs mt-1">AI와 대화를 시작하면 비용이 자동으로 추적됩니다</p>
+              <p>{t('dashboard.no_usage_data')}</p>
+              <p className="text-xs mt-1">{t('dashboard.start_chat_hint')}</p>
             </div>
           ) : (
             <SVGBarChart data={dailyCosts7} />
@@ -267,11 +269,11 @@ export function DashboardView() {
         {/* SVG Mini Line Chart — 14 days trend */}
         <div className="bg-surface-2 rounded-xl p-4 mb-6">
           <h2 className="text-sm font-medium text-on-surface-muted mb-2 flex items-center gap-1.5">
-            <Activity size={13} /> 최근 14일 비용 추이 (라인 차트)
+            <Activity size={13} /> {t('dashboard.daily_trend_14')}
           </h2>
           {totalRequests === 0 ? (
             <div className="text-center text-on-surface-muted py-4">
-              <p className="text-sm">데이터 없음</p>
+              <p className="text-sm">{t('dashboard.no_data')}</p>
             </div>
           ) : (
             <SVGLineChart data={dailyCosts14} />
@@ -281,15 +283,15 @@ export function DashboardView() {
         <div className="grid md:grid-cols-2 gap-4 mb-6">
           {/* Provider pie chart */}
           <div className="bg-surface-2 rounded-xl p-4">
-            <h2 className="text-sm font-medium text-on-surface-muted mb-3">프로바이더별 비용 비율</h2>
+            <h2 className="text-sm font-medium text-on-surface-muted mb-3">{t('dashboard.provider_breakdown')}</h2>
             <SVGPieChart data={providerPieData} />
           </div>
 
           {/* Cost by Model — bar chart */}
           <div className="bg-surface-2 rounded-xl p-4">
-            <h2 className="text-sm font-medium text-on-surface-muted mb-3">모델별 비용 (바 차트)</h2>
+            <h2 className="text-sm font-medium text-on-surface-muted mb-3">{t('dashboard.model_cost')}</h2>
             {Object.keys(costByModel).length === 0 ? (
-              <p className="text-on-surface-muted text-sm">데이터 없음</p>
+              <p className="text-on-surface-muted text-sm">{t('dashboard.no_data')}</p>
             ) : (
               <ModelCostBars
                 data={Object.entries(costByModel)
@@ -302,9 +304,9 @@ export function DashboardView() {
 
         {/* Token usage stacked bar */}
         <div className="bg-surface-2 rounded-xl p-4">
-          <h2 className="text-sm font-medium text-on-surface-muted mb-3">모델별 토큰 사용량</h2>
+          <h2 className="text-sm font-medium text-on-surface-muted mb-3">{t('dashboard.token_usage')}</h2>
           {Object.keys(tokensByModel).length === 0 ? (
-            <p className="text-on-surface-muted text-sm">데이터 없음</p>
+            <p className="text-on-surface-muted text-sm">{t('dashboard.no_data')}</p>
           ) : (
             <div className="space-y-3">
               {Object.entries(tokensByModel)
@@ -316,7 +318,7 @@ export function DashboardView() {
                     <div key={model}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm text-on-surface">{model}</span>
-                        <span className="text-xs text-on-surface-muted">{(total / 1000).toFixed(1)}K 토큰</span>
+                        <span className="text-xs text-on-surface-muted">{t('dashboard.k_tokens', { count: (total / 1000).toFixed(1) })}</span>
                       </div>
                       <div className="h-2 bg-gray-700 rounded-full overflow-hidden flex">
                         <div
@@ -331,8 +333,8 @@ export function DashboardView() {
                         />
                       </div>
                       <div className="flex justify-between text-[10px] text-on-surface-muted mt-0.5">
-                        <span>입력 {inputPct.toFixed(0)}%</span>
-                        <span>출력 {(100 - inputPct).toFixed(0)}%</span>
+                        <span>{t('dashboard.input_pct', { pct: inputPct.toFixed(0) })}</span>
+                        <span>{t('dashboard.output_pct', { pct: (100 - inputPct).toFixed(0) })}</span>
                       </div>
                     </div>
                   );

@@ -681,7 +681,7 @@ export function SettingsView() {
           <h2 className="text-lg font-semibold text-on-surface mb-4">정보</h2>
           <div className="bg-surface-2 rounded-xl p-4 text-sm text-on-surface-muted">
             <p>Blend v0.1.0</p>
-            <p className="mt-1">AI 채팅 인터페이스 - BYOK (Bring Your Own Key)</p>
+            <p className="mt-1">모든 AI 구독 — 하나로, 더 싸게, 더 스마트하게</p>
           </div>
         </section>
       </div>

@@ -5,6 +5,7 @@ import { FileText, Upload, Trash2, ToggleLeft, ToggleRight, FileSpreadsheet, Ale
 import { useDocumentStore } from '@/stores/document-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { parseDocument, generateEmbeddings } from '@/modules/plugins/document-plugin';
+import { useTranslation } from '@/lib/i18n';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -15,6 +16,7 @@ function formatBytes(bytes: number): string {
 type EmbedStatus = 'idle' | 'embedding' | 'done' | 'error';
 
 export function DocumentPluginView() {
+  const { t } = useTranslation();
   const { documents, activeDocIds, addDocument, updateDocument, removeDocument, toggleActive } = useDocumentStore();
   const { getKey } = useAPIKeyStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +44,7 @@ export function DocumentPluginView() {
       for (const file of Array.from(files)) {
         const ext = file.name.split('.').pop()?.toLowerCase();
         if (!['xlsx', 'xls', 'csv', 'txt', 'md', 'pdf'].includes(ext ?? '')) {
-          setError(`지원하지 않는 파일 형식: ${file.name} (xlsx, xls, csv, txt, md, pdf만 가능)`);
+          setError(t('documents.unsupported_format', { name: file.name }));
           continue;
         }
         const doc = await parseDocument(file);
@@ -66,7 +68,7 @@ export function DocumentPluginView() {
         }
       }
     } catch (e: any) {
-      setError(e.message || '파일 파싱 오류');
+      setError(e.message || t('documents.unsupported_format', { name: '' }));
     } finally {
       setLoading(false);
     }
@@ -88,18 +90,18 @@ export function DocumentPluginView() {
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <FileText size={24} /> 문서 검색 (RAG)
+            <FileText size={24} /> {t('documents.page_title')}
           </h1>
           <p className="text-sm text-gray-400 mt-1">
-            엑셀, CSV, 텍스트 파일을 업로드하고 채팅으로 내용을 검색하세요
+            {t('documents.page_subtitle')}
           </p>
           {embeddingProviderLabel ? (
             <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
-              <Sparkles size={11} /> 시맨틱 검색 활성 — {embeddingProviderLabel}
+              <Sparkles size={11} /> {t('documents.semantic_active', { provider: embeddingProviderLabel })}
             </p>
           ) : (
             <p className="text-xs text-yellow-500 mt-1">
-              ⚠ API 키 없음 — 키워드 검색만 사용됩니다 (설정에서 OpenAI 또는 Google 키 입력)
+              ⚠ {t('documents.no_api_key_warn')}
             </p>
           )}
         </div>
@@ -112,9 +114,9 @@ export function DocumentPluginView() {
           onClick={() => fileInputRef.current?.click()}
         >
           <Upload size={32} className="text-gray-500 mx-auto mb-3" />
-          <p className="text-gray-300 text-sm font-medium">파일을 드래그하거나 클릭하여 업로드</p>
-          <p className="text-gray-500 text-xs mt-1">.xlsx · .xls · .csv · .txt · .md · .pdf</p>
-          {loading && <p className="text-blue-400 text-xs mt-2 animate-pulse">파싱 중...</p>}
+          <p className="text-gray-300 text-sm font-medium">{t('documents.drop_or_click')}</p>
+          <p className="text-gray-500 text-xs mt-1">{t('documents.supported_formats')}</p>
+          {loading && <p className="text-blue-400 text-xs mt-2 animate-pulse">{t('documents.parsing')}</p>}
         </div>
         <input
           ref={fileInputRef}
@@ -136,7 +138,7 @@ export function DocumentPluginView() {
         {documents.length > 0 ? (
           <div className="space-y-2">
             <p className="text-xs text-gray-500 mb-3">
-              활성화된 문서는 채팅 질문과 관련된 내용을 자동으로 AI 컨텍스트에 포함합니다
+              {t('documents.active_context')}
             </p>
             {documents.map((doc) => {
               const isActive = activeDocIds.has(doc.id);
@@ -161,19 +163,19 @@ export function DocumentPluginView() {
                         {status === 'embedding' && (
                           <span className="flex items-center gap-1 text-xs text-blue-400">
                             <Loader size={10} className="animate-spin" />
-                            임베딩 중... {embedProgress[doc.id] ?? 0}%
+                            {t('documents.embedding')} {embedProgress[doc.id] ?? 0}%
                           </span>
                         )}
                         {status === 'done' && (
                           <span className="flex items-center gap-1 text-xs text-green-400">
-                            <Sparkles size={10} />시맨틱 검색
+                            <Sparkles size={10} />{t('documents.semantic_search')}
                           </span>
                         )}
                         {status === 'error' && (
-                          <span className="text-xs text-yellow-500">키워드 검색 (임베딩 실패)</span>
+                          <span className="text-xs text-yellow-500">{t('documents.embed_error')}</span>
                         )}
                         {status === 'idle' && !embeddingProvider && (
-                          <span className="text-xs text-gray-600">키워드 검색</span>
+                          <span className="text-xs text-gray-600">{t('documents.keyword_search')}</span>
                         )}
                       </div>
                     </div>
@@ -184,28 +186,28 @@ export function DocumentPluginView() {
                           ? 'text-blue-400 bg-blue-400/10 hover:bg-blue-400/20'
                           : 'text-gray-500 bg-gray-700 hover:bg-gray-600'
                       }`}
-                      title={isActive ? '비활성화' : '활성화'}
+                      title={isActive ? t('documents.deactivate') : t('documents.activate')}
                     >
                       {isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                      {isActive ? '활성' : '비활성'}
+                      {isActive ? t('documents.active') : t('documents.inactive')}
                     </button>
                     {deleteConfirmId === doc.id ? (
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-red-400">삭제?</span>
+                        <span className="text-xs text-red-400">{t('documents.delete_confirm')}</span>
                         <button
                           onClick={() => { removeDocument(doc.id); setDeleteConfirmId(null); }}
                           className="px-2 py-0.5 rounded text-xs bg-red-600 text-white hover:bg-red-700"
-                        >예</button>
+                        >{t('documents.yes')}</button>
                         <button
                           onClick={() => setDeleteConfirmId(null)}
                           className="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        >취소</button>
+                        >{t('documents.cancel')}</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setDeleteConfirmId(doc.id)}
                         className="text-gray-500 hover:text-red-400 p-1 transition-colors"
-                        title="삭제"
+                        title={t('documents.delete')}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -217,14 +219,14 @@ export function DocumentPluginView() {
           </div>
         ) : (
           <div className="text-center py-8 text-gray-600 text-sm">
-            업로드된 문서가 없습니다
+            {t('documents.no_documents')}
           </div>
         )}
 
         <div className="mt-8 bg-gray-800/50 rounded-xl p-4 border border-dashed border-gray-700 text-xs text-gray-500 space-y-1">
-          <p className="font-medium text-gray-400 mb-2">검색 방식</p>
-          <p>• <span className="text-green-400">시맨틱 검색</span> — OpenAI/Google 임베딩 API 사용. 의미 기반으로 관련 내용 검색 (추천)</p>
-          <p>• <span className="text-gray-400">키워드 검색</span> — API 키 없을 때 자동 사용. 단어 일치 기반</p>
+          <p className="font-medium text-gray-400 mb-2">{t('documents.search_method')}</p>
+          <p>• <span className="text-green-400">{t('documents.semantic_search')}</span> — {t('documents.semantic_desc')}</p>
+          <p>• <span className="text-gray-400">{t('documents.keyword_search')}</span> — {t('documents.keyword_desc')}</p>
           <p className="text-gray-600 mt-2">* 관련 내용이 없으면 AI가 &apos;문서에서 찾을 수 없습니다&apos;라고 답변합니다</p>
           <p className="text-gray-600">* 파일은 브라우저 메모리에만 저장되며 새로고침 시 초기화됩니다</p>
         </div>

@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Blend",
-    "tagline": "AI Chat Interface - BYOK (Bring Your Own Key)"
+    "tagline": "All AI subscriptions — in one, cheaper, smarter"
   },
   "nav": {
     "chat": "Chat",
@@ -336,7 +336,29 @@
     "connecting": "Testing connection...",
     "connect_test": "Test connection and add",
     "local_drive_label": "Local Drive",
-    "webdav_desc": "Connect to NAS supporting WebDAV (Synology, QNAP, Nextcloud, etc.)"
+    "webdav_desc": "Connect to NAS supporting WebDAV (Synology, QNAP, Nextcloud, etc.)",
+    "source_type_local": "Local Drive",
+    "source_type_google": "Google Drive",
+    "source_type_onedrive": "OneDrive",
+    "source_type_webdav": "NAS/WebDAV",
+    "google_no_client_id": "Google OAuth Client ID is not configured. Please contact the administrator.",
+    "onedrive_no_client_id": "OneDrive OAuth Client ID is not configured. Please contact the administrator.",
+    "webdav_missing_fields": "Please enter the server URL and username.",
+    "webdav_label_placeholder": "Source name (e.g. Company NAS)",
+    "webdav_url_placeholder": "Server URL (e.g. http://192.168.1.10:5005)",
+    "webdav_path_placeholder": "Base path (e.g. /documents)",
+    "webdav_username_placeholder": "Username",
+    "webdav_password_placeholder": "Password",
+    "relative_just_now": "just now",
+    "relative_minutes": "{{m}}m ago",
+    "relative_hours": "{{h}}h ago",
+    "relative_days": "{{d}}d ago",
+    "how_it_works_1": "Connects Excel, CSV, text, PDF and more — read automatically",
+    "how_it_works_2": "Content is stored in your browser for fast AI lookup",
+    "how_it_works_3": "When you ask a question, relevant content is found automatically",
+    "how_it_works_local": "Local folder: you need to reselect the folder after page refresh (browser security)",
+    "how_it_works_cloud": "Cloud (Google Drive etc): reconnect after token expires (~1 hour)",
+    "privacy_note": "Your file contents are stored in your browser only. Never sent to servers."
   },
   "meeting": {
     "title": "Meeting Analysis",

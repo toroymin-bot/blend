@@ -76,20 +76,8 @@ export function SplashScreen() {
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           }}
         >
-          세상의 모든 AI를 하나의 앱에서
+          모든 AI 구독 — 하나로, 더 싸게, 더 스마트하게
         </h1>
-        <p
-          style={{
-            color: '#888898',
-            fontSize: 14,
-            margin: 0,
-            fontWeight: 400,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            letterSpacing: '0.2px',
-          }}
-        >
-          대화 · 이미지 생성 · 회사 파일 검색까지
-        </p>
       </div>
     </div>
   );

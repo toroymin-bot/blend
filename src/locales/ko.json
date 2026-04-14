@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Blend",
-    "tagline": "AI 채팅 인터페이스 - BYOK (Bring Your Own Key)"
+    "tagline": "모든 AI 구독 — 하나로, 더 싸게, 더 스마트하게"
   },
   "nav": {
     "chat": "채팅",
@@ -336,7 +336,29 @@
     "connecting": "연결 확인 중...",
     "connect_test": "연결 테스트 후 추가",
     "local_drive_label": "로컬 드라이브",
-    "webdav_desc": "Synology, QNAP, Nextcloud 등 WebDAV를 지원하는 NAS에 연결합니다."
+    "webdav_desc": "Synology, QNAP, Nextcloud 등 WebDAV를 지원하는 NAS에 연결합니다.",
+    "source_type_local": "로컬 드라이브",
+    "source_type_google": "Google Drive",
+    "source_type_onedrive": "OneDrive",
+    "source_type_webdav": "NAS/WebDAV",
+    "google_no_client_id": "Google OAuth Client ID가 설정되지 않았습니다. 관리자에게 문의하세요.",
+    "onedrive_no_client_id": "OneDrive OAuth Client ID가 설정되지 않았습니다. 관리자에게 문의하세요.",
+    "webdav_missing_fields": "서버 URL과 사용자명을 입력해주세요.",
+    "webdav_label_placeholder": "소스 이름 (예: 회사 NAS)",
+    "webdav_url_placeholder": "서버 URL (예: http://192.168.1.10:5005)",
+    "webdav_path_placeholder": "기본 경로 (예: /documents)",
+    "webdav_username_placeholder": "사용자명",
+    "webdav_password_placeholder": "비밀번호",
+    "relative_just_now": "방금 전",
+    "relative_minutes": "{{m}}분 전",
+    "relative_hours": "{{h}}시간 전",
+    "relative_days": "{{d}}일 전",
+    "how_it_works_1": "파일을 연결하면 엑셀·CSV·텍스트·PDF 등을 자동으로 읽어요",
+    "how_it_works_2": "읽은 내용을 AI가 빠르게 찾을 수 있게 내 브라우저 안에 저장해요",
+    "how_it_works_3": "채팅에서 질문하면 연결된 파일에서 관련 내용을 자동으로 찾아줘요",
+    "how_it_works_local": "내 컴퓨터 폴더: 페이지를 새로고침하면 폴더를 다시 선택해야 해요 (브라우저 보안 규칙)",
+    "how_it_works_cloud": "클라우드(구글 드라이브 등): 1시간 후 자동 로그아웃되면 다시 연결해야 해요",
+    "privacy_note": "내 파일 내용은 내 브라우저에만 저장돼요. 서버로 보내지 않아요."
   },
   "meeting": {
     "title": "회의 분석",

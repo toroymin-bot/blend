@@ -418,7 +418,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-gray-800 rounded-xl p-6 w-full max-w-lg mx-4">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">새 프롬프트</h2>
+                <h2 className="text-lg font-semibold text-white">{t('prompts.new_prompt')}</h2>
                 <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-white">
                   <X size={20} />
                 </button>
@@ -428,13 +428,13 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                   type="text"
                   value={newPrompt.title}
                   onChange={(e) => setNewPrompt({ ...newPrompt, title: e.target.value })}
-                  placeholder="제목"
+                  placeholder={t('prompts.title_field')}
                   className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 <textarea
                   value={newPrompt.content}
                   onChange={(e) => setNewPrompt({ ...newPrompt, content: e.target.value })}
-                  placeholder="프롬프트 내용 (변수는 {{변수명}} 형식)"
+                  placeholder={t('prompts.content_placeholder')}
                   rows={6}
                   className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none resize-none focus:ring-1 focus:ring-blue-500"
                 />
@@ -442,7 +442,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                   type="text"
                   value={newPrompt.tags}
                   onChange={(e) => setNewPrompt({ ...newPrompt, tags: e.target.value })}
-                  placeholder="태그 (쉼표로 구분)"
+                  placeholder={t('prompts.tags_field')}
                   className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -451,13 +451,13 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                   onClick={() => setShowCreateModal(false)}
                   className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"
                 >
-                  취소
+                  {t('prompts.cancel')}
                 </button>
                 <button
                   onClick={handleCreate}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
                 >
-                  생성
+                  {t('prompts.create')}
                 </button>
               </div>
             </div>
