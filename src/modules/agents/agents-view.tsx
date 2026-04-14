@@ -6,12 +6,14 @@ import { useChatStore } from '@/stores/chat-store';
 import { Agent } from '@/types';
 import { DEFAULT_MODELS } from '@/modules/models/model-registry';
 import { Plus, Trash2, Edit3, MessageSquare, X, Check, Copy } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 interface AgentsViewProps {
   onStartChat?: () => void;
 }
 
 export function AgentsView({ onStartChat }: AgentsViewProps) {
+  const { t } = useTranslation();
   const { agents, activeAgentId, addAgent, deleteAgent, duplicateAgent, setActiveAgent, updateAgent, incrementUsage } = useAgentStore();
   const { createChat, setSelectedModel } = useChatStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -48,14 +50,14 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-on-surface">AI 에이전트</h1>
-            <p className="text-sm text-on-surface-muted mt-1">내가 원하는 역할의 AI를 직접 만들어서 써요</p>
+            <h1 className="text-2xl font-bold text-on-surface">{t('agents.page_title')}</h1>
+            <p className="text-sm text-on-surface-muted mt-1">{t('agents.page_subtitle')}</p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
           >
-            <Plus size={16} /> 새 에이전트
+            <Plus size={16} /> {t('agents.new_agent')}
           </button>
         </div>
 
@@ -78,45 +80,45 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                 </div>
                 {activeAgentId === agent.id && (
                   <span className="flex items-center gap-1 text-xs text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">
-                    <Check size={10} /> 활성
+                    <Check size={10} /> {t('agents.active_badge')}
                   </span>
                 )}
               </div>
               <p className="text-sm text-on-surface-muted mb-3 line-clamp-2">{agent.description}</p>
               {(agent.usageCount ?? 0) > 0 && (
-                <p className="text-xs text-gray-600 mb-2">{agent.usageCount}회 사용</p>
+                <p className="text-xs text-gray-600 mb-2">{t('agents.usage_count', { count: agent.usageCount ?? 0 })}</p>
               )}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleStartChatWithAgent(agent)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg text-xs text-blue-400"
                 >
-                  <MessageSquare size={12} /> 대화 시작
+                  <MessageSquare size={12} /> {t('agents.start_chat')}
                 </button>
                 <button
                   onClick={() => setActiveAgent(activeAgentId === agent.id ? null : agent.id)}
                   className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300"
                 >
-                  {activeAgentId === agent.id ? '비활성화' : '활성화'}
+                  {activeAgentId === agent.id ? t('agents.deactivate') : t('agents.activate')}
                 </button>
                 <button
                   onClick={() => setEditingAgent({ ...agent })}
                   className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-700 rounded"
-                  title="수정"
+                  title={t('agents.edit')}
                 >
                   <Edit3 size={14} />
                 </button>
                 <button
                   onClick={() => duplicateAgent(agent.id)}
                   className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-gray-700 rounded"
-                  title="복제"
+                  title={t('agents.duplicate')}
                 >
                   <Copy size={14} />
                 </button>
                 <button
                   onClick={() => deleteAgent(agent.id)}
                   className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-700 rounded"
-                  title="삭제"
+                  title={t('agents.delete')}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -131,7 +133,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
             <div className="bg-gray-800 rounded-xl p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">
-                  {editingAgent ? '에이전트 수정' : '새 에이전트'}
+                  {editingAgent ? t('agents.edit_title') : t('agents.new_agent')}
                 </h2>
                 <button
                   onClick={() => { setShowCreateModal(false); setEditingAgent(null); }}
@@ -143,7 +145,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
               <div className="space-y-3">
                 {/* Icon selector */}
                 <div>
-                  <label className="text-sm text-gray-400 mb-1 block">아이콘</label>
+                  <label className="text-sm text-gray-400 mb-1 block">{t('agents.icon')}</label>
                   <div className="flex flex-wrap gap-2">
                     {icons.map((icon) => (
                       <button
@@ -171,7 +173,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                     ? setEditingAgent({ ...editingAgent, name: e.target.value })
                     : setNewAgent({ ...newAgent, name: e.target.value })
                   }
-                  placeholder="에이전트 이름"
+                  placeholder={t('agents.name_placeholder')}
                   className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 <input
@@ -181,11 +183,11 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                     ? setEditingAgent({ ...editingAgent, description: e.target.value })
                     : setNewAgent({ ...newAgent, description: e.target.value })
                   }
-                  placeholder="설명"
+                  placeholder={t('agents.description_placeholder')}
                   className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 <div>
-                  <label className="text-sm text-gray-400 mb-1 block">기본 모델</label>
+                  <label className="text-sm text-gray-400 mb-1 block">{t('agents.default_model')}</label>
                   <select
                     value={editingAgent?.model || newAgent.model}
                     onChange={(e) => editingAgent
@@ -205,7 +207,7 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                     ? setEditingAgent({ ...editingAgent, systemPrompt: e.target.value })
                     : setNewAgent({ ...newAgent, systemPrompt: e.target.value })
                   }
-                  placeholder="이 AI에게 줄 역할을 써요 (예: 넌 친절한 영어 선생님이야. 항상 쉽고 짧게 설명해줘.)"
+                  placeholder={t('agents.system_prompt_hint')}
                   rows={6}
                   className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 outline-none resize-none focus:ring-1 focus:ring-blue-500"
                 />
@@ -215,13 +217,13 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                   onClick={() => { setShowCreateModal(false); setEditingAgent(null); }}
                   className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"
                 >
-                  취소
+                  {t('agents.cancel')}
                 </button>
                 <button
                   onClick={editingAgent ? handleSaveEdit : handleCreate}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
                 >
-                  {editingAgent ? '저장' : '생성'}
+                  {editingAgent ? t('agents.save') : t('agents.create')}
                 </button>
               </div>
             </div>

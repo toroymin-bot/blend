@@ -23,6 +23,7 @@ import { useDocumentStore } from '@/stores/document-store';
 import { buildContext } from '@/modules/plugins/document-plugin';
 import { routeToModel } from '@/lib/model-router';
 import { AUTO_MATCH_AGENT_ID } from '@/stores/agent-store';
+import { useTranslation } from '@/lib/i18n';
 
 // ── Inline text highlight helper ──────────────────────────────────────────────
 function highlightText(text: string, query: string): React.ReactNode {
@@ -37,6 +38,7 @@ function highlightText(text: string, query: string): React.ReactNode {
 }
 
 export function ChatView() {
+  const { t } = useTranslation();
   const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle, editMessage } = useChatStore();
   const { getKey, hasKey } = useAPIKeyStore();
   const { getActiveAgent } = useAgentStore();
@@ -781,7 +783,7 @@ export function ChatView() {
           onClick={() => setShowSummaryModal(false)}
           role="dialog"
           aria-modal="true"
-          aria-label="대화 요약"
+          aria-label={t('chat.summarize_chat')}
         >
           <div
             className="bg-surface-2 border border-border-token rounded-2xl p-6 w-full max-w-lg shadow-2xl max-h-[70vh] flex flex-col"
@@ -789,9 +791,9 @@ export function ChatView() {
           >
             <div className="flex items-center justify-between mb-4 shrink-0">
               <h2 className="text-base font-semibold text-on-surface flex items-center gap-2">
-                <Sparkles size={16} className="text-blue-400" /> 대화 요약
+                <Sparkles size={16} className="text-blue-400" /> {t('chat.summarize_chat')}
               </h2>
-              <button onClick={() => setShowSummaryModal(false)} className="text-on-surface-muted hover:text-on-surface p-1" aria-label="닫기">
+              <button onClick={() => setShowSummaryModal(false)} className="text-on-surface-muted hover:text-on-surface p-1" aria-label={t('chat.close')}>
                 <XIcon size={18} />
               </button>
             </div>
@@ -799,7 +801,7 @@ export function ChatView() {
               {isSummarizing && !summaryText && (
                 <div className="flex items-center gap-2 text-on-surface-muted text-sm">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  요약 생성 중...
+                  {t('chat.summarizing')}
                 </div>
               )}
               {summaryText && (
@@ -844,7 +846,7 @@ export function ChatView() {
               if (e.key === 'Enter') { e.shiftKey ? handleSearchPrev() : handleSearchNext(); }
               if (e.key === 'Escape') { setShowSearch(false); setSearchQuery(''); setSearchMatchIndex(0); }
             }}
-            placeholder="채팅 내 검색... (Enter: 다음, Shift+Enter: 이전)"
+            placeholder={t('chat.search_inline_placeholder')}
             className="flex-1 bg-transparent text-on-surface placeholder-on-surface-muted outline-none text-sm"
           />
           {searchQuery && (() => {
@@ -852,20 +854,20 @@ export function ChatView() {
             const idx = matches.length > 0 ? ((searchMatchIndex % matches.length) + matches.length) % matches.length : 0;
             return (
               <span className="text-xs text-on-surface-muted shrink-0">
-                {matches.length > 0 ? `${idx + 1} / ${matches.length}` : '결과 없음'}
+                {matches.length > 0 ? `${idx + 1} / ${matches.length}` : t('chat.no_results')}
               </span>
             );
           })()}
-          <button onClick={handleSearchPrev} className="p-1 text-on-surface-muted hover:text-on-surface" title="이전 (Shift+Enter)">
+          <button onClick={handleSearchPrev} className="p-1 text-on-surface-muted hover:text-on-surface" title={t('chat.prev_result')}>
             <ChevronUp size={14} />
           </button>
-          <button onClick={handleSearchNext} className="p-1 text-on-surface-muted hover:text-on-surface" title="다음 (Enter)">
+          <button onClick={handleSearchNext} className="p-1 text-on-surface-muted hover:text-on-surface" title={t('chat.next_result')}>
             <ChevronDownIcon size={14} />
           </button>
           <button
             onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchMatchIndex(0); }}
             className="p-1 text-on-surface-muted hover:text-on-surface"
-            title="닫기 (ESC)"
+            title={t('chat.close_search')}
           >
             <XIcon size={14} />
           </button>
@@ -889,30 +891,30 @@ export function ChatView() {
               </div>
               {/* Motto */}
               <h1 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
-                무엇을 도와드릴까요?
+                {t('chat.welcome_title')}
               </h1>
               <p className="text-sm text-gray-400 leading-relaxed mb-6">
-                아래 예시를 클릭하거나 직접 입력하세요
+                {t('chat.welcome_subtitle')}
               </p>
               {/* Active agent badge — 자동 AI 매칭은 하단 버튼에 표시되므로 배너 숨김 */}
               {getActiveAgent() && getActiveAgent()?.id !== AUTO_MATCH_AGENT_ID && (
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm mb-5 bg-blue-900/30 text-blue-300">
                   <span className="text-lg">{getActiveAgent()?.icon}</span>
-                  <span>에이전트: {getActiveAgent()?.name}</span>
+                  <span>{t('chat.agent_active', { name: getActiveAgent()?.name ?? '' })}</span>
                 </div>
               )}
               {/* Quick-start suggestions */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 text-left">
                 {[
-                  { icon: '✍️', text: '이메일 초안을 작성해줘 — 회의 일정 조율', label: '글쓰기 도움' },
-                  { icon: '🔍', text: '?파이썬으로 CSV 파일 읽는 방법', label: '웹 검색' },
-                  { icon: '🎨', text: '/image 한국의 아름다운 가을 산 풍경', label: '이미지 생성' },
-                  { icon: '💻', text: 'JavaScript로 할 일 목록 앱 만드는 방법', label: '코딩 도움' },
+                  { icon: '✍️', text: '이메일 초안을 작성해줘 — 회의 일정 조율', label: t('chat.example_writing') },
+                  { icon: '🔍', text: '?파이썬으로 CSV 파일 읽는 방법', label: t('chat.example_search') },
+                  { icon: '🎨', text: '/image 한국의 아름다운 가을 산 풍경', label: t('chat.example_image') },
+                  { icon: '💻', text: 'JavaScript로 할 일 목록 앱 만드는 방법', label: t('chat.example_coding') },
                 ].map((s) => (
                   <button
                     key={s.text}
                     onClick={() => {
-                      const input = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="메시지를 입력하세요..."]');
+                      const input = document.querySelector<HTMLTextAreaElement>(`textarea[placeholder="${t('chat.input_placeholder')}"]`);
                       if (input) {
                         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
                         nativeInputValueSetter?.call(input, s.text);
@@ -934,13 +936,13 @@ export function ChatView() {
               {/* 구독/업그레이드 유도 메시지 */}
               <div className="flex items-center justify-center gap-1.5 text-xs text-gray-600">
                 <span>💳</span>
-                <span>API 키 없이 시작하고 싶으신가요?</span>
+                <span>{t('chat.no_api_key_question')}</span>
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('blend:open-settings'))}
                   className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
                   title="설정에서 API 키를 등록하거나 무료 Google API를 사용해보세요"
                 >
-                  Google AI 무료로 시작하기 →
+                  {t('chat.no_api_key_prompt')}
                 </button>
               </div>
             </div>
@@ -1041,11 +1043,11 @@ export function ChatView() {
                         <button
                           onClick={() => { setEditingMsgId(null); setEditingMsgContent(''); }}
                           className="px-3 py-1 text-xs bg-blue-700/60 hover:bg-blue-700 rounded-lg"
-                        >취소</button>
+                        >{t('chat.cancel')}</button>
                         <button
                           onClick={() => handleEditSave(msg.id)}
                           className="px-3 py-1 text-xs bg-white text-blue-700 hover:bg-blue-50 rounded-lg font-medium"
-                        >저장 후 재생성</button>
+                        >{t('chat.save_regenerate')}</button>
                       </div>
                     </div>
                   ) : (
@@ -1069,7 +1071,7 @@ export function ChatView() {
                     <button
                       onClick={() => handleCopyMessage(msg.id, msg.content)}
                       className="text-gray-500 hover:text-gray-300 p-1 rounded transition-colors"
-                      title="복사"
+                      title={t('chat.copy')}
                     >
                       {copiedMsgId === msg.id ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
                     </button>
@@ -1079,7 +1081,7 @@ export function ChatView() {
                         if (idx >= 0) forkChat(currentChatId!, idx);
                       }}
                       className="text-gray-500 hover:text-green-400 p-1 rounded transition-colors"
-                      title="여기서 분기"
+                      title={t('chat.fork_here')}
                     >
                       <GitFork size={13} />
                     </button>
@@ -1087,7 +1089,7 @@ export function ChatView() {
                       <button
                         onClick={() => { setEditingMsgId(msg.id); setEditingMsgContent(msg.content); }}
                         className="text-gray-400 hover:text-yellow-300 p-1 rounded transition-colors"
-                        title="편집"
+                        title={t('chat.edit')}
                       >
                         <Pencil size={13} />
                       </button>
@@ -1098,7 +1100,7 @@ export function ChatView() {
                         className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 px-2 py-0.5 rounded bg-red-900/30 hover:bg-red-900/50 transition-colors ml-1"
                         title="다시 시도"
                       >
-                        <RefreshCw size={11} />다시 시도
+                        <RefreshCw size={11} />{t('chat.retry')}
                       </button>
                     )}
                     {msg.role === 'assistant' && !msg.isError && msg.id === chat.messages[chat.messages.length - 1]?.id && !isStreaming && (
@@ -1119,7 +1121,7 @@ export function ChatView() {
                           await streamAIResponse(currentChatId, allMsgs, currentModel);
                         }}
                         className="text-gray-500 hover:text-blue-400 p-1 rounded transition-colors"
-                        title="재생성"
+                        title={t('chat.regenerate')}
                       >
                         <RefreshCw size={13} />
                       </button>
@@ -1150,7 +1152,7 @@ export function ChatView() {
                     <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                     <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    <span className="text-xs text-gray-500 ml-1">응답 대기 중...</span>
+                    <span className="text-xs text-gray-500 ml-1">{t('chat.waiting')}</span>
                   </div>
                 </div>
               </div>
@@ -1163,7 +1165,7 @@ export function ChatView() {
                   </div>
                   <div className="mt-1 flex items-center gap-1">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                    <span className="text-xs text-gray-500">응답 중...</span>
+                    <span className="text-xs text-gray-500">{t('chat.responding')}</span>
                   </div>
                 </div>
               </div>
@@ -1188,7 +1190,7 @@ export function ChatView() {
         <div className="px-4 py-2 bg-blue-900/20 border-t border-blue-800/30 flex items-center gap-2">
           <Link size={13} className="text-blue-400 animate-pulse" />
           <span className="text-xs text-blue-300">
-            URL 읽는 중: {fetchingURLs.map(extractDomain).join(', ')}...
+            {t('chat.url_reading')} {fetchingURLs.map(extractDomain).join(', ')}...
           </span>
         </div>
       )}
@@ -1197,7 +1199,7 @@ export function ChatView() {
       {isSearching && (
         <div className="px-4 py-2 bg-green-900/20 border-t border-green-800/30 flex items-center gap-2">
           <Search size={13} className="text-green-400 animate-pulse" />
-          <span className="text-xs text-green-300">웹 검색 중...</span>
+          <span className="text-xs text-green-300">{t('chat.web_search')}</span>
         </div>
       )}
 
@@ -1209,7 +1211,7 @@ export function ChatView() {
             <span className="absolute inset-0 animate-ping rounded-full bg-purple-400/30" />
           </div>
           <div>
-            <p className="text-sm text-purple-300 font-medium">이미지 생성 중...</p>
+            <p className="text-sm text-purple-300 font-medium">{t('chat.generating_image')}</p>
             <p className="text-xs text-purple-500">DALL-E 3 처리 중 (최대 30초)</p>
           </div>
           <div className="ml-auto flex gap-1">
@@ -1244,7 +1246,7 @@ export function ChatView() {
                         {autoMatchInfo.label} → {autoMatchInfo.modelName}
                       </div>
                     ) : (
-                      <div className="text-xs text-gray-500 leading-tight">질문에 맞는 AI를 자동 선택</div>
+                      <div className="text-xs text-gray-500 leading-tight">{t('chat.auto_select_hint')}</div>
                     )}
                   </>
                 ) : (
@@ -1261,17 +1263,17 @@ export function ChatView() {
             {/* Active plugin indicators */}
             {isInstalled('url-reader') && (
               <span className="text-xs text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded flex items-center gap-1">
-                <Link size={11} /> URL 읽기
+                <Link size={11} /> {t('plugins.url_reader')}
               </span>
             )}
             {isInstalled('web-search') && (
               <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded flex items-center gap-1">
-                <Search size={11} /> 웹 검색
+                <Search size={11} /> {t('plugins.web_search')}
               </span>
             )}
             {isInstalled('image-gen') && (
               <span className="text-xs text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded flex items-center gap-1">
-                <Image size={11} /> 이미지
+                <Image size={11} /> {t('plugins.image_gen')}
               </span>
             )}
 
@@ -1281,10 +1283,10 @@ export function ChatView() {
                 onClick={handleSummarize}
                 disabled={isSummarizing}
                 className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 text-xs text-gray-400 hover:text-yellow-300 hover:bg-gray-700 disabled:opacity-50"
-                title="대화 요약 (AI)"
-                aria-label="AI로 대화 요약 생성"
+                title={t('chat.summarize_chat')}
+                aria-label={t('chat.summarize_chat')}
               >
-                <Sparkles size={13} /> 요약
+                <Sparkles size={13} /> {t('chat.summarize')}
               </button>
             )}
 
@@ -1294,11 +1296,11 @@ export function ChatView() {
                 <button
                   onClick={() => setShowExportMenu(!showExportMenu)}
                   className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-700"
-                  title="내보내기"
-                  aria-label="채팅 내보내기"
+                  title={t('chat.export')}
+                  aria-label={t('chat.export')}
                 >
                   <Download size={13} />
-                  내보내기
+                  {t('chat.export')}
                 </button>
                 {showExportMenu && (
                   <div className="absolute bottom-8 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-40">
@@ -1312,7 +1314,7 @@ export function ChatView() {
                       onClick={() => { downloadChat(chat, 'txt'); setShowExportMenu(false); }}
                       className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 flex items-center gap-2"
                     >
-                      <FileText size={12} /> 텍스트 (.txt)
+                      <FileText size={12} /> {t('chat.export_txt')}
                     </button>
                     <button
                       onClick={() => { downloadChatAsJSON(chat); setShowExportMenu(false); }}
@@ -1324,7 +1326,7 @@ export function ChatView() {
                       onClick={() => { downloadChatAsPDF(chat); setShowExportMenu(false); }}
                       className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 flex items-center gap-2 rounded-b-lg"
                     >
-                      <FileText size={12} /> PDF (인쇄)
+                      <FileText size={12} /> {t('chat.export_print')}
                     </button>
                   </div>
                 )}
@@ -1383,7 +1385,7 @@ export function ChatView() {
           {getActiveDocs().length > 0 && (
             <div className="flex items-center gap-1.5 mb-2 text-xs text-blue-400">
               <FileText size={12} />
-              <span>{getActiveDocs().map((d) => d.name).join(', ')} 참조 중</span>
+              <span>{t('chat.referencing', { docs: getActiveDocs().map((d) => d.name).join(', ') })}</span>
             </div>
           )}
 
@@ -1410,8 +1412,8 @@ export function ChatView() {
             <button
               onClick={() => imageInputRef.current?.click()}
               className="p-2 text-gray-500 hover:text-gray-300 shrink-0 self-end mb-0.5"
-              title="이미지 첨부 (Vision 모델 필요)"
-              aria-label="이미지 파일 첨부"
+              title={t('chat.attach_image')}
+              aria-label={t('chat.attach_image')}
             >
               <Paperclip size={18} />
             </button>
@@ -1424,7 +1426,7 @@ export function ChatView() {
                 e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
               }}
               onKeyDown={handleKeyDown}
-              placeholder="메시지를 입력하세요..."
+              placeholder={t('chat.input_placeholder')}
               rows={1}
               className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 outline-none resize-none max-h-40 px-2 py-1"
               style={{ minHeight: '36px' }}
@@ -1432,7 +1434,7 @@ export function ChatView() {
             {isStreaming ? (
               <button onClick={handleStop} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white touch-target flex items-center gap-1.5 font-medium text-sm shadow-lg shadow-red-900/40">
                 <Square size={16} fill="currentColor" />
-                <span className="hidden sm:inline">중지</span>
+                <span className="hidden sm:inline">{t('chat.stop')}</span>
               </button>
             ) : (
               <button

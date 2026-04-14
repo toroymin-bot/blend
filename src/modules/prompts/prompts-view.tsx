@@ -5,6 +5,7 @@ import { usePromptStore } from '@/stores/prompt-store';
 import { Prompt } from '@/types';
 import { Plus, Star, Search, Tag, Trash2, Edit3, Copy, X, Upload, Download, ChevronDown, MessageSquare } from 'lucide-react';
 import { PromptVariableModal } from './prompt-variable-modal';
+import { useTranslation } from '@/lib/i18n';
 
 interface PromptsViewProps {
   onUsePrompt?: (content: string) => void;
@@ -12,6 +13,7 @@ interface PromptsViewProps {
 }
 
 export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
+  const { t } = useTranslation();
   const {
     searchQuery, selectedTag, setSearchQuery, setSelectedTag,
     getFilteredPrompts, getAllTags, addPrompt, deletePrompt, toggleFavorite, updatePrompt,
@@ -148,7 +150,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
           if (!item.title?.trim() || !item.content?.trim()) return;
           if (allTitles.has(item.title.trim())) { skipped++; return; }
           const tagList = item.tags
-            ? item.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+            ? item.tags.split(',').map((tg: string) => tg.trim()).filter(Boolean)
             : [];
           const variables = [...item.content.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]);
           addPrompt({ title: item.title.trim(), content: item.content.trim(), tags: tagList, variables, isFavorite: false });
@@ -156,10 +158,12 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
           added++;
         });
 
-        setImportResult(`${added}개 추가됨${skipped > 0 ? `, ${skipped}개 중복 건너뜀` : ''}`);
+        const addedMsg = t('prompts.import_added', { count: added });
+        const skippedMsg = skipped > 0 ? `, ${t('prompts.import_skipped', { skipped })}` : '';
+        setImportResult(`${addedMsg}${skippedMsg}`);
         setTimeout(() => setImportResult(null), 4000);
       } catch {
-        setImportResult('파일 파싱 오류 — JSON 또는 CSV 형식인지 확인하세요');
+        setImportResult(t('prompts.import_error'));
         setTimeout(() => setImportResult(null), 4000);
       }
       // Reset input so the same file can be imported again if needed
@@ -203,16 +207,16 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
       <div className="max-w-3xl mx-auto">
         {/* 헤더: 모바일에서 타이틀 한 줄 + 버튼들 한 줄 분리 */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-          <h1 className="text-xl font-bold text-on-surface whitespace-nowrap">프롬프트 라이브러리</h1>
+          <h1 className="text-xl font-bold text-on-surface whitespace-nowrap">{t('prompts.library_title')}</h1>
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Export dropdown */}
             <div className="relative">
               <button
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
                 className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300"
-                title="프롬프트 내보내기"
+                title={t('prompts.export')}
               >
-                <Download size={14} /> <span className="hidden sm:inline">내보내기</span> <ChevronDown size={11} />
+                <Download size={14} /> <span className="hidden sm:inline">{t('prompts.export')}</span> <ChevronDown size={11} />
               </button>
               {showExportDropdown && (
                 <div className="absolute top-9 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-36">
@@ -234,9 +238,9 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
             <button
               onClick={() => importFileRef.current?.click()}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300"
-              title="JSON 또는 CSV 파일에서 프롬프트 가져오기"
+              title={t('prompts.import')}
             >
-              <Upload size={14} /> <span className="hidden sm:inline">가져오기</span><span className="sm:hidden">가져오기</span>
+              <Upload size={14} /> <span className="hidden sm:inline">{t('prompts.import')}</span><span className="sm:hidden">{t('prompts.import')}</span>
             </button>
             <input
               ref={importFileRef}
@@ -249,7 +253,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs text-white whitespace-nowrap"
             >
-              <Plus size={14} /> 새 프롬프트
+              <Plus size={14} /> {t('prompts.new_prompt')}
             </button>
           </div>
         </div>
@@ -269,7 +273,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="프롬프트 검색..."
+              placeholder={t('prompts.search_placeholder')}
               className="w-full pl-9 pr-3 py-2 bg-gray-800 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
@@ -307,7 +311,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
               allActive && !selectedTag ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
             }`}
           >
-            전체
+            {t('prompts.all')}
           </button>
           {allTags.map((tag) => (
             <button
@@ -334,7 +338,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
         {/* Prompt list */}
         <div className="space-y-3">
           {filteredPrompts.length === 0 ? (
-            <div className="text-center text-on-surface-muted py-12">프롬프트가 없습니다</div>
+            <div className="text-center text-on-surface-muted py-12">{t('prompts.no_prompts')}</div>
           ) : (
             filteredPrompts.map((prompt) => (
               <div key={prompt.id} className="bg-surface-2 rounded-xl p-4 group">
@@ -353,7 +357,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                       <button
                         onClick={() => onStartChat(prompt.content)}
                         className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded"
-                        title="이 프롬프트로 채팅 시작"
+                        title={t('prompts.start_chat')}
                       >
                         <MessageSquare size={14} />
                       </button>
@@ -361,21 +365,21 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                     <button
                       onClick={() => handleCopyPrompt(prompt)}
                       className={`p-1.5 hover:bg-gray-700 rounded transition-colors ${copiedId === prompt.id ? 'text-green-400' : 'text-gray-400 hover:text-blue-400'}`}
-                      title="클립보드에 복사"
+                      title={t('prompts.copy')}
                     >
                       <Copy size={14} />
                     </button>
                     <button
                       onClick={() => setEditingPrompt(prompt)}
                       className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded"
-                      title="수정"
+                      title={t('prompts.edit')}
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
                       onClick={() => deletePrompt(prompt.id)}
                       className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded"
-                      title="삭제"
+                      title={t('prompts.delete')}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -390,7 +394,7 @@ export function PromptsView({ onUsePrompt, onStartChat }: PromptsViewProps) {
                   ))}
                   {prompt.variables && prompt.variables.length > 0 && (
                     <span className="text-xs text-blue-400">
-                      {prompt.variables.length}개 변수
+                      {t('prompts.variables_count', { count: prompt.variables.length })}
                     </span>
                   )}
                 </div>

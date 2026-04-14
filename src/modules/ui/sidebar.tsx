@@ -15,10 +15,11 @@ interface MobileBottomBarProps {
 }
 
 export function MobileBottomBar({ activeTab, onTabChange }: MobileBottomBarProps) {
+  const { t } = useTranslation();
   const mobileTabs = [
-    { id: 'chat', icon: MessageSquare, label: '채팅' },
-    { id: 'models', icon: Cpu, label: '모델' },
-    { id: 'settings', icon: Settings, label: '설정' },
+    { id: 'chat', icon: MessageSquare, label: t('mobile.chat') },
+    { id: 'models', icon: Cpu, label: t('mobile.models') },
+    { id: 'settings', icon: Settings, label: t('mobile.settings') },
   ];
 
   return (
@@ -53,6 +54,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: SidebarProps) {
+  const { t } = useTranslation();
   const { chats, currentChatId, folders, createChat, setCurrentChat, deleteChat, updateChatTitle, getAllChatTags, togglePin, createFolder, deleteFolder, renameFolder, moveToFolder } = useChatStore();
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -147,19 +149,19 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
   const activeAgent = getActiveAgent();
 
   const tabs = [
-    { id: 'chat', icon: MessageSquare, label: '채팅', desc: 'AI와 대화하기' },
-    { id: 'compare', icon: GitCompareArrows, label: '채팅 비교', desc: '여러 AI 나란히 비교' },
-    { id: 'documents', icon: FileText, label: '문서 RAG', desc: '내 문서로 AI에게 질문' },
-    { id: 'datasources', icon: HardDrive, label: '데이터 소스', desc: 'AI가 참고할 정보 연결' },
-    { id: 'meeting', icon: Mic, label: '회의 분석', desc: '녹음·유튜브 내용 정리' },
-    { id: 'agents', icon: Bot, label: '에이전트', desc: '특정 역할의 AI 만들기' },
-    { id: 'prompts', icon: BookText, label: '프롬프트', desc: '자주 쓰는 명령어 저장' },
-    { id: 'plugins', icon: Puzzle, label: '플러그인', desc: 'AI 기능 추가하기' },
-    { id: 'models', icon: Cpu, label: '모델', desc: 'AI 종류 선택하기' },
-    { id: 'savings', icon: Sparkles, label: '절약 대시보드', desc: 'Blend로 얼마나 절약하나?' },
-    { id: 'dashboard', icon: BarChart3, label: '비용 분석', desc: 'AI 사용 비용 확인' },
-    { id: 'settings', icon: Settings, label: '설정', desc: '앱 설정 변경' },
-    { id: 'security', icon: Shield, label: '보안', desc: '내 데이터 보안 안내' },
+    { id: 'chat', icon: MessageSquare, label: t('nav.chat'), desc: t('nav.chat_desc') },
+    { id: 'compare', icon: GitCompareArrows, label: t('nav.compare'), desc: t('nav.compare_desc') },
+    { id: 'documents', icon: FileText, label: t('nav.documents'), desc: t('nav.documents_desc') },
+    { id: 'datasources', icon: HardDrive, label: t('nav.datasources'), desc: t('nav.datasources_desc') },
+    { id: 'meeting', icon: Mic, label: t('nav.meeting'), desc: t('nav.meeting_desc') },
+    { id: 'agents', icon: Bot, label: t('nav.agents'), desc: t('nav.agents_desc') },
+    { id: 'prompts', icon: BookText, label: t('nav.prompts'), desc: t('nav.prompts_desc') },
+    { id: 'plugins', icon: Puzzle, label: t('nav.plugins'), desc: t('nav.plugins_desc') },
+    { id: 'models', icon: Cpu, label: t('nav.models'), desc: t('nav.models_desc') },
+    { id: 'savings', icon: Sparkles, label: t('nav.savings'), desc: t('nav.savings_desc') },
+    { id: 'dashboard', icon: BarChart3, label: t('nav.dashboard'), desc: t('nav.dashboard_desc') },
+    { id: 'settings', icon: Settings, label: t('nav.settings'), desc: t('nav.settings_desc') },
+    { id: 'security', icon: Shield, label: t('nav.security'), desc: t('nav.security_desc') },
   ];
 
   return (
@@ -216,7 +218,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
         {activeAgent && (
           <div
             className={`flex items-center rounded-lg bg-blue-900/50 flex-shrink-0 mx-2 ${navExpanded ? 'px-3 py-2 gap-3' : 'w-10 h-10 justify-center'}`}
-            title={`에이전트: ${activeAgent.name}`}
+            title={t('sidebar.agent_label', { name: activeAgent.name })}
           >
             <span className="text-lg">{activeAgent.icon || '🤖'}</span>
             {navExpanded && <span className="text-sm text-blue-300 truncate">{activeAgent.name}</span>}
@@ -229,10 +231,10 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
           className={`flex items-center gap-3 rounded-lg text-on-surface-muted hover:text-on-surface hover:bg-surface-2 flex-shrink-0 mx-2 transition-colors ${
             navExpanded ? 'px-3 py-2' : 'w-10 h-10 justify-center'
           }`}
-          title={collapsed ? '목록 펼치기' : '목록 접기'}
+          title={collapsed ? t('sidebar.expand_list') : t('sidebar.collapse_list')}
         >
           {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
-          {navExpanded && <span className="text-sm">{collapsed ? '목록 펼치기' : '목록 접기'}</span>}
+          {navExpanded && <span className="text-sm">{collapsed ? t('sidebar.expand_list') : t('sidebar.collapse_list')}</span>}
         </button>
 
         {/* Toggle button on right edge:
@@ -241,7 +243,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
         <button
           onClick={() => setNavExpanded(!navExpanded)}
           className={`${navExpanded || mobileOpen ? 'flex' : 'hidden md:flex'} absolute right-0 top-1/2 -translate-y-1/2 translate-x-full w-[18px] h-24 bg-gray-600 hover:bg-gray-400 items-center justify-center text-white z-10 transition-colors rounded-r-full`}
-          title={navExpanded ? '메뉴 접기' : '메뉴 보기'}
+          title={navExpanded ? t('sidebar.menu_collapse') : t('sidebar.menu_expand')}
         >
           {navExpanded ? <ChevronLeft size={10} /> : <ChevronRight size={10} />}
         </button>
@@ -255,7 +257,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
               <button
                 onClick={() => { createChat(); onTabChange('chat'); }}
                 className="flex-shrink-0 w-7 h-7 rounded-md bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white"
-                title="새 채팅 (⌘N)"
+                title={t('sidebar.new_chat')}
               >
                 <Plus size={14} />
               </button>
@@ -265,16 +267,16 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Escape') { setSearchQuery(''); searchInputRef.current?.blur(); } }}
-                placeholder="대화 검색..."
+                placeholder={t('sidebar.search_placeholder')}
                 className="flex-1 min-w-0 px-2.5 py-1.5 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             {/* Date filter buttons */}
             <div className="flex gap-1">
               {([
-                { id: 'today', label: '오늘' },
-                { id: 'week', label: '이번 주' },
-                { id: 'month', label: '이번 달' },
+                { id: 'today', label: t('sidebar.today') },
+                { id: 'week', label: t('sidebar.this_week') },
+                { id: 'month', label: t('sidebar.this_month') },
               ] as const).map((f) => (
                 <button
                   key={f.id}
@@ -297,7 +299,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                     !activeTagFilter ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                   }`}
                 >
-                  전체
+                  {t('sidebar.all')}
                 </button>
                 {allChatTags.map((tag) => (
                   <button
@@ -317,7 +319,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
           <div className="flex-1 overflow-y-auto" onClick={() => setFolderPopoverChatId(null)}>
             {filteredChats.length === 0 ? (
               <div className="p-4 text-center text-gray-500 text-sm">
-                {searchQuery ? '검색 결과 없음' : '대화가 없습니다'}
+                {searchQuery ? t('sidebar.no_results') : t('sidebar.no_chats')}
               </div>
             ) : (() => {
               const pinned = filteredChats.filter((c) => c.pinned);
@@ -356,7 +358,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                       <p className="text-sm text-gray-200 truncate">{chat.title}</p>
                     )}
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {chat.messages.length}개 메시지
+                      {t('sidebar.messages_count', { count: chat.messages.length })}
                       {chat.model && <span className="ml-1 text-gray-600">· {chat.model}</span>}
                     </p>
                     {searchQuery && (() => {
@@ -378,7 +380,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                     <button
                       onClick={(e) => { e.stopPropagation(); togglePin(chat.id); }}
                       className={`p-1 ${chat.pinned ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-400'}`}
-                      title={chat.pinned ? '고정 해제' : '고정'}
+                      title={chat.pinned ? t('sidebar.unpin') : t('sidebar.pin')}
                     >
                       {chat.pinned ? <PinOff size={12} /> : <Pin size={12} />}
                     </button>
@@ -386,7 +388,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                       <button
                         onClick={(e) => { e.stopPropagation(); setFolderPopoverChatId(folderPopoverChatId === chat.id ? null : chat.id); }}
                         className="text-gray-500 hover:text-blue-400 p-1"
-                        title="폴더 이동"
+                        title={t('sidebar.move_to_folder')}
                       >
                         <Folder size={12} />
                       </button>
@@ -395,7 +397,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                           <button
                             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700"
                             onClick={() => { moveToFolder(chat.id, undefined); setFolderPopoverChatId(null); }}
-                          >폴더 없음</button>
+                          >{t('sidebar.no_folder')}</button>
                           {folders.map((f) => (
                             <button
                               key={f.id}
@@ -411,21 +413,21 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                     <button
                       onClick={(e) => { e.stopPropagation(); setEditingChatId(chat.id); setEditTitle(chat.title); }}
                       className="text-gray-500 hover:text-gray-300 p-1"
-                      title="제목 수정"
+                      title={t('sidebar.edit_title')}
                     >
                       <Edit3 size={12} />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); downloadChat(chat, 'md'); }}
                       className="text-gray-500 hover:text-blue-400 p-1"
-                      title="내보내기"
+                      title={t('sidebar.export_chat')}
                     >
                       <Download size={12} />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
                       className="text-gray-500 hover:text-red-400 p-1"
-                      title="삭제"
+                      title={t('sidebar.delete_chat')}
                     >
                       <Trash2 size={12} />
                     </button>
@@ -439,7 +441,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                   {pinned.length > 0 && (
                     <div>
                       <div className="px-3 py-1.5 flex items-center gap-1.5 text-xs text-yellow-500/80 font-medium">
-                        <Pin size={10} />고정됨
+                        <Pin size={10} />{t('sidebar.pinned')}
                       </div>
                       {pinned.map(renderChat)}
                     </div>
@@ -475,12 +477,12 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                           <button
                             className="opacity-0 group-hover/folder:opacity-100 text-gray-500 hover:text-gray-300 p-0.5"
                             onClick={(e) => { e.stopPropagation(); setEditingFolderId(folder.id); setEditFolderName(folder.name); }}
-                            title="폴더 이름 변경"
+                            title={t('sidebar.rename_folder')}
                           ><Edit3 size={10} /></button>
                           <button
                             className="opacity-0 group-hover/folder:opacity-100 text-gray-500 hover:text-red-400 p-0.5"
                             onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
-                            title="폴더 삭제"
+                            title={t('sidebar.delete_folder')}
                           ><Trash2 size={10} /></button>
                         </div>
                         {!isFolderCollapsed && folderChats.map(renderChat)}
@@ -495,7 +497,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                     return (
                       <div>
                         {(folders.length > 0 || pinned.length > 0) && (
-                          <div className="px-3 py-1.5 text-xs text-gray-500 font-medium">기타</div>
+                          <div className="px-3 py-1.5 text-xs text-gray-500 font-medium">{t('sidebar.others')}</div>
                         )}
                         {ungrouped.map(renderChat)}
                       </div>
@@ -518,7 +520,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                     if (e.key === 'Enter' && newFolderName.trim()) { createFolder(newFolderName.trim()); setNewFolderName(''); setShowNewFolder(false); }
                     if (e.key === 'Escape') { setNewFolderName(''); setShowNewFolder(false); }
                   }}
-                  placeholder="폴더 이름..."
+                  placeholder={t('sidebar.folder_name_placeholder')}
                   className="flex-1 px-2 py-1 bg-gray-700 rounded text-xs text-gray-200 placeholder-gray-500 outline-none"
                 />
                 <button
@@ -535,7 +537,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
                 onClick={() => setShowNewFolder(true)}
                 className="w-full flex items-center gap-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-700/50 rounded transition-colors"
               >
-                <FolderPlus size={13} />새 폴더
+                <FolderPlus size={13} />{t('sidebar.new_folder')}
               </button>
             )}
           </div>

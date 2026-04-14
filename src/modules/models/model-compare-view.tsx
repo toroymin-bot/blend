@@ -8,6 +8,7 @@ import { getModelById, calculateCost, DEFAULT_MODELS, getModelCategory, MODEL_CA
 import { Send, Square, Clock, DollarSign, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useTranslation } from '@/lib/i18n';
 
 interface ModelResult {
   modelId: string;
@@ -44,10 +45,11 @@ function friendlyError(raw: string): { icon: string; msg: string } {
 }
 
 export function ModelCompareView() {
+  const { t } = useTranslation();
   const { getKey, hasKey } = useAPIKeyStore();
   const { addRecord } = useUsageStore();
   const [prompt, setPrompt] = useState('');
-  const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o-mini', 'claude-haiku-4-5-20251001', 'gemini-2.5-flash']);
+  const [selectedModels, setSelectedModels] = useState<string[]>(() => DEFAULT_MODELS.filter((m) => m.enabled).slice(0, 2).map((m) => m.id));
   const [results, setResults] = useState<ModelResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const abortRefs = useRef<Map<string, AbortController>>(new Map());
@@ -81,8 +83,9 @@ export function ModelCompareView() {
     if (!prompt.trim() || selectedModels.length === 0) return;
     setIsRunning(true);
 
+    // availableModels(enabled만) 기준으로 필터 — disabled 모델이 몰래 실행되는 버그 수정
     const modelsToRun = selectedModels.filter((id) => {
-      const m = getModelById(id);
+      const m = availableModels.find((m) => m.id === id);
       return m && hasKey(m.provider);
     });
 
@@ -160,10 +163,10 @@ export function ModelCompareView() {
   return (
     <div className="h-full overflow-y-auto bg-gray-900 p-6">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-2">채팅 비교</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">{t('compare.title')}</h1>
         <p className="text-sm text-gray-400 mb-4">
-          같은 질문을 여러 모델에 동시에 보내고 결과를 비교합니다{' '}
-          <span className="text-gray-600">(최대 {MAX_COMPARE_MODELS}개)</span>
+          {t('compare.same_question')}{' '}
+          <span className="text-gray-600">({t('compare.max_models', { count: MAX_COMPARE_MODELS })})</span>
         </p>
 
         {/* Model selector — provider tabs + category groups */}
@@ -186,7 +189,7 @@ export function ModelCompareView() {
                 >
                   <span style={{ color: meta.color }}>●</span>
                   {meta.label}
-                  {!hasAnyKey && <span className="text-[9px] text-red-400">키없음</span>}
+                  {!hasAnyKey && <span className="text-[9px] text-red-400">{t('compare.no_key', { provider: meta.label })}</span>}
                 </button>
               );
             })}
@@ -217,7 +220,7 @@ export function ModelCompareView() {
                             key={m.id}
                             onClick={() => toggleModel(m.id)}
                             disabled={isDisabled}
-                            title={noKey ? `${m.provider} API 키가 없어요` : isDisabled ? `최대 ${MAX_COMPARE_MODELS}개` : m.description ?? ''}
+                            title={noKey ? t('compare.no_key', { provider: m.provider }) : isDisabled ? t('compare.max_models', { count: MAX_COMPARE_MODELS }) : m.description ?? ''}
                             className={`px-2.5 py-1.5 rounded-xl text-xs transition-all text-left border ${
                               isSelected
                                 ? 'text-white border-transparent shadow-sm'
@@ -248,7 +251,7 @@ export function ModelCompareView() {
         {/* Selected models summary */}
         {selectedModels.filter(id => availableModels.find(m => m.id === id)).length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
-            <span className="text-xs text-gray-500 self-center">선택됨:</span>
+            <span className="text-xs text-gray-500 self-center">{t('compare.selected')}</span>
             {selectedModels.map((id) => {
               const m = availableModels.find((m) => m.id === id);
               if (!m || !hasKey(m.provider)) return null;
@@ -270,7 +273,13 @@ export function ModelCompareView() {
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="비교할 질문을 입력하세요..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                if (!isRunning) handleCompare();
+              }
+            }}
+            placeholder={t('compare.compare_placeholder')}
             rows={2}
             className="flex-1 px-4 py-3 bg-gray-800 rounded-xl text-sm text-gray-200 placeholder-gray-500 outline-none resize-none focus:ring-1 focus:ring-blue-500"
           />
@@ -294,7 +303,7 @@ export function ModelCompareView() {
           <div className="mb-6 bg-gray-800 rounded-xl p-4 space-y-4">
             {/* Response time bars */}
             <div>
-              <p className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1"><Clock size={12} /> 응답 시간</p>
+              <p className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1"><Clock size={12} /> {t('compare.response_time')}</p>
               {(() => {
                 const maxMs = Math.max(...results.map((r) => (r.endTime ?? r.startTime) - r.startTime));
                 return results.map((r) => {
@@ -315,7 +324,7 @@ export function ModelCompareView() {
             {/* Cost bars (only if costs are available) */}
             {results.some((r) => r.cost !== undefined) && (
               <div>
-                <p className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1"><DollarSign size={12} /> 비용</p>
+                <p className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1"><DollarSign size={12} /> {t('compare.cost')}</p>
                 {(() => {
                   const maxCost = Math.max(...results.filter((r) => r.cost !== undefined).map((r) => r.cost!));
                   return results.map((r) => {
@@ -337,7 +346,7 @@ export function ModelCompareView() {
             {/* Token bars */}
             {results.some((r) => r.tokens) && (
               <div>
-                <p className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1"><Zap size={12} /> 출력 토큰</p>
+                <p className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1"><Zap size={12} /> {t('compare.output_tokens')}</p>
                 {(() => {
                   const maxTok = Math.max(...results.filter((r) => r.tokens).map((r) => r.tokens!.output));
                   return results.map((r) => {
@@ -400,7 +409,7 @@ export function ModelCompareView() {
                   {result.isStreaming && (
                     <div className="flex items-center gap-1 mt-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                      <span className="text-xs text-gray-500">응답 중...</span>
+                      <span className="text-xs text-gray-500">{t('compare.responding')}</span>
                     </div>
                   )}
                 </div>
