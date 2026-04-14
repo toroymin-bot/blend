@@ -19,12 +19,22 @@ export type RouteCategory =
 // ── 카테고리별 키워드 (한국어 + 영어) ─────────────────────────────────────
 const KW: Record<Exclude<RouteCategory, 'vision' | 'general'>, string[]> = {
   image_gen: [
-    '그려줘', '그려 줘', '그림 그려', '이미지 만들어', '이미지 생성', '이미지 그려',
-    '사진 만들어', '사진 생성', '그림 만들어', '그림체', '삽화', '일러스트',
-    '/image', 'draw', 'create image', 'generate image', 'make an image',
+    // 한국어 — 동사형 (조사 포함)
+    '그려줘', '그려 줘', '그려주세요', '그려봐', '그려봐줘',
+    '그림 그려', '그림을 그려', '그림을 그',
+    '이미지 만들어', '이미지를 만들', '이미지 생성', '이미지를 생성',
+    '이미지 그려', '이미지를 그려',
+    '사진 만들어', '사진을 만들', '사진 생성', '사진을 생성',
+    '그림 만들어', '그림을 만들',
+    '생성해줘', '생성해주세요', '생성해봐', '만들어줘', '만들어주세요',
+    '그림체', '삽화', '일러스트', '/image',
+    // 영어
+    'draw', 'create image', 'generate image', 'make an image',
     'create a picture', 'generate a picture', 'make a picture',
-    'illustrate', 'paint', 'sketch', 'visualize',
-    'image of', 'picture of', 'photo of', 'artwork',
+    'create a photo', 'generate a photo',
+    'illustrate', 'paint a', 'sketch', 'artwork',
+    'image of', 'picture of', 'photo of',
+    'dall-e', 'dalle',
   ],
   translation: [
     '번역', '영어로', '한국어로', '일본어로', '중국어로', '영어 번역', '한영',
