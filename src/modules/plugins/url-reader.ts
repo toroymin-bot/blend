@@ -49,7 +49,7 @@ export async function fetchURLContent(url: string): Promise<URLContent> {
     const msg = e instanceof Error ? e.message : String(e);
     // CORS 오류 발생 시 사용자 친화적 메시지
     const userMsg = msg.includes('Failed to fetch') || msg.includes('CORS')
-      ? 'URL 읽기 실패: 이 사이트는 브라우저에서 직접 접근이 차단되어 있습니다 (CORS 제한)'
+      ? 'URL read failed: direct browser access to this site is blocked (CORS restriction)'
       : msg;
     return { url, title: '', text: '', error: userMsg };
   }

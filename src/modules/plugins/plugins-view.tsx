@@ -1,62 +1,59 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Puzzle, Search, Image, Code, BarChart3, Zap, Check, X } from 'lucide-react';
+import { Puzzle, Search, Image, Code, BarChart3, Zap, Check } from 'lucide-react';
 import { usePluginStore } from '@/stores/plugin-store';
+import { useTranslation } from '@/lib/i18n';
 
 interface PluginItem {
   id: string;
-  name: string;
-  description: string;
+  nameKey: string;
+  descKey: string;
+  catKey: string;
   icon: React.ReactNode;
-  category: string;
   comingSoon?: boolean;
 }
 
 const AVAILABLE_PLUGINS: PluginItem[] = [
   {
     id: 'web-search',
-    name: '웹 검색',
-    description: '구글처럼 최신 뉴스와 정보를 검색해줘요. 채팅에서 "?검색어"로 쓰면 돼요',
+    nameKey: 'plugins.web_search',
+    descKey: 'plugins_view.web_search_desc',
+    catKey: 'plugins_view.cat_search',
     icon: <Search size={20} />,
-    category: '검색',
-    comingSoon: false,
   },
   {
     id: 'image-gen',
-    name: '이미지 생성',
-    description: '말로 설명하면 그림을 그려줘요. "/image 그림 설명"으로 써요 (OpenAI 키 필요)',
+    nameKey: 'plugins.image_gen',
+    descKey: 'plugins_view.image_gen_desc',
+    catKey: 'plugins_view.cat_image',
     icon: <Image size={20} />,
-    category: '이미지',
-    comingSoon: false,
   },
   {
     id: 'code-runner',
-    name: '코드 실행',
-    description: 'AI가 만들어 준 코드를 바로 실행해서 결과를 보여줘요',
+    nameKey: 'plugins_view.code_runner',
+    descKey: 'plugins_view.code_runner_desc',
+    catKey: 'plugins_view.cat_dev',
     icon: <Code size={20} />,
-    category: '개발',
-    comingSoon: false,
   },
   {
     id: 'chart-render',
-    name: '차트 생성',
-    description: '숫자 데이터가 나오면 자동으로 그래프로 만들어줘요',
+    nameKey: 'plugins.chart_render',
+    descKey: 'plugins_view.chart_render_desc',
+    catKey: 'plugins_view.cat_data',
     icon: <BarChart3 size={20} />,
-    category: '데이터',
-    comingSoon: false,
   },
   {
     id: 'url-reader',
-    name: 'URL 읽기',
-    description: '링크를 붙여넣으면 그 페이지 내용을 AI가 읽고 대답해줘요',
+    nameKey: 'plugins.url_reader',
+    descKey: 'plugins_view.url_reader_desc',
+    catKey: 'plugins_view.cat_productivity',
     icon: <Zap size={20} />,
-    category: '생산성',
-    comingSoon: false,
   },
 ];
 
 export function PluginsView() {
+  const { t } = useTranslation();
   const { installedPlugins, installPlugin, uninstallPlugin, loadFromStorage } = usePluginStore();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -65,10 +62,10 @@ export function PluginsView() {
   }, []);
 
   const filteredPlugins = AVAILABLE_PLUGINS.filter(
-    (p) => !searchQuery || p.name.includes(searchQuery) || p.description.includes(searchQuery)
+    (p) => !searchQuery || t(p.nameKey).toLowerCase().includes(searchQuery.toLowerCase()) || t(p.descKey).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const categories = [...new Set(AVAILABLE_PLUGINS.map((p) => p.category))];
+  const catKeys = [...new Set(AVAILABLE_PLUGINS.map((p) => p.catKey))];
 
   return (
     <div className="h-full overflow-y-auto bg-gray-900 p-6">
@@ -76,11 +73,11 @@ export function PluginsView() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Puzzle size={24} /> 플러그인
+              <Puzzle size={24} /> {t('plugins.title')}
             </h1>
-            <p className="text-sm text-gray-400 mt-1">AI 기능을 확장하는 플러그인을 관리하세요</p>
+            <p className="text-sm text-gray-400 mt-1">{t('plugins_view.subtitle')}</p>
           </div>
-          <span className="text-xs text-gray-500">{installedPlugins.length}개 설치됨</span>
+          <span className="text-xs text-gray-500">{t('plugins_view.installed_count', { count: installedPlugins.length })}</span>
         </div>
 
         <div className="mb-4">
@@ -88,16 +85,16 @@ export function PluginsView() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="플러그인 검색..."
+            placeholder={t('plugins_view.search_placeholder')}
             className="w-full px-4 py-2 bg-gray-800 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
         {/* Category tabs */}
         <div className="flex flex-wrap gap-2 mb-4">
-          {categories.map((cat) => (
-            <span key={cat} className="px-3 py-1 rounded-full text-xs bg-gray-800 text-gray-400">
-              {cat}
+          {catKeys.map((catKey) => (
+            <span key={catKey} className="px-3 py-1 rounded-full text-xs bg-gray-800 text-gray-400">
+              {t(catKey)}
             </span>
           ))}
         </div>
@@ -116,34 +113,34 @@ export function PluginsView() {
                       {plugin.icon}
                     </div>
                     <div>
-                      <h3 className="font-medium text-white text-sm">{plugin.name}</h3>
-                      <span className="text-xs" style={{ color: '#adadb2' }}>{plugin.category}</span>
+                      <h3 className="font-medium text-white text-sm">{t(plugin.nameKey)}</h3>
+                      <span className="text-xs" style={{ color: '#adadb2' }}>{t(plugin.catKey)}</span>
                     </div>
                   </div>
                   {plugin.comingSoon ? (
-                    <span className="text-xs bg-yellow-600/20 text-yellow-400 px-2 py-0.5 rounded">준비 중</span>
+                    <span className="text-xs bg-yellow-600/20 text-yellow-400 px-2 py-0.5 rounded">{t('plugins_view.coming_soon')}</span>
                   ) : installed ? (
                     <button
                       onClick={() => uninstallPlugin(plugin.id)}
                       className="flex items-center gap-1 text-xs text-green-400 bg-green-400/10 px-2 py-1 rounded hover:bg-red-400/10 hover:text-red-400 transition-colors"
-                      title="클릭하여 제거"
+                      title={t('plugins_view.click_to_remove')}
                     >
-                      <Check size={12} /> 설치됨
+                      <Check size={12} /> {t('plugins.installed')}
                     </button>
                   ) : (
                     <button
                       onClick={() => installPlugin(plugin.id)}
                       className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
                     >
-                      설치
+                      {t('plugins.install')}
                     </button>
                   )}
                 </div>
-                <p className="text-xs text-gray-400">{plugin.description}</p>
+                <p className="text-xs text-gray-400">{t(plugin.descKey)}</p>
                 {installed && !plugin.comingSoon && (
                   <div className="mt-2 flex items-center gap-1">
                     <div className="w-1.5 h-1.5 bg-green-400 rounded-full" />
-                    <span className="text-xs text-green-400">활성화됨 - 채팅에서 사용 가능</span>
+                    <span className="text-xs text-green-400">{t('plugins_view.active_hint')}</span>
                   </div>
                 )}
               </div>
@@ -152,13 +149,13 @@ export function PluginsView() {
         </div>
 
         <div className="mt-8 bg-gray-800/50 rounded-xl p-4 border border-dashed border-gray-700">
-          <h3 className="text-sm font-medium text-gray-300 mb-2">플러그인 사용 방법</h3>
+          <h3 className="text-sm font-medium text-gray-300 mb-2">{t('plugins_view.usage_title')}</h3>
           <ul className="text-xs text-gray-500 space-y-1">
-            <li>• <strong className="text-gray-400">URL 읽기</strong>: 채팅 입력창에 URL을 포함하면 자동으로 내용을 가져옵니다</li>
-            <li>• <strong className="text-gray-400">코드 실행</strong>: AI가 생성한 JS 코드 블록에 &quot;실행&quot; 버튼이 나타납니다</li>
-            <li>• <strong className="text-gray-400">차트 생성</strong>: AI 응답에서 JSON 데이터를 감지해 차트로 표시합니다</li>
-            <li>• <strong className="text-gray-400">웹 검색</strong>: <code className="bg-gray-700 px-1 rounded">!search 검색어</code> 또는 <code className="bg-gray-700 px-1 rounded">?검색어</code>로 검색 (서버에 BRAVE_SEARCH_API_KEY 필요)</li>
-            <li>• <strong className="text-gray-400">이미지 생성</strong>: <code className="bg-gray-700 px-1 rounded">/image 프롬프트</code>로 DALL-E 3 이미지 생성 (OpenAI 키 필요)</li>
+            <li>• <strong className="text-gray-400">{t('plugins.url_reader')}</strong>: {t('plugins_view.usage_url')}</li>
+            <li>• <strong className="text-gray-400">{t('plugins_view.code_runner')}</strong>: {t('plugins_view.usage_code')}</li>
+            <li>• <strong className="text-gray-400">{t('plugins.chart_render')}</strong>: {t('plugins_view.usage_chart')}</li>
+            <li>• <strong className="text-gray-400">{t('plugins.web_search')}</strong>: {t('plugins_view.usage_search')}</li>
+            <li>• <strong className="text-gray-400">{t('plugins.image_gen')}</strong>: {t('plugins_view.usage_image')}</li>
           </ul>
         </div>
       </div>

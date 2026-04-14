@@ -40,7 +40,7 @@ export function requestOneDriveAccessToken(
       'width=520,height=620,left=200,top=100'
     );
 
-    if (!popup) { reject(new Error('팝업이 차단되었습니다.')); return; }
+    if (!popup) { reject(new Error('Popup was blocked.')); return; }
 
     let settled = false;
 
@@ -94,7 +94,7 @@ export function requestOneDriveAccessToken(
       } catch {}
 
       try {
-        if (popup.closed && !settled) fail('OAuth 팝업이 닫혔습니다.');
+        if (popup.closed && !settled) fail('OAuth popup was closed.');
       } catch {}
     }, 500);
 
@@ -162,7 +162,7 @@ export async function downloadOneDriveFile(
     `${GRAPH_API}/me/drive/items/${item.id}/content`;
 
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`파일 다운로드 실패: ${item.name}`);
+  if (!res.ok) throw new Error(`File download failed: ${item.name}`);
   const blob = await res.blob();
   return new File([blob], item.name, { type: item.file?.mimeType ?? 'application/octet-stream' });
 }

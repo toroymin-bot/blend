@@ -30,8 +30,10 @@ import { usePluginStore } from '@/stores/plugin-store';
 import { useDocumentStore } from '@/stores/document-store';
 import { useDataSourceStore } from '@/stores/datasource-store';
 import { Menu, ChevronRight } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 export default function AppContent() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('chat');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
@@ -94,30 +96,30 @@ export default function AppContent() {
   }, []);
 
   const shortcuts = useMemo(() => [
-    { key: 'n', meta: true, action: () => { createChat(); setActiveTab('chat'); }, description: '새 채팅' },
-    { key: ',', meta: true, action: () => setActiveTab('settings'), description: '설정' },
-    { key: 'k', meta: true, action: () => { setActiveTab('chat'); window.dispatchEvent(new Event('blend:focus-sidebar-search')); }, description: '채팅 목록 검색' },
+    { key: 'n', meta: true, action: () => { createChat(); setActiveTab('chat'); }, description: t('shortcuts.new_chat') },
+    { key: ',', meta: true, action: () => setActiveTab('settings'), description: t('shortcuts.settings') },
+    { key: 'k', meta: true, action: () => { setActiveTab('chat'); window.dispatchEvent(new Event('blend:focus-sidebar-search')); }, description: t('shortcuts.search_chats') },
     // Cmd+Shift+F: open in-chat search
-    { key: 'f', meta: true, shift: true, action: () => { setActiveTab('chat'); }, description: '채팅 내 검색' },
+    { key: 'f', meta: true, shift: true, action: () => { setActiveTab('chat'); }, description: t('shortcuts.search_in_chat') },
     // Cmd+[ / Cmd+] — navigate between chats
     { key: '[', meta: true, action: () => {
       const idx = chats.findIndex((c) => c.id === currentChatId);
       if (idx > 0) { setCurrentChat(chats[idx - 1].id); setActiveTab('chat'); }
-    }, description: '이전 채팅' },
+    }, description: t('shortcuts.prev_chat') },
     { key: ']', meta: true, action: () => {
       const idx = chats.findIndex((c) => c.id === currentChatId);
       if (idx >= 0 && idx < chats.length - 1) { setCurrentChat(chats[idx + 1].id); setActiveTab('chat'); }
-    }, description: '다음 채팅' },
+    }, description: t('shortcuts.next_chat') },
     // Cmd+Shift+T — toggle dark/light theme
     { key: 't', meta: true, shift: true, action: () => {
       const cur = settingsStore.settings.theme;
       settingsStore.updateSettings({ theme: cur === 'dark' ? 'light' : 'dark' });
-    }, description: '테마 전환' },
+    }, description: t('shortcuts.toggle_theme') },
     // ?: show shortcut help modal
-    { key: '?', action: () => setShowShortcutHelp(true), description: '단축키 도움말' },
+    { key: '?', action: () => setShowShortcutHelp(true), description: t('shortcuts.help') },
     // Cmd+/ → shortcut help
-    { key: '/', meta: true, action: () => setShowShortcutHelp(true), description: '단축키 도움말 (Cmd+/)' },
-  ], [createChat, chats, currentChatId, setCurrentChat, settingsStore]);
+    { key: '/', meta: true, action: () => setShowShortcutHelp(true), description: t('shortcuts.help') },
+  ], [createChat, chats, currentChatId, setCurrentChat, settingsStore, t]);
 
   useKeyboardShortcuts(shortcuts);
 
@@ -221,7 +223,7 @@ export default function AppContent() {
             window.dispatchEvent(new Event('blend:open-nav'));
           }}
           className="fixed left-0 top-1/2 -translate-y-1/2 z-30 w-[18px] h-24 bg-gray-600 hover:bg-gray-400 text-white rounded-r-full flex items-center justify-center transition-colors md:hidden"
-          title="메뉴 열기"
+          title={t('shortcuts.open_menu')}
         >
           <ChevronRight size={10} />
         </button>

@@ -187,7 +187,7 @@ async function parseExcel(file: File): Promise<DocumentChunk[]> {
       );
       chunks.push({
         text: lines.join('\n'),
-        source: `${file.name} / ${sheetName} (행 ${i}–${Math.min(i + BATCH - 1, rows.length - 1)})`,
+        source: `${file.name} / ${sheetName} (rows ${i}–${Math.min(i + BATCH - 1, rows.length - 1)})`,
       });
     }
   }
@@ -211,7 +211,7 @@ async function parseCsv(file: File): Promise<DocumentChunk[]> {
     });
     chunks.push({
       text: rows.join('\n'),
-      source: `${file.name} (행 ${i}–${Math.min(i + BATCH - 1, lines.length - 1)})`,
+      source: `${file.name} (rows ${i}–${Math.min(i + BATCH - 1, lines.length - 1)})`,
     });
   }
   return chunks;
@@ -235,8 +235,8 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
   // [2026-04-13 00:00] BUG-008: 50페이지 초과 시 경고 청크 삽입 후 제한
   if (pdf.numPages > PDF_MAX_PAGES) {
     chunks.push({
-      text: `[경고] 이 PDF는 ${pdf.numPages}페이지로, 처리 가능한 최대 페이지 수(${PDF_MAX_PAGES}페이지)를 초과합니다. 처음 ${PDF_MAX_PAGES}페이지만 분석됩니다. 전체 문서를 분석하려면 페이지 범위를 나누어 업로드해 주세요.`,
-      source: `${file.name} (경고: ${pdf.numPages}페이지 중 ${PDF_MAX_PAGES}페이지만 처리)`,
+      text: `[WARNING] This PDF has ${pdf.numPages} pages, exceeding the maximum of ${PDF_MAX_PAGES}. Only the first ${PDF_MAX_PAGES} pages will be analyzed. To analyze the full document, split it into smaller ranges.`,
+      source: `${file.name} (warning: processing ${PDF_MAX_PAGES} of ${pdf.numPages} pages)`,
     });
   }
 
@@ -258,13 +258,13 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
         .join(' ')
         .replace(/\s+/g, ' ')
         .trim();
-      if (pageText) pageTexts.push(`[${p}페이지]\n${pageText}`);
+      if (pageText) pageTexts.push(`[page ${p}]\n${pageText}`);
     }
 
     if (pageTexts.length > 0) {
       chunks.push({
         text: pageTexts.join('\n\n'),
-        source: `${file.name} (${start}–${end}페이지)`,
+        source: `${file.name} (pages ${start}–${end})`,
       });
     }
   }
@@ -272,11 +272,11 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
   // [2026-04-13] BUG-009: 이미지 전용 PDF — 텍스트 레이어 없음 처리
   // 스캔본·HEIC→PDF 변환 파일 등은 pdfjs로 텍스트 추출 불가
   // 경고 청크를 삽입해 AI가 "이미지 PDF"임을 사용자에게 안내하도록 함
-  const textChunks = chunks.filter((c) => !c.text.startsWith('[경고]'));
+  const textChunks = chunks.filter((c) => !c.text.startsWith('[WARNING]'));
   if (textChunks.length === 0) {
     chunks.push({
-      text: `[이미지 전용 PDF] 이 파일(${file.name})은 스캔 이미지 또는 이미지 기반 PDF로, 텍스트 레이어가 없습니다. PDF에서 텍스트를 추출할 수 없어 RAG 검색이 불가능합니다. OCR 처리된 PDF나 텍스트 기반 문서를 업로드해 주세요.`,
-      source: `${file.name} (이미지 PDF — 텍스트 없음)`,
+      text: `[IMAGE-ONLY PDF] The file (${file.name}) is a scanned image or image-based PDF with no text layer. Text cannot be extracted; RAG search is not available. Please upload an OCR-processed or text-based document.`,
+      source: `${file.name} (image PDF — no text)`,
     });
   }
 
@@ -365,7 +365,7 @@ async function parsePlainText(file: File): Promise<DocumentChunk[]> {
   const parts = splitByBoundary(text, 1500, 150);
   return parts.map((slice, i) => ({
     text: slice,
-    source: `${file.name} (청크 ${i + 1}/${parts.length})`,
+    source: `${file.name} (chunk ${i + 1}/${parts.length})`,
   }));
 }
 
@@ -588,11 +588,11 @@ export async function buildContext(
   }
 
   // ── Build context block ───────────────────────────────────────────────────
-  const method = usedSemantic ? '하이브리드 검색 (벡터 0.7 + BM25 0.3)' : '키워드 검색';
-  const lines = relevant.map((c) => `[출처: ${c.source}]\n${c.text}`).join('\n\n---\n\n');
+  const method = usedSemantic ? 'hybrid search (vector 0.7 + BM25 0.3)' : 'keyword search';
+  const lines = relevant.map((c) => `[source: ${c.source}]\n${c.text}`).join('\n\n---\n\n');
   return (
-    `[문서 검색 결과: ${relevant.length}개 청크 (${method})]\n` +
-    `아래 내용만을 근거로 답변하세요. 문서에 없는 내용은 추측하거나 답변하지 마세요.\n\n` +
+    `[Document search results: ${relevant.length} chunks (${method})]\n` +
+    `Answer based only on the content below. Do not speculate or answer with information not found in the document.\n\n` +
     lines
   );
 }

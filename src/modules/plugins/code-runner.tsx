@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { Play, Square, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 interface CodeRunnerProps {
   code: string;
@@ -15,6 +16,7 @@ interface RunResult {
 }
 
 export function CodeRunner({ code, language }: CodeRunnerProps) {
+  const { t } = useTranslation();
   const [result, setResult] = useState<RunResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [showOutput, setShowOutput] = useState(false);
@@ -80,7 +82,7 @@ export function CodeRunner({ code, language }: CodeRunnerProps) {
     setTimeout(() => {
       window.removeEventListener('message', handleMessage);
       if (!completed) {
-        setResult({ logs, error: '실행 시간 초과 (5초)' });
+        setResult({ logs, error: t('plugins.code_timeout') });
         setIsRunning(false);
       }
     }, 5000);
@@ -122,7 +124,7 @@ export function CodeRunner({ code, language }: CodeRunnerProps) {
           className="flex items-center gap-1.5 text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-3 py-1 rounded transition-colors"
         >
           {isRunning ? <Square size={11} /> : <Play size={11} />}
-          {isRunning ? '실행 중...' : '실행'}
+          {isRunning ? t('plugins.code_running') : t('plugins.code_run')}
         </button>
         {result && (
           <>
@@ -130,14 +132,14 @@ export function CodeRunner({ code, language }: CodeRunnerProps) {
               onClick={reset}
               className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
             >
-              <RotateCcw size={11} /> 초기화
+              <RotateCcw size={11} /> {t('plugins.code_reset')}
             </button>
             <button
               onClick={() => setShowOutput(!showOutput)}
               className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 ml-auto transition-colors"
             >
               {showOutput ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-              {showOutput ? '출력 숨기기' : '출력 보기'}
+              {showOutput ? t('plugins.code_hide_output') : t('plugins.code_show_output')}
             </button>
           </>
         )}
@@ -145,7 +147,7 @@ export function CodeRunner({ code, language }: CodeRunnerProps) {
 
       {showOutput && result && (
         <div className="bg-gray-950 rounded-b-lg px-4 py-3 border-t border-gray-800">
-          <div className="text-xs text-gray-500 mb-2 font-mono">--- 실행 결과 ---</div>
+          <div className="text-xs text-gray-500 mb-2 font-mono">--- {t('plugins.code_output')} ---</div>
           {result.logs.length > 0 ? (
             <div className="space-y-0.5">
               {result.logs.map((log, i) => (
@@ -162,11 +164,11 @@ export function CodeRunner({ code, language }: CodeRunnerProps) {
               ))}
             </div>
           ) : (
-            <div className="text-xs text-gray-600 font-mono">(출력 없음)</div>
+            <div className="text-xs text-gray-600 font-mono">({t('plugins.code_no_output')})</div>
           )}
           {result.error && (
             <div className="mt-2 text-xs text-red-400 font-mono border-t border-gray-800 pt-2">
-              오류: {result.error}
+              {t('plugins.code_error')}: {result.error}
             </div>
           )}
         </div>

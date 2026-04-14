@@ -6,6 +6,7 @@
 
 import { useState, KeyboardEvent } from 'react';
 import { X, Check } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 interface PromptVariableModalProps {
   title: string;
@@ -15,6 +16,7 @@ interface PromptVariableModalProps {
 }
 
 export function PromptVariableModal({ title, variables, onConfirm, onClose }: PromptVariableModalProps) {
+  const { t } = useTranslation();
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(variables.map((v) => [v, '']))
   );
@@ -34,7 +36,7 @@ export function PromptVariableModal({ title, variables, onConfirm, onClose }: Pr
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">변수 입력</h2>
+            <h2 className="text-lg font-semibold text-white">{t('prompts.variable_input')}</h2>
             <p className="text-xs text-gray-400 mt-0.5">{title}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
@@ -55,7 +57,7 @@ export function PromptVariableModal({ title, variables, onConfirm, onClose }: Pr
                 value={values[variable] ?? ''}
                 onChange={(e) => setValues((prev) => ({ ...prev, [variable]: e.target.value }))}
                 onKeyDown={(e) => handleKeyDown(e, idx === variables.length - 1)}
-                placeholder={`{{${variable}}} 값 입력`}
+                placeholder={t('prompts.variable_placeholder', { name: variable })}
                 className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -68,13 +70,13 @@ export function PromptVariableModal({ title, variables, onConfirm, onClose }: Pr
             onClick={onClose}
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300 transition-colors"
           >
-            취소
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleConfirm}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white transition-colors"
           >
-            <Check size={14} /> 삽입
+            <Check size={14} /> {t('prompts.insert')}
           </button>
         </div>
       </div>

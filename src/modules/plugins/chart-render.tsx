@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BarChart3, TrendingUp, PieChart, ChevronDown, ChevronUp } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 interface ChartData {
   labels: string[];
@@ -184,6 +185,7 @@ function PieChartSVG({ labels, values, title }: ChartData) {
 }
 
 export function ChartRender({ data }: ChartRenderProps) {
+  const { t } = useTranslation();
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>(data.type || 'bar');
   const [collapsed, setCollapsed] = useState(false);
 
@@ -192,7 +194,7 @@ export function ChartRender({ data }: ChartRenderProps) {
       <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
         <div className="flex items-center gap-2">
           <BarChart3 size={14} className="text-blue-400" />
-          <span className="text-xs text-gray-300 font-medium">{data.title || '차트'}</span>
+          <span className="text-xs text-gray-300 font-medium">{data.title || t('plugins.chart_title_fallback')}</span>
         </div>
         <div className="flex items-center gap-2">
           {/* Chart type switcher */}
@@ -207,7 +209,7 @@ export function ChartRender({ data }: ChartRenderProps) {
                     : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                {type === 'bar' ? '막대' : type === 'line' ? '선' : '원형'}
+                {type === 'bar' ? t('plugins.chart_type_bar') : type === 'line' ? t('plugins.chart_type_line') : t('plugins.chart_type_pie')}
               </button>
             ))}
           </div>

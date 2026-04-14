@@ -38,7 +38,7 @@ async function callDirect(method: 'PROPFIND' | 'GET', serverUrl: string, path: s
       ? '<?xml version="1.0"?><D:propfind xmlns:D="DAV:"><D:allprop/></D:propfind>'
       : undefined,
   });
-  if (!res.ok) throw new Error(`WebDAV 오류: HTTP ${res.status} — CORS가 허용되지 않는 서버일 수 있습니다`);
+  if (!res.ok) throw new Error(`WebDAV error: HTTP ${res.status} — the server may not allow CORS`);
   return res;
 }
 

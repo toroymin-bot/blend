@@ -17,14 +17,15 @@ interface Props {
 export default function LangPageClient({ lang }: Props) {
   const { settings, updateSettings, loadFromStorage } = useSettingsStore();
 
+  const typedLang = SUPPORTED_LANGS.includes(lang as Language) ? (lang as Language) : 'ko';
+
   useEffect(() => {
     // Ensure settings are loaded from localStorage first
     loadFromStorage();
   }, []);
 
   useEffect(() => {
-    const typedLang = lang as Language;
-    if (SUPPORTED_LANGS.includes(typedLang) && settings.language !== typedLang) {
+    if (settings.language !== typedLang) {
       updateSettings({ language: typedLang });
     }
   }, [lang, settings.language]);

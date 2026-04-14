@@ -157,7 +157,7 @@ export function DocumentPluginView() {
                       <p className="text-sm text-gray-200 font-medium truncate">{doc.name}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-xs text-gray-500">
-                          {doc.chunks.length}개 청크 · {formatBytes(doc.totalChars)}
+                          {t('documents.chunks_count', { count: doc.chunks.length, size: formatBytes(doc.totalChars) })}
                         </p>
                         {/* Embedding status badge */}
                         {status === 'embedding' && (
@@ -227,8 +227,8 @@ export function DocumentPluginView() {
           <p className="font-medium text-gray-400 mb-2">{t('documents.search_method')}</p>
           <p>• <span className="text-green-400">{t('documents.semantic_search')}</span> — {t('documents.semantic_desc')}</p>
           <p>• <span className="text-gray-400">{t('documents.keyword_search')}</span> — {t('documents.keyword_desc')}</p>
-          <p className="text-gray-600 mt-2">* 관련 내용이 없으면 AI가 &apos;문서에서 찾을 수 없습니다&apos;라고 답변합니다</p>
-          <p className="text-gray-600">* 파일은 브라우저 메모리에만 저장되며 새로고침 시 초기화됩니다</p>
+          <p className="text-gray-600 mt-2">{t('documents.note_no_match')}</p>
+          <p className="text-gray-600">{t('documents.note_browser_only')}</p>
         </div>
       </div>
     </div>

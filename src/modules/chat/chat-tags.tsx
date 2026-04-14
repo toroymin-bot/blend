@@ -6,6 +6,7 @@
 import { useState, KeyboardEvent } from 'react';
 import { Tag, X, Plus } from 'lucide-react';
 import { useChatStore } from '@/stores/chat-store';
+import { useTranslation } from '@/lib/i18n';
 
 interface ChatTagsProps {
   chatId: string;
@@ -13,6 +14,7 @@ interface ChatTagsProps {
 }
 
 export function ChatTags({ chatId, tags = [] }: ChatTagsProps) {
+  const { t } = useTranslation();
   const { addChatTag, removeChatTag } = useChatStore();
   const [inputVisible, setInputVisible] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -46,7 +48,7 @@ export function ChatTags({ chatId, tags = [] }: ChatTagsProps) {
           <button
             onClick={() => removeChatTag(chatId, tag)}
             className="hover:text-red-400 transition-colors"
-            title="태그 제거"
+            title={t('common.remove_tag')}
           >
             <X size={10} />
           </button>
@@ -61,16 +63,16 @@ export function ChatTags({ chatId, tags = [] }: ChatTagsProps) {
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleAdd}
-          placeholder="태그 이름"
+          placeholder={t('common.tag_name')}
           className="px-2 py-0.5 bg-gray-700 rounded-full text-xs text-gray-200 outline-none focus:ring-1 focus:ring-blue-500 w-24"
         />
       ) : (
         <button
           onClick={() => setInputVisible(true)}
           className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-gray-500 hover:text-blue-400 hover:bg-gray-700 rounded-full text-xs transition-colors"
-          title="태그 추가"
+          title={t('common.add_tag')}
         >
-          <Plus size={10} /> 태그
+          <Plus size={10} /> {t('common.tag')}
         </button>
       )}
     </div>

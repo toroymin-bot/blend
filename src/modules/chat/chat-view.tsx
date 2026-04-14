@@ -198,20 +198,20 @@ export function ChatView() {
     setSummaryText('');
     setShowSummaryModal(true);
     const convo = chat.messages
-      .map((m) => `${m.role === 'user' ? '사용자' : 'AI'}: ${m.content.substring(0, 400)}`)
+      .map((m) => `${m.role === 'user' ? t('chat.role_user') : t('chat.role_ai')}: ${m.content.substring(0, 400)}`)
       .join('\n');
     await sendChatRequest({
       messages: [
-        { role: 'system', content: '주어진 대화를 3~5개 불릿 포인트로 한국어로 간결하게 요약하세요. 핵심 주제, 결론, 중요 포인트를 포함하세요.' },
+        { role: 'system', content: t('chat.summarize_system_prompt') },
         { role: 'user', content: convo },
       ],
       model: selectedModel,
       provider: currentModel.provider,
       apiKey: getKey(currentModel.provider),
       stream: true,
-      onChunk: (t) => setSummaryText((p) => p + t),
+      onChunk: (chunk) => setSummaryText((p) => p + chunk),
       onDone: () => setIsSummarizing(false),
-      onError: () => { setSummaryText('요약 생성 중 오류가 발생했습니다.'); setIsSummarizing(false); },
+      onError: () => { setSummaryText(t('chat.summarize_error')); setIsSummarizing(false); },
     });
   };
 
@@ -274,8 +274,8 @@ export function ChatView() {
   const autoGenerateTitle = async (chatId: string, userMsg: string, assistantMsg: string, provider: string, apiKey: string | null) => {
     try {
       const titleMessages = [
-        { role: 'system', content: '다음 대화의 제목을 15자 이내로 한국어로 작성하세요. 제목만 출력하고 다른 내용은 쓰지 마세요.' },
-        { role: 'user', content: `사용자: ${userMsg.substring(0, 200)}\nAI: ${assistantMsg.substring(0, 200)}` },
+        { role: 'system', content: t('chat.auto_title_system_prompt') },
+        { role: 'user', content: `${t('chat.role_user')}: ${userMsg.substring(0, 200)}\n${t('chat.role_ai')}: ${assistantMsg.substring(0, 200)}` },
       ];
       let titleText = '';
       await sendChatRequest({
@@ -302,20 +302,19 @@ export function ChatView() {
     return (text.match(urlRegex) || []).filter(isValidURL);
   };
 
-  // Map raw API error messages to user-friendly Korean messages
+  // Map raw API error messages to user-friendly localized messages
   const friendlyError = (error: string): string => {
-    if (/api.key|API key|unauthorized|invalid.*key|403/i.test(error)) return '🔑 API 키가 유효하지 않습니다. 설정(⌘,)에서 키를 확인해주세요.';
-    if (/quota|rate.limit|429|exceeded|too many requests/i.test(error)) return '⏱ 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
-    if (/context.length|maximum context|token limit|too long|context_length/i.test(error)) return '📄 대화가 너무 길어 컨텍스트 한도를 초과했습니다. 새 채팅을 시작해주세요.';
-    if (/network|failed to fetch|ECONNREFUSED|ERR_NETWORK|net::/i.test(error)) return '🌐 네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-    if (/model.*not.*found|invalid.*model|model_not_found/i.test(error)) return '🤖 선택된 모델을 찾을 수 없습니다. 모델 설정을 확인해주세요.';
-    if (/overloaded|capacity|service.*unavailable|503/i.test(error)) return '🔄 AI 서버가 혼잡합니다. 잠시 후 다시 시도해주세요.';
-    if (/content.policy|safety|blocked|moderation/i.test(error)) return '🛡 콘텐츠 정책에 의해 요청이 차단되었습니다. 다른 방식으로 질문해주세요.';
-    if (/timeout|aborted|cancelled/i.test(error)) return '⏰ 요청 시간이 초과되었습니다. 다시 시도해주세요.';
-    if (/insufficient.*funds|billing|payment/i.test(error)) return '💳 API 크레딧이 부족합니다. 해당 서비스의 결제 설정을 확인해주세요.';
-    // [2026-04-12 01:07] BUG-016 개선: 알 수 없는 오류도 한국어로 표시
-    if (error && error.length > 0) return `⚠️ 오류가 발생했습니다: ${error}`;
-    return '⚠️ 알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+    if (/api.key|API key|unauthorized|invalid.*key|403/i.test(error)) return `🔑 ${t('chat.err_invalid_key')}`;
+    if (/quota|rate.limit|429|exceeded|too many requests/i.test(error)) return `⏱ ${t('chat.err_rate_limit')}`;
+    if (/context.length|maximum context|token limit|too long|context_length/i.test(error)) return `📄 ${t('chat.err_context_too_long')}`;
+    if (/network|failed to fetch|ECONNREFUSED|ERR_NETWORK|net::/i.test(error)) return `🌐 ${t('chat.err_network')}`;
+    if (/model.*not.*found|invalid.*model|model_not_found/i.test(error)) return `🤖 ${t('chat.err_model_not_found')}`;
+    if (/overloaded|capacity|service.*unavailable|503/i.test(error)) return `🔄 ${t('chat.err_overloaded')}`;
+    if (/content.policy|safety|blocked|moderation/i.test(error)) return `🛡 ${t('chat.err_content_policy')}`;
+    if (/timeout|aborted|cancelled/i.test(error)) return `⏰ ${t('chat.err_timeout')}`;
+    if (/insufficient.*funds|billing|payment/i.test(error)) return `💳 ${t('chat.err_insufficient_funds')}`;
+    if (error && error.length > 0) return `⚠️ ${t('chat.err_generic')}: ${error}`;
+    return `⚠️ ${t('chat.err_unknown')}`;
   };
 
   // Helper: stream AI response given a fully-prepared messages array
@@ -441,7 +440,7 @@ export function ChatView() {
         addMessage(chatId, {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: '⚠️ 선택된 모델을 찾을 수 없고, 사용 가능한 모델도 없습니다. 설정에서 모델을 활성화해 주세요.',
+          content: `⚠️ ${t('chat.err_no_model')}`,
           createdAt: Date.now(),
         });
         return;
@@ -451,7 +450,7 @@ export function ChatView() {
       addMessage(chatId, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `⚠️ 선택된 모델을 찾을 수 없어 **${fallback.name}**으로 자동 전환되었습니다.`,
+        content: `⚠️ ${t('chat.err_model_switched', { name: fallback.name })}`,
         createdAt: Date.now(),
       });
     }
@@ -476,7 +475,7 @@ export function ChatView() {
       addMessage(chatId, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `🚫 오늘의 API 비용 한도($${settings.dailyCostLimit.toFixed(2)})를 초과했습니다. 현재 오늘 사용액: $${getTodayCost().toFixed(4)}.\n\n한도를 조정하려면 **설정(⌘,) → 일일 비용 한도**에서 변경하세요.`,
+        content: `🚫 ${t('chat.err_daily_limit', { limit: settings.dailyCostLimit.toFixed(2), spent: getTodayCost().toFixed(4) })}`,
         createdAt: Date.now(),
       });
       return;
@@ -486,7 +485,7 @@ export function ChatView() {
       addMessage(chatId, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `${currentModel.provider} API 키가 설정되지 않았습니다. 설정에서 API 키를 입력해주세요.`,
+        content: t('chat.err_no_api_key', { provider: currentModel.provider }),
         createdAt: Date.now(),
       });
       return;
@@ -505,7 +504,7 @@ export function ChatView() {
         addMessage(chatId, {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: '🔑 OpenAI API 키가 필요해요. 설정 탭에서 API 키를 입력해주세요.',
+          content: `🔑 ${t('chat.err_openai_key_required')}`,
           createdAt: Date.now(),
         });
         return;
@@ -517,7 +516,7 @@ export function ChatView() {
         addMessage(chatId, {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `🎨 이미지 생성 실패: ${result.error}`,
+          content: `🎨 ${t('chat.img_gen_failed', { error: result.error })}`,
           createdAt: Date.now(),
         });
       } else {
@@ -541,7 +540,7 @@ export function ChatView() {
           addMessage(chatId, {
             id: crypto.randomUUID(),
             role: 'assistant',
-            content: 'OpenAI API 키가 설정되지 않았습니다. 설정에서 OpenAI 키를 입력해주세요.',
+            content: t('chat.err_openai_key_for_image'),
             createdAt: Date.now(),
           });
           return;
@@ -563,14 +562,14 @@ export function ChatView() {
           addMessage(chatId, {
             id: crypto.randomUUID(),
             role: 'assistant',
-            content: `이미지 생성 실패: ${result.error}`,
+            content: t('chat.img_gen_failed', { error: result.error }),
             createdAt: Date.now(),
           });
         } else if (result.url) {
           addMessage(chatId, {
             id: crypto.randomUUID(),
             role: 'assistant',
-            content: `이미지가 생성되었습니다:\n\n![생성된 이미지](${result.url})`,
+            content: t('chat.img_generated', { url: result.url }),
             createdAt: Date.now(),
           });
         }
@@ -596,7 +595,7 @@ export function ChatView() {
           addMessage(chatId, {
             id: crypto.randomUUID(),
             role: 'assistant',
-            content: '웹 검색 플러그인이 설치되었지만 서버에 BRAVE_SEARCH_API_KEY가 설정되지 않았습니다.',
+            content: t('chat.web_search_no_server_key'),
             createdAt: Date.now(),
           });
           return;
@@ -615,11 +614,11 @@ export function ChatView() {
 
         const urlContext = urlResults
           .filter((r) => !r.error && r.text)
-          .map((r) => `[URL: ${r.url}]\n제목: ${r.title}\n${r.description ? `설명: ${r.description}\n` : ''}내용:\n${r.text}`)
+          .map((r) => `[URL: ${r.url}]\nTitle: ${r.title}\n${r.description ? `Description: ${r.description}\n` : ''}Content:\n${r.text}`)
           .join('\n\n---\n\n');
 
         if (urlContext) {
-          userContent = `${userContent}\n\n--- URL 컨텍스트 ---\n${urlContext}`;
+          userContent = `${userContent}\n\n${t('chat.url_context_section')}\n${urlContext}`;
         }
       }
     }
@@ -906,10 +905,10 @@ export function ChatView() {
               {/* Quick-start suggestions */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 text-left">
                 {[
-                  { icon: '✍️', text: '이메일 초안을 작성해줘 — 회의 일정 조율', label: t('chat.example_writing') },
-                  { icon: '🔍', text: '?파이썬으로 CSV 파일 읽는 방법', label: t('chat.example_search') },
-                  { icon: '🎨', text: '/image 한국의 아름다운 가을 산 풍경', label: t('chat.example_image') },
-                  { icon: '💻', text: 'JavaScript로 할 일 목록 앱 만드는 방법', label: t('chat.example_coding') },
+                  { icon: '✍️', text: t('chat.example_writing_text'), label: t('chat.example_writing') },
+                  { icon: '🔍', text: t('chat.example_search_text'), label: t('chat.example_search') },
+                  { icon: '🎨', text: t('chat.example_image_text'), label: t('chat.example_image') },
+                  { icon: '💻', text: t('chat.example_coding_text'), label: t('chat.example_coding') },
                 ].map((s) => (
                   <button
                     key={s.text}
@@ -1005,7 +1004,7 @@ export function ChatView() {
                               <img
                                 key={url}
                                 src={url}
-                                alt="AI 생성 이미지"
+                                alt={t('chat.ai_generated_image')}
                                 className="rounded-xl max-w-full border border-gray-700"
                                 style={{ maxHeight: '400px', objectFit: 'contain' }}
                               />
@@ -1046,7 +1045,7 @@ export function ChatView() {
                         <div className="flex flex-wrap gap-1.5 mb-2">
                           {(msg.images ?? []).map((img, i) => (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img key={i} src={img} alt={`첨부 이미지 ${i + 1}`} className="max-h-48 rounded-lg object-contain border border-white/10" />
+                            <img key={i} src={img} alt={t('chat.attached_image', { index: i + 1 })} className="max-h-48 rounded-lg object-contain border border-white/10" />
                           ))}
                         </div>
                       )}
@@ -1087,7 +1086,7 @@ export function ChatView() {
                       <button
                         onClick={handleRegenerateLast}
                         className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 px-2 py-0.5 rounded bg-red-900/30 hover:bg-red-900/50 transition-colors ml-1"
-                        title="다시 시도"
+                        title={t('chat.retry')}
                       >
                         <RefreshCw size={11} />{t('chat.retry')}
                       </button>
@@ -1123,9 +1122,9 @@ export function ChatView() {
                     {msg.createdAt && (
                       <span
                         className="text-xs text-gray-700 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title={new Date(msg.createdAt).toLocaleString('ko-KR')}
+                        title={new Date(msg.createdAt).toLocaleString()}
                       >
-                        {new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(msg.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
@@ -1169,7 +1168,7 @@ export function ChatView() {
         <div className="fixed bottom-24 right-4 z-40 pointer-events-none">
           <div className="px-3 py-1.5 bg-gray-800/90 border border-gray-700 rounded-full text-xs text-gray-400 flex items-center gap-1.5 shadow-lg backdrop-blur-sm">
             <div className={`w-1.5 h-1.5 rounded-full ${isStreaming ? 'bg-blue-500 animate-pulse' : 'bg-gray-500'}`} />
-            ~{streamTokenCount} 토큰 · ${(streamTokenCount * 0.000003).toFixed(6)}
+            {t('chat.token_counter', { count: streamTokenCount, cost: (streamTokenCount * 0.000003).toFixed(6) })}
           </div>
         </div>
       )}
@@ -1201,7 +1200,7 @@ export function ChatView() {
           </div>
           <div>
             <p className="text-sm text-purple-300 font-medium">{t('chat.generating_image')}</p>
-            <p className="text-xs text-purple-500">DALL-E 3 처리 중 (최대 30초)</p>
+            <p className="text-xs text-purple-500">{t('chat.dalle_processing')}</p>
           </div>
           <div className="ml-auto flex gap-1">
             {[0, 1, 2, 3, 4].map((i) => (
@@ -1228,7 +1227,7 @@ export function ChatView() {
                 {getActiveAgent()?.id === AUTO_MATCH_AGENT_ID ? (
                   <>
                     <div className="text-sm font-medium text-violet-300 leading-tight flex items-center gap-1">
-                      🤖 자동 AI 매칭
+                      🤖 {t('chat.auto_match')}
                     </div>
                     {autoMatchInfo ? (
                       <div className="text-xs text-gray-400 leading-tight truncate max-w-[220px]">
@@ -1384,11 +1383,11 @@ export function ChatView() {
               {attachedImages.map((img, i) => (
                 <div key={i} className="relative group">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img} alt={`첨부 이미지 ${i + 1}`} className="w-16 h-16 object-cover rounded-lg border border-gray-700" />
+                  <img src={img} alt={t('chat.attached_image', { index: i + 1 })} className="w-16 h-16 object-cover rounded-lg border border-gray-700" />
                   <button
                     onClick={() => setAttachedImages((prev) => prev.filter((_, j) => j !== i))}
                     className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-900 border border-gray-700 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 touch-visible transition-opacity"
-                    aria-label={`이미지 ${i + 1} 제거`}
+                    aria-label={t('chat.remove_image_index', { index: i + 1 })}
                   ><XIcon size={10} /></button>
                 </div>
               ))}

@@ -22,26 +22,26 @@ interface ModelResult {
   cost?: number;
 }
 
-// ── 에러 → 친화적 메시지 변환 ────────────────────────────────────────────────
-function friendlyError(raw: string): { icon: string; msg: string } {
+// ── 에러 → 번역 키 변환 ────────────────────────────────────────────────
+function getFriendlyErrorKey(raw: string): { icon: string; msgKey: string } {
   const e = raw.toLowerCase();
   if (/insufficient.balance|insufficient_balance|balance|credit|quota|billing|payment|topup|top.up/i.test(e))
-    return { icon: '💳', msg: '크레딧 충전 필요' };
+    return { icon: '💳', msgKey: 'compare_errors.insufficient_balance' };
   if (/decommission|no longer support|deprecated|removed|sunset/i.test(e))
-    return { icon: '🚫', msg: '지원 종료된 모델' };
+    return { icon: '🚫', msgKey: 'compare_errors.decommissioned' };
   if (/no longer available|not available to new/i.test(e))
-    return { icon: '🚫', msg: '신규 사용자에게 제공 종료된 모델' };
+    return { icon: '🚫', msgKey: 'compare_errors.no_longer_available' };
   if (/invalid.api.key|invalid_api_key|incorrect.api.key|unauthorized|401/i.test(e))
-    return { icon: '🔑', msg: 'API 키를 확인해주세요' };
+    return { icon: '🔑', msgKey: 'compare_errors.invalid_api_key' };
   if (/rate.limit|too.many.request|429/i.test(e))
-    return { icon: '⏳', msg: '요청 한도 초과 — 잠시 후 다시 시도하세요' };
+    return { icon: '⏳', msgKey: 'compare_errors.rate_limit' };
   if (/model.not.found|does.not.exist|no such model|404/i.test(e))
-    return { icon: '❓', msg: '모델을 찾을 수 없어요' };
+    return { icon: '❓', msgKey: 'compare_errors.model_not_found' };
   if (/context.length|max.tokens|too.long|input.too/i.test(e))
-    return { icon: '📏', msg: '입력이 너무 길어요 — 내용을 줄여보세요' };
+    return { icon: '📏', msgKey: 'compare_errors.context_too_long' };
   if (/network|fetch|connect|timeout|econnrefused/i.test(e))
-    return { icon: '🌐', msg: '네트워크 오류 — 인터넷 연결을 확인해주세요' };
-  return { icon: '⚠️', msg: '응답 실패' };
+    return { icon: '🌐', msgKey: 'compare_errors.network_error' };
+  return { icon: '⚠️', msgKey: 'compare_errors.generic_error' };
 }
 
 export function ModelCompareView() {
@@ -207,7 +207,7 @@ export function ModelCompareView() {
                 return (
                   <div key={catKey}>
                     <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      {catMeta.emoji} {catMeta.label}
+                      {catMeta.emoji} {t(catMeta.labelKey)}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {catModels.map((m) => {
@@ -393,11 +393,11 @@ export function ModelCompareView() {
                 <div className="flex-1 overflow-y-auto max-h-96">
                   {result.error ? (
                     (() => {
-                      const { icon, msg } = friendlyError(result.error);
+                      const { icon, msgKey } = getFriendlyErrorKey(result.error);
                       return (
                         <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-gray-700/40 border border-gray-600/40">
                           <span className="text-lg shrink-0">{icon}</span>
-                          <span className="text-sm text-gray-300">{msg}</span>
+                          <span className="text-sm text-gray-300">{t(msgKey)}</span>
                         </div>
                       );
                     })()

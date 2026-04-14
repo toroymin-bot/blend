@@ -18,7 +18,7 @@ export interface LocalFile {
  */
 export async function pickLocalDirectory(): Promise<FileSystemDirectoryHandle> {
   if (!('showDirectoryPicker' in window)) {
-    throw new Error('이 브라우저는 File System Access API를 지원하지 않습니다. Chrome/Edge를 사용해주세요.');
+    throw new Error('This browser does not support the File System Access API. Please use Chrome or Edge.');
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (window as any).showDirectoryPicker({ mode: 'read' });

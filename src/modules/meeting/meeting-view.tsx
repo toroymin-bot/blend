@@ -8,6 +8,7 @@ import { MeetingAnalysis, ActionItem } from '@/types';
 import { diarizeSpeakers, analyzeMeeting, summarizeMeeting } from './meeting-plugin';
 import { useDocumentStore } from '@/stores/document-store';
 import { generateEmbeddings } from '@/modules/plugins/document-plugin';
+import { useTranslation } from '@/lib/i18n';
 
 type InputTab = 'file' | 'youtube';
 type ResultTab = 'transcript' | 'analysis' | 'summary';
@@ -22,7 +23,12 @@ function formatTime(sec: number): string {
 }
 
 function PriorityBadge({ priority }: { priority: ActionItem['priority'] }) {
-  const map = { high: '높음', medium: '보통', low: '낮음' };
+  const { t } = useTranslation();
+  const map: Record<ActionItem['priority'], string> = {
+    high: t('meeting_view.priority_high'),
+    medium: t('meeting_view.priority_medium'),
+    low: t('meeting_view.priority_low'),
+  };
   const colors = {
     high: 'bg-red-900/40 text-red-300',
     medium: 'bg-yellow-900/40 text-yellow-300',
@@ -36,6 +42,7 @@ function PriorityBadge({ priority }: { priority: ActionItem['priority'] }) {
 }
 
 export function MeetingView() {
+  const { t } = useTranslation();
   const { meetings, currentMeetingId, addMeeting, deleteMeeting, setCurrentMeeting, loadFromStorage } = useMeetingStore();
   const { getKey } = useAPIKeyStore();
   const { addDocument, updateDocument } = useDocumentStore();
@@ -55,6 +62,16 @@ export function MeetingView() {
 
   const currentMeeting = meetings.find((m) => m.id === currentMeetingId) ?? null;
 
+  const stepLabelMap: Record<ProcessStep, string> = {
+    idle: '',
+    transcribing: t('meeting_view.step_transcribing'),
+    diarizing: t('meeting_view.step_diarizing'),
+    analyzing: t('meeting_view.step_analyzing'),
+    embedding: t('meeting_view.step_embedding'),
+    done: t('meeting_view.step_done'),
+    error: t('meeting_view.step_error'),
+  };
+
   const processTranscript = useCallback(async (rawTranscript: string, title: string, source: 'file' | 'youtube', sourceUrl?: string) => {
     const openaiKey = getKey('openai');
     const anthropicKey = getKey('anthropic');
@@ -62,7 +79,7 @@ export function MeetingView() {
     const provider = openaiKey ? 'openai' : 'anthropic';
 
     if (!apiKey) {
-      setErrorMsg('OpenAI 또는 Anthropic API 키를 설정해주세요.');
+      setErrorMsg(t('meeting_view.no_openai_key'));
       setStep('error');
       return;
     }
@@ -98,35 +115,36 @@ export function MeetingView() {
       const CHUNK_SIZE = 1000;
       const chunks: { text: string; source: string }[] = [];
       for (let i = 0; i < rawTranscript.length; i += CHUNK_SIZE) {
-        chunks.push({ text: rawTranscript.slice(i, i + CHUNK_SIZE), source: `${title} (${i}~${i + CHUNK_SIZE}자)` });
+        chunks.push({ text: rawTranscript.slice(i, i + CHUNK_SIZE), source: `${title} (${i}~${i + CHUNK_SIZE})` });
       }
-      const doc = { id: meeting.id, name: `[회의] ${title}`, type: 'meeting', chunks, totalChars: rawTranscript.length };
+      const docName = t('meeting_view.doc_name_prefix') + title;
+      const doc = { id: meeting.id, name: docName, type: 'meeting', chunks, totalChars: rawTranscript.length };
       addDocument(doc);
 
       try {
         const embeddedDoc = await generateEmbeddings(doc, openaiKey || getKey('google'), openaiKey ? 'openai' : 'google');
         updateDocument(embeddedDoc);
       } catch {
-        // 임베딩 실패해도 회의 저장은 유지
+        // Keep meeting even if embedding fails
       }
 
       setStep('done');
       setResultTab('transcript');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : '분석 중 오류가 발생했습니다.');
+      setErrorMsg(e instanceof Error ? e.message : t('meeting_view.analysis_error'));
       setStep('error');
     }
-  }, [getKey, addMeeting, addDocument, updateDocument]);
+  }, [getKey, addMeeting, addDocument, updateDocument, t]);
 
   const handleFile = useCallback(async (file: File) => {
     const openaiKey = getKey('openai');
     if (!openaiKey) {
-      setErrorMsg('파일 전사에는 OpenAI API 키가 필요합니다.');
+      setErrorMsg(t('meeting_view.no_transcription_key'));
       setStep('error');
       return;
     }
     if (file.size > 25 * 1024 * 1024) {
-      setErrorMsg('파일 크기가 25MB를 초과합니다. (Whisper 제한)');
+      setErrorMsg(t('meeting_view.file_too_large'));
       setStep('error');
       return;
     }
@@ -134,8 +152,6 @@ export function MeetingView() {
     setStep('transcribing');
     setErrorMsg('');
 
-    // [2026-04-12 01:07] 기능: 서버 API → 클라이언트 직접 Whisper 호출 — 이유: output:'export' 정적 빌드
-    // 기존: fetch('/api/transcribe', { headers: { 'X-API-Key': openaiKey }, body: formData })
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -148,19 +164,17 @@ export function MeetingView() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: { message?: string } })?.error?.message || `전사 실패: ${res.status}`);
+        throw new Error((err as { error?: { message?: string } })?.error?.message || t('meeting_view.transcription_failed', { status: String(res.status) }));
       }
       const data = await res.json();
       const text = data.text ?? '';
       await processTranscript(text, file.name.replace(/\.[^.]+$/, ''), 'file');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : '전사 중 오류가 발생했습니다.');
+      setErrorMsg(e instanceof Error ? e.message : t('meeting_view.transcription_error'));
       setStep('error');
     }
-  }, [getKey, processTranscript]);
+  }, [getKey, processTranscript, t]);
 
-  // [2026-04-12 01:07] YouTube 자막: 서버 API → 클라이언트 직접 호출 (youtube-transcript Node.js 라이브러리 대체)
-  // YouTube의 공개 timedtext XML API 활용 (CORS 허용)
   function extractVideoId(url: string): string | null {
     try {
       const u = new URL(url);
@@ -176,7 +190,6 @@ export function MeetingView() {
   }
 
   async function fetchYouTubeTranscriptClient(videoId: string): Promise<{ rawText: string; title: string }> {
-    // YouTube timedtext API — returns XML captions
     const langs = ['ko', 'en', ''];
     for (const lang of langs) {
       const langParam = lang ? `&lang=${lang}` : '';
@@ -189,10 +202,10 @@ export function MeetingView() {
         const matches = xml.match(/<text[^>]*>([^<]*)<\/text>/g) || [];
         if (matches.length === 0) continue;
         const rawText = matches.map((m) => m.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')).join(' ').replace(/\s+/g, ' ').trim();
-        if (rawText) return { rawText, title: `YouTube 회의 (${videoId})` };
+        if (rawText) return { rawText, title: t('meeting_view.youtube_title', { id: videoId }) };
       } catch {}
     }
-    throw new Error('자막을 찾을 수 없습니다. 자막이 없는 영상이거나 비공개 영상입니다.');
+    throw new Error(t('meeting_view.subtitle_not_found'));
   }
 
   const handleYoutube = useCallback(async () => {
@@ -202,14 +215,14 @@ export function MeetingView() {
 
     try {
       const videoId = extractVideoId(youtubeUrl.trim());
-      if (!videoId) throw new Error('올바른 YouTube URL이 아닙니다.');
+      if (!videoId) throw new Error(t('meeting_view.invalid_youtube_url'));
       const { rawText, title } = await fetchYouTubeTranscriptClient(videoId);
-      await processTranscript(rawText, title || 'YouTube 회의', 'youtube', youtubeUrl.trim());
+      await processTranscript(rawText, title || t('meeting_view.youtube_title', { id: videoId }), 'youtube', youtubeUrl.trim());
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : '자막 추출 중 오류가 발생했습니다.');
+      setErrorMsg(e instanceof Error ? e.message : t('meeting_view.youtube_error'));
       setStep('error');
     }
-  }, [youtubeUrl, processTranscript]);
+  }, [youtubeUrl, processTranscript, t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -220,16 +233,6 @@ export function MeetingView() {
 
   const isProcessing = ['transcribing', 'diarizing', 'analyzing', 'embedding'].includes(step);
 
-  const stepLabel: Record<ProcessStep, string> = {
-    idle: '',
-    transcribing: '음성 인식 중...',
-    diarizing: '화자 분리 중...',
-    analyzing: '주제 및 할일 분석 중...',
-    embedding: 'RAG 인덱싱 중...',
-    done: '분석 완료',
-    error: '오류 발생',
-  };
-
   return (
     <div className="flex flex-col md:flex-row h-full overflow-hidden">
       {/* Meeting list sidebar — desktop only */}
@@ -237,12 +240,12 @@ export function MeetingView() {
         <div className="p-3 border-b border-border-token">
           <h2 className="text-sm font-semibold text-on-surface flex items-center gap-2">
             <Mic size={14} />
-            회의 분석
+            {t('meeting_view.sidebar_title')}
           </h2>
         </div>
         <div className="flex-1 overflow-y-auto">
           {meetings.length === 0 ? (
-            <p className="p-3 text-xs text-on-surface-muted">저장된 회의 없음</p>
+            <p className="p-3 text-xs text-on-surface-muted">{t('meeting_view.no_meetings')}</p>
           ) : (
             meetings.map((m) => (
               <div
@@ -255,7 +258,7 @@ export function MeetingView() {
                     {m.source === 'youtube' ? <span className="text-red-400 text-xs flex-shrink-0">YT</span> : <FileAudio size={11} className="text-blue-400 flex-shrink-0" />}
                     <span className="text-xs text-on-surface truncate">{m.title}</span>
                   </div>
-                  <span className="text-xs text-on-surface-muted">{new Date(m.createdAt).toLocaleDateString('ko-KR')}</span>
+                  <span className="text-xs text-on-surface-muted">{new Date(m.createdAt).toLocaleDateString()}</span>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteMeeting(m.id); }}
@@ -272,7 +275,7 @@ export function MeetingView() {
             onClick={() => { setCurrentMeeting(null); setStep('idle'); setErrorMsg(''); setYoutubeUrl(''); }}
             className="w-full text-xs py-1.5 px-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
           >
-            + 새 분석
+            {t('meeting_view.new_analysis')}
           </button>
         </div>
       </div>
@@ -282,11 +285,11 @@ export function MeetingView() {
         {/* New analysis form */}
         {!currentMeeting && (
           <div className="max-w-2xl mx-auto space-y-5">
-            <h1 className="text-lg font-semibold text-on-surface">회의/녹음 분석</h1>
+            <h1 className="text-lg font-semibold text-on-surface">{t('meeting_view.main_title')}</h1>
 
             {/* Input tab selector */}
             <div className="flex gap-1 bg-surface-2 rounded-lg p-1 w-fit">
-              {([['file', '파일 업로드'], ['youtube', 'YouTube 링크']] as const).map(([id, label]) => (
+              {([['file', t('meeting_view.file_upload')], ['youtube', t('meeting_view.youtube_link')]] as const).map(([id, label]) => (
                 <button
                   key={id}
                   onClick={() => setInputTab(id)}
@@ -308,8 +311,8 @@ export function MeetingView() {
               >
                 <input ref={fileInputRef} type="file" accept={ACCEPT_TYPES} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
                 <Upload size={32} className="mx-auto mb-3 text-on-surface-muted" />
-                <p className="text-sm text-on-surface mb-1">여기에 오디오/비디오 파일을 드롭하거나 클릭하세요</p>
-                <p className="text-xs text-on-surface-muted">지원 형식: mp3, wav, m4a, webm, ogg, mp4 (최대 25MB)</p>
+                <p className="text-sm text-on-surface mb-1">{t('meeting_view.drop_audio')}</p>
+                <p className="text-xs text-on-surface-muted">{t('meeting_view.supported_formats')}</p>
               </div>
             )}
 
@@ -334,10 +337,10 @@ export function MeetingView() {
                     disabled={!youtubeUrl.trim() || isProcessing}
                     className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white rounded-lg text-sm"
                   >
-                    분석 시작
+                    {t('meeting_view.analyze_btn')}
                   </button>
                 </div>
-                <p className="text-xs text-on-surface-muted">한국어 자막 우선, 없으면 영어 자막을 사용합니다. 자막 없는 영상은 지원되지 않습니다.</p>
+                <p className="text-xs text-on-surface-muted">{t('meeting_view.youtube_hint')}</p>
               </div>
             )}
 
@@ -345,7 +348,7 @@ export function MeetingView() {
             {isProcessing && (
               <div className="flex items-center gap-3 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
                 <Loader2 size={18} className="animate-spin text-blue-400 flex-shrink-0" />
-                <span className="text-sm text-blue-300">{stepLabel[step]}</span>
+                <span className="text-sm text-blue-300">{stepLabelMap[step]}</span>
               </div>
             )}
 
@@ -354,7 +357,7 @@ export function MeetingView() {
               <div className="flex items-start gap-3 p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
                 <AlertCircle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-red-300">오류</p>
+                  <p className="text-sm font-medium text-red-300">{t('meeting_view.error_label')}</p>
                   <p className="text-sm text-red-400 mt-0.5">{errorMsg}</p>
                 </div>
               </div>
@@ -372,13 +375,17 @@ export function MeetingView() {
                   {currentMeeting.source === 'youtube' ? <span className="text-red-400 text-sm font-bold">YT</span> : <FileAudio size={16} className="text-blue-400" />}
                   <h1 className="text-lg font-semibold text-on-surface">{currentMeeting.title}</h1>
                 </div>
-                <p className="text-xs text-on-surface-muted">{new Date(currentMeeting.createdAt).toLocaleString('ko-KR')}</p>
+                <p className="text-xs text-on-surface-muted">{new Date(currentMeeting.createdAt).toLocaleString()}</p>
               </div>
             </div>
 
             {/* Result tabs */}
             <div className="flex gap-1 bg-surface-2 rounded-lg p-1 w-fit">
-              {([['transcript', '대화 내용'], ['analysis', '분석'], ['summary', '요약']] as const).map(([id, label]) => (
+              {([
+                ['transcript', t('meeting_view.tab_transcript')],
+                ['analysis', t('meeting_view.tab_analysis')],
+                ['summary', t('meeting_view.tab_summary')],
+              ] as const).map(([id, label]) => (
                 <button
                   key={id}
                   onClick={() => setResultTab(id)}
@@ -427,18 +434,18 @@ export function MeetingView() {
               <div className="space-y-5">
                 {/* Topics */}
                 <div>
-                  <h3 className="text-sm font-semibold text-on-surface mb-2 flex items-center gap-2"><Tag size={14} />주요 주제</h3>
+                  <h3 className="text-sm font-semibold text-on-surface mb-2 flex items-center gap-2"><Tag size={14} />{t('meeting_view.topics_label')}</h3>
                   <div className="flex flex-wrap gap-2">
-                    {currentMeeting.topics.map((t, i) => (
-                      <span key={i} className="px-3 py-1 bg-blue-900/40 text-blue-300 rounded-full text-sm">{t}</span>
+                    {currentMeeting.topics.map((topic, i) => (
+                      <span key={i} className="px-3 py-1 bg-blue-900/40 text-blue-300 rounded-full text-sm">{topic}</span>
                     ))}
-                    {currentMeeting.topics.length === 0 && <p className="text-sm text-on-surface-muted">주제를 찾을 수 없습니다</p>}
+                    {currentMeeting.topics.length === 0 && <p className="text-sm text-on-surface-muted">{t('meeting_view.no_topics')}</p>}
                   </div>
                 </div>
 
                 {/* Action items */}
                 <div>
-                  <h3 className="text-sm font-semibold text-on-surface mb-2 flex items-center gap-2"><CheckSquare size={14} />할일 목록</h3>
+                  <h3 className="text-sm font-semibold text-on-surface mb-2 flex items-center gap-2"><CheckSquare size={14} />{t('meeting_view.action_items_label')}</h3>
                   <div className="space-y-2">
                     {currentMeeting.actionItems.map((item, i) => (
                       <div key={i} className="flex items-start gap-3 p-3 bg-surface-2 rounded-lg">
@@ -452,19 +459,19 @@ export function MeetingView() {
                           </div>
                           {(item.owner || item.deadline) && (
                             <p className="text-xs text-on-surface-muted mt-0.5">
-                              {item.owner && `담당: ${item.owner}`}{item.owner && item.deadline && ' · '}{item.deadline && `기한: ${item.deadline}`}
+                              {item.owner && `${t('meeting_view.assignee')}: ${item.owner}`}{item.owner && item.deadline && ' · '}{item.deadline && `${t('meeting_view.due_date')}: ${item.deadline}`}
                             </p>
                           )}
                         </div>
                       </div>
                     ))}
-                    {currentMeeting.actionItems.length === 0 && <p className="text-sm text-on-surface-muted">할일이 없습니다</p>}
+                    {currentMeeting.actionItems.length === 0 && <p className="text-sm text-on-surface-muted">{t('meeting_view.no_action_items')}</p>}
                   </div>
                 </div>
 
                 {/* Decisions */}
                 <div>
-                  <h3 className="text-sm font-semibold text-on-surface mb-2">결정사항</h3>
+                  <h3 className="text-sm font-semibold text-on-surface mb-2">{t('meeting_view.decisions_label')}</h3>
                   <div className="space-y-2">
                     {currentMeeting.decisions.map((d, i) => (
                       <div key={i} className="flex items-start gap-2 p-3 bg-surface-2 rounded-lg">
@@ -472,7 +479,7 @@ export function MeetingView() {
                         <span className="text-sm text-on-surface">{d}</span>
                       </div>
                     ))}
-                    {currentMeeting.decisions.length === 0 && <p className="text-sm text-on-surface-muted">결정사항이 없습니다</p>}
+                    {currentMeeting.decisions.length === 0 && <p className="text-sm text-on-surface-muted">{t('meeting_view.no_decisions')}</p>}
                   </div>
                 </div>
               </div>
@@ -482,11 +489,10 @@ export function MeetingView() {
             {resultTab === 'summary' && (
               <div className="space-y-4">
                 <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                  <p className="text-sm font-medium text-blue-300 mb-1">한 줄 요약</p>
+                  <p className="text-sm font-medium text-blue-300 mb-1">{t('meeting_view.tab_summary')}</p>
                   <p className="text-base text-on-surface">{currentMeeting.summary.oneLiner || '—'}</p>
                 </div>
                 <div className="p-4 bg-surface-2 rounded-lg">
-                  <p className="text-sm font-medium text-on-surface mb-3">핵심 요점</p>
                   <ul className="space-y-2">
                     {currentMeeting.summary.bullets.map((b, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-on-surface">
@@ -498,7 +504,6 @@ export function MeetingView() {
                 </div>
                 {currentMeeting.summary.full && (
                   <div className="p-4 bg-surface-2 rounded-lg">
-                    <p className="text-sm font-medium text-on-surface mb-2">전체 요약</p>
                     <p className="text-sm text-on-surface whitespace-pre-wrap leading-relaxed">{currentMeeting.summary.full}</p>
                   </div>
                 )}

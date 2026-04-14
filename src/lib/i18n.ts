@@ -46,6 +46,19 @@ export interface UseTranslationResult {
 }
 
 /**
+ * Derive language from the URL path (/en/... → 'en', /ko/... → 'ko').
+ * Returns null if the path doesn't start with a known lang segment.
+ * Only works in browser environments.
+ */
+function getLangFromPath(): Language | null {
+  if (typeof window === 'undefined') return null;
+  const seg = window.location.pathname.split('/')[1];
+  if (seg === 'en') return 'en';
+  if (seg === 'ko') return 'ko';
+  return null;
+}
+
+/**
  * Primary hook for translations.
  * Usage:
  *   const { t, lang, setLang } = useTranslation();
@@ -53,7 +66,9 @@ export interface UseTranslationResult {
  */
 export function useTranslation(): UseTranslationResult {
   const { settings, updateSettings } = useSettingsStore();
-  const lang: Language = (settings.language as Language) ?? 'ko';
+  // URL path takes priority over stored setting so /en/ always renders in English
+  // even before the useEffect in page-client.tsx fires.
+  const lang: Language = getLangFromPath() ?? (settings.language as Language) ?? 'ko';
 
   const dict = useMemo(() => translations[lang] ?? translations.ko, [lang]);
 

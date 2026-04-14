@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { CodeRunner } from '@/modules/plugins/code-runner';
 import { usePluginStore } from '@/stores/plugin-store';
+import { useTranslation } from '@/lib/i18n';
 
 interface CodeBlockProps {
   children: string;
@@ -12,6 +13,7 @@ interface CodeBlockProps {
 }
 
 export function CodeBlock({ children, language, filename }: CodeBlockProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const { isInstalled } = usePluginStore();
   const codeRunnerEnabled = isInstalled('code-runner');
@@ -58,12 +60,12 @@ export function CodeBlock({ children, language, filename }: CodeBlockProps) {
           {copied ? (
             <>
               <Check size={12} className="text-green-400" />
-              <span className="text-green-400">복사됨</span>
+              <span className="text-green-400">{t('common.copied')}</span>
             </>
           ) : (
             <>
               <Copy size={12} />
-              <span>복사</span>
+              <span>{t('common.copy')}</span>
             </>
           )}
         </button>

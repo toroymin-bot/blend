@@ -12,46 +12,46 @@ import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Pl
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 import { useTranslation } from '@/lib/i18n';
 
-const API_GUIDE_STEPS: Record<string, { emoji: string; title: string; desc: string }[]> = {
+const API_GUIDE_STEPS_KEYS: Record<string, { emoji: string; titleKey: string; descKey: string }[]> = {
   openai: [
-    { emoji: '🌐', title: '사이트 접속', desc: 'platform.openai.com 을 열어요' },
-    { emoji: '👤', title: '회원가입 / 로그인', desc: '이메일로 계정을 만들거나 로그인해요' },
-    { emoji: '💳', title: '카드 등록', desc: 'Billing → Add payment method 에서 신용카드를 등록해요 (카드 없으면 사용 불가)' },
-    { emoji: '🗂️', title: 'API keys 메뉴 클릭', desc: '왼쪽 메뉴에서 "API keys" 를 찾아요' },
-    { emoji: '➕', title: '새 키 만들기', desc: '"Create new secret key" 버튼을 눌러요' },
-    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'sk-... 로 시작하는 긴 문자를 복사해서 위 칸에 넣어요' },
+    { emoji: '🌐', titleKey: 'settings.guide_visit_site', descKey: 'settings.guide_openai_visit' },
+    { emoji: '👤', titleKey: 'settings.guide_signup', descKey: 'settings.guide_signup_email' },
+    { emoji: '💳', titleKey: 'settings.guide_add_card', descKey: 'settings.guide_openai_card' },
+    { emoji: '🗂️', titleKey: 'settings.guide_api_keys_menu', descKey: 'settings.guide_api_keys_menu_desc' },
+    { emoji: '➕', titleKey: 'settings.guide_create_key', descKey: 'settings.guide_openai_create' },
+    { emoji: '📋', titleKey: 'settings.guide_copy_key', descKey: 'settings.guide_openai_copy' },
   ],
   anthropic: [
-    { emoji: '🌐', title: '사이트 접속', desc: 'console.anthropic.com 을 열어요' },
-    { emoji: '👤', title: '회원가입 / 로그인', desc: '이메일로 계정을 만들거나 로그인해요' },
-    { emoji: '💳', title: '카드 등록', desc: 'Plans → Add credit card 에서 신용카드를 등록해요 (카드 없으면 사용 불가)' },
-    { emoji: '🗂️', title: 'API Keys 메뉴 클릭', desc: '왼쪽 메뉴에서 "API Keys" 를 찾아요' },
-    { emoji: '➕', title: '새 키 만들기', desc: '"Create Key" 버튼을 눌러요' },
-    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'sk-ant-... 로 시작하는 문자를 복사해서 위 칸에 넣어요' },
+    { emoji: '🌐', titleKey: 'settings.guide_visit_site', descKey: 'settings.guide_anthropic_visit' },
+    { emoji: '👤', titleKey: 'settings.guide_signup', descKey: 'settings.guide_signup_email' },
+    { emoji: '💳', titleKey: 'settings.guide_add_card', descKey: 'settings.guide_anthropic_card' },
+    { emoji: '🗂️', titleKey: 'settings.guide_api_keys_menu', descKey: 'settings.guide_api_keys_menu_desc' },
+    { emoji: '➕', titleKey: 'settings.guide_create_key', descKey: 'settings.guide_anthropic_create' },
+    { emoji: '📋', titleKey: 'settings.guide_copy_key', descKey: 'settings.guide_anthropic_copy' },
   ],
   google: [
-    { emoji: '🌐', title: '사이트 접속', desc: 'aistudio.google.com 을 열어요' },
-    { emoji: '👤', title: '구글 계정으로 로그인', desc: '구글 계정 (Gmail) 으로 바로 로그인해요' },
-    { emoji: '🔑', title: '"Get API key" 클릭', desc: '화면 왼쪽에서 "Get API key" 를 눌러요' },
-    { emoji: '➕', title: '새 키 만들기', desc: '"Create API key" 버튼을 눌러요' },
-    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'AIza... 로 시작하는 문자를 복사해서 위 칸에 넣어요' },
-    { emoji: '🎉', title: '무료로 바로 사용', desc: '카드 등록 없이도 무료 티어로 바로 사용할 수 있어요' },
+    { emoji: '🌐', titleKey: 'settings.guide_visit_site', descKey: 'settings.guide_google_visit' },
+    { emoji: '👤', titleKey: 'settings.guide_google_login', descKey: 'settings.guide_google_login_desc' },
+    { emoji: '🔑', titleKey: 'settings.guide_google_get_key', descKey: 'settings.guide_google_get_key_desc' },
+    { emoji: '➕', titleKey: 'settings.guide_create_key', descKey: 'settings.guide_google_create' },
+    { emoji: '📋', titleKey: 'settings.guide_copy_key', descKey: 'settings.guide_google_copy' },
+    { emoji: '🎉', titleKey: 'settings.guide_free_tier', descKey: 'settings.guide_free_tier_desc' },
   ],
   deepseek: [
-    { emoji: '🌐', title: '사이트 접속', desc: 'platform.deepseek.com 을 열어요' },
-    { emoji: '👤', title: '회원가입 / 로그인', desc: '이메일로 계정을 만들거나 로그인해요' },
-    { emoji: '💳', title: '크레딧 충전', desc: 'Top Up 메뉴에서 소량 충전해요 (매우 저렴)' },
-    { emoji: '🗂️', title: 'API Keys 메뉴 클릭', desc: '왼쪽 메뉴에서 "API Keys" 를 찾아요' },
-    { emoji: '➕', title: '새 키 만들기', desc: '"Create new API key" 버튼을 눌러요' },
-    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'sk-... 로 시작하는 문자를 복사해서 위 칸에 넣어요' },
+    { emoji: '🌐', titleKey: 'settings.guide_visit_site', descKey: 'settings.guide_deepseek_visit' },
+    { emoji: '👤', titleKey: 'settings.guide_signup', descKey: 'settings.guide_signup_email' },
+    { emoji: '💳', titleKey: 'settings.guide_topup', descKey: 'settings.guide_deepseek_topup' },
+    { emoji: '🗂️', titleKey: 'settings.guide_api_keys_menu', descKey: 'settings.guide_api_keys_menu_desc' },
+    { emoji: '➕', titleKey: 'settings.guide_create_key', descKey: 'settings.guide_deepseek_create' },
+    { emoji: '📋', titleKey: 'settings.guide_copy_key', descKey: 'settings.guide_openai_copy' },
   ],
   groq: [
-    { emoji: '🌐', title: '사이트 접속', desc: 'console.groq.com 을 열어요' },
-    { emoji: '👤', title: '회원가입 / 로그인', desc: '이메일 또는 GitHub으로 로그인해요' },
-    { emoji: '🗂️', title: 'API Keys 메뉴 클릭', desc: '왼쪽 메뉴에서 "API Keys" 를 찾아요' },
-    { emoji: '➕', title: '새 키 만들기', desc: '"Create API Key" 버튼을 눌러요' },
-    { emoji: '📋', title: '키 복사 후 붙여넣기', desc: 'gsk_... 로 시작하는 문자를 복사해서 위 칸에 넣어요' },
-    { emoji: '🎉', title: '무료로 바로 사용', desc: '카드 등록 없이도 무료 티어로 바로 사용할 수 있어요' },
+    { emoji: '🌐', titleKey: 'settings.guide_visit_site', descKey: 'settings.guide_groq_visit' },
+    { emoji: '👤', titleKey: 'settings.guide_signup', descKey: 'settings.guide_groq_signup' },
+    { emoji: '🗂️', titleKey: 'settings.guide_api_keys_menu', descKey: 'settings.guide_api_keys_menu_desc' },
+    { emoji: '➕', titleKey: 'settings.guide_create_key', descKey: 'settings.guide_groq_create' },
+    { emoji: '📋', titleKey: 'settings.guide_copy_key', descKey: 'settings.guide_groq_copy' },
+    { emoji: '🎉', titleKey: 'settings.guide_free_tier', descKey: 'settings.guide_free_tier_desc' },
   ],
 };
 
@@ -62,7 +62,7 @@ const PROVIDERS: {
   placeholder: string;
   models: string;
   keyUrl: string;
-  note?: string;
+  noteKey?: string;
 }[] = [
   {
     id: 'openai',
@@ -87,7 +87,7 @@ const PROVIDERS: {
     placeholder: 'AIza...',
     models: 'Gemini 2.0 Flash, Gemini 2.5 Pro',
     keyUrl: 'https://aistudio.google.com/app/apikey',
-    note: '무료 티어 제공',
+    noteKey: 'common.free_tier',
   },
   {
     id: 'deepseek',
@@ -96,7 +96,7 @@ const PROVIDERS: {
     placeholder: 'sk-...',
     models: 'DeepSeek-V3, DeepSeek-R1',
     keyUrl: 'https://platform.deepseek.com/api_keys',
-    note: '초저가',
+    noteKey: 'common.ultra_cheap',
   },
   {
     id: 'groq',
@@ -105,7 +105,7 @@ const PROVIDERS: {
     placeholder: 'gsk_...',
     models: 'Llama 3.3 70B, Mixtral 8x7B',
     keyUrl: 'https://console.groq.com/keys',
-    note: '무료 티어 · 초고속',
+    noteKey: 'common.free_fast',
   },
 ];
 
@@ -163,9 +163,9 @@ export function SettingsView() {
         if (data.prompts) usePromptStore.setState({ prompts: data.prompts });
         if (data.agents) useAgentStore.setState({ agents: data.agents });
         if (data.usage) useUsageStore.setState({ records: data.usage });
-        alert('가져오기 완료!');
+        alert(t('settings.import_success'));
       } catch {
-        alert('잘못된 파일 형식입니다.');
+        alert(t('settings.import_error'));
       }
     };
     reader.readAsText(file);
@@ -210,7 +210,7 @@ export function SettingsView() {
   };
 
   const handleClearAll = () => {
-    if (confirm('모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+    if (confirm(t('settings.clear_all_confirm'))) {
       // [2026-04-12 01:07] BUG-011 수정: localStorage.clear() → blend: 접두사 키만 삭제
       // 기존: localStorage.clear() → 다른 브라우저 앱 데이터까지 삭제되는 버그
       // 수정: blend: 또는 blend- 로 시작하는 키만 삭제
@@ -226,7 +226,7 @@ export function SettingsView() {
     }
   };
 
-  const guideData = guideProvider ? API_GUIDE_STEPS[guideProvider] : null;
+  const guideData = guideProvider ? API_GUIDE_STEPS_KEYS[guideProvider] : null;
   const guideProviderInfo = PROVIDERS.find((p) => p.id === guideProvider);
 
   return (
@@ -240,7 +240,7 @@ export function SettingsView() {
               {/* Header */}
               <div className="px-5 pt-5 pb-4 border-b border-gray-700 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 mb-0.5">API 키 받는 방법</p>
+                  <p className="text-xs text-gray-400 mb-0.5">{t('settings.api_guide_title')}</p>
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
                     <span style={{ color: guideProviderInfo?.color }}>●</span>
                     {guideProviderInfo?.name}
@@ -260,8 +260,8 @@ export function SettingsView() {
                     <div className="flex items-start gap-2.5 pt-0.5">
                       <span className="text-xl leading-none">{step.emoji}</span>
                       <div>
-                        <p className="text-sm font-medium text-white leading-tight">{step.title}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{step.desc}</p>
+                        <p className="text-sm font-medium text-white leading-tight">{t(step.titleKey)}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{t(step.descKey)}</p>
                       </div>
                     </div>
                   </div>
@@ -275,7 +275,7 @@ export function SettingsView() {
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium text-white transition-colors"
                 >
-                  사이트 바로 가기 <ExternalLink size={14} />
+                  {t('settings.go_to_site')} <ExternalLink size={14} />
                 </a>
               </div>
             </div>
@@ -283,14 +283,14 @@ export function SettingsView() {
         </>
       )}
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-on-surface mb-6">설정</h1>
+        <h1 className="text-2xl font-bold text-on-surface mb-6">{t('settings.title')}</h1>
 
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-on-surface mb-1 flex items-center gap-2">
-            <Key size={20} /> API 키 관리
+            <Key size={20} /> {t('settings.api_keys')}
           </h2>
           <p className="text-sm text-on-surface-muted mb-4">
-            사용할 AI 서비스의 API 키를 입력하세요. 키는 내 브라우저에만 저장되며 외부로 전송되지 않습니다.
+            {t('settings.api_keys_desc')}
           </p>
 
           <div className="space-y-3">
@@ -303,8 +303,8 @@ export function SettingsView() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-on-surface">{provider.name}</span>
-                        {provider.note && (
-                          <span className="text-xs text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">{provider.note}</span>
+                        {provider.noteKey && (
+                          <span className="text-xs text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">{t(provider.noteKey)}</span>
                         )}
                       </div>
                       <p className="text-xs text-on-surface-muted mt-0.5">{provider.models}</p>
@@ -313,11 +313,11 @@ export function SettingsView() {
                   <div className="flex items-center gap-2 shrink-0">
                     {keys[provider.id] ? (
                       <span className="flex items-center gap-1 text-xs text-green-400">
-                        <Check size={12} /> 설정됨
+                        <Check size={12} /> {t('settings.key_set')}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-xs text-on-surface-muted">
-                        <X size={12} /> 미설정
+                        <X size={12} /> {t('settings.key_not_set')}
                       </span>
                     )}
                   </div>
@@ -334,7 +334,7 @@ export function SettingsView() {
                   <button
                     onClick={() => setShowKeys((s) => ({ ...s, [provider.id]: !s[provider.id] }))}
                     className="p-2 text-on-surface-muted hover:text-on-surface"
-                    aria-label={showKeys[provider.id] ? '키 숨기기' : '키 보기'}
+                    aria-label={showKeys[provider.id] ? t('settings.hide_key') : t('settings.show_key')}
                   >
                     {showKeys[provider.id] ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -347,12 +347,12 @@ export function SettingsView() {
                         testResult[provider.id] === 'fail' ? 'bg-red-700 text-red-100' :
                         'bg-gray-600 text-gray-300 hover:bg-gray-500'
                       }`}
-                      title="API 키 유효성 검사"
+                      title={t('settings.test_key')}
                     >
                       {testingKey[provider.id] ? <Loader size={12} className="animate-spin" /> :
                        testResult[provider.id] === 'ok' ? <Check size={12} /> :
                        testResult[provider.id] === 'fail' ? <AlertCircle size={12} /> :
-                       '테스트'}
+                       t('settings.test_key')}
                     </button>
                   )}
                 </div>
@@ -365,13 +365,13 @@ export function SettingsView() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
                     >
-                      API 키 발급받기 <ExternalLink size={11} />
+                      {t('settings.get_api_key')} <ExternalLink size={11} />
                     </a>
                     <button
                       onClick={() => setGuideProvider(provider.id)}
                       className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200"
                     >
-                      <HelpCircle size={12} /> 어떻게 받아요?
+                      <HelpCircle size={12} /> {t('settings.how_to_get')}
                     </button>
                   </div>
                 )}
@@ -383,10 +383,10 @@ export function SettingsView() {
         {/* ── Custom Model Endpoints ── */}
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-on-surface mb-1 flex items-center gap-2">
-            <Cpu size={20} /> 커스텀 모델 엔드포인트
+            <Cpu size={20} /> {t('settings.custom_models')}
           </h2>
           <p className="text-sm text-on-surface-muted mb-4">
-            내 컴퓨터에서 돌리는 AI(Ollama 등)나 다른 AI 서비스를 연결해요.
+            {t('settings.custom_models_desc')}
           </p>
 
           {/* Existing custom models */}
@@ -401,7 +401,7 @@ export function SettingsView() {
                   <button
                     onClick={() => removeCustomModel(m.id)}
                     className="text-on-surface-muted hover:text-red-400 p-1.5 shrink-0"
-                    aria-label={`${m.name} 삭제`}
+                    aria-label={`${t('settings.delete')} ${m.name}`}
                   ><Trash2 size={14} /></button>
                 </div>
               ))}
@@ -413,7 +413,7 @@ export function SettingsView() {
             <div className="bg-surface-2 rounded-xl p-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-on-surface-muted mb-1 block">표시 이름</label>
+                  <label className="text-xs text-on-surface-muted mb-1 block">{t('settings.display_name')}</label>
                   <input
                     type="text"
                     value={newModelName}
@@ -423,7 +423,7 @@ export function SettingsView() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-on-surface-muted mb-1 block">모델 ID</label>
+                  <label className="text-xs text-on-surface-muted mb-1 block">{t('settings.model_id')}</label>
                   <input
                     type="text"
                     value={newModelId}
@@ -464,11 +464,11 @@ export function SettingsView() {
                     setShowAddModel(false);
                   }}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white"
-                >추가</button>
+                >{t('settings.add')}</button>
                 <button
                   onClick={() => { setShowAddModel(false); setNewModelName(''); setNewModelId(''); setNewModelBaseUrl(''); }}
                   className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-300"
-                >취소</button>
+                >{t('settings.cancel')}</button>
               </div>
             </div>
           ) : (
@@ -476,36 +476,36 @@ export function SettingsView() {
               onClick={() => setShowAddModel(true)}
               className="flex items-center gap-2 px-4 py-2 bg-surface-2 hover:bg-gray-700 rounded-xl text-sm text-on-surface-muted border border-dashed border-border-token transition-colors"
             >
-              <Plus size={16} /> 모델 추가
+              <Plus size={16} /> {t('settings.add_model')}
             </button>
           )}
         </section>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-on-surface mb-4">테마</h2>
+          <h2 className="text-lg font-semibold text-on-surface mb-4">{t('settings.theme')}</h2>
           <div className="bg-surface-2 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-on-surface">색상 테마</span>
+              <span className="text-sm text-on-surface">{t('settings.color_theme')}</span>
               <div className="flex gap-1">
-                {(['light', 'dark', 'system'] as const).map((t) => (
+                {(['light', 'dark', 'system'] as const).map((theme) => (
                   <button
-                    key={t}
-                    onClick={() => updateSettings({ theme: t })}
+                    key={theme}
+                    onClick={() => updateSettings({ theme })}
                     className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      settings.theme === t
+                      settings.theme === theme
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'
                     }`}
                   >
-                    {t === 'light' && <Sun size={12} />}
-                    {t === 'dark' && <Moon size={12} />}
-                    {t === 'light' ? '라이트' : t === 'dark' ? '다크' : '시스템'}
+                    {theme === 'light' && <Sun size={12} />}
+                    {theme === 'dark' && <Moon size={12} />}
+                    {theme === 'light' ? t('settings.light') : theme === 'dark' ? t('settings.dark') : t('settings.system')}
                   </button>
                 ))}
               </div>
             </div>
             <p className="text-xs text-on-surface-muted">
-              {settings.theme === 'system' ? '시스템 설정을 따릅니다' : settings.theme === 'light' ? '라이트 모드가 적용됩니다' : '다크 모드가 적용됩니다'}
+              {settings.theme === 'system' ? t('settings.theme_system') : settings.theme === 'light' ? t('settings.theme_light') : t('settings.theme_dark')}
             </p>
           </div>
         </section>
@@ -538,13 +538,13 @@ export function SettingsView() {
         </section>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-on-surface mb-4">비용 알림</h2>
+          <h2 className="text-lg font-semibold text-on-surface mb-4">{t('settings.cost_alert')}</h2>
           <div className="bg-surface-2 rounded-xl p-4">
             <p className="text-sm text-on-surface-muted mb-3">
-              하루에 이 금액 이상 AI를 쓰면 알림을 줘요. 0으로 두면 알림이 없어요.
+              {t('settings.cost_alert_desc')}
             </p>
             <div className="flex items-center gap-3">
-              <label className="text-sm text-on-surface whitespace-nowrap">일일 한도 (USD)</label>
+              <label className="text-sm text-on-surface whitespace-nowrap">{t('settings.daily_limit')}</label>
               <div className="flex items-center gap-1">
                 <span className="text-on-surface-muted text-sm">$</span>
                 <input
@@ -557,22 +557,22 @@ export function SettingsView() {
                 />
               </div>
               <span className="text-xs text-on-surface-muted">
-                {(settings.dailyCostLimit ?? 0) <= 0 ? '비활성화됨' : `$${(settings.dailyCostLimit ?? 1).toFixed(2)} 초과 시 경고`}
+                {(settings.dailyCostLimit ?? 0) <= 0 ? t('settings.limit_disabled') : t('settings.limit_warn', { amount: (settings.dailyCostLimit ?? 1).toFixed(2) })}
               </span>
             </div>
           </div>
         </section>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-on-surface mb-4">글로벌 시스템 프롬프트</h2>
+          <h2 className="text-lg font-semibold text-on-surface mb-4">{t('settings.system_prompt')}</h2>
           <div className="bg-surface-2 rounded-xl p-4">
             <p className="text-sm text-on-surface-muted mb-2">
-              모든 대화에 기본으로 적용되는 AI 성격 설정이에요. 에이전트를 쓸 땐 에이전트 설정이 우선이에요.
+              {t('settings.system_prompt_desc')}
             </p>
             <textarea
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="예: 당신은 한국어로 답변하는 AI 어시스턴트입니다..."
+              placeholder={t('settings.system_prompt_placeholder')}
               rows={4}
               className="w-full px-3 py-2 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none resize-none focus:ring-1 focus:ring-blue-500"
             />
@@ -581,15 +581,15 @@ export function SettingsView() {
             <div className="mt-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-on-surface-muted flex items-center gap-1">
-                  <BookMarked size={11} /> 프리셋 라이브러리
+                  <BookMarked size={11} /> {t('settings.preset_library')}
                 </span>
                 <button
                   onClick={() => { setShowSavePreset(true); setPresetName(''); }}
                   disabled={!systemPrompt.trim()}
                   className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40 flex items-center gap-0.5"
-                  aria-label="현재 시스템 프롬프트를 라이브러리에 저장"
+                  aria-label={t('settings.save_current')}
                 >
-                  <Plus size={11} /> 현재 내용 저장
+                  <Plus size={11} /> {t('settings.save_current')}
                 </button>
               </div>
 
@@ -608,15 +608,15 @@ export function SettingsView() {
                       }
                       if (e.key === 'Escape') setShowSavePreset(false);
                     }}
-                    placeholder="프리셋 이름..."
+                    placeholder={t('settings.preset_name_placeholder')}
                     className="flex-1 px-2.5 py-1.5 bg-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
-                    aria-label="프리셋 이름 입력"
+                    aria-label={t('settings.preset_name_placeholder')}
                   />
                   <button
                     onClick={() => { if (presetName.trim()) { addSystemPromptPreset(presetName.trim(), systemPrompt); setShowSavePreset(false); } }}
                     className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs text-white"
-                  >저장</button>
-                  <button onClick={() => setShowSavePreset(false)} className="text-on-surface-muted hover:text-on-surface" aria-label="취소">
+                  >{t('settings.save')}</button>
+                  <button onClick={() => setShowSavePreset(false)} className="text-on-surface-muted hover:text-on-surface" aria-label={t('settings.cancel')}>
                     <X size={16} />
                   </button>
                 </div>
@@ -631,57 +631,57 @@ export function SettingsView() {
                         onClick={() => setSystemPrompt(p.content)}
                         className="text-gray-200 hover:text-white max-w-[120px] truncate"
                         title={p.content}
-                        aria-label={`프리셋 '${p.name}' 적용`}
+                        aria-label={t('settings.apply_preset', { name: p.name })}
                       >{p.name}</button>
                       <button
                         onClick={() => removeSystemPromptPreset(p.id)}
                         className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label={`프리셋 '${p.name}' 삭제`}
+                        aria-label={t('settings.delete_preset', { name: p.name })}
                       ><X size={10} /></button>
                     </div>
                   ))}
                 </div>
               )}
               {systemPromptPresets.length === 0 && !showSavePreset && (
-                <p className="text-xs text-on-surface-muted">저장된 프리셋이 없습니다</p>
+                <p className="text-xs text-on-surface-muted">{t('settings.no_presets')}</p>
               )}
             </div>
           </div>
         </section>
 
         <section className="mb-8">
-          <h2 className="text-lg font-semibold text-on-surface mb-4">데이터 저장소</h2>
+          <h2 className="text-lg font-semibold text-on-surface mb-4">{t('settings.data_storage')}</h2>
           <div className="bg-surface-2 rounded-xl p-4">
             <p className="text-sm text-on-surface-muted mb-2">
-              모든 데이터는 브라우저 로컬 저장소에 저장됩니다. 서버로 전송되지 않습니다.
+              {t('settings.data_storage_desc')}
             </p>
             <div className="flex flex-wrap gap-2">
               <button onClick={handleExport} className="flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm text-white">
-                <Download size={14} /> 전체 백업
+                <Download size={14} /> {t('settings.export_all')}
               </button>
               <button
                 onClick={() => exportAllChatsAsJSON(chatStore.chats)}
                 className="flex items-center gap-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white"
-                title="모든 채팅을 JSON 파일 하나로 내보냅니다"
+                title={t('settings.export_chats_json')}
               >
-                <Download size={14} /> 채팅 JSON 내보내기
+                <Download size={14} /> {t('settings.export_chats_json')}
               </button>
               <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white">
-                <Upload size={14} /> 가져오기
+                <Upload size={14} /> {t('settings.import')}
               </button>
               <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
               <button onClick={handleClearAll} className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 rounded-lg text-sm text-red-400">
-                전체 삭제
+                {t('settings.clear_all')}
               </button>
             </div>
           </div>
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-on-surface mb-4">정보</h2>
+          <h2 className="text-lg font-semibold text-on-surface mb-4">{t('settings.info')}</h2>
           <div className="bg-surface-2 rounded-xl p-4 text-sm text-on-surface-muted">
-            <p>Blend v0.1.0</p>
-            <p className="mt-1">모든 AI 구독 — 하나로, 더 싸게, 더 스마트하게</p>
+            <p>{t('settings.version')}</p>
+            <p className="mt-1">{t('app.tagline')}</p>
           </div>
         </section>
       </div>

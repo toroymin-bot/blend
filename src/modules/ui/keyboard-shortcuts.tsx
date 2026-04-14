@@ -4,6 +4,7 @@
 
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 interface ShortcutConfig {
   key: string;
@@ -42,21 +43,21 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
   }, [shortcuts]);
 }
 
-export const SHORTCUT_LIST = [
-  { keys: '⌘ N', description: '새 채팅 시작', category: '채팅' },
-  { keys: '⌘ [', description: '이전 채팅으로 이동', category: '채팅' },
-  { keys: '⌘ ]', description: '다음 채팅으로 이동', category: '채팅' },
-  { keys: '⌘ R', description: '마지막 AI 응답 재생성', category: '채팅' },
-  { keys: '⌘ E', description: '마지막 사용자 메시지 편집', category: '채팅' },
-  { keys: 'Enter', description: '메시지 전송', category: '채팅' },
-  { keys: '⇧ Enter', description: '줄바꿈', category: '채팅' },
-  { keys: '⌘ F', description: '채팅 내 검색', category: '검색' },
-  { keys: '⌘ K', description: '사이드바 검색 포커스', category: '검색' },
-  { keys: '/', description: '입력창 포커스', category: '검색' },
-  { keys: '⌘ ,', description: '설정 열기', category: '화면' },
-  { keys: '⌘ ⇧ T', description: '다크/라이트 테마 전환', category: '화면' },
-  { keys: '? 또는 ⌘ /', description: '단축키 도움말', category: '화면' },
-  { keys: 'ESC', description: '검색·모달 닫기', category: '화면' },
+export const SHORTCUT_LIST_KEYS = [
+  { keys: '⌘ N', descKey: 'shortcuts.new_chat', catKey: 'shortcuts.cat_chat' },
+  { keys: '⌘ [', descKey: 'shortcuts.prev_chat', catKey: 'shortcuts.cat_chat' },
+  { keys: '⌘ ]', descKey: 'shortcuts.next_chat', catKey: 'shortcuts.cat_chat' },
+  { keys: '⌘ R', descKey: 'shortcuts.regen', catKey: 'shortcuts.cat_chat' },
+  { keys: '⌘ E', descKey: 'shortcuts.edit_msg', catKey: 'shortcuts.cat_chat' },
+  { keys: 'Enter', descKey: 'shortcuts.send', catKey: 'shortcuts.cat_chat' },
+  { keys: '⇧ Enter', descKey: 'shortcuts.newline', catKey: 'shortcuts.cat_chat' },
+  { keys: '⌘ F', descKey: 'shortcuts.search_chat', catKey: 'shortcuts.cat_search' },
+  { keys: '⌘ K', descKey: 'shortcuts.sidebar_search', catKey: 'shortcuts.cat_search' },
+  { keys: '/', descKey: 'shortcuts.focus_input', catKey: 'shortcuts.cat_search' },
+  { keys: '⌘ ,', descKey: 'shortcuts.open_settings', catKey: 'shortcuts.cat_ui' },
+  { keys: '⌘ ⇧ T', descKey: 'shortcuts.toggle_theme', catKey: 'shortcuts.cat_ui' },
+  { keys: '? or ⌘ /', descKey: 'shortcuts.shortcut_help', catKey: 'shortcuts.cat_ui' },
+  { keys: 'ESC', descKey: 'shortcuts.close', catKey: 'shortcuts.cat_ui' },
 ];
 
 // ── Shortcut Help Modal ────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ interface ShortcutHelpModalProps {
 }
 
 export function ShortcutHelpModal({ onClose }: ShortcutHelpModalProps) {
+  const { t } = useTranslation();
   // Close on ESC
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -74,6 +76,12 @@ export function ShortcutHelpModal({ onClose }: ShortcutHelpModalProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
+  const categories = [
+    { key: 'shortcuts.cat_chat', label: t('shortcuts.cat_chat') },
+    { key: 'shortcuts.cat_search', label: t('shortcuts.cat_search') },
+    { key: 'shortcuts.cat_ui', label: t('shortcuts.cat_ui') },
+  ];
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div
@@ -81,20 +89,20 @@ export function ShortcutHelpModal({ onClose }: ShortcutHelpModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-on-surface">키보드 단축키</h2>
+          <h2 className="text-base font-semibold text-on-surface">{t('shortcuts.title')}</h2>
           <button onClick={onClose} className="text-on-surface-muted hover:text-on-surface p-1">
             <X size={18} />
           </button>
         </div>
-        {(['채팅', '검색', '화면'] as const).map((cat) => {
-          const items = SHORTCUT_LIST.filter((s) => s.category === cat);
+        {categories.map(({ key, label }) => {
+          const items = SHORTCUT_LIST_KEYS.filter((s) => s.catKey === key);
           return (
-            <div key={cat} className="mb-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-on-surface-muted mb-2">{cat}</p>
+            <div key={key} className="mb-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-on-surface-muted mb-2">{label}</p>
               <div className="space-y-2">
                 {items.map((s) => (
                   <div key={s.keys} className="flex items-center justify-between gap-4">
-                    <span className="text-xs text-on-surface-muted">{s.description}</span>
+                    <span className="text-xs text-on-surface-muted">{t(s.descKey)}</span>
                     <kbd className="text-xs bg-gray-700 text-gray-200 px-2 py-0.5 rounded font-mono shrink-0 whitespace-nowrap">{s.keys}</kbd>
                   </div>
                 ))}
@@ -102,7 +110,7 @@ export function ShortcutHelpModal({ onClose }: ShortcutHelpModalProps) {
             </div>
           );
         })}
-        <p className="text-[10px] text-on-surface-muted mt-2 text-center">ESC 또는 바깥 클릭으로 닫기</p>
+        <p className="text-[10px] text-on-surface-muted mt-2 text-center">{t('shortcuts.dismiss_hint')}</p>
       </div>
     </div>
   );

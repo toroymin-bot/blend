@@ -58,9 +58,9 @@ export async function indexSource(
 
   // ── Collect file list per source type ─────────────────────────────────────
   if (source.type === 'local') {
-    if (!dirHandle) throw new Error('로컬 소스에는 디렉토리 핸들이 필요합니다.');
+    if (!dirHandle) throw new Error('Local source requires a directory handle.');
     const ok = await verifyLocalPermission(dirHandle);
-    if (!ok) throw new Error('폴더 접근 권한이 거부되었습니다.');
+    if (!ok) throw new Error('Folder access permission was denied.');
     const localFiles = await scanLocalDirectory(dirHandle);
     files = localFiles.map((lf) => ({ name: lf.path, getFile: () => readLocalFile(lf) }));
   }
@@ -68,7 +68,7 @@ export async function indexSource(
   else if (source.type === 'google-drive') {
     const cfg = source.config as GoogleDriveConfig;
     if (!cfg.accessToken || !googleTokenValid(cfg.tokenExpiry)) {
-      throw new Error('Google Drive 액세스 토큰이 만료되었습니다. 다시 연결해주세요.');
+      throw new Error('Google Drive access token has expired. Please reconnect.');
     }
     const driveFiles = await scanDriveFolder(cfg.accessToken, cfg.folderId);
     files = driveFiles.map((f) => ({
@@ -80,7 +80,7 @@ export async function indexSource(
   else if (source.type === 'onedrive') {
     const cfg = source.config as OneDriveConfig;
     if (!cfg.accessToken || !msTokenValid(cfg.tokenExpiry)) {
-      throw new Error('OneDrive 액세스 토큰이 만료되었습니다. 다시 연결해주세요.');
+      throw new Error('OneDrive access token has expired. Please reconnect.');
     }
     const odFiles = await scanOneDriveFolder(cfg.accessToken, cfg.folderId);
     files = odFiles.map((f) => ({

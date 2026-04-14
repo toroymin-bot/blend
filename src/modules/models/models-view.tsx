@@ -7,8 +7,10 @@ import { useAPIKeyStore } from '@/stores/api-key-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { Check } from 'lucide-react';
 import { AIProvider } from '@/types';
+import { useTranslation } from '@/lib/i18n';
 
 export function ModelsView() {
+  const { t } = useTranslation();
   const { selectedModel, setSelectedModel } = useChatStore();
   const { hasKey } = useAPIKeyStore();
   const { customModels } = useSettingsStore();
@@ -36,9 +38,9 @@ export function ModelsView() {
       <div className="max-w-3xl mx-auto px-4 py-4">
         {/* Header */}
         <div className="mb-4">
-          <h1 className="text-xl font-bold text-white">모델 관리</h1>
+          <h1 className="text-xl font-bold text-white">{t('models_view.title')}</h1>
           <p className="text-gray-500 text-xs mt-0.5">
-            총 {allModels.length}개 · 사용 가능: {enabledCount}개
+            {t('models_view.total_count', { total: allModels.length, enabled: enabledCount })}
           </p>
         </div>
 
@@ -50,7 +52,7 @@ export function ModelsView() {
               activeProvider === 'all' ? 'bg-white text-gray-900' : 'bg-gray-800 text-gray-400 hover:text-white'
             }`}
           >
-            전체
+            {t('models_view.all')}
           </button>
           {providers.map((p) => {
             const meta = PROVIDER_META[p] ?? { label: p, color: '#6b7280' };
@@ -65,7 +67,7 @@ export function ModelsView() {
                 style={activeProvider === p ? { backgroundColor: meta.color } : {}}
               >
                 {meta.label}
-                {!hasProviderKey && <span className="text-[9px] opacity-70">키없음</span>}
+                {!hasProviderKey && <span className="text-[9px] opacity-70">{t('models_view.no_key_badge')}</span>}
               </button>
             );
           })}
@@ -79,7 +81,7 @@ export function ModelsView() {
               activeCategory === 'all' ? 'bg-gray-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
             }`}
           >
-            모든 종류
+            {t('models_view.all_types')}
           </button>
           {(Object.entries(MODEL_CATEGORY_META) as [ModelCategory, typeof MODEL_CATEGORY_META[ModelCategory]][])
             .sort((a, b) => a[1].order - b[1].order)
@@ -91,7 +93,7 @@ export function ModelsView() {
                   activeCategory === key ? 'bg-gray-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                 }`}
               >
-                {meta.emoji} {meta.label}
+                {meta.emoji} {t(meta.labelKey)}
               </button>
             ))}
         </div>
@@ -115,7 +117,7 @@ export function ModelsView() {
                 <h2 className="text-sm font-bold text-white">{provMeta.label}</h2>
                 {!hasProviderKey && (
                   <span className="text-[10px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded-full">
-                    API 키 없음 — 설정에서 추가
+                    {t('models_view.no_api_key')}
                   </span>
                 )}
               </div>
@@ -129,7 +131,7 @@ export function ModelsView() {
                 return (
                   <div key={cat} className="mb-3">
                     <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 ml-0.5 flex items-center gap-1">
-                      {catMeta.emoji} {catMeta.label}
+                      {catMeta.emoji} {t(catMeta.labelKey)}
                     </p>
                     <div className="grid grid-cols-1 gap-1.5">
                       {catModels.map((model) => {
@@ -165,7 +167,7 @@ export function ModelsView() {
                                   {isSelected && (
                                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
                                       style={{ backgroundColor: provMeta.color + '40', color: provMeta.color }}>
-                                      기본
+                                      {t('models_view.default_badge')}
                                     </span>
                                   )}
                                   <span className="text-[10px] text-gray-500">
@@ -186,7 +188,7 @@ export function ModelsView() {
                                   <span key={f} className={`text-[9px] px-1.5 py-0.5 rounded-full ${
                                     isSelected ? 'bg-white/10 text-gray-300' : 'bg-gray-700 text-gray-500'
                                   }`}>
-                                    {f === 'vision' ? '👁 이미지' : f === 'thinking' ? '🧠 추론' : f === 'function_calling' ? '🔧 도구' : f}
+                                    {f === 'vision' ? t('models_view.feature_vision') : f === 'thinking' ? t('models_view.feature_thinking') : f === 'function_calling' ? t('models_view.feature_tools') : f}
                                   </span>
                                 ))}
                               </div>
@@ -204,7 +206,7 @@ export function ModelsView() {
 
         {filteredModels.length === 0 && (
           <div className="text-center py-12 text-gray-600 text-sm">
-            조건에 맞는 모델이 없습니다.
+            {t('models_view.no_models_found')}
           </div>
         )}
       </div>

@@ -51,7 +51,7 @@ export default function OAuthCallback() {
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-900 text-gray-300 text-sm">
-      인증 처리 중... 이 창은 자동으로 닫힙니다.
+      Authenticating... This window will close automatically.
     </div>
   );
 }

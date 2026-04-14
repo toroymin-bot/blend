@@ -26,7 +26,7 @@ export interface WebSearchResponse {
 async function searchDuckDuckGo(query: string): Promise<WebSearchResult[]> {
   const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1&t=blend`;
   const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-  if (!res.ok) throw new Error(`DuckDuckGo API 오류: ${res.status}`);
+  if (!res.ok) throw new Error(`DuckDuckGo API error: ${res.status}`);
   const data = await res.json();
   const results: WebSearchResult[] = [];
 
@@ -88,11 +88,11 @@ export function extractSearchQuery(input: string): string | null {
  */
 export function formatSearchResultsAsContext(query: string, results: WebSearchResult[]): string {
   if (results.length === 0) {
-    return `[웹 검색: "${query}" — 결과 없음]`;
+    return `[Web search: "${query}" — no results]`;
   }
 
   const lines = [
-    `[웹 검색 결과: "${query}"]`,
+    `[Web search results: "${query}"]`,
     '',
     ...results.map((r, i) =>
       `${i + 1}. ${r.title}\n   URL: ${r.url}\n   ${r.description}`

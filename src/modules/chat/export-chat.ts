@@ -1,22 +1,41 @@
 // Blend - Chat Export Module (Reusable: any chat app needing export)
 
 import { Chat } from '@/types';
+import { getCurrentLanguage } from '@/lib/i18n';
+
+function getLabels() {
+  const isEn = getCurrentLanguage() === 'en';
+  return {
+    model: isEn ? 'Model' : '모델',
+    date: isEn ? 'Date' : '날짜',
+    userRole: isEn ? '👤 User' : '👤 사용자',
+    aiRole: isEn ? '🤖 AI' : '🤖 AI',
+    userRoleShort: isEn ? 'User' : '사용자',
+    aiRoleShort: 'AI',
+    cost: isEn ? 'Cost' : '비용',
+    tokens: isEn ? 'Tokens' : '토큰',
+    messages: isEn ? 'messages' : '개',
+    savePdf: isEn ? 'Save as PDF (Print)' : 'PDF로 저장 (인쇄)',
+    locale: isEn ? 'en-US' : 'ko-KR',
+  };
+}
 
 export function exportChatAsText(chat: Chat): string {
+  const labels = getLabels();
   const lines: string[] = [];
   lines.push(`# ${chat.title}`);
-  lines.push(`모델: ${chat.model}`);
-  lines.push(`날짜: ${new Date(chat.createdAt).toLocaleString('ko-KR')}`);
+  lines.push(`${labels.model}: ${chat.model}`);
+  lines.push(`${labels.date}: ${new Date(chat.createdAt).toLocaleString(labels.locale)}`);
   lines.push('---');
   lines.push('');
 
   for (const msg of chat.messages) {
-    const role = msg.role === 'user' ? '👤 사용자' : '🤖 AI';
-    const time = new Date(msg.createdAt).toLocaleTimeString('ko-KR');
+    const role = msg.role === 'user' ? labels.userRole : labels.aiRole;
+    const time = new Date(msg.createdAt).toLocaleTimeString(labels.locale);
     lines.push(`### ${role} (${time})`);
     lines.push(msg.content);
     if (msg.cost !== undefined) {
-      lines.push(`> 모델: ${msg.model} | 비용: $${msg.cost.toFixed(4)} | 토큰: ${msg.tokens?.input}+${msg.tokens?.output}`);
+      lines.push(`> ${labels.model}: ${msg.model} | ${labels.cost}: $${msg.cost.toFixed(4)} | ${labels.tokens}: ${msg.tokens?.input}+${msg.tokens?.output}`);
     }
     lines.push('');
   }
@@ -41,12 +60,13 @@ export function downloadChat(chat: Chat, format: 'txt' | 'md' = 'md') {
 }
 
 export function downloadChatAsPDF(chat: Chat) {
+  const labels = getLabels();
   const safeTitle = chat.title.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const dateStr = new Date(chat.createdAt).toLocaleString('ko-KR');
+  const dateStr = new Date(chat.createdAt).toLocaleString(labels.locale);
 
   const messagesHtml = chat.messages.map((msg) => {
-    const role = msg.role === 'user' ? '사용자' : 'AI';
-    const time = new Date(msg.createdAt).toLocaleTimeString('ko-KR');
+    const role = msg.role === 'user' ? labels.userRoleShort : labels.aiRoleShort;
+    const time = new Date(msg.createdAt).toLocaleTimeString(labels.locale);
     const bgColor = msg.role === 'user' ? '#dbeafe' : '#f3f4f6';
     const align = msg.role === 'user' ? 'right' : 'left';
     const safeContent = msg.content
@@ -69,7 +89,7 @@ export function downloadChatAsPDF(chat: Chat) {
   }).join('');
 
   const html = `<!DOCTYPE html>
-<html lang="ko">
+<html lang="${labels.locale.split('-')[0]}">
 <head>
   <meta charset="UTF-8">
   <title>${safeTitle}</title>
@@ -103,9 +123,9 @@ export function downloadChatAsPDF(chat: Chat) {
   </style>
 </head>
 <body>
-  <button class="print-btn no-print" onclick="window.print()">PDF로 저장 (인쇄)</button>
+  <button class="print-btn no-print" onclick="window.print()">${labels.savePdf}</button>
   <h1>${safeTitle}</h1>
-  <div class="meta">모델: ${chat.model} · 날짜: ${dateStr} · 메시지: ${chat.messages.length}개</div>
+  <div class="meta">${labels.model}: ${chat.model} · ${labels.date}: ${dateStr} · ${chat.messages.length} ${labels.messages}</div>
   <hr>
   ${messagesHtml}
 </body>

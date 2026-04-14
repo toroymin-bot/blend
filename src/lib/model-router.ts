@@ -2,6 +2,7 @@
 // 질문 내용을 분석해서 최적 AI 모델을 자동 선택하는 라우팅 엔진
 
 import { AIModel } from '@/types';
+import { getCurrentLanguage } from '@/lib/i18n';
 
 export type RouteCategory =
   | 'coding'       // 코딩/개발/디버깅
@@ -76,17 +77,22 @@ const ROUTE_MAP: Record<RouteCategory, string[]> = {
 };
 
 // ── 카테고리 라벨 (UI 표시용) ────────────────────────────────────────────
-export const CATEGORY_LABELS: Record<RouteCategory, string> = {
-  coding:      '💻 코딩/개발',
-  reasoning:   '🧠 추론/분석',
-  creative:    '✍️ 창작/글쓰기',
-  translation: '🌐 번역',
-  vision:      '👁️ 이미지 분석',
-  data:        '📊 데이터 분석',
-  simple:      '⚡ 간단 질문',
-  long_doc:    '📄 문서 분석',
-  general:     '💬 일반 대화',
-};
+export function getCategoryLabels(): Record<RouteCategory, string> {
+  const isEn = getCurrentLanguage() === 'en';
+  return {
+    coding:      isEn ? '💻 Coding/Dev'        : '💻 코딩/개발',
+    reasoning:   isEn ? '🧠 Reasoning'          : '🧠 추론/분석',
+    creative:    isEn ? '✍️ Creative Writing'   : '✍️ 창작/글쓰기',
+    translation: isEn ? '🌐 Translation'        : '🌐 번역',
+    vision:      isEn ? '👁️ Image Analysis'    : '👁️ 이미지 분석',
+    data:        isEn ? '📊 Data Analysis'      : '📊 데이터 분석',
+    simple:      isEn ? '⚡ Quick Question'     : '⚡ 간단 질문',
+    long_doc:    isEn ? '📄 Document Analysis'  : '📄 문서 분석',
+    general:     isEn ? '💬 General Chat'       : '💬 일반 대화',
+  };
+}
+/** @deprecated Use getCategoryLabels() instead */
+export const CATEGORY_LABELS = getCategoryLabels();
 
 // ── 카테고리 감지 ─────────────────────────────────────────────────────────
 export function detectCategory(query: string, hasImages: boolean): RouteCategory {
@@ -123,12 +129,13 @@ export function routeToModel(
 ): RouteResult {
   const category = detectCategory(query, hasImages);
   const preferred = ROUTE_MAP[category];
+  const labels = getCategoryLabels();
 
   // 우선순위 모델 중 enabled + API key 보유한 첫 번째 선택
   for (const modelId of preferred) {
     const model = enabledModels.find((m) => m.id === modelId && m.enabled);
     if (model && hasKey(model.provider)) {
-      return { modelId, category, label: CATEGORY_LABELS[category] };
+      return { modelId, category, label: labels[category] };
     }
   }
 
@@ -137,6 +144,6 @@ export function routeToModel(
   return {
     modelId: fallback?.id ?? 'gpt-4o-mini',
     category,
-    label: CATEGORY_LABELS[category],
+    label: labels[category],
   };
 }

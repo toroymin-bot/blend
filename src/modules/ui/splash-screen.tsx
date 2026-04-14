@@ -2,8 +2,10 @@
 
 // [2026-04-10 15:00] 스플래시 스크린 — 접속 시 1초간 표시 후 페이드아웃
 import { useState, useEffect } from 'react';
+import { useTranslation } from '@/lib/i18n';
 
 export function SplashScreen() {
+  const { t } = useTranslation();
   const [fading, setFading] = useState(false);
   const [hidden, setHidden] = useState(false);
 
@@ -76,7 +78,7 @@ export function SplashScreen() {
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           }}
         >
-          모든 AI 구독 — 하나로, 더 싸게, 더 스마트하게
+          {t('app.tagline')}
         </h1>
       </div>
     </div>

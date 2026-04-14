@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Blend - AI Chat Interface",
-  description: "모든 AI 구독 — 하나로, 더 싸게, 더 스마트하게",
+  description: "All AI subscriptions — in one, cheaper, smarter",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -41,7 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="ko"
+      lang="en"
       data-theme="dark"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >

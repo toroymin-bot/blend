@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { Chat, ChatMessage, ChatFolder } from '@/types';
+import { getCurrentLanguage } from '@/lib/i18n';
 
 interface ChatState {
   chats: Chat[];
@@ -47,7 +48,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const id = generateId();
     const chat: Chat = {
       id,
-      title: '새 대화',
+      title: getCurrentLanguage() === 'en' ? 'New Chat' : '새 대화',
       messages: [],
       model: get().selectedModel,
       createdAt: Date.now(),

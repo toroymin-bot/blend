@@ -51,7 +51,7 @@ export function requestGoogleAccessToken(clientId: string): Promise<string> {
       'width=520,height=620,left=200,top=100'
     );
 
-    if (!popup) { reject(new Error('팝업이 차단되었습니다. 팝업 차단을 해제해주세요.')); return; }
+    if (!popup) { reject(new Error('Popup was blocked. Please allow popups and try again.')); return; }
 
     let settled = false;
 
@@ -106,7 +106,7 @@ export function requestGoogleAccessToken(clientId: string): Promise<string> {
 
       // Detect popup/tab closed by user
       try {
-        if (popup.closed && !settled) fail('OAuth 팝업이 닫혔습니다.');
+        if (popup.closed && !settled) fail('OAuth popup was closed.');
       } catch {}
     }, 500);
 
@@ -189,7 +189,7 @@ export async function downloadDriveFile(
   }
 
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`파일 다운로드 실패: ${file.name}`);
+  if (!res.ok) throw new Error(`File download failed: ${file.name}`);
   const blob = await res.blob();
   return new File([blob], filename, { type: res.headers.get('content-type') || 'application/octet-stream' });
 }

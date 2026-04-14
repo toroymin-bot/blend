@@ -20,7 +20,7 @@ function SVGBarChart({ data }: { data: { date: string; cost: number; requests: n
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ val: maxCost * f, y: chartH - chartH * f }));
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="일별 비용 바 차트">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Daily cost bar chart">
       <g transform={`translate(${PAD.left},${PAD.top})`}>
         {/* Grid lines + Y labels */}
         {yTicks.map(({ val, y }) => (
@@ -65,11 +65,12 @@ function SVGBarChart({ data }: { data: { date: string; cost: number; requests: n
 
 // ── SVG Pie / Donut Chart ──────────────────────────────────────────────────────
 function SVGPieChart({ data }: { data: { label: string; value: number; color: string }[] }) {
+  const { t } = useTranslation();
   const R = 60;
   const CX = 80;
   const CY = 80;
   const total = data.reduce((s, d) => s + d.value, 0);
-  if (total === 0) return <p className="text-on-surface-muted text-sm">데이터 없음</p>;
+  if (total === 0) return <p className="text-on-surface-muted text-sm">{t('dashboard.no_data')}</p>;
 
   let cumAngle = -Math.PI / 2;
   const slices = data.map((d) => {
@@ -86,7 +87,7 @@ function SVGPieChart({ data }: { data: { label: string; value: number; color: st
 
   return (
     <div className="flex items-center gap-4">
-      <svg viewBox={`0 0 160 160`} className="w-32 h-32 shrink-0" aria-label="프로바이더 비율 파이차트">
+      <svg viewBox={`0 0 160 160`} className="w-32 h-32 shrink-0" aria-label="Provider cost pie chart">
         {slices.map((s) => {
           const p1 = polarToXY(s.start, R);
           const p2 = polarToXY(s.start + s.angle, R);
@@ -102,7 +103,7 @@ function SVGPieChart({ data }: { data: { label: string; value: number; color: st
         {/* Donut hole */}
         <circle cx={CX} cy={CY} r={R * 0.5} fill="#1f2937" />
         <text x={CX} y={CY + 4} textAnchor="middle" fontSize={10} fill="#9ca3af">
-          총 ${total.toFixed(3)}
+          {t('dashboard.total_donut', { amount: total.toFixed(3) })}
         </text>
       </svg>
       <div className="space-y-1.5">
@@ -138,7 +139,7 @@ function SVGLineChart({ data }: { data: { date: string; cost: number }[] }) {
   const areaD = `${pathD} L ${pts[pts.length - 1].x.toFixed(1)} ${chartH} L 0 ${chartH} Z`;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="미니 라인차트">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Mini line chart">
       <defs>
         <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
@@ -324,12 +325,12 @@ export function DashboardView() {
                         <div
                           className="bg-blue-500 h-full"
                           style={{ width: `${inputPct}%` }}
-                          title={`입력: ${(tokens.input / 1000).toFixed(1)}K`}
+                          title={t('dashboard.input_tokens', { count: (tokens.input / 1000).toFixed(1) })}
                         />
                         <div
                           className="bg-green-500 h-full"
                           style={{ width: `${100 - inputPct}%` }}
-                          title={`출력: ${(tokens.output / 1000).toFixed(1)}K`}
+                          title={t('dashboard.output_tokens', { count: (tokens.output / 1000).toFixed(1) })}
                         />
                       </div>
                       <div className="flex justify-between text-[10px] text-on-surface-muted mt-0.5">

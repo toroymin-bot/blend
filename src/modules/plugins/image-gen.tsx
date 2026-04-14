@@ -25,12 +25,12 @@ export async function generateImage(prompt: string, apiKey: string): Promise<Ima
     clearTimeout(timeout);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      const msg = (err as { error?: { message?: string } })?.error?.message || `OpenAI API 오류: ${res.status}`;
+      const msg = (err as { error?: { message?: string } })?.error?.message || `OpenAI API error: ${res.status}`;
       return { error: msg };
     }
     const data = await res.json() as { data?: { url?: string }[] };
     const url = data.data?.[0]?.url;
-    if (!url) return { error: '이미지 URL을 받지 못했습니다' };
+    if (!url) return { error: 'No image URL returned' };
     // [2026-04-13 00:00] BUG-007: DALL-E URL은 1시간 후 만료 → 즉시 base64로 변환하여 로컬 저장
     // 기존: return { url };  — 히스토리에서 이미지 사라지는 문제
     try {

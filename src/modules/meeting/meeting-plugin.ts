@@ -26,7 +26,7 @@ async function callOpenAI(systemPrompt: string, userContent: string, apiKey: str
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `OpenAI 오류: ${res.status}`);
+    throw new Error(err.error?.message || `OpenAI error: ${res.status}`);
   }
   const data = await res.json();
   return data.choices?.[0]?.message?.content ?? '{}';
@@ -51,7 +51,7 @@ async function callAnthropic(systemPrompt: string, userContent: string, apiKey: 
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Anthropic 오류: ${res.status}`);
+    throw new Error(err.error?.message || `Anthropic error: ${res.status}`);
   }
   const data = await res.json();
   const text = data.content?.[0]?.text ?? '{}';
@@ -62,7 +62,7 @@ async function callAnthropic(systemPrompt: string, userContent: string, apiKey: 
 
 async function callLLM(systemPrompt: string, userContent: string, apiKey: string, provider: Provider): Promise<string> {
   // Truncate to avoid token limits
-  const truncated = userContent.length > 8000 ? userContent.slice(0, 8000) + '\n...(이하 생략)' : userContent;
+  const truncated = userContent.length > 8000 ? userContent.slice(0, 8000) + '\n...(truncated)' : userContent;
   return provider === 'openai'
     ? callOpenAI(systemPrompt, truncated, apiKey)
     : callAnthropic(systemPrompt, truncated, apiKey);
@@ -83,16 +83,16 @@ export async function diarizeSpeakers(
   apiKey: string,
   provider: Provider
 ): Promise<TranscriptSegment[]> {
-  const system = `당신은 회의 텍스트 분석 전문가입니다. 반드시 JSON만 반환하세요.`;
-  const user = `다음 회의 텍스트를 분석하여 화자별로 분리해주세요.
+  const system = `You are a meeting transcript analysis expert. Return only valid JSON.`;
+  const user = `Analyze the following meeting transcript and separate it by speaker.
 
-문맥상 서로 다른 사람이 말하는 부분을 "화자 1", "화자 2" 등으로 구분하세요.
-자연스러운 대화의 흐름을 기준으로 나누세요.
+Identify sections spoken by different people and label them as "Speaker 1", "Speaker 2", etc.
+Use natural conversational flow as the basis for separation.
 
-반환 형식 (JSON):
-{"segments": [{"speaker": "화자 1", "text": "...", "startTime": null}]}
+Return format (JSON):
+{"segments": [{"speaker": "Speaker 1", "text": "...", "startTime": null}]}
 
-회의 텍스트:
+Meeting transcript:
 ${transcript}`;
 
   try {
@@ -102,12 +102,12 @@ ${transcript}`;
       return parsed.segments;
     }
   } catch {
-    // 화자 분리 실패 시 전체를 단일 화자로
+    // Fallback on diarization failure
   }
 
   // Fallback: split by sentence as single speaker
   const sentences = transcript.split(/(?<=[.!?。])\s+/).filter((s) => s.trim());
-  return sentences.map((text) => ({ speaker: '화자 1', text }));
+  return sentences.map((text) => ({ speaker: 'Speaker 1', text }));
 }
 
 // ── Meeting Analysis ──────────────────────────────────────────────────────────
@@ -117,23 +117,23 @@ export async function analyzeMeeting(
   apiKey: string,
   provider: Provider
 ): Promise<{ topics: string[]; actionItems: ActionItem[]; decisions: string[] }> {
-  const system = `당신은 회의 분석 전문가입니다. 반드시 JSON만 반환하세요.`;
-  const user = `다음 회의 내용을 분석하여 JSON 형식으로 반환해주세요.
+  const system = `You are a meeting analysis expert. Return only valid JSON.`;
+  const user = `Analyze the following meeting content and return it in JSON format.
 
-반환 형식:
+Return format:
 {
-  "topics": ["주제1", "주제2"],
+  "topics": ["topic1", "topic2"],
   "actionItems": [
-    {"task": "할일", "owner": "담당자 또는 null", "deadline": "기한 또는 null", "priority": "high|medium|low"}
+    {"task": "task description", "owner": "owner or null", "deadline": "deadline or null", "priority": "high|medium|low"}
   ],
-  "decisions": ["결정사항1", "결정사항2"]
+  "decisions": ["decision1", "decision2"]
 }
 
-- topics: 회의에서 논의된 주요 주제들 (3~7개)
-- actionItems: 명확한 할일 항목들 (없으면 빈 배열)
-- decisions: 회의에서 내려진 결정사항들 (없으면 빈 배열)
+- topics: Main topics discussed in the meeting (3–7 items)
+- actionItems: Clear action items (empty array if none)
+- decisions: Decisions made in the meeting (empty array if none)
 
-회의 텍스트:
+Meeting transcript:
 ${transcript}`;
 
   try {
@@ -170,17 +170,17 @@ export async function summarizeMeeting(
   apiKey: string,
   provider: Provider
 ): Promise<{ oneLiner: string; bullets: string[]; full: string }> {
-  const system = `당신은 회의 요약 전문가입니다. 반드시 JSON만 반환하세요.`;
-  const user = `다음 회의 내용을 요약해주세요.
+  const system = `You are a meeting summarization expert. Return only valid JSON.`;
+  const user = `Summarize the following meeting content.
 
-반환 형식:
+Return format:
 {
-  "oneLiner": "한 문장 요약",
-  "bullets": ["핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
-  "full": "2-3 문단의 전체 요약"
+  "oneLiner": "one-sentence summary",
+  "bullets": ["key point 1", "key point 2", "key point 3"],
+  "full": "full summary in 2–3 paragraphs"
 }
 
-회의 텍스트:
+Meeting transcript:
 ${transcript}`;
 
   try {
