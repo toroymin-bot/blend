@@ -26,40 +26,46 @@ function checkKeys() {
 // [2026-04-15 02:00] Day 12 업데이트 — 소스C 자체 테스트 5건 수정
 function setTodayData() {
   var data = {
-    dayNumber: 12,
-    files: 67,
-    lines: 14179,
-    features: 5,
+    dayNumber: 13,
+    files: 70,
+    lines: 14752,
+    features: 6,
     cost: '$0',
     newFeatures: [
-      '[소스C-1] gpt-4.1-nano 가격 오류 수정: inputPrice $2→$0.1, outputPrice $8→$0.4 (활성 모델 비용 계산 오류)',
-      '[소스C-2] gpt-4.1-nano-2025-04-14 동일 가격 수정 + contextLength 128000→1047576',
-      '[소스C-3] gpt-4.1-2025-04-14 contextLength 128000→1047576 (GPT-4.1은 1M+ 컨텍스트)',
-      '[소스C-4] web-search.ts DuckDuckGo 타임아웃 추가: AbortController + 10초 setTimeout',
-      '[소스C-5] usage-store.ts 90일 이상 레코드 자동 정리 — localStorage 쿼터 초과 방지'
+      '[소스A-1] 🟢 Voice Chat: STT 마이크 입력 + TTS 자동 재생 (ko→Google, en→OpenAI)',
+      '[소스A-2] 🟢 회의 분석 gpt-4o-transcribe 업그레이드 + Mind Map 시각화 탭 추가',
+      '[소스A-3] 🔴 Plugins + Prompts 사이드바 메뉴 숨김 처리',
+      '[소스A-4] 🐛 DALL-E 3 자동 선택 복구 — model registry enabled:false 버그 수정',
+      '[소스A-5] 🐛 한국어 모드 AI 모델 설명 영어 표시 수정 — descriptionKo 사용',
+      '[소스A-6] 🐛 Cost Analytics + Savings Dashboard 5분 자동 동기화 + 실제 지출 표시',
+      '[소스A-7] 결제 방안 리서치: Stripe/토스페이/PayPal/GCash/Xendit — Confluence 페이지 작성'
     ],
     issues: [
-      {issue: 'gpt-4.1-nano 가격이 GPT-4.1 전체 모델 가격($2/$8)으로 잘못 설정됨', solution: 'Nano 실제 가격($0.1/$0.4)으로 수정 — 사용자 비용 계산 20배 차이 해소'},
-      {issue: 'DuckDuckGo 검색 함수에 타임아웃 없어 느린 네트워크에서 무한 대기 가능', solution: 'AbortController + 10초 타임아웃 추가'},
-      {issue: 'usage-store records 무제한 축적으로 localStorage 5MB 쿼터 초과 위험', solution: 'addRecord 시 90일 이상 레코드 자동 정리'}
+      {issue: 'DALL-E 3 모델이 model-registry.ts에서 enabled:false로 잘못 설정됨', solution: 'enabled:true로 복원 — 이미지 생성 Auto AI Match 정상 동작'},
+      {issue: '한국어 모드(/ko)에서 AI 모델 설명이 영어로 표시됨', solution: 'chat-view.tsx에서 lang===ko일 때 descriptionKo 필드 사용'},
+      {issue: 'Cost Analytics/Savings Dashboard 데이터 갱신 안됨 (loadFromStorage 미호출)', solution: '5분 주기 자동 동기화 + 백그라운드 탭 예외 처리'}
     ],
     tomorrowPlan: [
-      'getCostByDay 대용량 records 성능 최적화 (캐싱 또는 인덱싱)',
-      '소스C 성능 카테고리 심화 점검',
-      '모델 레지스트리 추가 검증 (Claude 최신 모델 가격 확인)'
+      'TEST-001 (App loads correctly) 원인 조사',
+      'TEST-002 (Send message and receive AI reply) 원인 조사',
+      'Voice Chat Settings 섹션 추가 (settings-view.tsx)',
+      '구독 결제 방안 1위 Stripe 적용 프로토타입 검토'
     ],
     confluenceLinks: [
-      {title: 'Blend 개발 일지 — 2026-04-15', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/10747905'},
-      {title: 'Blend 개발 일지 — 2026-04-14', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/10747905'}
+      {title: 'Blend 개발 일지 — 2026-04-16', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/11632641'},
+      {title: 'Blend 구독 결제 방안 — 한국·필리핀 (2026-04-16)', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/11665409'}
     ],
     githubLinks: [],
-    runStart: '01:50',
-    runEnd: '02:15',
+    runStart: '01:00',
+    runEnd: '02:30',
     totalCommits: 1,
-    qaFailCount: 0,
-    qaNewTests: 10,
+    qaFailCount: 2,
+    qaFixedCount: 0,
+    qaNewTests: 11,
+    bugFixedCount: 0,
     selfTestCount: 100,
-    selfTestIssues: 5
+    selfTestIssues: 2,
+    devLogRows: 6
   };
   PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
   Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files, ' + data.totalCommits + ' commits');
