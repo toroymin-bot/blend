@@ -1473,6 +1473,17 @@ export const DEFAULT_MODELS: AIModel[] = [
     description: '작고 빠른 경량 AI',
     enabled: false,
   },
+  {
+    id: 'gemini-3.1-flash-tts-preview',
+    name: 'Gemini 3.1 Flash TTS Preview',
+    provider: 'google',
+    contextLength: 8192,
+    inputPrice: 0.1,
+    outputPrice: 0.4,
+    features: ['streaming', 'vision'],
+    description: '구글 3세대 빠른 AI',
+    enabled: false,
+  },
 ];
 
 export function getModelById(id: string, customModels: AIModel[] = []): AIModel | undefined {
