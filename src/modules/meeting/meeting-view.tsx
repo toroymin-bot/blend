@@ -5,13 +5,14 @@ import { Upload, Link, Mic, Loader2, Trash2, FileAudio, CheckSquare, Square, Tag
 import { useMeetingStore } from '@/stores/meeting-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { MeetingAnalysis, ActionItem } from '@/types';
-import { diarizeSpeakers, analyzeMeeting, summarizeMeeting } from './meeting-plugin';
+import { diarizeSpeakers, analyzeMeeting, summarizeMeeting, generateMindmap } from './meeting-plugin';
+import { MeetingMindmap } from './meeting-mindmap';
 import { useDocumentStore } from '@/stores/document-store';
 import { generateEmbeddings } from '@/modules/plugins/document-plugin';
 import { useTranslation } from '@/lib/i18n';
 
 type InputTab = 'file' | 'youtube';
-type ResultTab = 'transcript' | 'analysis' | 'summary';
+type ResultTab = 'transcript' | 'analysis' | 'summary' | 'mindmap';
 type ProcessStep = 'idle' | 'transcribing' | 'diarizing' | 'analyzing' | 'embedding' | 'done' | 'error';
 
 const ACCEPT_TYPES = '.mp3,.wav,.m4a,.webm,.ogg,.mp4';
@@ -94,6 +95,14 @@ export function MeetingView() {
         summarizeMeeting(rawTranscript, apiKey, provider as 'openai' | 'anthropic'),
       ]);
 
+      // [2026-04-16 01:20] New: generate markdown mindmap after analysis
+      let mindmapMarkdown: string | undefined;
+      try {
+        mindmapMarkdown = await generateMindmap(rawTranscript, title, apiKey, provider as 'openai' | 'anthropic');
+      } catch {
+        // mindmap failure doesn't block meeting save
+      }
+
       const meeting: MeetingAnalysis = {
         id: Math.random().toString(36).slice(2) + Date.now().toString(36),
         title,
@@ -106,6 +115,7 @@ export function MeetingView() {
         actionItems: analysisResult.actionItems,
         decisions: analysisResult.decisions,
         summary: summaryResult,
+        mindmap: mindmapMarkdown,
       };
 
       addMeeting(meeting);
@@ -155,7 +165,8 @@ export function MeetingView() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('model', 'whisper-1');
+      // [2026-04-16 01:20] disabled — formData.append('model', 'whisper-1'); // 2022 model, poor Korean quality
+      formData.append('model', 'gpt-4o-transcribe'); // [2026-04-16] upgraded: latest model, better Korean
       formData.append('response_format', 'verbose_json');
       const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
@@ -385,6 +396,8 @@ export function MeetingView() {
                 ['transcript', t('meeting_view.tab_transcript')],
                 ['analysis', t('meeting_view.tab_analysis')],
                 ['summary', t('meeting_view.tab_summary')],
+                // [2026-04-16 01:20] New: mindmap visualization tab
+                ['mindmap', 'Mind Map'],
               ] as const).map(([id, label]) => (
                 <button
                   key={id}
@@ -505,6 +518,19 @@ export function MeetingView() {
                 {currentMeeting.summary.full && (
                   <div className="p-4 bg-surface-2 rounded-lg">
                     <p className="text-sm text-on-surface whitespace-pre-wrap leading-relaxed">{currentMeeting.summary.full}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Mind Map tab — [2026-04-16 01:20] New tab */}
+            {resultTab === 'mindmap' && (
+              <div className="space-y-3">
+                {currentMeeting.mindmap ? (
+                  <MeetingMindmap markdown={currentMeeting.mindmap} />
+                ) : (
+                  <div className="p-6 bg-surface-2 rounded-lg text-center text-on-surface-muted text-sm">
+                    Mind map not available for this meeting. Re-analyze to generate one.
                   </div>
                 )}
               </div>

@@ -458,7 +458,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     features: ['vision'],
     description: 'Generate high-quality images from text',
     descriptionKo: '텍스트로 고품질 이미지를 만들어요',
-    enabled: false, // [2026-04-14] 자동 AI 매칭 이미지 생성 라우팅용
+    // [2026-04-16 01:10] disabled — enabled: false, // was incorrectly set to false, blocking image_gen auto-routing
+    enabled: true, // [2026-04-16] re-enabled — required for DALL-E auto-selection via model router
   },
   {
     id: 'gpt-image-1',

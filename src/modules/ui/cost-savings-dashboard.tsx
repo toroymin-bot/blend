@@ -2,7 +2,9 @@
 
 // Blend - Cost Savings Dashboard
 
-import { DollarSign, TrendingDown, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { DollarSign, TrendingDown, Sparkles, RefreshCw } from 'lucide-react';
+import { useUsageStore } from '@/stores/usage-store';
 import { useTranslation } from '@/lib/i18n';
 
 // Monthly subscription prices (USD, 2024 market rates)
@@ -23,8 +25,30 @@ interface CostSavingsDashboardProps {
 
 export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: CostSavingsDashboardProps) {
   const { t } = useTranslation();
+  const { getThisMonthCost, loadFromStorage } = useUsageStore();
+
+  // [2026-04-16 01:15] Bug fix: 5-minute auto-sync — reload usage data from localStorage
+  const [lastSync, setLastSync] = useState<Date>(new Date());
+  useEffect(() => {
+    loadFromStorage();
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'hidden') {
+        loadFromStorage();
+        setLastSync(new Date());
+      }
+    }, 300_000); // 5 minutes
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Use actual monthly spend from usage store for Blend cost display
+  const actualMonthly = getThisMonthCost();
+  // [2026-04-16 01:15] was: const effectiveBlendMonthly = blendMonthly (hardcoded static estimate)
+  const effectiveBlendMonthly = actualMonthly > 0 ? actualMonthly : blendMonthly;
+
   const totalIndividual = AI_SERVICES.reduce((sum, s) => sum + s.price, 0);
-  const savings = totalIndividual - blendMonthly;
+  // [2026-04-16 01:15] was: const savings = totalIndividual - blendMonthly
+  const savings = totalIndividual - effectiveBlendMonthly;
   const savingsPercent = totalIndividual > 0 ? Math.round((savings / totalIndividual) * 100) : 0;
   const maxPrice = Math.max(...AI_SERVICES.map((s) => s.price));
 
@@ -33,9 +57,16 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
       <div className="max-w-3xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-center gap-2 mb-6">
-          <Sparkles size={24} className="text-yellow-400" />
-          <h1 className="text-2xl font-bold text-on-surface">{t('savings_view.title')}</h1>
+        <div className="flex items-center justify-between gap-2 mb-6">
+          <div className="flex items-center gap-2">
+            <Sparkles size={24} className="text-yellow-400" />
+            <h1 className="text-2xl font-bold text-on-surface">{t('savings_view.title')}</h1>
+          </div>
+          {/* [2026-04-16 01:15] 5-minute auto-sync last-updated indicator */}
+          <div className="flex items-center gap-1.5 text-xs text-on-surface-muted">
+            <RefreshCw size={11} />
+            <span>Updated {Math.round((Date.now() - lastSync.getTime()) / 60000)} min ago</span>
+          </div>
         </div>
 
         {/* Summary cards */}
@@ -56,7 +87,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
               <span className="text-lg font-bold text-blue-400">B</span>
               <span className="text-sm text-on-surface-muted">{t('savings_view.blend_label')}</span>
             </div>
-            <p className="text-3xl font-bold text-blue-300">~${blendMonthly.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-blue-300">~${effectiveBlendMonthly.toFixed(2)}</p>
             <p className="text-xs text-on-surface-muted mt-1">{t('savings_view.month_estimate')}</p>
           </div>
 
@@ -91,14 +122,14 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-on-surface">{t('savings_view.blend_direct')}</span>
-                <span className="text-blue-300 font-medium">~${blendMonthly.toFixed(2)}/{t('savings_view.per_month').replace('/ ', '')}</span>
+                <span className="text-blue-300 font-medium">~${effectiveBlendMonthly.toFixed(2)}/{t('savings_view.per_month').replace('/ ', '')}</span>
               </div>
               <div className="h-6 bg-gray-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue-500/70 rounded-full flex items-center justify-end pr-2"
-                  style={{ width: `${Math.max(4, (blendMonthly / totalIndividual) * 100)}%` }}
+                  style={{ width: `${Math.max(4, (effectiveBlendMonthly / totalIndividual) * 100)}%` }}
                 >
-                  <span className="text-xs text-blue-200 font-medium">${blendMonthly.toFixed(0)}</span>
+                  <span className="text-xs text-blue-200 font-medium">${effectiveBlendMonthly.toFixed(0)}</span>
                 </div>
               </div>
             </div>

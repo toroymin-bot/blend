@@ -148,6 +148,11 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
 
   const activeAgent = getActiveAgent();
 
+  // [2026-04-16 01:00] disabled — Plugins menu hidden by request
+  const PLUGINS_ENABLED = false; // [2026-04-16] disabled
+  // [2026-04-16 01:00] disabled — Prompts menu hidden by request
+  const PROMPTS_ENABLED = false; // [2026-04-16] disabled
+
   const tabs = [
     { id: 'chat', icon: MessageSquare, label: t('nav.chat'), desc: t('nav.chat_desc') },
     { id: 'compare', icon: GitCompareArrows, label: t('nav.compare'), desc: t('nav.compare_desc') },
@@ -155,8 +160,10 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     { id: 'datasources', icon: HardDrive, label: t('nav.datasources'), desc: t('nav.datasources_desc') },
     { id: 'meeting', icon: Mic, label: t('nav.meeting'), desc: t('nav.meeting_desc') },
     { id: 'agents', icon: Bot, label: t('nav.agents'), desc: t('nav.agents_desc') },
-    { id: 'prompts', icon: BookText, label: t('nav.prompts'), desc: t('nav.prompts_desc') },
-    { id: 'plugins', icon: Puzzle, label: t('nav.plugins'), desc: t('nav.plugins_desc') },
+    // [2026-04-16 01:00] disabled — { id: 'prompts', icon: BookText, label: t('nav.prompts'), desc: t('nav.prompts_desc') },
+    ...(PROMPTS_ENABLED ? [{ id: 'prompts', icon: BookText, label: t('nav.prompts'), desc: t('nav.prompts_desc') }] : []),
+    // [2026-04-16 01:00] disabled — { id: 'plugins', icon: Puzzle, label: t('nav.plugins'), desc: t('nav.plugins_desc') },
+    ...(PLUGINS_ENABLED ? [{ id: 'plugins', icon: Puzzle, label: t('nav.plugins'), desc: t('nav.plugins_desc') }] : []),
     { id: 'models', icon: Cpu, label: t('nav.models'), desc: t('nav.models_desc') },
     { id: 'savings', icon: Sparkles, label: t('nav.savings'), desc: t('nav.savings_desc') },
     { id: 'dashboard', icon: BarChart3, label: t('nav.dashboard'), desc: t('nav.dashboard_desc') },

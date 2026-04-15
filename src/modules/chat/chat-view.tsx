@@ -10,7 +10,7 @@ import { usePluginStore } from '@/stores/plugin-store';
 import { sendChatRequest } from './chat-api';
 import { getModelById, calculateCost, DEFAULT_MODELS } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
-import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon, Paperclip, Sparkles, Eye, Brain } from 'lucide-react';
+import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon, Paperclip, Sparkles, Eye, Brain, Volume2, VolumeX, Loader2 as Loader2Icon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
@@ -24,6 +24,9 @@ import { buildContext } from '@/modules/plugins/document-plugin';
 import { routeToModel } from '@/lib/model-router';
 import { AUTO_MATCH_AGENT_ID } from '@/stores/agent-store';
 import { useTranslation } from '@/lib/i18n';
+// [2026-04-16 01:30] Voice Chat feature
+import { VoiceButton } from './voice-button';
+import { getVoiceProviderConfig, sttOpenAI, sttGoogle, speakText } from '@/lib/voice-chat';
 
 // ── Inline text highlight helper ──────────────────────────────────────────────
 function highlightText(text: string, query: string): React.ReactNode {
@@ -38,7 +41,7 @@ function highlightText(text: string, query: string): React.ReactNode {
 }
 
 export function ChatView() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const { currentChatId, selectedModel, setSelectedModel, addMessage, getCurrentChat, createChat, removeLastMessage, forkChat, updateChatTitle, editMessage, updateChatMeta } = useChatStore();
   const { getKey, hasKey } = useAPIKeyStore();
   const { getActiveAgent, setActiveAgent, activeAgentId } = useAgentStore();
@@ -72,6 +75,10 @@ export function ChatView() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   // 자동 AI 매칭 상태
   const [autoMatchInfo, setAutoMatchInfo] = useState<{ modelName: string; label: string } | null>(null);
+  // [2026-04-16 01:30] Voice Chat state
+  const [ttsAutoplay, setTtsAutoplay] = useState(true);
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   // Chat summary state
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryText, setSummaryText] = useState('');
@@ -411,6 +418,26 @@ export function ChatView() {
         }
         setStreamingText('');
         setIsStreaming(false);
+        // [2026-04-16 01:30] Voice Chat: auto-play TTS when enabled
+        if (ttsAutoplay && fullText && !fullText.startsWith('🚫') && !fullText.startsWith('🔑')) {
+          const openaiKey = getKey('openai');
+          const googleKey = getKey('google');
+          const voiceLang = lang as 'ko' | 'en';
+          const voiceConfig = getVoiceProviderConfig(voiceLang, !!openaiKey, !!googleKey);
+          if (voiceConfig) {
+            speakText(fullText.replace(/!\[.*?\]\(.*?\)/g, '').slice(0, 800), voiceConfig, openaiKey, googleKey, voiceLang)
+              .then((audioUrl) => {
+                if (ttsAudioRef.current) {
+                  ttsAudioRef.current.pause();
+                  URL.revokeObjectURL(ttsAudioRef.current.src);
+                }
+                const audio = new Audio(audioUrl);
+                ttsAudioRef.current = audio;
+                audio.play().catch(() => {});
+              })
+              .catch(() => {}); // TTS failure is non-blocking
+          }
+        }
         // Hide token counter after 3 s
         tokenHideTimerRef.current = setTimeout(() => {
           setShowTokenCounter(false);
@@ -431,6 +458,36 @@ export function ChatView() {
         setShowTokenCounter(false);
       },
     });
+  };
+
+  // [2026-04-16 01:30] Voice Chat: handle recorded audio → STT → fill input → auto-send
+  const handleVoiceRecorded = async (blob: Blob) => {
+    const openaiKey = getKey('openai');
+    const googleKey = getKey('google');
+    const voiceLang = lang as 'ko' | 'en';
+    const voiceConfig = getVoiceProviderConfig(voiceLang, !!openaiKey, !!googleKey);
+    if (!voiceConfig) return;
+
+    setIsProcessingVoice(true);
+    try {
+      let transcript = '';
+      if (voiceConfig.stt === 'openai' && openaiKey) {
+        transcript = await sttOpenAI(blob, openaiKey, voiceLang);
+      } else if (voiceConfig.stt === 'google' && googleKey) {
+        transcript = await sttGoogle(blob, googleKey, voiceLang);
+      }
+      if (transcript.trim()) {
+        setInput(transcript.trim());
+        // Auto-send after STT
+        setTimeout(() => {
+          handleSend();
+        }, 50);
+      }
+    } catch {
+      // STT failure is non-critical — user can type instead
+    } finally {
+      setIsProcessingVoice(false);
+    }
   };
 
   // Handle saving an inline edit and re-triggering AI
@@ -1279,7 +1336,9 @@ export function ChatView() {
                   <>
                     <div className="text-sm font-medium text-gray-200 leading-tight">{model?.name || selectedModel}</div>
                     {model?.description && (
-                      <div className="text-xs text-gray-500 leading-tight truncate max-w-[220px]">{model.description}</div>
+                      // [2026-04-16 01:05] Bug fix: show Korean description when in /ko mode
+                      // was: {model.description}
+                      <div className="text-xs text-gray-500 leading-tight truncate max-w-[220px]">{lang === 'ko' ? (model.descriptionKo || model.description) : model.description}</div>
                     )}
                   </>
                 )}
@@ -1315,6 +1374,26 @@ export function ChatView() {
                 <Sparkles size={13} /> {t('chat.summarize')}
               </button>
             )}
+
+            {/* [2026-04-16 01:30] TTS auto-play toggle */}
+            <button
+              onClick={() => {
+                setTtsAutoplay((prev) => {
+                  if (prev && ttsAudioRef.current) {
+                    ttsAudioRef.current.pause();
+                  }
+                  return !prev;
+                });
+              }}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${
+                ttsAutoplay
+                  ? 'bg-blue-900/40 text-blue-400 hover:bg-blue-900/60'
+                  : 'bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700'
+              }`}
+              title={ttsAutoplay ? 'TTS autoplay ON — click to disable' : 'TTS autoplay OFF — click to enable'}
+            >
+              {ttsAutoplay ? <Volume2 size={13} /> : <VolumeX size={13} />}
+            </button>
 
             {/* Export button */}
             {chat && chat.messages.length > 0 && (
@@ -1421,7 +1500,9 @@ export function ChatView() {
                                 )}
                               </div>
                               {m.description && (
-                                <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
+                                // [2026-04-16 01:05] Bug fix: show Korean description when in /ko mode
+                                // was: {m.description}
+                                <p className="text-xs text-gray-500 mt-0.5">{lang === 'ko' ? (m.descriptionKo || m.description) : m.description}</p>
                               )}
                             </div>
                           </button>
@@ -1470,6 +1551,17 @@ export function ChatView() {
             >
               <Paperclip size={18} />
             </button>
+            {/* [2026-04-16 01:30] Voice Chat: mic button */}
+            {isProcessingVoice ? (
+              <div className="p-2 shrink-0 self-end mb-0.5 text-blue-400">
+                <Loader2Icon size={18} className="animate-spin" />
+              </div>
+            ) : (
+              <VoiceButton
+                onRecorded={handleVoiceRecorded}
+                disabled={isStreaming}
+              />
+            )}
             <textarea
               ref={inputRef}
               value={input}

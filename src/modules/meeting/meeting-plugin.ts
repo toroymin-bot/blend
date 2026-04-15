@@ -200,3 +200,33 @@ ${transcript}`;
     return { oneLiner: '', bullets: [], full: '' };
   }
 }
+
+// ── Mindmap Generation ────────────────────────────────────────────────────────
+// [2026-04-16] New function: generate markdown mindmap from meeting analysis
+
+export async function generateMindmap(
+  rawTranscript: string,
+  title: string,
+  apiKey: string,
+  provider: Provider
+): Promise<string> {
+  const system = `You are a meeting analysis expert. Convert meeting content into a markdown mindmap structure.`;
+  const user = `Convert the following meeting analysis into a markdown mind map structure.
+Root: "${title}"
+Branches: Key Decisions, Action Items (with owner), Discussion Topics, Next Steps
+Use markdown heading levels (# ## ###) for hierarchy.
+Keep each node concise (under 10 words).
+Return only the markdown, no explanation.
+
+Meeting transcript:
+${rawTranscript}`;
+
+  try {
+    const raw = await callLLM(system, user, apiKey, provider);
+    // Strip any JSON or code block wrapper if returned by model
+    const stripped = raw.replace(/^```(?:markdown)?\s*/i, '').replace(/\s*```$/, '').trim();
+    return stripped || `# ${title}\n## No content generated`;
+  } catch {
+    return `# ${title}\n## Error generating mindmap`;
+  }
+}

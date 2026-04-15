@@ -1,8 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useUsageStore } from '@/stores/usage-store';
 import { getProviderColor } from '@/modules/models/model-registry';
-import { BarChart3, DollarSign, Zap, TrendingUp, Clock, Activity } from 'lucide-react';
+import { BarChart3, DollarSign, Zap, TrendingUp, Clock, Activity, RefreshCw } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 
 // ── SVG Bar Chart ──────────────────────────────────────────────────────────────
@@ -192,7 +193,23 @@ export function DashboardView() {
     getTotalCost, getTodayCost, getThisMonthCost,
     getCostByModel, getCostByProvider, getCostByDay,
     getTokensByModel, getTotalRequests,
+    loadFromStorage,
   } = useUsageStore();
+
+  // [2026-04-16 01:15] Bug fix: 5-minute auto-sync — reload usage data from localStorage
+  // Root cause: DashboardView read from in-memory store without ever refreshing from storage
+  const [lastSync, setLastSync] = useState<Date>(new Date());
+  useEffect(() => {
+    loadFromStorage(); // initial load on mount
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'hidden') {
+        loadFromStorage();
+        setLastSync(new Date());
+      }
+    }, 300_000); // 5 minutes
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalCost = getTotalCost();
   const todayCost = getTodayCost();
@@ -215,9 +232,16 @@ export function DashboardView() {
   return (
     <div className="h-full overflow-y-auto bg-surface p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-2 mb-6">
-          <BarChart3 size={24} className="text-blue-400" />
-          <h1 className="text-2xl font-bold text-on-surface">{t('dashboard.page_title')}</h1>
+        <div className="flex items-center justify-between gap-2 mb-6">
+          <div className="flex items-center gap-2">
+            <BarChart3 size={24} className="text-blue-400" />
+            <h1 className="text-2xl font-bold text-on-surface">{t('dashboard.page_title')}</h1>
+          </div>
+          {/* [2026-04-16 01:15] 5-minute auto-sync last-updated indicator */}
+          <div className="flex items-center gap-1.5 text-xs text-on-surface-muted">
+            <RefreshCw size={11} />
+            <span>Updated {Math.round((Date.now() - lastSync.getTime()) / 60000)} min ago</span>
+          </div>
         </div>
 
         {/* Summary cards */}
