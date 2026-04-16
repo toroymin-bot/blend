@@ -29,7 +29,9 @@
     "savings_desc": "How much do you save with Blend?",
     "dashboard_desc": "Track AI usage costs",
     "settings_desc": "App configuration",
-    "security_desc": "Data security overview"
+    "security_desc": "Data security overview",
+    "billing": "Billing",
+    "billing_desc": "Plans & payment"
   },
   "mobile": {
     "chat": "Chat",
@@ -84,7 +86,7 @@
     "empty_state_title": "Hello! How can I help you?",
     "empty_state_subtitle": "Select an AI model and ask a question",
     "welcome_title": "How can I help you?",
-    "welcome_subtitle": "Click an example below or type directly",
+    "welcome_subtitle": "All AI in one place",
     "setup_api_key": "Set Up API Key",
     "tokens": "tokens",
     "cost": "cost",
@@ -165,7 +167,12 @@
     "dalle_processing": "DALL-E 3 processing (up to 30 seconds)",
     "ai_generated_image": "AI-generated image",
     "attached_image": "Attached image {{index}}",
-    "remove_image_index": "Remove image {{index}}"
+    "remove_image_index": "Remove image {{index}}",
+    "tagline_writing": "writing",
+    "tagline_search": "search",
+    "tagline_speaking": "speaking",
+    "tagline_image": "image",
+    "tagline_coding": "coding"
   },
   "settings": {
     "title": "Settings",
@@ -820,5 +827,25 @@
     "promptengineer_desc": "Optimizes and improves AI prompts.",
     "promptengineer_prompt": "You are an AI prompt engineering expert. You analyze user prompts and improve them to get more accurate results. Apply the latest techniques such as chain-of-thought, few-shot, and role prompting. Present the improved prompt along with the reasons for improvement.",
     "copy_suffix": " (copy)"
+  },
+  "billing": {
+    "title": "Simple, transparent pricing",
+    "subtitle": "Start free. Upgrade anytime.",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "save_badge": "Save 20%",
+    "most_popular": "Most Popular",
+    "per_month": "/mo",
+    "faq_title": "Frequently Asked Questions",
+    "faq_cancel_q": "Can I cancel anytime?",
+    "faq_cancel_a": "Yes, you can cancel your subscription at any time. No lock-in contracts.",
+    "faq_payment_q": "What payment methods are accepted?",
+    "faq_payment_a": "We accept major credit cards via Stripe, Toss Payments (Korea), and Xendit (Philippines/SE Asia).",
+    "faq_secure_q": "Is my payment secure?",
+    "faq_secure_a": "Yes. All payments are processed through certified payment providers. We never store your card data.",
+    "payment_method": "Payment Method",
+    "get_started": "Get Started",
+    "upgrade": "Upgrade to Pro",
+    "contact_sales": "Contact Sales"
   }
 }

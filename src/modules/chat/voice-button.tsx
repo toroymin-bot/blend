@@ -29,13 +29,17 @@ export function VoiceButton({ onRecorded, disabled }: VoiceButtonProps) {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      // [2026-04-17] fallback mimeType for mobile Safari (iOS does not support audio/webm)
+      const preferredMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+      const mimeType = preferredMimes.find((m) => MediaRecorder.isTypeSupported(m)) || '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const blobType = mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: blobType });
         // Stop all mic tracks to release microphone
         stream.getTracks().forEach((t) => t.stop());
         onRecorded(blob);

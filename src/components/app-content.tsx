@@ -19,6 +19,8 @@ import { DataSourceView } from '@/modules/datasources/datasource-view';
 import { MeetingView } from '@/modules/meeting/meeting-view';
 import { SecurityView } from '@/modules/ui/security-view';
 import { WelcomeView } from '@/modules/ui/welcome-view';
+// [2026-04-17] Billing view added
+import { BillingView } from '@/modules/ui/billing-view';
 import { useKeyboardShortcuts, ShortcutHelpModal } from '@/modules/ui/keyboard-shortcuts';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { usePromptStore } from '@/stores/prompt-store';
@@ -142,6 +144,8 @@ export default function AppContent() {
       case 'dashboard': return <DashboardView />;
       case 'savings': return <CostSavingsDashboard />;
       case 'security': return <SecurityView />;
+      // [2026-04-17] billing view
+      case 'billing': return <BillingView />;
       default: return <ChatView />;
     }
   };

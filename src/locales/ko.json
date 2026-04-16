@@ -29,7 +29,9 @@
     "savings_desc": "Blend로 얼마나 절약하나?",
     "dashboard_desc": "AI 사용 비용 확인",
     "settings_desc": "앱 설정 변경",
-    "security_desc": "내 데이터 보안 안내"
+    "security_desc": "내 데이터 보안 안내",
+    "billing": "결제",
+    "billing_desc": "요금제 및 결제"
   },
   "mobile": {
     "chat": "채팅",
@@ -84,7 +86,7 @@
     "empty_state_title": "안녕하세요! 무엇을 도와드릴까요?",
     "empty_state_subtitle": "AI 모델을 선택하고 질문해보세요",
     "welcome_title": "무엇을 도와드릴까요?",
-    "welcome_subtitle": "아래 예시를 클릭하거나 직접 입력하세요",
+    "welcome_subtitle": "모든 AI를 하나로",
     "setup_api_key": "API 키 설정하기",
     "tokens": "토큰",
     "cost": "비용",
@@ -165,7 +167,12 @@
     "dalle_processing": "DALL-E 3 처리 중 (최대 30초)",
     "ai_generated_image": "AI 생성 이미지",
     "attached_image": "첨부 이미지 {{index}}",
-    "remove_image_index": "이미지 {{index}} 제거"
+    "remove_image_index": "이미지 {{index}} 제거",
+    "tagline_writing": "글쓰기",
+    "tagline_search": "검색",
+    "tagline_speaking": "음성",
+    "tagline_image": "이미지",
+    "tagline_coding": "코딩"
   },
   "settings": {
     "title": "설정",
@@ -820,5 +827,25 @@
     "promptengineer_desc": "AI 프롬프트를 최적화하고 개선합니다.",
     "promptengineer_prompt": "당신은 AI 프롬프트 엔지니어링 전문가입니다. 사용자의 프롬프트를 분석하고 더 정확한 결과를 얻을 수 있도록 개선합니다. Chain-of-thought, few-shot, role prompting 등 최신 기법을 적용합니다. 개선된 프롬프트와 개선 이유를 함께 제시합니다.",
     "copy_suffix": " (복사)"
+  },
+  "billing": {
+    "title": "심플한 요금제",
+    "subtitle": "무료로 시작, 언제든 업그레이드",
+    "monthly": "월간",
+    "yearly": "연간",
+    "save_badge": "20% 절약",
+    "most_popular": "가장 인기",
+    "per_month": "/월",
+    "faq_title": "자주 묻는 질문",
+    "faq_cancel_q": "언제든 취소할 수 있나요?",
+    "faq_cancel_a": "네, 언제든지 구독을 취소할 수 있습니다. 약정 없음.",
+    "faq_payment_q": "어떤 결제 수단을 지원하나요?",
+    "faq_payment_a": "Stripe(글로벌), 토스페이먼츠(한국), Xendit(필리핀/동남아)를 지원합니다.",
+    "faq_secure_q": "결제가 안전한가요?",
+    "faq_secure_a": "네. 모든 결제는 인증된 결제 사업자를 통해 처리됩니다. 카드 정보는 저장하지 않습니다.",
+    "payment_method": "결제 수단",
+    "get_started": "시작하기",
+    "upgrade": "Pro로 업그레이드",
+    "contact_sales": "문의하기"
   }
 }

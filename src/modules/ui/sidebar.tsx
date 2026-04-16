@@ -4,7 +4,7 @@ import { useChatStore } from '@/stores/chat-store';
 import { useAgentStore } from '@/stores/agent-store';
 import { downloadChat } from '@/modules/chat/export-chat';
 import { ChatTags } from '@/modules/chat/chat-tags';
-import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, FileText, HardDrive, Mic, Sparkles, Shield } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, FileText, HardDrive, Mic, Sparkles, Shield, CreditCard } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n';
 
@@ -166,6 +166,8 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     ...(PLUGINS_ENABLED ? [{ id: 'plugins', icon: Puzzle, label: t('nav.plugins'), desc: t('nav.plugins_desc') }] : []),
     { id: 'models', icon: Cpu, label: t('nav.models'), desc: t('nav.models_desc') },
     { id: 'savings', icon: Sparkles, label: t('nav.savings'), desc: t('nav.savings_desc') },
+    // [2026-04-17] billing nav item added
+    { id: 'billing', icon: CreditCard, label: t('nav.billing'), desc: t('nav.billing_desc') },
     { id: 'dashboard', icon: BarChart3, label: t('nav.dashboard'), desc: t('nav.dashboard_desc') },
     { id: 'settings', icon: Settings, label: t('nav.settings'), desc: t('nav.settings_desc') },
     { id: 'security', icon: Shield, label: t('nav.security'), desc: t('nav.security_desc') },

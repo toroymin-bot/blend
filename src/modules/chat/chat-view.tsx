@@ -997,8 +997,9 @@ export function ChatView() {
                   <span>{t('chat.agent_active', { name: getActiveAgent()?.name ?? '' })}</span>
                 </div>
               )}
+              {/* [2026-04-17 01:00] disabled quick-start card grid — replaced with tagline below */}
               {/* Quick-start suggestions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 text-left">
+              {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 text-left">
                 {[
                   { icon: '✍️', text: t('chat.example_writing_text'), label: t('chat.example_writing') },
                   { icon: '🔍', text: t('chat.example_search_text'), label: t('chat.example_search') },
@@ -1026,6 +1027,27 @@ export function ChatView() {
                     </div>
                   </button>
                 ))}
+              </div> */}
+              {/* [2026-04-17] Tagline — replaces card grid */}
+              <div className="mb-6">
+                <p className="text-sm font-medium text-gray-300 mb-3">{t('chat.welcome_subtitle')}</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {[
+                    { emoji: '✍️', label: t('chat.tagline_writing') },
+                    { emoji: '🔍', label: t('chat.tagline_search') },
+                    { emoji: '🎤', label: t('chat.tagline_speaking') },
+                    { emoji: '🎨', label: t('chat.tagline_image') },
+                    { emoji: '💻', label: t('chat.tagline_coding') },
+                  ].map((item) => (
+                    <span
+                      key={item.label}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-800/60 border border-gray-700/50 text-xs text-gray-400"
+                    >
+                      <span className="text-base leading-none">{item.emoji}</span>
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
               </div>
               {/* 구독/업그레이드 유도 메시지 — 비활성화 */}
             </div>
@@ -1158,7 +1180,8 @@ export function ChatView() {
                     >
                       {copiedMsgId === msg.id ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
                     </button>
-                    <button
+                    {/* [2026-04-17 01:00] disabled — Fork button hidden (unfamiliar UX for users) */}
+                    {/* <button
                       onClick={() => {
                         const idx = chat.messages.findIndex((m) => m.id === msg.id);
                         if (idx >= 0) forkChat(currentChatId!, idx);
@@ -1167,7 +1190,7 @@ export function ChatView() {
                       title={t('chat.fork_here')}
                     >
                       <GitFork size={13} />
-                    </button>
+                    </button> */}
                     {msg.role === 'user' && !isStreaming && (
                       <button
                         onClick={() => { setEditingMsgId(msg.id); setEditingMsgContent(msg.content); }}
