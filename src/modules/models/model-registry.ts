@@ -954,6 +954,17 @@ export const DEFAULT_MODELS: AIModel[] = [
     descriptionKo: '코딩 잘하는 AI — 균형 최고',
     enabled: false,
   },
+  {
+    id: 'claude-opus-4-7',
+    name: 'Claude Opus 4.7',
+    provider: 'anthropic',
+    contextLength: 128000,
+    inputPrice: 15,
+    outputPrice: 75,
+    features: ['streaming', 'vision', 'thinking', 'function_calling'],
+    description: '긴 글 읽고 깊이 분석하는 최고급 AI',
+    enabled: true,
+  },
   // ── Google ─────────────────────────────────────────────────────────────────
   {
     id: 'gemini-2.5-pro',
