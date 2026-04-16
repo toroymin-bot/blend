@@ -26,46 +26,44 @@ function checkKeys() {
 // [2026-04-15 02:00] Day 12 업데이트 — 소스C 자체 테스트 5건 수정
 function setTodayData() {
   var data = {
-    dayNumber: 13,
-    files: 70,
-    lines: 14752,
-    features: 6,
+    dayNumber: 14,
+    files: 71,
+    lines: 15024,
+    features: 5,
     cost: '$0',
     newFeatures: [
-      '[소스A-1] 🟢 Voice Chat: STT 마이크 입력 + TTS 자동 재생 (ko→Google, en→OpenAI)',
-      '[소스A-2] 🟢 회의 분석 gpt-4o-transcribe 업그레이드 + Mind Map 시각화 탭 추가',
-      '[소스A-3] 🔴 Plugins + Prompts 사이드바 메뉴 숨김 처리',
-      '[소스A-4] 🐛 DALL-E 3 자동 선택 복구 — model registry enabled:false 버그 수정',
-      '[소스A-5] 🐛 한국어 모드 AI 모델 설명 영어 표시 수정 — descriptionKo 사용',
-      '[소스A-6] 🐛 Cost Analytics + Savings Dashboard 5분 자동 동기화 + 실제 지출 표시',
-      '[소스A-7] 결제 방안 리서치: Stripe/토스페이/PayPal/GCash/Xendit — Confluence 페이지 작성'
+      '[BUG-001] 🐛 Fix: "?" key no longer triggers keyboard shortcuts overlay when typing in chat input (mobile fix)',
+      '[TEST-003/004] 🐛 Fix: Voice button mimeType fallback for iOS Safari — microphone now works on iPhone',
+      '[소스A-1] 🔴 Fork Chat button hidden from message action bar (unfamiliar UX)',
+      '[소스A-2] 🟢 Welcome screen: compact tagline pills replace 4-card quick-start grid',
+      '[소스A-3] 🟢 Billing page: Free/Pro/Team plan cards + Stripe/Toss/Xendit payment tabs + FAQ accordion'
     ],
     issues: [
-      {issue: 'DALL-E 3 모델이 model-registry.ts에서 enabled:false로 잘못 설정됨', solution: 'enabled:true로 복원 — 이미지 생성 Auto AI Match 정상 동작'},
-      {issue: '한국어 모드(/ko)에서 AI 모델 설명이 영어로 표시됨', solution: 'chat-view.tsx에서 lang===ko일 때 descriptionKo 필드 사용'},
-      {issue: 'Cost Analytics/Savings Dashboard 데이터 갱신 안됨 (loadFromStorage 미호출)', solution: '5분 주기 자동 동기화 + 백그라운드 탭 예외 처리'}
+      {issue: 'BUG-001: Typing "?" on mobile opens keyboard shortcuts overlay mid-input', solution: 'Added input-focus guard in useKeyboardShortcuts — bare-key shortcuts skip when INPUT/TEXTAREA focused'},
+      {issue: 'TEST-003/004: VoiceButton crashes on iOS Safari (unsupported audio/webm;codecs=opus)', solution: 'Added mimeType priority fallback list; selects best supported format at runtime'},
+      {issue: 'TEST-001: App loads correctly — R2 FAIL, root cause still unclear', solution: 'RETRY — needs environment-level investigation'}
     ],
     tomorrowPlan: [
-      'TEST-001 (App loads correctly) 원인 조사',
-      'TEST-002 (Send message and receive AI reply) 원인 조사',
-      'Voice Chat Settings 섹션 추가 (settings-view.tsx)',
-      '구독 결제 방안 1위 Stripe 적용 프로토타입 검토'
+      'TEST-001 (App loads correctly) R3 — investigate environment/network condition',
+      'Billing: Stripe payment link integration (actual checkout URL)',
+      'Source C: innerHTML sanitization in meeting-mindmap.tsx',
+      'Source C: useEffect dependency audit (performance category)'
     ],
     confluenceLinks: [
-      {title: 'Blend 개발 일지 — 2026-04-16', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/11632641'},
-      {title: 'Blend 구독 결제 방안 — 한국·필리핀 (2026-04-16)', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/11665409'}
+      {title: 'Blend 개발 일지 — 2026-04-17', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/12222465/Blend+2026-04-17'},
+      {title: 'Blend 개발 일지 — 2026-04-16', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/11632641'}
     ],
     githubLinks: [],
     runStart: '01:00',
-    runEnd: '02:30',
+    runEnd: '02:15',
     totalCommits: 1,
-    qaFailCount: 2,
-    qaFixedCount: 0,
+    qaFailCount: 3,
+    qaFixedCount: 2,
     qaNewTests: 11,
-    bugFixedCount: 0,
+    bugFixedCount: 1,
     selfTestCount: 100,
-    selfTestIssues: 2,
-    devLogRows: 6
+    selfTestIssues: 34,
+    devLogRows: 5
   };
   PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
   Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files, ' + data.totalCommits + ' commits');
