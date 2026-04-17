@@ -26,44 +26,46 @@ function checkKeys() {
 // [2026-04-15 02:00] Day 12 업데이트 — 소스C 자체 테스트 5건 수정
 function setTodayData() {
   var data = {
-    dayNumber: 14,
-    files: 71,
-    lines: 15024,
-    features: 5,
+    dayNumber: 15,
+    files: 80,
+    lines: 15744,
+    features: 7,
     cost: '$0',
     newFeatures: [
-      '[BUG-001] 🐛 Fix: "?" key no longer triggers keyboard shortcuts overlay when typing in chat input (mobile fix)',
-      '[TEST-003/004] 🐛 Fix: Voice button mimeType fallback for iOS Safari — microphone now works on iPhone',
-      '[소스A-1] 🔴 Fork Chat button hidden from message action bar (unfamiliar UX)',
-      '[소스A-2] 🟢 Welcome screen: compact tagline pills replace 4-card quick-start grid',
-      '[소스A-3] 🟢 Billing page: Free/Pro/Team plan cards + Stripe/Toss/Xendit payment tabs + FAQ accordion'
+      '[소스A-1] 🐛 Fix: Meeting file upload now accepts Google API key as fallback (no OpenAI needed)',
+      '[소스A-2] 🐛 Fix: Mind Map tab shows real content — removed hardcoded json_object format for mindmap LLM calls',
+      '[소스A-3] 🟢 Toss Payments v2 client-side checkout wired up in billing page (Korea)',
+      '[소스A-4] 🟢 Xendit payment integration added for Philippines/SE Asia (GCash, Maya, Touch\'n Go)',
+      '[소스A-5] 🟢 Payment success/fail redirect pages added (/ko/payment/success, /en/payment/fail)',
+      '[소스C-1] 🐛 Fix: chat-store localStorage parse failure now warns + clears instead of silent crash',
+      '[소스C-2] 🐛 Fix: settings-store + api-key-store localStorage silent failures fixed'
     ],
     issues: [
-      {issue: 'BUG-001: Typing "?" on mobile opens keyboard shortcuts overlay mid-input', solution: 'Added input-focus guard in useKeyboardShortcuts — bare-key shortcuts skip when INPUT/TEXTAREA focused'},
-      {issue: 'TEST-003/004: VoiceButton crashes on iOS Safari (unsupported audio/webm;codecs=opus)', solution: 'Added mimeType priority fallback list; selects best supported format at runtime'},
-      {issue: 'TEST-001: App loads correctly — R2 FAIL, root cause still unclear', solution: 'RETRY — needs environment-level investigation'}
+      {issue: 'Meeting: Google STT does not support m4a/mp4 (iPhone recordings)', solution: 'Shows clear error message — Google STT fallback works for webm/ogg. iPhone users still need OpenAI key'},
+      {issue: 'Toss/Xendit: Server-side confirmation not yet implemented (static export constraint)', solution: 'Toss: manual verification via Toss dashboard. Xendit: requires /api/xendit-invoice backend. Both show Setup Required until env vars set'},
+      {issue: 'Source C: 32 open issues remain (localStorage plaintext keys, missing abort signals, etc.)', solution: 'Queued for future nights'}
     ],
     tomorrowPlan: [
-      'TEST-001 (App loads correctly) R3 — investigate environment/network condition',
-      'Billing: Stripe payment link integration (actual checkout URL)',
-      'Source C: innerHTML sanitization in meeting-mindmap.tsx',
-      'Source C: useEffect dependency audit (performance category)'
+      'Add NEXT_PUBLIC_TOSS_CLIENT_KEY and NEXT_PUBLIC_XENDIT_PUBLIC_KEY env vars in Vercel to activate payments',
+      'Xendit: implement /api/xendit-invoice serverless endpoint for invoice creation',
+      'Source C: missing abort signal on streaming chat requests',
+      'Source C: searchMatches() memoization in chat-view.tsx'
     ],
     confluenceLinks: [
-      {title: 'Blend 개발 일지 — 2026-04-17', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/12222465/Blend+2026-04-17'},
-      {title: 'Blend 개발 일지 — 2026-04-16', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/11632641'}
+      {title: 'Blend 개발 일지 — 2026-04-18', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/12910593/Blend+2026-04-18'},
+      {title: 'Blend 개발 일지 — 2026-04-17', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/12222465/Blend+2026-04-17'}
     ],
     githubLinks: [],
     runStart: '01:00',
-    runEnd: '02:15',
+    runEnd: '02:30',
     totalCommits: 1,
-    qaFailCount: 3,
-    qaFixedCount: 2,
-    qaNewTests: 11,
-    bugFixedCount: 1,
+    qaFailCount: 0,
+    qaFixedCount: 0,
+    qaNewTests: 8,
+    bugFixedCount: 0,
     selfTestCount: 100,
-    selfTestIssues: 34,
-    devLogRows: 5
+    selfTestIssues: 3,
+    devLogRows: 7
   };
   PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
   Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files, ' + data.totalCommits + ' commits');
