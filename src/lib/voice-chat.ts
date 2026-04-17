@@ -62,12 +62,31 @@ export async function sttOpenAI(audioBlob: Blob, apiKey: string, language: strin
  */
 export async function sttGoogle(audioBlob: Blob, apiKey: string, language: string): Promise<string> {
   const arrayBuffer = await audioBlob.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+  // [2026-04-17] Fix: btoa spread overflow — chunked encoding for large audio buffers
+  // (String.fromCharCode(...largeArray) throws "Maximum call stack size exceeded")
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  const base64 = btoa(binary);
+
   const langCode = language === 'ko' ? 'ko-KR' : 'en-US';
+
+  // [2026-04-17] Fix: detect encoding from blob MIME type instead of hardcoding WEBM_OPUS
+  // iOS/Safari records audio/mp4 (AAC) — Google STT v1 doesn't support MP4/AAC natively,
+  // so fall back to OpenAI Whisper for mp4 by throwing an error here (caller should catch).
+  const mimeType = audioBlob.type.toLowerCase();
+  if (mimeType.includes('mp4') || mimeType.includes('m4a') || mimeType.includes('aac')) {
+    throw new Error('Google STT: mp4/aac format not supported — use OpenAI Whisper instead');
+  }
+  const encoding = mimeType.includes('ogg') ? 'OGG_OPUS' : 'WEBM_OPUS';
 
   const body = {
     config: {
-      encoding: 'WEBM_OPUS',
+      encoding,
       sampleRateHertz: 48000,
       languageCode: langCode,
     },

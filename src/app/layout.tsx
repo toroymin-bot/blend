@@ -46,6 +46,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* [2026-04-17] Paddle Billing v2 — loaded globally for overlay checkout */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="https://cdn.paddle.com/paddle/v2/paddle.js" async></script>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

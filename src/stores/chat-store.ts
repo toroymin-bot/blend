@@ -253,7 +253,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           currentChatId: data.currentChatId ?? null,
         });
       }
-    } catch {}
+    // [2026-04-18 01:00] Fix: clear corrupted localStorage instead of silently failing
+    } catch (e) {
+      console.warn('[chat-store] localStorage parse failed, clearing corrupted data:', e);
+      localStorage.removeItem('blend:chats');
+    }
   },
 
   saveToStorage: () => {

@@ -147,8 +147,12 @@ export function MeetingView() {
   }, [getKey, addMeeting, addDocument, updateDocument, t]);
 
   const handleFile = useCallback(async (file: File) => {
+    // [2026-04-18 01:00] Fix: support Google STT as fallback when no OpenAI key
     const openaiKey = getKey('openai');
-    if (!openaiKey) {
+    const googleKey = getKey('google');
+
+    // [2026-04-18 01:00] disabled — if (!openaiKey) { setErrorMsg(t('meeting_view.no_transcription_key')); setStep('error'); return; }
+    if (!openaiKey && !googleKey) {
       setErrorMsg(t('meeting_view.no_transcription_key'));
       setStep('error');
       return;
@@ -163,23 +167,32 @@ export function MeetingView() {
     setErrorMsg('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      // [2026-04-16 01:20] disabled — formData.append('model', 'whisper-1'); // 2022 model, poor Korean quality
-      formData.append('model', 'gpt-4o-transcribe'); // [2026-04-16] upgraded: latest model, better Korean
-      formData.append('response_format', 'verbose_json');
-      const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${openaiKey}` },
-        body: formData,
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: { message?: string } })?.error?.message || t('meeting_view.transcription_failed', { status: String(res.status) }));
+      if (openaiKey) {
+        // OpenAI gpt-4o-transcribe — best quality
+        const formData = new FormData();
+        formData.append('file', file);
+        // [2026-04-16 01:20] disabled — formData.append('model', 'whisper-1'); // 2022 model, poor Korean quality
+        formData.append('model', 'gpt-4o-transcribe'); // [2026-04-16] upgraded: latest model, better Korean
+        // [2026-04-17] Fix: gpt-4o-transcribe does not support verbose_json → use json
+        formData.append('response_format', 'json');
+        const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${openaiKey}` },
+          body: formData,
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as { error?: { message?: string } })?.error?.message || t('meeting_view.transcription_failed', { status: String(res.status) }));
+        }
+        const data = await res.json();
+        const text = data.text ?? '';
+        await processTranscript(text, file.name.replace(/\.[^.]+$/, ''), 'file');
+      } else {
+        // [2026-04-18 01:00] Google STT fallback — works for webm/ogg; m4a/mp4 not supported
+        const { sttGoogle } = await import('@/lib/voice-chat');
+        const text = await sttGoogle(file as Blob, googleKey!, 'ko');
+        await processTranscript(text, file.name.replace(/\.[^.]+$/, ''), 'file');
       }
-      const data = await res.json();
-      const text = data.text ?? '';
-      await processTranscript(text, file.name.replace(/\.[^.]+$/, ''), 'file');
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : t('meeting_view.transcription_error'));
       setStep('error');

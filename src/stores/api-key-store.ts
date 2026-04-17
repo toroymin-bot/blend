@@ -75,7 +75,10 @@ export const useAPIKeyStore = create<APIKeyState>((set, get) => ({
         // Merge with defaults so new providers aren't lost when loading old data
         set((state) => ({ keys: { ...state.keys, ...parsed } }));
       }
-    } catch {}
+    // [2026-04-18 01:00] Fix: warn instead of silently swallowing parse error
+    } catch (e) {
+      console.warn('[api-key-store] localStorage parse failed:', e);
+    }
   },
 
   saveToStorage: () => {

@@ -706,7 +706,7 @@
     "step_error": "Error occurred",
     "error_label": "Error",
     "no_openai_key": "OpenAI or Anthropic API key is required.",
-    "no_transcription_key": "OpenAI API key is required for audio transcription.",
+    "no_transcription_key": "File transcription requires an OpenAI or Google API key. Please add one in Settings > API Keys.",
     "file_too_large": "File size exceeds 25MB. (Whisper limit)",
     "transcription_failed": "Transcription failed: {{status}}",
     "transcription_error": "Transcription error occurred.",

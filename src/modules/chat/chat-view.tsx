@@ -460,7 +460,18 @@ export function ChatView() {
     });
   };
 
-  // [2026-04-16 01:30] Voice Chat: handle recorded audio → STT → fill input → auto-send
+  // [2026-04-17] Voice: Web Speech API real-time transcript handler
+  // isFinal=false → interim result, show live in input but don't send yet
+  // isFinal=true  → final result, show in input and auto-send
+  const handleVoiceTranscript = (text: string, isFinal: boolean) => {
+    setInput(text);
+    if (isFinal && text.trim()) {
+      setTimeout(() => handleSend(), 50);
+    }
+  };
+
+  // [2026-04-16 01:30] Voice Chat: MediaRecorder fallback (non-Chrome/Edge browsers)
+  // [2026-04-17] Fix: Google STT failures (btoa overflow, iOS mp4 format) fall back to OpenAI Whisper
   const handleVoiceRecorded = async (blob: Blob) => {
     const openaiKey = getKey('openai');
     const googleKey = getKey('google');
@@ -471,17 +482,21 @@ export function ChatView() {
     setIsProcessingVoice(true);
     try {
       let transcript = '';
-      if (voiceConfig.stt === 'openai' && openaiKey) {
+      if (voiceConfig.stt === 'google' && googleKey) {
+        try {
+          transcript = await sttGoogle(blob, googleKey, voiceLang);
+        } catch {
+          // Google STT failed → fall back to OpenAI Whisper
+          if (openaiKey) {
+            transcript = await sttOpenAI(blob, openaiKey, voiceLang);
+          }
+        }
+      } else if (voiceConfig.stt === 'openai' && openaiKey) {
         transcript = await sttOpenAI(blob, openaiKey, voiceLang);
-      } else if (voiceConfig.stt === 'google' && googleKey) {
-        transcript = await sttGoogle(blob, googleKey, voiceLang);
       }
       if (transcript.trim()) {
         setInput(transcript.trim());
-        // Auto-send after STT
-        setTimeout(() => {
-          handleSend();
-        }, 50);
+        setTimeout(() => handleSend(), 50);
       }
     } catch {
       // STT failure is non-critical — user can type instead
@@ -987,9 +1002,7 @@ export function ChatView() {
               <h1 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
                 {t('chat.welcome_title')}
               </h1>
-              <p className="text-sm text-gray-400 leading-relaxed mb-6">
-                {t('chat.welcome_subtitle')}
-              </p>
+              {/* [2026-04-17] welcome_subtitle removed here — shown once in tagline section below */}
               {/* Active agent badge — 자동 AI 매칭은 하단 버튼에 표시되므로 배너 숨김 */}
               {getActiveAgent() && getActiveAgent()?.id !== AUTO_MATCH_AGENT_ID && (
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm mb-5 bg-blue-900/30 text-blue-300">
@@ -1575,14 +1588,17 @@ export function ChatView() {
               <Paperclip size={18} />
             </button>
             {/* [2026-04-16 01:30] Voice Chat: mic button */}
+            {/* [2026-04-17] Uses Web Speech API (real-time) with MediaRecorder fallback */}
             {isProcessingVoice ? (
               <div className="p-2 shrink-0 self-end mb-0.5 text-blue-400">
                 <Loader2Icon size={18} className="animate-spin" />
               </div>
             ) : (
               <VoiceButton
-                onRecorded={handleVoiceRecorded}
+                onTranscript={handleVoiceTranscript}
+                onFallbackRecorded={handleVoiceRecorded}
                 disabled={isStreaming}
+                lang={lang}
               />
             )}
             <textarea

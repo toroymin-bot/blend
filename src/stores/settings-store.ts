@@ -86,7 +86,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           customModels: data.customModels ?? [],
         });
       }
-    } catch {}
+    // [2026-04-18 01:00] Fix: clear corrupted localStorage instead of silently failing
+    } catch (e) {
+      console.warn('[settings-store] localStorage parse failed, clearing corrupted data:', e);
+      localStorage.removeItem('blend:settings');
+    }
   },
 
   saveToStorage: () => {

@@ -1,12 +1,16 @@
 'use client';
 
 // [2026-04-17] Billing View — Subscription plans & payment methods
-// Stripe Pricing page style: plan cards + payment method tabs + FAQ
+// Paddle Billing v2 overlay checkout: supports Korea + global, no backend required.
 
 import { useState } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useSettingsStore } from '@/stores/settings-store';
+import { startPaddleCheckout } from '@/lib/paddle';
+// [2026-04-18] New: Toss Payments + Xendit integrations
+import { openTossCheckout, isTossConfigured } from '@/lib/toss';
+import { openXenditInvoice, isXenditConfigured } from '@/lib/xendit';
 
 const PLANS = [
   {
@@ -27,15 +31,16 @@ const PLANS = [
     ctaKey: 'billing.upgrade',
     highlighted: true,
   },
-  {
-    id: 'team',
-    name: 'Team',
-    price: { monthly: 25, yearly: 20 },
-    descKey: 'For teams collaborating with AI',
-    features: ['Everything in Pro', 'Up to 10 members', 'Shared workspace', 'Admin dashboard', 'Custom AI agents', 'Dedicated support'],
-    ctaKey: 'billing.contact_sales',
-    highlighted: false,
-  },
+  // [2026-04-17] Team plan disabled — implement later
+  // {
+  //   id: 'team',
+  //   name: 'Team',
+  //   price: { monthly: 25, yearly: 20 },
+  //   descKey: 'For teams collaborating with AI',
+  //   features: ['Everything in Pro', 'Up to 10 members', 'Shared workspace', 'Admin dashboard', 'Custom AI agents', 'Dedicated support'],
+  //   ctaKey: 'billing.contact_sales',
+  //   highlighted: false,
+  // },
 ];
 
 const FAQ_KEYS = [
@@ -44,7 +49,7 @@ const FAQ_KEYS = [
   { q: 'billing.faq_secure_q', a: 'billing.faq_secure_a' },
 ];
 
-type PaymentTab = 'stripe' | 'toss' | 'xendit';
+type PaymentTab = 'paddle' | 'toss' | 'xendit';
 
 export function BillingView() {
   const { t } = useTranslation();
@@ -52,9 +57,11 @@ export function BillingView() {
   const isKorean = settings.language === 'ko';
 
   const [yearly, setYearly] = useState(false);
-  const defaultTab: PaymentTab = isKorean ? 'toss' : 'xendit';
+  const defaultTab: PaymentTab = isKorean ? 'toss' : 'paddle';
   const [paymentTab, setPaymentTab] = useState<PaymentTab>(defaultTab);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   return (
     <div className="min-h-full bg-gray-950 text-white overflow-y-auto">
@@ -87,8 +94,8 @@ export function BillingView() {
           </div>
         </div>
 
-        {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-12">
+        {/* Plan Cards — 2 cols (Team disabled) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-12">
           {PLANS.map((plan) => (
             <div
               key={plan.id}
@@ -148,7 +155,7 @@ export function BillingView() {
 
           {/* Tabs */}
           <div className="flex gap-2 mb-5">
-            {(['stripe', 'toss', 'xendit'] as PaymentTab[]).map((tab) => (
+            {(['paddle', 'toss', 'xendit'] as PaymentTab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setPaymentTab(tab)}
@@ -158,7 +165,7 @@ export function BillingView() {
                     : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
                 }`}
               >
-                {tab === 'stripe' && '💳 Stripe'}
+                {tab === 'paddle' && '💳 Paddle'}
                 {tab === 'toss' && '🇰🇷 Toss Payments'}
                 {tab === 'xendit' && '🇵🇭 Xendit'}
               </button>
@@ -166,27 +173,87 @@ export function BillingView() {
           </div>
 
           {/* Tab content */}
-          {paymentTab === 'stripe' && (
+          {/* [2026-04-17] Stripe replaced with Paddle — supports Korea + global, no backend needed */}
+          {paymentTab === 'paddle' && (
             <div className="text-sm text-gray-400 space-y-2">
-              <p>Pay securely with Stripe — credit/debit cards accepted worldwide.</p>
-              <button className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors">
-                Continue with Stripe →
+              <p>Pay with card — Paddle supports Korea &amp; worldwide (200+ countries).</p>
+              <p className="text-xs text-gray-500">VAT &amp; tax handled automatically by Paddle.</p>
+              <button
+                onClick={() => {
+                  const priceId = yearly
+                    ? process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY_PRICE_ID
+                    : process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY_PRICE_ID;
+                  if (priceId) startPaddleCheckout(priceId);
+                }}
+                disabled={!process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY_PRICE_ID}
+                className={`mt-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY_PRICE_ID
+                    ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY_PRICE_ID
+                  ? 'Pay with Card →'
+                  : 'Setup required — see Confluence'}
               </button>
             </div>
           )}
+          {/* [2026-04-18] Toss Payments — wired up to openTossCheckout */}
           {paymentTab === 'toss' && (
             <div className="text-sm text-gray-400 space-y-2">
               <p>토스페이먼츠로 결제 — 토스페이, 카카오페이, 네이버페이, 카드 지원.</p>
-              <button className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white rounded-lg text-sm font-medium transition-colors">
-                토스페이먼츠로 결제 →
+              {paymentError && paymentTab === 'toss' && (
+                <p className="text-red-400 text-xs">{paymentError}</p>
+              )}
+              <button
+                onClick={async () => {
+                  if (!isTossConfigured()) { setPaymentError('Setup required — NEXT_PUBLIC_TOSS_CLIENT_KEY not set. See Confluence.'); return; }
+                  setPaymentLoading(true); setPaymentError('');
+                  try {
+                    const price = yearly ? 7 : 9;
+                    await openTossCheckout({
+                      amount: price * 1000,
+                      orderId: `blend-pro-${Date.now()}`,
+                      orderName: `Blend Pro (${yearly ? 'Yearly' : 'Monthly'})`,
+                    });
+                  } catch (e) {
+                    setPaymentError(e instanceof Error ? e.message : '결제 오류가 발생했습니다.');
+                  } finally { setPaymentLoading(false); }
+                }}
+                disabled={paymentLoading}
+                className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {paymentLoading ? '처리 중...' : '토스페이먼츠로 결제 →'}
               </button>
             </div>
           )}
+          {/* [2026-04-18] Xendit — wired up to openXenditInvoice (requires /api/xendit-invoice backend) */}
           {paymentTab === 'xendit' && (
             <div className="text-sm text-gray-400 space-y-2">
               <p>Pay via Xendit — GCash, Maya, credit/debit card for Philippines &amp; SE Asia.</p>
-              <button className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors">
-                Continue with Xendit →
+              <p className="text-xs text-gray-500">Malaysia: Touch &apos;n Go, GrabPay, FPX also supported.</p>
+              {paymentError && paymentTab === 'xendit' && (
+                <p className="text-red-400 text-xs">{paymentError}</p>
+              )}
+              <button
+                onClick={async () => {
+                  if (!isXenditConfigured()) { setPaymentError('Setup required — NEXT_PUBLIC_XENDIT_PUBLIC_KEY not set. See Confluence.'); return; }
+                  setPaymentLoading(true); setPaymentError('');
+                  try {
+                    const price = yearly ? 350 : 450;
+                    await openXenditInvoice({
+                      amount: price,
+                      currency: 'PHP',
+                      description: `Blend Pro (${yearly ? 'Yearly' : 'Monthly'})`,
+                    });
+                  } catch (e) {
+                    setPaymentError(e instanceof Error ? e.message : 'Payment error. Please try again.');
+                  } finally { setPaymentLoading(false); }
+                }}
+                disabled={paymentLoading}
+                className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {paymentLoading ? 'Processing...' : 'Continue with Xendit →'}
               </button>
             </div>
           )}

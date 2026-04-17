@@ -1,35 +1,143 @@
 'use client';
 
-// [2026-04-16] Voice Chat — Mic button UI component
-// Handles recording start/stop and exposes the recorded audio blob via onRecorded callback.
+// [2026-04-17] Voice refactor: Web Speech API with real-time interim results
+// Primary: SpeechRecognition (browser-native, free, supports ko-KR natively in Chrome/Edge)
+// Fallback: MediaRecorder + Whisper API (Firefox / Safari without Web Speech API support)
+// Fixes: Korean not working, no real-time transcription
 
 import { useState, useRef, useEffect } from 'react';
 import { Mic, Square } from 'lucide-react';
 
-interface VoiceButtonProps {
-  onRecorded: (blob: Blob) => void;
-  disabled?: boolean;
+// [2026-04-17] Inline type definitions for Web Speech API (not guaranteed in all TS versions)
+interface ISpeechRecognitionResult {
+  readonly isFinal: boolean;
+  readonly length: number;
+  item(index: number): { transcript: string };
+  [index: number]: { transcript: string };
+}
+interface ISpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): ISpeechRecognitionResult;
+  [index: number]: ISpeechRecognitionResult;
+}
+interface ISpeechRecognitionEvent extends Event {
+  readonly resultIndex: number;
+  readonly results: ISpeechRecognitionResultList;
+}
+interface ISpeechRecognition extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: ISpeechRecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: Event) => void) | null;
+}
+interface ISpeechRecognitionConstructor {
+  new(): ISpeechRecognition;
+}
+declare global {
+  interface Window {
+    SpeechRecognition?: ISpeechRecognitionConstructor;
+    webkitSpeechRecognition?: ISpeechRecognitionConstructor;
+  }
 }
 
-export function VoiceButton({ onRecorded, disabled }: VoiceButtonProps) {
+interface VoiceButtonProps {
+  /** Called on every interim (isFinal=false) and final (isFinal=true) STT result */
+  onTranscript: (text: string, isFinal: boolean) => void;
+  /** Fallback: called with audio blob when Web Speech API is not available */
+  onFallbackRecorded?: (blob: Blob) => void;
+  disabled?: boolean;
+  lang?: string; // 'ko' | 'en'
+}
+
+export function VoiceButton({ onTranscript, onFallbackRecorded, disabled, lang = 'en' }: VoiceButtonProps) {
   const [recording, setRecording] = useState(false);
   const [pulseAnim, setPulseAnim] = useState(false);
+  const recognitionRef = useRef<ISpeechRecognition | null>(null);
+
+  // Fallback refs (MediaRecorder)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+
+  // Resolve SpeechRecognition constructor (handles webkit prefix)
+  const getSpeechRecognition = (): ISpeechRecognitionConstructor | null => {
+    if (typeof window === 'undefined') return null;
+    return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
+  };
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
+      recognitionRef.current?.abort();
+      if (mediaRecorderRef.current?.state !== 'inactive') {
+        mediaRecorderRef.current?.stop();
       }
     };
   }, []);
 
-  const startRecording = async () => {
+  // ── Web Speech API path ────────────────────────────────────────────────────
+
+  const startWebSpeech = () => {
+    const SpeechRecognitionAPI = getSpeechRecognition();
+    if (!SpeechRecognitionAPI) return false;
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
+    recognition.interimResults = true;  // real-time live text
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: ISpeechRecognitionEvent) => {
+      let interim = '';
+      let final = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          final += t;
+        } else {
+          interim += t;
+        }
+      }
+      if (final) {
+        onTranscript(final, true);
+      } else if (interim) {
+        onTranscript(interim, false);
+      }
+    };
+
+    recognition.onend = () => {
+      setRecording(false);
+      setPulseAnim(false);
+    };
+
+    recognition.onerror = () => {
+      setRecording(false);
+      setPulseAnim(false);
+    };
+
+    recognition.start();
+    recognitionRef.current = recognition;
+    setRecording(true);
+    setPulseAnim(true);
+    return true;
+  };
+
+  const stopWebSpeech = () => {
+    recognitionRef.current?.stop();
+    setRecording(false);
+    setPulseAnim(false);
+  };
+
+  // ── MediaRecorder fallback path ────────────────────────────────────────────
+
+  const startFallback = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // [2026-04-17] fallback mimeType for mobile Safari (iOS does not support audio/webm)
       const preferredMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
       const mimeType = preferredMimes.find((m) => MediaRecorder.isTypeSupported(m)) || '';
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -40,9 +148,8 @@ export function VoiceButton({ onRecorded, disabled }: VoiceButtonProps) {
       recorder.onstop = () => {
         const blobType = mimeType || 'audio/webm';
         const blob = new Blob(chunksRef.current, { type: blobType });
-        // Stop all mic tracks to release microphone
         stream.getTracks().forEach((t) => t.stop());
-        onRecorded(blob);
+        onFallbackRecorded?.(blob);
         setRecording(false);
         setPulseAnim(false);
       };
@@ -55,17 +162,29 @@ export function VoiceButton({ onRecorded, disabled }: VoiceButtonProps) {
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
+  const stopFallback = () => {
+    if (mediaRecorderRef.current?.state !== 'inactive') {
+      mediaRecorderRef.current?.stop();
     }
   };
 
+  // ── Main handler ───────────────────────────────────────────────────────────
+
   const handleClick = () => {
     if (recording) {
-      stopRecording();
-    } else {
-      startRecording();
+      // Stop whichever is active
+      if (recognitionRef.current) {
+        stopWebSpeech();
+      } else {
+        stopFallback();
+      }
+      return;
+    }
+
+    // Try Web Speech API first; fall back to MediaRecorder
+    const started = startWebSpeech();
+    if (!started) {
+      startFallback();
     }
   };
 
@@ -81,7 +200,6 @@ export function VoiceButton({ onRecorded, disabled }: VoiceButtonProps) {
           : 'text-on-surface-muted hover:text-on-surface hover:bg-surface-2'
       } disabled:opacity-40 disabled:cursor-not-allowed`}
     >
-      {/* Pulse ring animation when recording */}
       {pulseAnim && (
         <span className="absolute inset-0 rounded-lg bg-red-500 opacity-40 animate-ping" />
       )}

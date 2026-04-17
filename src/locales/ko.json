@@ -706,7 +706,7 @@
     "step_error": "오류 발생",
     "error_label": "오류",
     "no_openai_key": "OpenAI 또는 Anthropic API 키를 설정해주세요.",
-    "no_transcription_key": "파일 전사에는 OpenAI API 키가 필요합니다.",
+    "no_transcription_key": "파일 전사에는 OpenAI 또는 Google API 키가 필요합니다. 설정 > API 키에서 등록해주세요.",
     "file_too_large": "파일 크기가 25MB를 초과합니다. (Whisper 제한)",
     "transcription_failed": "전사 실패: {{status}}",
     "transcription_error": "전사 중 오류가 발생했습니다.",

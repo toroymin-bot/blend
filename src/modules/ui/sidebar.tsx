@@ -165,9 +165,9 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     // [2026-04-16 01:00] disabled — { id: 'plugins', icon: Puzzle, label: t('nav.plugins'), desc: t('nav.plugins_desc') },
     ...(PLUGINS_ENABLED ? [{ id: 'plugins', icon: Puzzle, label: t('nav.plugins'), desc: t('nav.plugins_desc') }] : []),
     { id: 'models', icon: Cpu, label: t('nav.models'), desc: t('nav.models_desc') },
-    { id: 'savings', icon: Sparkles, label: t('nav.savings'), desc: t('nav.savings_desc') },
-    // [2026-04-17] billing nav item added
+    // [2026-04-17] billing moved above savings
     { id: 'billing', icon: CreditCard, label: t('nav.billing'), desc: t('nav.billing_desc') },
+    { id: 'savings', icon: Sparkles, label: t('nav.savings'), desc: t('nav.savings_desc') },
     { id: 'dashboard', icon: BarChart3, label: t('nav.dashboard'), desc: t('nav.dashboard_desc') },
     { id: 'settings', icon: Settings, label: t('nav.settings'), desc: t('nav.settings_desc') },
     { id: 'security', icon: Shield, label: t('nav.security'), desc: t('nav.security_desc') },

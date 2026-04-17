@@ -7,7 +7,8 @@ type Provider = 'openai' | 'anthropic';
 
 // ── LLM call helpers ──────────────────────────────────────────────────────────
 
-async function callOpenAI(systemPrompt: string, userContent: string, apiKey: string): Promise<string> {
+// [2026-04-18 01:00] Fix: added optional format param — mindmap needs 'text', JSON calls use 'json_object'
+async function callOpenAI(systemPrompt: string, userContent: string, apiKey: string, format: 'json_object' | 'text' = 'json_object'): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -21,7 +22,7 @@ async function callOpenAI(systemPrompt: string, userContent: string, apiKey: str
         { role: 'user', content: userContent },
       ],
       temperature: 0.3,
-      response_format: { type: 'json_object' },
+      ...(format === 'json_object' && { response_format: { type: 'json_object' } }),
     }),
   });
   if (!res.ok) {
@@ -32,7 +33,8 @@ async function callOpenAI(systemPrompt: string, userContent: string, apiKey: str
   return data.choices?.[0]?.message?.content ?? '{}';
 }
 
-async function callAnthropic(systemPrompt: string, userContent: string, apiKey: string): Promise<string> {
+// [2026-04-18 01:00] Fix: added optional format param — only strip markdown JSON blocks in json_object mode
+async function callAnthropic(systemPrompt: string, userContent: string, apiKey: string, format: 'json_object' | 'text' = 'json_object'): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -55,17 +57,22 @@ async function callAnthropic(systemPrompt: string, userContent: string, apiKey: 
   }
   const data = await res.json();
   const text = data.content?.[0]?.text ?? '{}';
-  // Extract JSON from response (may be wrapped in markdown)
-  const match = text.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
-  return match ? match[1] : text;
+  if (format === 'json_object') {
+    // Extract JSON from markdown code block wrapper if present
+    const match = text.match(/```(?:json)\s*([\s\S]+?)\s*```/);
+    return match ? match[1] : text;
+  }
+  // text mode: return as-is (strip only outer markdown fences for markdown responses)
+  return text.replace(/^```(?:markdown)?\s*/i, '').replace(/\s*```$/, '').trim() || text;
 }
 
-async function callLLM(systemPrompt: string, userContent: string, apiKey: string, provider: Provider): Promise<string> {
+// [2026-04-18 01:00] Fix: added format param propagation to support text mode for mindmap
+async function callLLM(systemPrompt: string, userContent: string, apiKey: string, provider: Provider, format: 'json_object' | 'text' = 'json_object'): Promise<string> {
   // Truncate to avoid token limits
   const truncated = userContent.length > 8000 ? userContent.slice(0, 8000) + '\n...(truncated)' : userContent;
   return provider === 'openai'
-    ? callOpenAI(systemPrompt, truncated, apiKey)
-    : callAnthropic(systemPrompt, truncated, apiKey);
+    ? callOpenAI(systemPrompt, truncated, apiKey, format)
+    : callAnthropic(systemPrompt, truncated, apiKey, format);
 }
 
 function safeParseJSON<T>(raw: string, fallback: T): T {
@@ -222,10 +229,9 @@ Meeting transcript:
 ${rawTranscript}`;
 
   try {
-    const raw = await callLLM(system, user, apiKey, provider);
-    // Strip any JSON or code block wrapper if returned by model
-    const stripped = raw.replace(/^```(?:markdown)?\s*/i, '').replace(/\s*```$/, '').trim();
-    return stripped || `# ${title}\n## No content generated`;
+    // [2026-04-18 01:00] Fix: use format:'text' — json_object mode caused OpenAI to reject markdown responses
+    const raw = await callLLM(system, user, apiKey, provider, 'text');
+    return raw || `# ${title}\n## No content generated`;
   } catch {
     return `# ${title}\n## Error generating mindmap`;
   }

@@ -12,6 +12,7 @@
     "@ai-sdk/anthropic": "^3.0.66",
     "@ai-sdk/google": "^3.0.58",
     "@ai-sdk/openai": "^3.0.50",
+    "@tosspayments/tosspayments-sdk": "^2.6.0",
     "ai": "^6.0.146",
     "highlight.js": "^11.11.1",
     "idb": "^8.0.3",
