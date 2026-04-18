@@ -26,46 +26,41 @@ function checkKeys() {
 // [2026-04-15 02:00] Day 12 업데이트 — 소스C 자체 테스트 5건 수정
 function setTodayData() {
   var data = {
-    dayNumber: 15,
+    dayNumber: 16,
     files: 80,
-    lines: 15744,
-    features: 7,
+    lines: 15985,
+    features: 4,
     cost: '$0',
     newFeatures: [
-      '[소스A-1] 🐛 Fix: Meeting file upload now accepts Google API key as fallback (no OpenAI needed)',
-      '[소스A-2] 🐛 Fix: Mind Map tab shows real content — removed hardcoded json_object format for mindmap LLM calls',
-      '[소스A-3] 🟢 Toss Payments v2 client-side checkout wired up in billing page (Korea)',
-      '[소스A-4] 🟢 Xendit payment integration added for Philippines/SE Asia (GCash, Maya, Touch\'n Go)',
-      '[소스A-5] 🟢 Payment success/fail redirect pages added (/ko/payment/success, /en/payment/fail)',
-      '[소스C-1] 🐛 Fix: chat-store localStorage parse failure now warns + clears instead of silent crash',
-      '[소스C-2] 🐛 Fix: settings-store + api-key-store localStorage silent failures fixed'
+      '[소스C-1] 🐛 Fix: claude-opus-4-7 model entry — Korean in description field, wrong contextLength (128K→200K), missing descriptionKo',
+      '[소스C-2] 🐛 Fix: gemini-robotics-er-1.6-preview — Korean text in English description field, fixed with bilingual descriptions',
+      '[소스C-3] 🐛 Fix: gemini-3.1-flash-tts-preview — Korean text in English description field, fixed with bilingual descriptions',
+      '[소스C-4] 🔧 Fix: chat-store + settings-store saveToStorage() lacked try-catch for localStorage QuotaExceededError'
     ],
     issues: [
-      {issue: 'Meeting: Google STT does not support m4a/mp4 (iPhone recordings)', solution: 'Shows clear error message — Google STT fallback works for webm/ogg. iPhone users still need OpenAI key'},
-      {issue: 'Toss/Xendit: Server-side confirmation not yet implemented (static export constraint)', solution: 'Toss: manual verification via Toss dashboard. Xendit: requires /api/xendit-invoice backend. Both show Setup Required until env vars set'},
-      {issue: 'Source C: 32 open issues remain (localStorage plaintext keys, missing abort signals, etc.)', solution: 'Queued for future nights'}
+      {issue: 'Browser self-test (STEP 2.5) could not run — Chrome extension not connected at nighttime', solution: 'QA to verify TEST-029 / TEST-030 manually: check Claude Opus 4.7 description in /en and /ko model dropdown'},
+      {issue: 'TC append_tc_row may have written both TCs to same row (TEST-029)', solution: 'QA to review Test Checklist rows 35-36 and correct if needed'}
     ],
     tomorrowPlan: [
-      'Add NEXT_PUBLIC_TOSS_CLIENT_KEY and NEXT_PUBLIC_XENDIT_PUBLIC_KEY env vars in Vercel to activate payments',
-      'Xendit: implement /api/xendit-invoice serverless endpoint for invoice creation',
-      'Source C: missing abort signal on streaming chat requests',
-      'Source C: searchMatches() memoization in chat-view.tsx'
+      'QA verify TEST-029/030: Claude Opus 4.7 shows correct bilingual descriptions in model dropdown',
+      'Source C follow-up: add fetch timeout / AbortSignal-based timeout to chat-api.ts',
+      'Source C follow-up: searchMatches() called 4x in same render — memoize result'
     ],
     confluenceLinks: [
-      {title: 'Blend 개발 일지 — 2026-04-18', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/12910593/Blend+2026-04-18'},
-      {title: 'Blend 개발 일지 — 2026-04-17', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/12222465/Blend+2026-04-17'}
+      {title: 'Blend 개발 일지 — 2026-04-19', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/13467649/Blend+2026-04-19'},
+      {title: 'Blend 개발 일지 — 2026-04-18', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/12910593/Blend+2026-04-18'}
     ],
     githubLinks: [],
     runStart: '01:00',
-    runEnd: '02:30',
+    runEnd: '01:45',
     totalCommits: 1,
     qaFailCount: 0,
     qaFixedCount: 0,
-    qaNewTests: 8,
+    qaNewTests: 2,
     bugFixedCount: 0,
     selfTestCount: 100,
-    selfTestIssues: 3,
-    devLogRows: 7
+    selfTestIssues: 4,
+    devLogRows: 2
   };
   PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
   Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files, ' + data.totalCommits + ' commits');
