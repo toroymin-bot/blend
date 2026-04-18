@@ -263,6 +263,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
     const { chats, folders, selectedModel, currentChatId } = get();
-    localStorage.setItem('blend:chats', JSON.stringify({ chats, folders, selectedModel, currentChatId }));
+    // [2026-04-19 01:00] fixed — added try-catch for localStorage quota exceeded errors
+    try {
+      localStorage.setItem('blend:chats', JSON.stringify({ chats, folders, selectedModel, currentChatId }));
+    } catch (e) {
+      console.warn('[chat-store] localStorage save failed (quota exceeded?):', e);
+    }
   },
 }));

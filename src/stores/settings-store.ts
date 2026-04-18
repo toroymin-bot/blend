@@ -96,6 +96,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
     const { settings, systemPrompt, systemPromptPresets, customModels } = get();
-    localStorage.setItem('blend:settings', JSON.stringify({ settings, systemPrompt, systemPromptPresets, customModels }));
+    // [2026-04-19 01:00] fixed — added try-catch for localStorage quota exceeded errors
+    try {
+      localStorage.setItem('blend:settings', JSON.stringify({ settings, systemPrompt, systemPromptPresets, customModels }));
+    } catch (e) {
+      console.warn('[settings-store] localStorage save failed (quota exceeded?):', e);
+    }
   },
 }));

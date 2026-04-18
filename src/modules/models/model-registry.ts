@@ -958,11 +958,16 @@ export const DEFAULT_MODELS: AIModel[] = [
     id: 'claude-opus-4-7',
     name: 'Claude Opus 4.7',
     provider: 'anthropic',
-    contextLength: 128000,
+    contextLength: 200000,
+    // [2026-04-19 01:00] disabled — wrong contextLength (128000) and Korean in description field
+    // contextLength: 128000,
+    // description: '긴 글 읽고 깊이 분석하는 최고급 AI',
+    // [2026-04-19 01:00] fixed — correct 200K context and bilingual descriptions
     inputPrice: 15,
     outputPrice: 75,
     features: ['streaming', 'vision', 'thinking', 'function_calling'],
-    description: '긴 글 읽고 깊이 분석하는 최고급 AI',
+    description: 'Top Claude Opus — best for long docs and deep analysis',
+    descriptionKo: '긴 글 읽고 깊이 분석하는 최고급 AI',
     enabled: true,
   },
   // ── Google ─────────────────────────────────────────────────────────────────
@@ -1482,7 +1487,11 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.1,
     outputPrice: 0.4,
     features: ['streaming', 'vision'],
-    description: '작고 빠른 경량 AI',
+    // [2026-04-19 01:00] disabled — Korean text was in description field (should be English)
+    // description: '작고 빠른 경량 AI',
+    // [2026-04-19 01:00] fixed — English description + Korean descriptionKo
+    description: 'Compact and fast lightweight AI',
+    descriptionKo: '작고 빠른 경량 AI',
     enabled: false,
   },
   {
@@ -1493,7 +1502,11 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.1,
     outputPrice: 0.4,
     features: ['streaming', 'vision'],
-    description: '구글 3세대 빠른 AI',
+    // [2026-04-19 01:00] disabled — Korean text was in description field (should be English)
+    // description: '구글 3세대 빠른 AI',
+    // [2026-04-19 01:00] fixed — English description + Korean descriptionKo
+    description: 'Google 3rd-gen fast AI',
+    descriptionKo: '구글 3세대 빠른 AI',
     enabled: false,
   },
 ];
