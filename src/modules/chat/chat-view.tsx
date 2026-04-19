@@ -583,7 +583,7 @@ export function ChatView() {
       addMessage(chatId, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `🚫 ${t('chat.err_daily_limit', { limit: Math.round(settings.dailyCostLimit), spent: Math.round(getTodayCost()) })}`,
+        content: `🚫 ${t('chat.err_daily_limit', { limit: (settings.dailyCostLimit ?? 0).toFixed(1), spent: getTodayCost().toFixed(1) })}`,
         createdAt: Date.now(),
       });
       return;
@@ -1247,7 +1247,7 @@ export function ChatView() {
                     )}
                     {msg.cost !== undefined && (
                       <span className="text-xs text-gray-600 ml-1">
-                        {msg.model} · ${Math.round(msg.cost)} · {msg.tokens?.input}+{msg.tokens?.output}t
+                        {msg.model} · ${msg.cost.toFixed(1)} · {msg.tokens?.input}+{msg.tokens?.output}t
                       </span>
                     )}
                     {msg.createdAt && (

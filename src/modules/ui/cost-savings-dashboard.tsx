@@ -9,9 +9,9 @@ import { useTranslation } from '@/lib/i18n';
 import { useCountry } from '@/lib/use-country';
 
 function formatDual(usd: number, country: string): string {
-  if (country === 'KR') return `$${Math.round(usd)} (₩${Math.round(usd * 1380).toLocaleString()})`;
-  if (country === 'PH') return `$${Math.round(usd)} (₱${Math.round(usd * 56).toLocaleString()})`;
-  return `$${Math.round(usd)}`;
+  if (country === 'KR') return `$${usd.toFixed(1)} (₩${Math.round(usd * 1380).toLocaleString()})`;
+  if (country === 'PH') return `$${usd.toFixed(1)} (₱${Math.round(usd * 56).toLocaleString()})`;
+  return `$${usd.toFixed(1)}`;
 }
 
 // Monthly subscription prices (USD, 2026 market rates)
@@ -73,7 +73,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
           {/* [2026-04-16 01:15] 5-minute auto-sync last-updated indicator */}
           <div className="flex items-center gap-1.5 text-xs text-on-surface-muted">
             <RefreshCw size={11} />
-            <span>Updated {Math.round((Date.now() - lastSync.getTime()) / 60000)} min ago</span>
+            <span>{t('dashboard.last_updated', { min: Math.round((Date.now() - lastSync.getTime()) / 60000) })}</span>
           </div>
         </div>
 

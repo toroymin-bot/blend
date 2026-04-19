@@ -285,6 +285,18 @@ export function SettingsView() {
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold text-on-surface mb-6">{t('settings.title')}</h1>
 
+        {/* About Blend info card */}
+        <div className="bg-blue-900/20 border border-blue-800/30 rounded-xl p-4 mb-8">
+          <h2 className="text-sm font-semibold text-blue-300 mb-2">ℹ️ Blend 소개</h2>
+          <ul className="space-y-1 text-xs text-on-surface-muted">
+            <li>• Blend는 여러 AI 모델을 하나의 앱에서 사용할 수 있는 서비스예요.</li>
+            <li>• 본인의 API 키를 직접 연결하는 BYOK(Bring Your Own Key) 방식이에요.</li>
+            <li>• AI 사용 비용은 OpenAI, Anthropic 등 각 서비스에 직접 청구됩니다.</li>
+            <li>• Blend 구독료($9/월 또는 $29 평생)는 앱 기능 이용료예요.</li>
+            <li>• 평균 API 비용은 월 $5 수준이며 사용량에 따라 달라져요.</li>
+          </ul>
+        </div>
+
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-on-surface mb-1 flex items-center gap-2">
             <Key size={20} /> {t('settings.api_keys')}
@@ -572,7 +584,7 @@ export function SettingsView() {
                 />
               </div>
               <span className="text-xs text-on-surface-muted">
-                {(settings.dailyCostLimit ?? 0) <= 0 ? t('settings.limit_disabled') : t('settings.limit_warn', { amount: Math.round(settings.dailyCostLimit ?? 1) })}
+                {(settings.dailyCostLimit ?? 0) <= 0 ? t('settings.limit_disabled') : t('settings.limit_warn', { amount: (settings.dailyCostLimit ?? 1).toFixed(1) })}
               </span>
             </div>
           </div>

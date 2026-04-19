@@ -3,7 +3,7 @@
 // [2026-04-17] Billing View — Subscription plans & payment methods
 // [2026-04-19] Added: Lifetime plan, country-based tab highlight, dual currency, BYOK notice
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -16,9 +16,9 @@ const KRW = 1380;
 const PHP = 56;
 
 function formatDual(usd: number, country: string): string {
-  if (country === 'KR') return `$${Math.round(usd)} (₩${Math.round(usd * KRW).toLocaleString()})`;
-  if (country === 'PH') return `$${Math.round(usd)} (₱${Math.round(usd * PHP).toLocaleString()})`;
-  return `$${Math.round(usd)}`;
+  if (country === 'KR') return `$${usd.toFixed(1)} (₩${Math.round(usd * KRW).toLocaleString()})`;
+  if (country === 'PH') return `$${usd.toFixed(1)} (₱${Math.round(usd * PHP).toLocaleString()})`;
+  return `$${usd.toFixed(1)}`;
 }
 
 const PLANS = [
@@ -26,12 +26,12 @@ const PLANS = [
     id: 'free',
     name: 'Free',
     price: { monthly: 0, yearly: 0 },
-    descKey: 'Perfect for trying out Blend',
+    descKey: 'billing.plan_free_subtitle',
     features: [
-      { text: '10 messages/day' },
-      { text: '3 AI models' },
-      { text: 'Basic chat' },
-      { text: 'Web search' },
+      { textKey: '10 messages/day' },
+      { textKey: '3 AI models' },
+      { textKey: 'Basic chat' },
+      { textKey: 'Web search' },
     ],
     ctaKey: 'billing.get_started',
     highlighted: false,
@@ -41,14 +41,14 @@ const PLANS = [
     id: 'pro',
     name: 'Pro',
     price: { monthly: 9, yearly: 7 },
-    descKey: 'For power users who want the best AI',
+    descKey: 'billing.plan_pro_subtitle',
     features: [
-      { text: 'Unlimited messages' },
-      { text: 'All AI models' },
-      { text: 'Voice chat',       accent: true },
-      { text: 'Image generation', accent: true },
-      { text: 'Meeting analysis', accent: true },
-      { text: 'Priority support' },
+      { textKey: 'billing.feature_unlimited_msg' },
+      { textKey: 'billing.feature_all_models' },
+      { textKey: 'billing.feature_voice_chat',  accent: true },
+      { textKey: 'billing.feature_image_gen',   accent: true },
+      { textKey: 'billing.feature_meeting',     accent: true },
+      { textKey: 'billing.feature_priority_support' },
     ],
     ctaKey: 'billing.upgrade',
     highlighted: true,
@@ -60,14 +60,14 @@ const PLANS = [
     price: { monthly: 29, yearly: 29 },
     descKey: 'billing.lifetime_desc',
     features: [
-      { text: 'Everything in Pro' },
-      { text: 'All future updates' },
-      { text: 'Unlimited messages' },
-      { text: 'All AI models' },
-      { text: 'Voice chat',       accent: true },
-      { text: 'Image generation', accent: true },
-      { text: 'Meeting analysis', accent: true },
-      { text: 'Priority support' },
+      { textKey: 'billing.feature_all_in_pro' },
+      { textKey: 'billing.feature_future_updates' },
+      { textKey: 'billing.feature_unlimited_msg' },
+      { textKey: 'billing.feature_all_models' },
+      { textKey: 'billing.feature_voice_chat',  accent: true },
+      { textKey: 'billing.feature_image_gen',   accent: true },
+      { textKey: 'billing.feature_meeting',     accent: true },
+      { textKey: 'billing.feature_priority_support' },
     ],
     ctaKey: 'billing.lifetime_cta',
     highlighted: false,
@@ -76,6 +76,7 @@ const PLANS = [
 ];
 
 const FAQ_KEYS = [
+  { q: 'billing.faq_benefits_q', a: 'billing.faq_benefits_a' },
   { q: 'billing.faq_cancel_q', a: 'billing.faq_cancel_a' },
   { q: 'billing.faq_payment_q', a: 'billing.faq_payment_a' },
   { q: 'billing.faq_secure_q', a: 'billing.faq_secure_a' },
@@ -101,6 +102,7 @@ export function BillingView() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState('');
+  const paymentRef = useRef<HTMLDivElement>(null);
 
   const tabLabel = (tab: PaymentTab): string => {
     if (tab === 'paddle') return `💳 ${t('billing.tab_card')}`;
@@ -162,9 +164,7 @@ export function BillingView() {
 
                 <div className="mb-5">
                   <h2 className="text-xl font-bold mb-1">{plan.name}</h2>
-                  <p className="text-gray-400 text-sm">
-                    {plan.isLifetime ? t(plan.descKey as string) : plan.descKey}
-                  </p>
+                  <p className="text-gray-400 text-sm">{t(plan.descKey)}</p>
                 </div>
 
                 <div className="mb-2">
@@ -175,7 +175,7 @@ export function BillingView() {
                     <span className="text-gray-400 text-sm ml-1">{t('billing.per_month')}</span>
                   )}
                   {plan.isLifetime && (
-                    <span className="text-gray-400 text-sm ml-1">one-time</span>
+                    <span className="text-gray-400 text-sm ml-1">{t('billing.label_one_time')}</span>
                   )}
                 </div>
 
@@ -186,15 +186,19 @@ export function BillingView() {
                 )}
 
                 <ul className="space-y-2.5 mb-8 flex-1">
-                  {plan.features.map((f) => (
-                    <li key={f.text} className="flex items-start gap-2 text-sm">
-                      <Check size={15} className={`mt-0.5 shrink-0 ${f.accent ? 'text-yellow-400' : 'text-green-400'}`} />
-                      <span className={f.accent ? 'text-yellow-300 font-medium' : 'text-gray-300'}>{f.text}</span>
-                    </li>
-                  ))}
+                  {plan.features.map((f) => {
+                    const label = f.textKey.startsWith('billing.') ? t(f.textKey) : f.textKey;
+                    return (
+                      <li key={f.textKey} className="flex items-start gap-2 text-sm">
+                        <Check size={15} className={`mt-0.5 shrink-0 ${f.accent ? 'text-yellow-400' : 'text-green-400'}`} />
+                        <span className={f.accent ? 'text-yellow-300 font-medium' : 'text-gray-300'}>{label}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 <button
+                  onClick={() => paymentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                   className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                     plan.isLifetime
                       ? 'bg-amber-500 hover:bg-amber-400 text-black'
@@ -238,12 +242,12 @@ export function BillingView() {
         </div>
 
         {/* BYOK notice */}
-        <p className="text-xs text-gray-500 text-center mb-8">
+        <p className="text-base font-semibold text-amber-400 text-center mb-8">
           🔑 Blend는 내 API 키로 직접 연결해요. API 비용은 각 서비스에 별도 청구되며, 평균 월 $5 수준이에요.
         </p>
 
         {/* Payment Method Selection */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8">
+        <div ref={paymentRef} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8">
           <h3 className="text-base font-semibold mb-4">{t('billing.payment_method')}</h3>
 
           {/* Tabs */}

@@ -11,9 +11,9 @@ const KRW = 1380;
 const PHP = 56;
 
 function formatDual(usd: number, country: string): string {
-  if (country === 'KR') return `$${Math.round(usd)} (₩${Math.round(usd * KRW).toLocaleString()})`;
-  if (country === 'PH') return `$${Math.round(usd)} (₱${Math.round(usd * PHP).toLocaleString()})`;
-  return `$${Math.round(usd)}`;
+  if (country === 'KR') return `$${usd.toFixed(1)} (₩${Math.round(usd * KRW).toLocaleString()})`;
+  if (country === 'PH') return `$${usd.toFixed(1)} (₱${Math.round(usd * PHP).toLocaleString()})`;
+  return `$${usd.toFixed(1)}`;
 }
 
 // ── Provider Usage Links Dropdown ─────────────────────────────────────────────
@@ -88,7 +88,7 @@ function SVGBarChart({ data }: { data: { date: string; cost: number; requests: n
           <g key={y}>
             <line x1={0} y1={y} x2={chartW} y2={y} stroke="#374151" strokeDasharray="4 3" strokeWidth={0.8} />
             <text x={-4} y={y + 4} textAnchor="end" fontSize={9} fill="#6b7280">
-              ${Math.round(val)}
+              ${val.toFixed(1)}
             </text>
           </g>
         ))}
@@ -163,7 +163,7 @@ function SVGPieChart({ data }: { data: { label: string; value: number; color: st
           <div key={s.label} className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
             <span className="text-xs text-on-surface capitalize">{s.label}</span>
-            <span className="text-xs text-on-surface-muted ml-auto pl-3">${Math.round(s.value)}</span>
+            <span className="text-xs text-on-surface-muted ml-auto pl-3">${s.value.toFixed(1)}</span>
             <span className="text-xs text-on-surface-muted">({((s.value / total) * 100).toFixed(0)}%)</span>
           </div>
         ))}
@@ -217,26 +217,6 @@ function SVGLineChart({ data }: { data: { date: string; cost: number }[] }) {
   );
 }
 
-// ── Model Cost Bar Chart ───────────────────────────────────────────────────────
-function ModelCostBars({ data }: { data: { model: string; cost: number }[] }) {
-  const max = Math.max(...data.map((d) => d.cost), 0.0001);
-  return (
-    <div className="space-y-2">
-      {data.map((d) => (
-        <div key={d.model}>
-          <div className="flex items-center justify-between mb-0.5">
-            <span className="text-xs text-on-surface truncate max-w-[180px]">{d.model}</span>
-            <span className="text-xs font-medium text-on-surface ml-2 shrink-0">${Math.round(d.cost)}</span>
-          </div>
-          <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${(d.cost / max) * 100}%` }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ── API Usage Breakdown Panel ──────────────────────────────────────────────────
 const MODEL_COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16'];
 
@@ -265,12 +245,12 @@ function UsageBreakdownPanel({
 
   return (
     <div className="bg-surface-2 rounded-xl p-4 mb-4">
-      <h2 className="text-sm font-medium text-on-surface-muted mb-4">API Usage Breakdown</h2>
+      <h2 className="text-sm font-medium text-on-surface-muted mb-4">{t('dashboard.usage_breakdown_title')}</h2>
 
       {/* Cost by Model */}
       {modelEntries.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs text-on-surface-muted uppercase tracking-wider mb-2">Cost by Model</p>
+          <p className="text-xs text-on-surface-muted uppercase tracking-wider mb-2">{t('dashboard.breakdown_cost_by_model')}</p>
           <div className="space-y-1.5">
             {modelEntries.map(([model, cost], i) => {
               const pct = totalCostAll > 0 ? Math.round((cost / totalCostAll) * 100) : 0;
@@ -283,7 +263,7 @@ function UsageBreakdownPanel({
                     <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
                   </div>
                   <span className="text-xs text-on-surface-muted w-8 text-right shrink-0">{pct}%</span>
-                  <span className="text-xs text-on-surface-muted w-10 text-right shrink-0">${Math.round(cost)}</span>
+                  <span className="text-xs text-on-surface-muted w-10 text-right shrink-0">${cost.toFixed(1)}</span>
                 </div>
               );
             })}
@@ -294,11 +274,11 @@ function UsageBreakdownPanel({
       {/* Token breakdown */}
       {totalTokens > 0 && (
         <div className="mb-4">
-          <p className="text-xs text-on-surface-muted uppercase tracking-wider mb-2">Token Breakdown</p>
+          <p className="text-xs text-on-surface-muted uppercase tracking-wider mb-2">{t('dashboard.breakdown_token')}</p>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full shrink-0 bg-blue-500" />
-              <span className="text-xs text-on-surface flex-1">Input tokens</span>
+              <span className="text-xs text-on-surface flex-1">{t('dashboard.input_tokens_label')}</span>
               <div className="flex-1 bg-gray-700 rounded-full h-1.5 overflow-hidden mx-1">
                 <div className="h-full rounded-full bg-blue-500" style={{ width: `${totalTokens > 0 ? Math.round((totalInput / totalTokens) * 100) : 0}%` }} />
               </div>
@@ -307,7 +287,7 @@ function UsageBreakdownPanel({
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full shrink-0 bg-green-500" />
-              <span className="text-xs text-on-surface flex-1">Output tokens</span>
+              <span className="text-xs text-on-surface flex-1">{t('dashboard.output_tokens_label')}</span>
               <div className="flex-1 bg-gray-700 rounded-full h-1.5 overflow-hidden mx-1">
                 <div className="h-full rounded-full bg-green-500" style={{ width: `${totalTokens > 0 ? Math.round((totalOutput / totalTokens) * 100) : 0}%` }} />
               </div>
@@ -321,14 +301,14 @@ function UsageBreakdownPanel({
       {/* Usage by Provider */}
       {providerEntries.length > 0 && (
         <div>
-          <p className="text-xs text-on-surface-muted uppercase tracking-wider mb-2">Usage by Provider</p>
+          <p className="text-xs text-on-surface-muted uppercase tracking-wider mb-2">{t('dashboard.breakdown_by_provider')}</p>
           <div className="flex flex-wrap gap-2">
             {providerEntries.map(([provider, cost]) => {
               const pct = totalProvCost > 0 ? Math.round((cost / totalProvCost) * 100) : 0;
               return (
                 <div key={provider} className="flex items-center gap-1.5 bg-gray-700/50 rounded-lg px-2.5 py-1.5">
                   <span className="text-xs font-medium text-on-surface capitalize">{provider}</span>
-                  <span className="text-xs text-on-surface-muted">${Math.round(cost)}</span>
+                  <span className="text-xs text-on-surface-muted">${cost.toFixed(1)}</span>
                   <span className="text-xs text-on-surface-muted">{pct}%</span>
                 </div>
               );
@@ -392,7 +372,7 @@ export function DashboardView() {
           </div>
           <div className="flex items-center gap-1.5 text-xs text-on-surface-muted">
             <RefreshCw size={11} />
-            <span>Updated {Math.round((Date.now() - lastSync.getTime()) / 60000)} min ago</span>
+            <span>{t('dashboard.last_updated', { min: Math.round((Date.now() - lastSync.getTime()) / 60000) })}</span>
           </div>
         </div>
 
@@ -466,25 +446,11 @@ export function DashboardView() {
           )}
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 mb-6">
+        <div className="mb-6">
           {/* Provider pie chart */}
           <div className="bg-surface-2 rounded-xl p-4">
             <h2 className="text-sm font-medium text-on-surface-muted mb-3">{t('dashboard.provider_breakdown')}</h2>
             <SVGPieChart data={providerPieData} />
-          </div>
-
-          {/* Cost by Model — bar chart */}
-          <div className="bg-surface-2 rounded-xl p-4">
-            <h2 className="text-sm font-medium text-on-surface-muted mb-3">{t('dashboard.model_cost')}</h2>
-            {Object.keys(costByModel).length === 0 ? (
-              <p className="text-on-surface-muted text-sm">{t('dashboard.no_data')}</p>
-            ) : (
-              <ModelCostBars
-                data={Object.entries(costByModel)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([model, cost]) => ({ model, cost }))}
-              />
-            )}
           </div>
         </div>
 
@@ -497,30 +463,24 @@ export function DashboardView() {
             <div className="space-y-3">
               {Object.entries(tokensByModel)
                 .sort(([, a], [, b]) => (b.input + b.output) - (a.input + a.output))
-                .map(([model, tokens]) => {
+                .map(([model, tokens], i) => {
                   const total = tokens.input + tokens.output;
-                  const inputPct = (tokens.input / total) * 100;
+                  const inputPct = total > 0 ? Math.round((tokens.input / total) * 100) : 0;
+                  const color = MODEL_COLORS[i % MODEL_COLORS.length];
                   return (
                     <div key={model}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-on-surface">{model}</span>
-                        <span className="text-xs text-on-surface-muted">{t('dashboard.k_tokens', { count: (total / 1000).toFixed(1) })}</span>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="text-xs text-on-surface truncate flex-1 max-w-[140px]">{model}</span>
+                        <span className="text-xs text-on-surface-muted shrink-0">{(total / 1000).toFixed(1)}K {t('dashboard.tokens_label')}</span>
                       </div>
-                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden flex">
-                        <div
-                          className="bg-blue-500 h-full"
-                          style={{ width: `${inputPct}%` }}
-                          title={t('dashboard.input_tokens', { count: (tokens.input / 1000).toFixed(1) })}
-                        />
-                        <div
-                          className="bg-green-500 h-full"
-                          style={{ width: `${100 - inputPct}%` }}
-                          title={t('dashboard.output_tokens', { count: (tokens.output / 1000).toFixed(1) })}
-                        />
+                      <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden flex mx-4">
+                        <div className="bg-blue-500 h-full" style={{ width: `${inputPct}%` }} />
+                        <div className="bg-green-500 h-full" style={{ width: `${100 - inputPct}%` }} />
                       </div>
-                      <div className="flex justify-between text-[10px] text-on-surface-muted mt-0.5">
-                        <span>{t('dashboard.input_pct', { pct: inputPct.toFixed(0) })}</span>
-                        <span>{t('dashboard.output_pct', { pct: (100 - inputPct).toFixed(0) })}</span>
+                      <div className="flex justify-between text-[10px] text-on-surface-muted mt-0.5 mx-4">
+                        <span>{t('dashboard.input_pct', { pct: inputPct })}</span>
+                        <span>{t('dashboard.output_pct', { pct: 100 - inputPct })}</span>
                       </div>
                     </div>
                   );

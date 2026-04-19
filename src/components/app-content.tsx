@@ -21,6 +21,7 @@ import { SecurityView } from '@/modules/ui/security-view';
 import { WelcomeView } from '@/modules/ui/welcome-view';
 // [2026-04-17] Billing view added
 import { BillingView } from '@/modules/ui/billing-view';
+import { AboutView } from '@/modules/ui/about-view';
 import { useKeyboardShortcuts, ShortcutHelpModal } from '@/modules/ui/keyboard-shortcuts';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { usePromptStore } from '@/stores/prompt-store';
@@ -146,6 +147,7 @@ export default function AppContent() {
       case 'security': return <SecurityView />;
       // [2026-04-17] billing view
       case 'billing': return <BillingView />;
+      case 'about': return <AboutView onNavigate={setActiveTab} />;
       default: return <ChatView />;
     }
   };
