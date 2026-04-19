@@ -5,6 +5,7 @@ import { DEFAULT_MODELS, getProviderColor, getModelCategory, MODEL_CATEGORY_META
 import { useChatStore } from '@/stores/chat-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { useAgentStore } from '@/stores/agent-store';
 import { Check } from 'lucide-react';
 import { AIProvider } from '@/types';
 import { useTranslation, getCurrentLanguage } from '@/lib/i18n';
@@ -13,9 +14,10 @@ import { AIModel } from '@/types';
 const modelDesc = (m: AIModel) =>
   (getCurrentLanguage() === 'ko' ? m.descriptionKo || m.description : m.description) ?? '';
 
-export function ModelsView() {
+export function ModelsView({ onApply }: { onApply?: () => void }) {
   const { t } = useTranslation();
   const { selectedModel, setSelectedModel } = useChatStore();
+  const { setActiveAgent } = useAgentStore();
   const { hasKey } = useAPIKeyStore();
   const { customModels } = useSettingsStore();
 
@@ -179,6 +181,18 @@ export function ModelsView() {
                                       ? `${(model.contextLength / 1000000).toFixed(1)}M ctx`
                                       : `${Math.round(model.contextLength / 1000)}K ctx`}
                                   </span>
+                                  {isSelected && onApply && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveAgent(null);
+                                        onApply();
+                                      }}
+                                      className="ml-1 px-3 py-1 bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold rounded-lg shrink-0"
+                                    >
+                                      적용
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                               {modelDesc(model) && (

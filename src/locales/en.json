@@ -295,7 +295,8 @@
     "active_badge": "Active",
     "no_agents": "No agents yet",
     "usage_count": "Used {{count}} times",
-    "edit_title": "Edit Agent"
+    "edit_title": "Edit Agent",
+    "auto_model": "Auto AI matching"
   },
   "prompts": {
     "title": "Prompts",
@@ -533,6 +534,8 @@
     "no_data": "No data available",
     "no_usage_data": "No usage data yet",
     "start_chat_hint": "Start chatting with AI to automatically track costs",
+    "per_device_notice": "Based on this device's usage. Check actual charges on each AI provider's dashboard.",
+    "provider_links_btn": "Links",
     "daily_cost_7": "Daily Cost — Last 7 Days (Bar Chart)",
     "daily_trend_14": "Cost Trend — Last 14 Days (Line Chart)",
     "provider_breakdown": "Cost by Provider",
@@ -681,7 +684,7 @@
     "savings_message": "Save ${{amount}} every month with Blend ({{pct}}%)",
     "yearly_savings": "That's ${{amount}} a year — all AI in one app without individual subscriptions",
     "service_pricing": "Monthly subscription pricing (market rate)",
-    "disclaimer": "* Market rates are based on 2024 public subscription prices. Blend API costs vary by actual usage.\nDirect API usage only incurs costs for features you use."
+    "disclaimer": "* Market rates are based on 2026 public subscription prices. Blend API costs vary by actual usage.\nDirect API usage only incurs costs for features you use."
   },
   "meeting_view": {
     "title": "Meeting Analysis",
@@ -695,6 +698,14 @@
     "supported_formats": "Supported formats: mp3, wav, m4a, webm, ogg, mp4 (max 25MB)",
     "analyze_btn": "Analyze",
     "youtube_hint": "Korean captions preferred, English used as fallback. Videos without captions are not supported.",
+    "subtitle_asr_restricted": "Auto-generated captions (ASR) are blocked from server access. Please copy and paste the transcript from YouTube.",
+    "manual_transcript_title": "Manually Pasted Transcript",
+    "youtube_manual_paste_hint": "Auto-generated captions cannot be fetched from the server. Open the video on YouTube → click '...' → 'Open transcript', then copy and paste the text below.",
+    "youtube_manual_paste_placeholder": "Paste the YouTube transcript here...",
+    "youtube_manual_paste_btn": "Analyze Pasted Transcript",
+    "audio_transcribing": "🎙 Extracting transcript from audio... (30–120 sec depending on video length)",
+    "audio_fetch_failed": "Could not download YouTube audio. Please paste the transcript manually from YouTube.",
+    "audio_too_large": "Audio file too large (>25 MB — approx. 1 hour+). Please paste the transcript manually from YouTube.",
     "tab_transcript": "Transcript",
     "tab_analysis": "Analysis",
     "tab_summary": "Summary",
@@ -846,6 +857,15 @@
     "payment_method": "Payment Method",
     "get_started": "Get Started",
     "upgrade": "Upgrade to Pro",
-    "contact_sales": "Contact Sales"
+    "contact_sales": "Contact Sales",
+    "tab_card": "Card",
+    "tab_toss": "Toss Pay",
+    "tab_xendit": "Xendit Pay",
+    "tab_recommended": "Recommended",
+    "lifetime_desc": "Pay once. Yours forever.",
+    "lifetime_badge": "Lifetime",
+    "lifetime_oneshot": "No subscription · No renewal · Permanently yours",
+    "lifetime_cta": "Get Lifetime Access — $29",
+    "lifetime_after": "All features unlocked instantly after purchase"
   }
 }

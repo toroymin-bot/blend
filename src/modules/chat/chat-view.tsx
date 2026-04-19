@@ -583,7 +583,7 @@ export function ChatView() {
       addMessage(chatId, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `🚫 ${t('chat.err_daily_limit', { limit: settings.dailyCostLimit.toFixed(2), spent: getTodayCost().toFixed(4) })}`,
+        content: `🚫 ${t('chat.err_daily_limit', { limit: Math.round(settings.dailyCostLimit), spent: Math.round(getTodayCost()) })}`,
         createdAt: Date.now(),
       });
       return;
@@ -1247,7 +1247,7 @@ export function ChatView() {
                     )}
                     {msg.cost !== undefined && (
                       <span className="text-xs text-gray-600 ml-1">
-                        {msg.model} · ${msg.cost.toFixed(4)} · {msg.tokens?.input}+{msg.tokens?.output}t
+                        {msg.model} · ${Math.round(msg.cost)} · {msg.tokens?.input}+{msg.tokens?.output}t
                       </span>
                     )}
                     {msg.createdAt && (
@@ -1299,7 +1299,7 @@ export function ChatView() {
         <div className="fixed bottom-24 right-4 z-40 pointer-events-none">
           <div className="px-3 py-1.5 bg-gray-800/90 border border-gray-700 rounded-full text-xs text-gray-400 flex items-center gap-1.5 shadow-lg backdrop-blur-sm">
             <div className={`w-1.5 h-1.5 rounded-full ${isStreaming ? 'bg-blue-500 animate-pulse' : 'bg-gray-500'}`} />
-            {t('chat.token_counter', { count: streamTokenCount, cost: (streamTokenCount * 0.000003).toFixed(6) })}
+            {t('chat.token_counter', { count: streamTokenCount, cost: Math.round(streamTokenCount * 0.000003) })}
           </div>
         </div>
       )}
@@ -1497,7 +1497,7 @@ export function ChatView() {
                 </div>
                 {/* 모델 목록 — 수동 선택 시 자동 매칭 해제 */}
                 {(['openai', 'anthropic', 'google', 'deepseek', 'groq', 'custom'] as const).map((provider) => {
-                  const providerModels = enabledModels.filter((m) => m.provider === provider && !['dall-e-3', 'dall-e-2', 'gpt-image-1'].includes(m.id));
+                  const providerModels = allModels.filter((m) => m.provider === provider && !['dall-e-3', 'dall-e-2', 'gpt-image-1'].includes(m.id));
                   if (providerModels.length === 0) return null;
                   const providerLabel: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', deepseek: 'DeepSeek', groq: 'Groq', custom: 'Custom' };
                   const providerColor: Record<string, string> = { openai: 'text-green-400', anthropic: 'text-orange-400', google: 'text-blue-400', deepseek: 'text-indigo-400', groq: 'text-red-400', custom: 'text-gray-400' };

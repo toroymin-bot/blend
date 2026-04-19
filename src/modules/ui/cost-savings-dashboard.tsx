@@ -6,8 +6,15 @@ import { useState, useEffect } from 'react';
 import { DollarSign, TrendingDown, Sparkles, RefreshCw } from 'lucide-react';
 import { useUsageStore } from '@/stores/usage-store';
 import { useTranslation } from '@/lib/i18n';
+import { useCountry } from '@/lib/use-country';
 
-// Monthly subscription prices (USD, 2024 market rates)
+function formatDual(usd: number, country: string): string {
+  if (country === 'KR') return `$${Math.round(usd)} (₩${Math.round(usd * 1380).toLocaleString()})`;
+  if (country === 'PH') return `$${Math.round(usd)} (₱${Math.round(usd * 56).toLocaleString()})`;
+  return `$${Math.round(usd)}`;
+}
+
+// Monthly subscription prices (USD, 2026 market rates)
 const AI_SERVICES = [
   { name: 'ChatGPT Plus (GPT-4o)', price: 20, color: '#10a37f', logo: '🤖' },
   { name: 'Claude Pro (Opus/Sonnet)', price: 20, color: '#d4a574', logo: '🧠' },
@@ -25,6 +32,7 @@ interface CostSavingsDashboardProps {
 
 export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: CostSavingsDashboardProps) {
   const { t } = useTranslation();
+  const { country } = useCountry();
   const { getThisMonthCost, loadFromStorage } = useUsageStore();
 
   // [2026-04-16 01:15] Bug fix: 5-minute auto-sync — reload usage data from localStorage
@@ -77,7 +85,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
               <DollarSign size={18} className="text-red-400" />
               <span className="text-sm text-on-surface-muted">{t('savings_view.individual_total')}</span>
             </div>
-            <p className="text-3xl font-bold text-red-300">${totalIndividual.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-red-300">{formatDual(totalIndividual, country)}</p>
             <p className="text-xs text-on-surface-muted mt-1">{t('savings_view.per_month')}</p>
           </div>
 
@@ -87,7 +95,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
               <span className="text-lg font-bold text-blue-400">B</span>
               <span className="text-sm text-on-surface-muted">{t('savings_view.blend_label')}</span>
             </div>
-            <p className="text-3xl font-bold text-blue-300">~${effectiveBlendMonthly.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-blue-300">~{formatDual(effectiveBlendMonthly, country)}</p>
             <p className="text-xs text-on-surface-muted mt-1">{t('savings_view.month_estimate')}</p>
           </div>
 
@@ -97,7 +105,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
               <TrendingDown size={18} className="text-green-400" />
               <span className="text-sm text-on-surface-muted">{t('savings_view.savings_label')}</span>
             </div>
-            <p className="text-3xl font-bold text-green-300">${savings.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-green-300">{formatDual(savings, country)}</p>
             <p className="text-xs text-green-400 mt-1 font-medium">{t('savings_view.savings_pct', { pct: savingsPercent })}</p>
           </div>
         </div>
@@ -111,7 +119,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-on-surface">{t('savings_view.individual_total_label')}</span>
-                <span className="text-red-300 font-medium">${totalIndividual.toFixed(2)}/{t('savings_view.per_month').replace('/ ', '')}</span>
+                <span className="text-red-300 font-medium">${Math.round(totalIndividual)}/{t('savings_view.per_month').replace('/ ', '')}</span>
               </div>
               <div className="h-6 bg-gray-800 rounded-full overflow-hidden">
                 <div className="h-full bg-red-500/70 rounded-full flex items-center justify-end pr-2" style={{ width: '100%' }}>
@@ -122,7 +130,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-on-surface">{t('savings_view.blend_direct')}</span>
-                <span className="text-blue-300 font-medium">~${effectiveBlendMonthly.toFixed(2)}/{t('savings_view.per_month').replace('/ ', '')}</span>
+                <span className="text-blue-300 font-medium">~${Math.round(effectiveBlendMonthly)}/{t('savings_view.per_month').replace('/ ', '')}</span>
               </div>
               <div className="h-6 bg-gray-800 rounded-full overflow-hidden">
                 <div
@@ -140,7 +148,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
             <span className="text-2xl">💰</span>
             <div>
               <p className="text-sm font-medium text-green-300">
-                {t('savings_view.savings_message', { amount: savings.toFixed(2), pct: savingsPercent })}
+                {t('savings_view.savings_message', { amount: Math.round(savings), pct: savingsPercent })}
               </p>
               <p className="text-xs text-on-surface-muted mt-0.5">
                 {t('savings_view.yearly_savings', { amount: (savings * 12).toFixed(0) })}

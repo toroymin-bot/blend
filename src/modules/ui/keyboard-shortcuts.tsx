@@ -21,11 +21,15 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // [2026-04-17] BUG-001 fix: skip shortcuts when user is typing in an input, textarea, or contenteditable
+      // [2026-04-18] IMP-004 fix: also check document.activeElement — mobile Chrome virtual keyboard
+      //              sends keydown events with e.target as document.body, not the focused input element
       const target = e.target as HTMLElement;
-      const isInputFocused =
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isEditableEl = (el: HTMLElement | null): boolean => {
+        if (!el) return false;
+        return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || !!el.isContentEditable;
+      };
+      const isInputFocused = isEditableEl(target) || isEditableEl(activeEl);
       // Only allow modifier-key shortcuts (meta/ctrl) when input is focused; block bare key shortcuts
       const hasModifier = e.metaKey || e.ctrlKey || e.altKey;
       if (isInputFocused && !hasModifier) return;

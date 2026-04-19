@@ -374,9 +374,9 @@ export function ModelCompareView() {
 
         {/* Results grid */}
         {results.length > 0 && (
-          <div className={`grid gap-4 ${results.length === 1 ? 'grid-cols-1' : results.length === 2 ? 'grid-cols-2' : results.length === 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <div className="flex gap-4 overflow-x-auto pb-2">
             {results.map((result) => (
-              <div key={result.modelId} className="bg-gray-800 rounded-xl p-4 flex flex-col">
+              <div key={result.modelId} className="bg-gray-800 rounded-xl p-4 flex flex-col min-w-[260px] w-[260px] flex-shrink-0">
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-700">
                   <span className="font-medium text-white text-sm">{result.modelName}</span>
                   <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -394,7 +394,7 @@ export function ModelCompareView() {
                     )}
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto max-h-96">
+                <div className="overflow-y-scroll h-[15rem]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4b5563 transparent' }}>
                   {result.error ? (
                     (() => {
                       const { icon, msgKey } = getFriendlyErrorKey(result.error);

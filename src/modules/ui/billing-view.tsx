@@ -1,16 +1,25 @@
 'use client';
 
 // [2026-04-17] Billing View — Subscription plans & payment methods
-// Paddle Billing v2 overlay checkout: supports Korea + global, no backend required.
+// [2026-04-19] Added: Lifetime plan, country-based tab highlight, dual currency, BYOK notice
 
 import { useState } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useSettingsStore } from '@/stores/settings-store';
 import { startPaddleCheckout } from '@/lib/paddle';
-// [2026-04-18] New: Toss Payments + Xendit integrations
 import { openTossCheckout, isTossConfigured } from '@/lib/toss';
 import { openXenditInvoice, isXenditConfigured } from '@/lib/xendit';
+import { useCountry } from '@/lib/use-country';
+
+const KRW = 1380;
+const PHP = 56;
+
+function formatDual(usd: number, country: string): string {
+  if (country === 'KR') return `$${Math.round(usd)} (₩${Math.round(usd * KRW).toLocaleString()})`;
+  if (country === 'PH') return `$${Math.round(usd)} (₱${Math.round(usd * PHP).toLocaleString()})`;
+  return `$${Math.round(usd)}`;
+}
 
 const PLANS = [
   {
@@ -18,29 +27,52 @@ const PLANS = [
     name: 'Free',
     price: { monthly: 0, yearly: 0 },
     descKey: 'Perfect for trying out Blend',
-    features: ['10 messages/day', '3 AI models', 'Basic chat', 'Web search'],
+    features: [
+      { text: '10 messages/day' },
+      { text: '3 AI models' },
+      { text: 'Basic chat' },
+      { text: 'Web search' },
+    ],
     ctaKey: 'billing.get_started',
     highlighted: false,
+    isLifetime: false,
   },
   {
     id: 'pro',
     name: 'Pro',
     price: { monthly: 9, yearly: 7 },
     descKey: 'For power users who want the best AI',
-    features: ['Unlimited messages', 'All AI models', 'Voice chat', 'Image generation', 'Meeting analysis', 'Priority support'],
+    features: [
+      { text: 'Unlimited messages' },
+      { text: 'All AI models' },
+      { text: 'Voice chat',       accent: true },
+      { text: 'Image generation', accent: true },
+      { text: 'Meeting analysis', accent: true },
+      { text: 'Priority support' },
+    ],
     ctaKey: 'billing.upgrade',
     highlighted: true,
+    isLifetime: false,
   },
-  // [2026-04-17] Team plan disabled — implement later
-  // {
-  //   id: 'team',
-  //   name: 'Team',
-  //   price: { monthly: 25, yearly: 20 },
-  //   descKey: 'For teams collaborating with AI',
-  //   features: ['Everything in Pro', 'Up to 10 members', 'Shared workspace', 'Admin dashboard', 'Custom AI agents', 'Dedicated support'],
-  //   ctaKey: 'billing.contact_sales',
-  //   highlighted: false,
-  // },
+  {
+    id: 'lifetime',
+    name: 'Lifetime',
+    price: { monthly: 29, yearly: 29 },
+    descKey: 'billing.lifetime_desc',
+    features: [
+      { text: 'Everything in Pro' },
+      { text: 'All future updates' },
+      { text: 'Unlimited messages' },
+      { text: 'All AI models' },
+      { text: 'Voice chat',       accent: true },
+      { text: 'Image generation', accent: true },
+      { text: 'Meeting analysis', accent: true },
+      { text: 'Priority support' },
+    ],
+    ctaKey: 'billing.lifetime_cta',
+    highlighted: false,
+    isLifetime: true,
+  },
 ];
 
 const FAQ_KEYS = [
@@ -51,9 +83,16 @@ const FAQ_KEYS = [
 
 type PaymentTab = 'paddle' | 'toss' | 'xendit';
 
+function isRecommendedTab(tab: PaymentTab, country: string): boolean {
+  if (country === 'KR') return tab === 'paddle' || tab === 'toss';
+  if (country === 'PH') return tab === 'xendit';
+  return tab === 'paddle';
+}
+
 export function BillingView() {
   const { t } = useTranslation();
   const { settings } = useSettingsStore();
+  const { country, loading: countryLoading } = useCountry();
   const isKorean = settings.language === 'ko';
 
   const [yearly, setYearly] = useState(false);
@@ -63,8 +102,14 @@ export function BillingView() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState('');
 
+  const tabLabel = (tab: PaymentTab): string => {
+    if (tab === 'paddle') return `💳 ${t('billing.tab_card')}`;
+    if (tab === 'toss')   return `🇰🇷 ${t('billing.tab_toss')}`;
+    return `🇵🇭 ${t('billing.tab_xendit')}`;
+  };
+
   return (
-    <div className="min-h-full bg-gray-950 text-white overflow-y-auto">
+    <div className="h-full bg-gray-950 text-white overflow-y-auto">
       <div className="max-w-4xl mx-auto px-4 py-12">
 
         {/* Header */}
@@ -94,86 +139,141 @@ export function BillingView() {
           </div>
         </div>
 
-        {/* Plan Cards — 2 cols (Team disabled) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-12">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.id}
-              className={`relative bg-gray-900 border rounded-2xl p-7 flex flex-col ${
-                plan.highlighted
-                  ? 'border-blue-500 ring-2 ring-blue-500/30'
-                  : 'border-gray-800'
-              }`}
-            >
-              {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                    {t('billing.most_popular')}
-                  </span>
-                </div>
-              )}
-
-              <div className="mb-5">
-                <h2 className="text-xl font-bold mb-1">{plan.name}</h2>
-                <p className="text-gray-400 text-sm">{plan.descKey}</p>
-              </div>
-
-              <div className="mb-6">
-                <span className="text-5xl font-bold">
-                  ${yearly ? plan.price.yearly : plan.price.monthly}
-                </span>
-                {plan.price.monthly > 0 && (
-                  <span className="text-gray-400 text-sm ml-1">{t('billing.per_month')}</span>
+        {/* Plan Cards — 3 cols */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+          {PLANS.map((plan) => {
+            const price = yearly ? plan.price.yearly : plan.price.monthly;
+            const cardContent = (
+              <>
+                {plan.highlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      {t('billing.most_popular')}
+                    </span>
+                  </div>
                 )}
-              </div>
+                {plan.isLifetime && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-amber-500 text-black text-xs font-bold px-3 py-1 rounded-full">
+                      {t('billing.lifetime_badge')}
+                    </span>
+                  </div>
+                )}
 
-              <ul className="space-y-2.5 mb-8 flex-1">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm">
-                    <Check size={15} className="text-green-400 mt-0.5 shrink-0" />
-                    <span className="text-gray-300">{f}</span>
-                  </li>
-                ))}
-              </ul>
+                <div className="mb-5">
+                  <h2 className="text-xl font-bold mb-1">{plan.name}</h2>
+                  <p className="text-gray-400 text-sm">
+                    {plan.isLifetime ? t(plan.descKey as string) : plan.descKey}
+                  </p>
+                </div>
 
-              <button
-                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                <div className="mb-2">
+                  <span className="text-5xl font-bold">
+                    {countryLoading ? `$${price}` : formatDual(price, country)}
+                  </span>
+                  {!plan.isLifetime && plan.price.monthly > 0 && (
+                    <span className="text-gray-400 text-sm ml-1">{t('billing.per_month')}</span>
+                  )}
+                  {plan.isLifetime && (
+                    <span className="text-gray-400 text-sm ml-1">one-time</span>
+                  )}
+                </div>
+
+                {plan.isLifetime && (
+                  <>
+                    <p className="text-gray-400 text-xs mb-4">✓ {t('billing.lifetime_oneshot')}</p>
+                  </>
+                )}
+
+                <ul className="space-y-2.5 mb-8 flex-1">
+                  {plan.features.map((f) => (
+                    <li key={f.text} className="flex items-start gap-2 text-sm">
+                      <Check size={15} className={`mt-0.5 shrink-0 ${f.accent ? 'text-yellow-400' : 'text-green-400'}`} />
+                      <span className={f.accent ? 'text-yellow-300 font-medium' : 'text-gray-300'}>{f.text}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                    plan.isLifetime
+                      ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                      : plan.highlighted
+                      ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
+                  }`}
+                >
+                  {t(plan.ctaKey)}
+                </button>
+
+                {plan.isLifetime && (
+                  <p className="text-xs text-gray-500 text-center mt-2">{t('billing.lifetime_after')}</p>
+                )}
+              </>
+            );
+
+            if (plan.isLifetime) {
+              return (
+                <div key={plan.id} className="p-[1px] rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 shadow-[0_0_24px_rgba(251,191,36,0.2)] relative">
+                  <div className="bg-gray-900 rounded-2xl p-7 flex flex-col h-full relative">
+                    {cardContent}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={plan.id}
+                className={`relative bg-gray-900 border rounded-2xl p-7 flex flex-col ${
                   plan.highlighted
-                    ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                    : 'bg-gray-700 hover:bg-gray-600 text-white'
+                    ? 'border-blue-500 ring-2 ring-blue-500/30'
+                    : 'border-gray-800'
                 }`}
               >
-                {t(plan.ctaKey)}
-              </button>
-            </div>
-          ))}
+                {cardContent}
+              </div>
+            );
+          })}
         </div>
+
+        {/* BYOK notice */}
+        <p className="text-xs text-gray-500 text-center mb-8">
+          🔑 Blend는 내 API 키로 직접 연결해요. API 비용은 각 서비스에 별도 청구되며, 평균 월 $5 수준이에요.
+        </p>
 
         {/* Payment Method Selection */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8">
           <h3 className="text-base font-semibold mb-4">{t('billing.payment_method')}</h3>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-5">
-            {(['paddle', 'toss', 'xendit'] as PaymentTab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setPaymentTab(tab)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                  paymentTab === tab
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
-                }`}
-              >
-                {tab === 'paddle' && '💳 Paddle'}
-                {tab === 'toss' && '🇰🇷 Toss Payments'}
-                {tab === 'xendit' && '🇵🇭 Xendit'}
-              </button>
-            ))}
+          <div className="flex gap-2 mb-5 flex-wrap">
+            {(['paddle', 'toss', 'xendit'] as PaymentTab[]).map((tab) => {
+              const recommended = !countryLoading && isRecommendedTab(tab, country);
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setPaymentTab(tab)}
+                  className={`relative px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    paymentTab === tab
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : recommended
+                      ? 'bg-gray-800 border-yellow-500/60 text-gray-300 hover:text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {tabLabel(tab)}
+                  {recommended && (
+                    <span className="absolute -top-2 -right-1 bg-yellow-500 text-black text-[9px] font-bold px-1 py-0.5 rounded-full leading-none">
+                      {t('billing.tab_recommended')}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Tab content */}
-          {/* [2026-04-17] Stripe replaced with Paddle — supports Korea + global, no backend needed */}
           {paymentTab === 'paddle' && (
             <div className="text-sm text-gray-400 space-y-2">
               <p>Pay with card — Paddle supports Korea &amp; worldwide (200+ countries).</p>
@@ -198,7 +298,6 @@ export function BillingView() {
               </button>
             </div>
           )}
-          {/* [2026-04-18] Toss Payments — wired up to openTossCheckout */}
           {paymentTab === 'toss' && (
             <div className="text-sm text-gray-400 space-y-2">
               <p>토스페이먼츠로 결제 — 토스페이, 카카오페이, 네이버페이, 카드 지원.</p>
@@ -227,7 +326,6 @@ export function BillingView() {
               </button>
             </div>
           )}
-          {/* [2026-04-18] Xendit — wired up to openXenditInvoice (requires /api/xendit-invoice backend) */}
           {paymentTab === 'xendit' && (
             <div className="text-sm text-gray-400 space-y-2">
               <p>Pay via Xendit — GCash, Maya, credit/debit card for Philippines &amp; SE Asia.</p>

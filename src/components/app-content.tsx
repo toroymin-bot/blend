@@ -129,7 +129,7 @@ export default function AppContent() {
     switch (activeTab) {
       case 'chat': return <ChatView />;
       case 'meeting': return <MeetingView />;
-      case 'models': return <ModelsView />;
+      case 'models': return <ModelsView onApply={() => setActiveTab('chat')} />;
       case 'settings': return <SettingsView />;
       case 'agents': return <AgentsView onStartChat={() => handleTabChange('chat')} />;
       case 'prompts': return <PromptsView onStartChat={(sysPrompt) => {

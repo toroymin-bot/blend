@@ -75,7 +75,9 @@ export function AgentsView({ onStartChat }: AgentsViewProps) {
                   <span className="text-2xl">{agent.icon || '🤖'}</span>
                   <div>
                     <h3 className="font-medium text-on-surface">{agent.name}</h3>
-                    <p className="text-xs text-on-surface-muted">{agent.model}</p>
+                    <p className="text-xs text-on-surface-muted">
+                      {agent.model === '__auto__' ? t('agents.auto_model') : agent.model}
+                    </p>
                   </div>
                 </div>
                 {activeAgentId === agent.id && (

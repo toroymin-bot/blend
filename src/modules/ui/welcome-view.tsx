@@ -52,10 +52,13 @@ export function WelcomeView({ onComplete }: WelcomeViewProps) {
             B
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">{t('welcome.title')}</h1>
-          <p className="text-gray-400 mb-8 text-sm leading-relaxed">
+          <p className="text-gray-400 mb-2 text-sm leading-relaxed">
             {t('welcome.subtitle').split('\n').map((line, i) => (
               <span key={i}>{line}{i === 0 ? <br /> : null}</span>
             ))}
+          </p>
+          <p className="text-xs text-gray-500 mb-8">
+            Bring Your Own Key — 비싼 구독료 대신, 쓴 만큼만 스마트하게
           </p>
 
           <div className="space-y-3 mb-8 text-left">

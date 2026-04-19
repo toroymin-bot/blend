@@ -50,7 +50,7 @@ export function CostAlertToast() {
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 bg-yellow-500 text-yellow-950 rounded-xl shadow-lg text-sm font-medium max-w-sm w-full mx-4">
       <AlertTriangle size={18} className="shrink-0" />
       <span className="flex-1">
-        {t('chat.daily_limit_reached')} — {t('dashboard.today_cost')}: <strong>${todayCost.toFixed(4)}</strong> (limit: ${limit.toFixed(2)})
+        {t('chat.daily_limit_reached')} — {t('dashboard.today_cost')}: <strong>${Math.round(todayCost)}</strong> (limit: ${Math.round(limit)})
       </span>
       <button
         onClick={() => setVisible(false)}

@@ -56,6 +56,11 @@ export function MeetingView() {
   const [errorMsg, setErrorMsg] = useState('');
   const [completedItems, setCompletedItems] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // [2026-04-18] Manual transcript paste fallback (for ASR-only YouTube videos)
+  const [showManualPaste, setShowManualPaste] = useState(false);
+  const [manualTranscript, setManualTranscript] = useState('');
+  // [2026-04-18] Audio transcription sub-label: shown during Whisper audio extraction (can take 30-120s)
+  const [audioTranscribingMsg, setAudioTranscribingMsg] = useState<string | null>(null);
 
   useEffect(() => {
     loadFromStorage();
@@ -213,40 +218,154 @@ export function MeetingView() {
     return null;
   }
 
-  async function fetchYouTubeTranscriptClient(videoId: string): Promise<{ rawText: string; title: string }> {
-    const langs = ['ko', 'en', ''];
-    for (const lang of langs) {
-      const langParam = lang ? `&lang=${lang}` : '';
-      const url = `https://www.youtube.com/api/timedtext?v=${videoId}&fmt=srv3${langParam}`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const xml = await res.text();
-        if (!xml || xml.trim() === '') continue;
-        const matches = xml.match(/<text[^>]*>([^<]*)<\/text>/g) || [];
-        if (matches.length === 0) continue;
-        const rawText = matches.map((m) => m.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')).join(' ').replace(/\s+/g, ' ').trim();
-        if (rawText) return { rawText, title: t('meeting_view.youtube_title', { id: videoId }) };
-      } catch {}
+  // [2026-04-18] disabled — old client-side timedtext API no longer works (YouTube requires signed URLs, empty response)
+  // async function fetchYouTubeTranscriptClient_old(videoId: string): Promise<{ rawText: string; title: string }> {
+  //   const langs = ['ko', 'en', ''];
+  //   for (const lang of langs) {
+  //     const langParam = lang ? `&lang=${lang}` : '';
+  //     const url = `https://www.youtube.com/api/timedtext?v=${videoId}&fmt=srv3${langParam}`;
+  //     try {
+  //       const res = await fetch(url);
+  //       if (!res.ok) continue;
+  //       const xml = await res.text();
+  //       if (!xml || xml.trim() === '') continue;
+  //       const matches = xml.match(/<text[^>]*>([^<]*)<\/text>/g) || [];
+  //       if (matches.length === 0) continue;
+  //       const rawText = matches.map((m) => m.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')).join(' ').replace(/\s+/g, ' ').trim();
+  //       if (rawText) return { rawText, title: t('meeting_view.youtube_title', { id: videoId }) };
+  //     } catch {}
+  //   }
+  //   throw new Error(t('meeting_view.subtitle_not_found'));
+  // }
+
+  // [2026-04-18] New: server-side transcript via Vercel serverless function /api/yt-transcript
+  // Root cause fix: YouTube deprecated unsigned timedtext API — now requires server-side extraction
+  // [2026-04-18] Audio fallback: when captions unavailable, server returns audio URL → client transcribes via Whisper
+  // Manual paste is last resort when both captions and audio extraction fail
+
+  // Transcribe a YouTube audio stream URL using OpenAI Whisper (client-side, uses user's API key)
+  async function transcribeYouTubeAudio(audioUrl: string, mimeType: string | undefined, openaiKey: string): Promise<string> {
+    setAudioTranscribingMsg(t('meeting_view.audio_transcribing'));
+    let audioBlob: Blob;
+    try {
+      const audioRes = await fetch(audioUrl);
+      if (!audioRes.ok) throw new Error('HTTP ' + audioRes.status);
+      audioBlob = await audioRes.blob();
+    } catch {
+      // CORS or network failure → fall through to manual paste
+      const e = new Error(t('meeting_view.audio_fetch_failed'));
+      (e as Error & { asrRestricted?: boolean }).asrRestricted = true;
+      throw e;
     }
-    throw new Error(t('meeting_view.subtitle_not_found'));
+
+    // Whisper API limit: 25 MB (~60-90 min at lowest bitrate)
+    if (audioBlob.size > 24.5 * 1024 * 1024) {
+      const e = new Error(t('meeting_view.audio_too_large'));
+      (e as Error & { asrRestricted?: boolean }).asrRestricted = true;
+      throw e;
+    }
+
+    // Determine file extension from mimeType for Whisper compatibility
+    const ext = mimeType?.includes('webm') ? 'webm' : mimeType?.includes('ogg') ? 'ogg' : 'm4a';
+
+    const formData = new FormData();
+    formData.append('file', audioBlob, `audio.${ext}`);
+    formData.append('model', 'gpt-4o-transcribe');
+    formData.append('response_format', 'json');
+
+    const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${openaiKey}` },
+      body: formData,
+    });
+
+    if (!whisperRes.ok) {
+      const err = await whisperRes.json().catch(() => ({}));
+      throw new Error(
+        (err as { error?: { message?: string } })?.error?.message ||
+        t('meeting_view.transcription_failed', { status: String(whisperRes.status) })
+      );
+    }
+    const result = await whisperRes.json();
+    return result.text || '';
+  }
+
+  async function fetchYouTubeTranscriptClient(videoId: string): Promise<{ rawText: string; title: string }> {
+    const res = await fetch(`/api/yt-transcript?videoId=${encodeURIComponent(videoId)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string; asrRestricted?: boolean };
+      const isAsr = err.asrRestricted === true;
+      if (isAsr) {
+        // Signal manual paste needed via a special error type
+        const e = new Error(t('meeting_view.subtitle_asr_restricted'));
+        (e as Error & { asrRestricted?: boolean }).asrRestricted = true;
+        throw e;
+      }
+      throw new Error(err.error || t('meeting_view.subtitle_not_found'));
+    }
+    const data = await res.json() as {
+      rawText?: string;
+      source?: string;
+      audioUrl?: string;
+      audioMimeType?: string;
+      contentLength?: number | null;
+      segmentCount?: number;
+    };
+
+    // [2026-04-18] Audio fallback path: server couldn't get captions but extracted audio stream URL
+    if (data.source === 'audio' && data.audioUrl) {
+      const openaiKey = getKey('openai');
+      if (!openaiKey) {
+        // No OpenAI key → cannot Whisper → fall through to manual paste
+        const e = new Error(t('meeting_view.subtitle_asr_restricted'));
+        (e as Error & { asrRestricted?: boolean }).asrRestricted = true;
+        throw e;
+      }
+      const rawText = await transcribeYouTubeAudio(data.audioUrl, data.audioMimeType, openaiKey);
+      return { rawText, title: t('meeting_view.youtube_title', { id: videoId }) };
+    }
+
+    if (!data.rawText) throw new Error(t('meeting_view.subtitle_not_found'));
+    return { rawText: data.rawText, title: t('meeting_view.youtube_title', { id: videoId }) };
   }
 
   const handleYoutube = useCallback(async () => {
     if (!youtubeUrl.trim()) return;
     setStep('transcribing');
     setErrorMsg('');
+    setShowManualPaste(false);
+    setAudioTranscribingMsg(null);
 
     try {
       const videoId = extractVideoId(youtubeUrl.trim());
       if (!videoId) throw new Error(t('meeting_view.invalid_youtube_url'));
       const { rawText, title } = await fetchYouTubeTranscriptClient(videoId);
+      setAudioTranscribingMsg(null);
       await processTranscript(rawText, title || t('meeting_view.youtube_title', { id: videoId }), 'youtube', youtubeUrl.trim());
+    } catch (e) {
+      const isAsr = (e as Error & { asrRestricted?: boolean }).asrRestricted === true;
+      setAudioTranscribingMsg(null);
+      setErrorMsg(e instanceof Error ? e.message : t('meeting_view.youtube_error'));
+      setStep('error');
+      if (isAsr) setShowManualPaste(true);
+    }
+  }, [youtubeUrl, processTranscript, t]);
+
+  // [2026-04-18] Fallback: analyze manually-pasted transcript text
+  const handleManualTranscript = useCallback(async () => {
+    if (!manualTranscript.trim()) return;
+    setStep('analyzing');
+    setErrorMsg('');
+    setShowManualPaste(false);
+    const videoId = extractVideoId(youtubeUrl.trim());
+    const title = videoId ? t('meeting_view.youtube_title', { id: videoId }) : t('meeting_view.manual_transcript_title');
+    try {
+      await processTranscript(manualTranscript.trim(), title, 'youtube', youtubeUrl.trim() || undefined);
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : t('meeting_view.youtube_error'));
       setStep('error');
     }
-  }, [youtubeUrl, processTranscript, t]);
+  }, [manualTranscript, youtubeUrl, processTranscript, t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -312,11 +431,12 @@ export function MeetingView() {
             <h1 className="text-lg font-semibold text-on-surface">{t('meeting_view.main_title')}</h1>
 
             {/* Input tab selector */}
+            {/* [2026-04-18] disabled YouTube tab — YouTube ASR captions blocked from all server IPs (Vercel/datacenter), no reliable server-side workaround currently */}
             <div className="flex gap-1 bg-surface-2 rounded-lg p-1 w-fit">
-              {([['file', t('meeting_view.file_upload')], ['youtube', t('meeting_view.youtube_link')]] as const).map(([id, label]) => (
+              {([['file', t('meeting_view.file_upload')]] as const).map(([id, label]) => (
                 <button
                   key={id}
-                  onClick={() => setInputTab(id)}
+                  onClick={() => setInputTab(id as InputTab)}
                   className={`px-4 py-1.5 rounded-md text-sm transition-colors ${inputTab === id ? 'bg-blue-600 text-white' : 'text-on-surface-muted hover:text-on-surface'}`}
                 >
                   {label}
@@ -365,14 +485,41 @@ export function MeetingView() {
                   </button>
                 </div>
                 <p className="text-xs text-on-surface-muted">{t('meeting_view.youtube_hint')}</p>
+
+                {/* [2026-04-18] Manual transcript paste — shown when ASR captions fail */}
+                {showManualPaste && (
+                  <div className="mt-2 p-3 bg-yellow-900/20 border border-yellow-500/40 rounded-lg space-y-2">
+                    <p className="text-xs text-yellow-300 font-medium">{t('meeting_view.youtube_manual_paste_hint')}</p>
+                    <textarea
+                      value={manualTranscript}
+                      onChange={(e) => setManualTranscript(e.target.value)}
+                      placeholder={t('meeting_view.youtube_manual_paste_placeholder')}
+                      rows={6}
+                      className="w-full bg-surface-2 border border-border-token rounded-lg px-3 py-2 text-sm text-on-surface placeholder-on-surface-muted outline-none resize-y"
+                    />
+                    <button
+                      onClick={handleManualTranscript}
+                      disabled={!manualTranscript.trim() || isProcessing}
+                      className="w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 disabled:opacity-40 text-white rounded-lg text-sm"
+                    >
+                      {t('meeting_view.youtube_manual_paste_btn')}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Processing status */}
             {isProcessing && (
-              <div className="flex items-center gap-3 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                <Loader2 size={18} className="animate-spin text-blue-400 flex-shrink-0" />
-                <span className="text-sm text-blue-300">{stepLabelMap[step]}</span>
+              <div className="flex items-start gap-3 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                <Loader2 size={18} className="animate-spin text-blue-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-sm text-blue-300">{stepLabelMap[step]}</span>
+                  {/* [2026-04-18] Sub-label shown during Whisper audio extraction (slow, needs expectation setting) */}
+                  {audioTranscribingMsg && (
+                    <p className="text-xs text-blue-400/70 mt-1">{audioTranscribingMsg}</p>
+                  )}
+                </div>
               </div>
             )}
 

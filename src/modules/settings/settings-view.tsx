@@ -292,6 +292,9 @@ export function SettingsView() {
           <p className="text-sm text-on-surface-muted mb-4">
             {t('settings.api_keys_desc')}
           </p>
+          <p className="text-xs text-gray-500 mb-2">
+            입력한 API 키로 각 서비스에 직접 연결돼요. 비용은 해당 서비스에서 확인할 수 있어요.
+          </p>
 
           <div className="space-y-3">
             {PROVIDERS.map((provider) => (
@@ -569,7 +572,7 @@ export function SettingsView() {
                 />
               </div>
               <span className="text-xs text-on-surface-muted">
-                {(settings.dailyCostLimit ?? 0) <= 0 ? t('settings.limit_disabled') : t('settings.limit_warn', { amount: (settings.dailyCostLimit ?? 1).toFixed(2) })}
+                {(settings.dailyCostLimit ?? 0) <= 0 ? t('settings.limit_disabled') : t('settings.limit_warn', { amount: Math.round(settings.dailyCostLimit ?? 1) })}
               </span>
             </div>
           </div>

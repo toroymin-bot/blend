@@ -295,7 +295,8 @@
     "active_badge": "활성",
     "no_agents": "에이전트가 없습니다",
     "usage_count": "{{count}}회 사용",
-    "edit_title": "에이전트 수정"
+    "edit_title": "에이전트 수정",
+    "auto_model": "AI 자동 선택"
   },
   "prompts": {
     "title": "프롬프트",
@@ -533,6 +534,8 @@
     "no_data": "데이터가 없습니다",
     "no_usage_data": "아직 사용 데이터가 없습니다",
     "start_chat_hint": "AI와 대화를 시작하면 비용이 자동으로 추적됩니다",
+    "per_device_notice": "이 기기 사용량 기준이에요. 실제 청구는 각 AI 서비스에서 확인하세요.",
+    "provider_links_btn": "링크",
     "daily_cost_7": "최근 7일 일별 비용 (SVG 바 차트)",
     "daily_trend_14": "최근 14일 비용 추이 (라인 차트)",
     "provider_breakdown": "프로바이더별 비용 비율",
@@ -681,7 +684,7 @@
     "savings_message": "Blend로 매월 ${{amount}} 절약 ({{pct}}%)",
     "yearly_savings": "1년이면 ${{amount}} 절약 — 개별 구독 없이 모든 AI를 하나의 앱으로",
     "service_pricing": "AI 서비스별 월 구독료 (시장가)",
-    "disclaimer": "* 시장가는 2024년 기준 공개 구독 요금입니다. Blend API 비용은 실제 사용량에 따라 다릅니다.\nAPI 직접 사용 시 필요한 기능에만 비용이 발생합니다."
+    "disclaimer": "* 시장가는 2026년 기준 공개 구독 요금입니다. Blend API 비용은 실제 사용량에 따라 다릅니다.\nAPI 직접 사용 시 필요한 기능에만 비용이 발생합니다."
   },
   "meeting_view": {
     "title": "회의 분석",
@@ -695,6 +698,14 @@
     "supported_formats": "지원 형식: mp3, wav, m4a, webm, ogg, mp4 (최대 25MB)",
     "analyze_btn": "분석 시작",
     "youtube_hint": "한국어 자막 우선, 없으면 영어 자막을 사용합니다. 자막 없는 영상은 지원되지 않습니다.",
+    "subtitle_asr_restricted": "자동 생성 자막(ASR)은 서버에서 접근이 제한됩니다. YouTube에서 자막을 직접 복사해 붙여넣기해 주세요.",
+    "manual_transcript_title": "직접 입력 스크립트",
+    "youtube_manual_paste_hint": "자동 생성 자막은 서버에서 가져올 수 없습니다. YouTube 영상의 '더보기 → 스크립트 열기'에서 텍스트를 복사하여 아래에 붙여넣기 해주세요.",
+    "youtube_manual_paste_placeholder": "YouTube 스크립트를 여기에 붙여넣기 하세요...",
+    "youtube_manual_paste_btn": "붙여넣기한 스크립트로 분석하기",
+    "audio_transcribing": "🎙 오디오에서 자막 추출 중... (영상 길이에 따라 30~120초 소요)",
+    "audio_fetch_failed": "YouTube 오디오를 가져오지 못했습니다. YouTube에서 자막을 직접 복사해 붙여넣기해 주세요.",
+    "audio_too_large": "오디오 파일이 너무 큽니다 (25MB 초과 — 약 1시간 이상). YouTube에서 자막을 직접 복사해 붙여넣기해 주세요.",
     "tab_transcript": "대화 내용",
     "tab_analysis": "분석",
     "tab_summary": "요약",
@@ -846,6 +857,15 @@
     "payment_method": "결제 수단",
     "get_started": "시작하기",
     "upgrade": "Pro로 업그레이드",
-    "contact_sales": "문의하기"
+    "contact_sales": "문의하기",
+    "tab_card": "카드",
+    "tab_toss": "토스 간편결제",
+    "tab_xendit": "Xendit 간편결제",
+    "tab_recommended": "추천",
+    "lifetime_desc": "단 한 번 결제, 평생 사용",
+    "lifetime_badge": "Lifetime",
+    "lifetime_oneshot": "월정액 없음 · 갱신 없음 · 영구 소유",
+    "lifetime_cta": "평생 이용 시작하기 — $29",
+    "lifetime_after": "한 번 결제 후 모든 기능 즉시 활성화"
   }
 }
