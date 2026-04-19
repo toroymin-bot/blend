@@ -1042,22 +1042,154 @@ cd "/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Bl
 vercel --prod
 ```
 
-### 9. QA Testing — MANDATORY after every nighttask (permanent rule)
+### 9. QA Testing — MANDATORY DAILY (permanent rule, no exceptions ever)
 
-**This step is ALWAYS required after completing code changes and deployment.**
+**Every single night, after deployment, run ALL of the following QA phases in order.**
 
-After `vercel --prod` completes:
-1. Open blend.ai4min.com in browser (use MCP browser tool)
-2. For EVERY item recorded in Task Checklist (A-G rows added this session):
-   - Follow the "G: How to Test (Summary)" instructions
-   - Perform the test exactly as a human tester would
-   - Record result in:
-     - **L column**: `PASS` or `FAIL`
-     - **M column**: Short note (e.g. "Confirmed dual currency ₩ showing", "Button not responding", etc.)
-3. If FAIL: note the specific failure detail in M column; do NOT re-fix tonight — flag for next session
-4. Update Excel via graph_excel.py only
+---
 
-**This QA step runs every night after nighttask, no exceptions.**
+#### QA Phase 1 — TC-based Human-style Testing (G열 기반)
+
+For EVERY item registered in TC (Test Checklist) A~G this session:
+
+1. Open **https://blend.ai4min.com** in browser (MCP browser tool)
+2. Follow the **G column "How to Test"** instructions exactly like a human tester
+3. Record results via `graph_excel.py`:
+   ```python
+   gx.update_tc_result(
+       excel_row=ROW,
+       round_num=1,
+       result="PASS" or "FAIL",
+       notes="Short technical note",          # M column
+       source="ai",
+       komi_notes="Detailed easy-English explanation. "  # N column — must be elementary-school level!
+                  "Example: 'I clicked the Pay button and it jumped down to the credit card form. That works great!'"
+   )
+   ```
+   - **L column**: PASS or FAIL
+   - **M column**: Short AI note (technical)
+   - **N column (Komi Notes)**: Detailed, simple English explanation — as if explaining to a 10-year-old. Include what you saw, what you clicked, what happened. MANDATORY.
+4. If FAIL → note exact failure, but do NOT fix tonight — will fix next session
+
+---
+
+#### QA Phase 2 — +10 Extra Scenarios per TC Item (다각도 테스트)
+
+For every TC item registered today, think of **10 additional test scenarios** that the G column didn't cover:
+- Edge cases (empty input, very long text, special characters)
+- Mobile vs desktop behavior
+- Different languages (ko / en switching)
+- Error states (network off, invalid API key, etc.)
+- Boundary conditions (0 tokens, max tokens, etc.)
+
+Record each extra scenario in Dev sheet:
+```python
+gx.append_dev_row({
+    "type": "QA",
+    "work_type": "extra-scenario",
+    "summary": "TC-XXX extra test: [scenario name]",
+    "details": "What I tested, how, what happened",
+    "notes": "PASS / FAIL + what I observed"
+})
+```
+
+If UNEXPECTED / BROKEN / UNINTENDED result → register as BUG in TC:
+```python
+row, tc_id = gx.append_tc_row(
+    work_type="BUG",
+    category="[affected area]",
+    test_item="[BUG] [short description]",
+    function="[component or function name]",
+    how_to_test="Steps to reproduce: 1. ... 2. ... 3. Expected: ... Actual: ..."
+)
+gx.update_tc_result(row, 1, "FAIL", "Bug found during extra scenario testing", "ai",
+    komi_notes="I found a problem! When I did X, the app did Y instead of Z. It looks broken.")
+```
+
+---
+
+#### QA Phase 3 — Menu-by-Menu Human QA (메뉴별 20개 시나리오)
+
+Even if NOT in Dev or TC, test each menu/page with **20 test scenarios** like a human user.
+
+**Menus to test every night** (rotate focus each night):
+- Chat (메시지 전송, 모델 전환, 복사, 재생성, 파일 첨부, 음성, URL리더, 플러그인)
+- Models (필터, Apply버튼, 모델 비교, 검색)
+- Dashboard (비용 차트, API breakdown, 토큰 사용량)
+- Billing (플랜, 결제탭, CTA버튼, BYOK notice, FAQ)
+- Agents (생성, 수정, 삭제, 복제, 채팅 시작)
+- Meetings (YouTube URL, ASR, 트랜스크립트)
+- Settings (API키, 언어 전환, 키보드 단축키)
+- About Blend (소개, 비교표, FAQ)
+
+**Total target: 200+ tests per week** (daily minimum: 20 scenarios across at least 3 menus)
+
+Record each in Dev sheet (type="QA", work_type="menu-scenario").
+If UNEXPECTED/BROKEN result → append_tc_row as BUG (same format as Phase 2).
+
+---
+
+#### QA Phase 4 — AI-only Deep Testing (100 tests/day)
+
+Things only AI can test — do 100 per night:
+
+**Category A — Code & Logic (30 tests)**
+- TypeScript type safety issues
+- Zustand store state consistency
+- React hook dependency warnings
+- localStorage error handling (QuotaExceededError etc.)
+- Null/undefined checks in critical paths
+- API response error handling (non-200 status codes)
+- Missing await / async mistakes
+- Race conditions in concurrent API calls
+
+**Category B — Function Behavior (30 tests)**
+- All model IDs resolve to valid API endpoints
+- Cost calculation formula accuracy (check against real API pricing)
+- Token counting accuracy
+- i18n key coverage (no missing keys in ko/en)
+- All navigation paths work (no dead routes)
+- All modals open AND close properly
+- Form validation edge cases
+
+**Category C — Server / Vercel / Infrastructure (20 tests)**
+- API routes respond correctly (200/400/429/500)
+- Rate limiting works as designed (yt-transcript 10req/min)
+- Environment variables all present in Vercel dashboard
+- Cold start behavior (first request after idle)
+- Response time within acceptable range (<3s)
+- CORS headers correct for API routes
+
+**Category D — Security (20 tests)**
+- API keys never exposed in client-side code
+- No sensitive data in console.log
+- XSS: input fields sanitized before rendering
+- CSRF: state-changing actions use POST not GET
+- Rate limiting in place for all public endpoints
+- No hardcoded secrets in source code
+- localStorage data not accessible cross-origin
+- DDoS: API routes have rate limiting
+
+Record findings in Dev sheet (type="QA", work_type="ai-deep-test").
+If FAIL/VULNERABILITY found → append_tc_row as BUG.
+
+---
+
+#### QA Summary Rule
+
+After all 4 phases each night:
+1. Count: total tests run, PASS count, FAIL count, BUGs found
+2. Log summary in Dev sheet:
+   ```python
+   gx.append_dev_row({
+       "type": "QA",
+       "work_type": "nightly-summary",
+       "summary": f"Nightly QA complete: {total} tests, {pass_count} PASS, {fail_count} FAIL, {bug_count} new BUGs",
+       "details": "Phase1: X tests | Phase2: Y extra scenarios | Phase3: Z menu tests | Phase4: W AI tests",
+       "notes": "Key findings: ..."
+   })
+   ```
+3. If any BUG found → add to tomorrow's nighttask fix list in SKILL.md
 
 ### 9. Excel Recording (Blend_QA_Task.xlsx)
 Use graph_excel.py (Graph API) to record entries in the Dev tab.
