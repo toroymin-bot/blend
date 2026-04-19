@@ -1052,7 +1052,10 @@ vercel --prod
 
 For EVERY item registered in TC (Test Checklist) A~G this session:
 
-1. Open **https://blend.ai4min.com** in browser (MCP browser tool)
+1. Open BOTH QA test URLs in browser (MCP browser tool) — production API keys pre-configured:
+   - 🇰🇷 **https://blend.ai4min.com/ko/qatest** (Korean UI)
+   - 🇺🇸 **https://blend.ai4min.com/en/qatest** (English UI)
+   - Test EACH item on BOTH URLs — ko and en must both pass
 2. Follow the **G column "How to Test"** instructions exactly like a human tester
 3. Record results via `graph_excel.py`:
    ```python
@@ -1075,10 +1078,14 @@ For EVERY item registered in TC (Test Checklist) A~G this session:
 
 #### QA Phase 2 — +10 Extra Scenarios per TC Item (다각도 테스트)
 
+**Always test on BOTH URLs:**
+- 🇰🇷 https://blend.ai4min.com/ko/qatest
+- 🇺🇸 https://blend.ai4min.com/en/qatest
+
 For every TC item registered today, think of **10 additional test scenarios** that the G column didn't cover:
 - Edge cases (empty input, very long text, special characters)
 - Mobile vs desktop behavior
-- Different languages (ko / en switching)
+- ko/qatest vs en/qatest — UI language differences, text overflow, layout issues
 - Error states (network off, invalid API key, etc.)
 - Boundary conditions (0 tokens, max tokens, etc.)
 
@@ -1109,6 +1116,11 @@ gx.update_tc_result(row, 1, "FAIL", "Bug found during extra scenario testing", "
 ---
 
 #### QA Phase 3 — Menu-by-Menu Human QA (메뉴별 20개 시나리오)
+
+**Always use BOTH QA test URLs (API keys pre-configured, no manual key entry needed):**
+- 🇰🇷 **https://blend.ai4min.com/ko/qatest** — Korean UI, Korean text, ₩ currency
+- 🇺🇸 **https://blend.ai4min.com/en/qatest** — English UI, English text, $ currency
+- For language-sensitive items, compare ko vs en results side by side
 
 Even if NOT in Dev or TC, test each menu/page with **20 test scenarios** like a human user.
 
