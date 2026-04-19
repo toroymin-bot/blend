@@ -24,43 +24,56 @@ function checkKeys() {
 // 매일 blend-daily-dev 완료 후 이 데이터를 업데이트해야 함
 // [2026-04-12 01:07] blend-daily-dev 자동 업데이트
 // [2026-04-15 02:00] Day 12 업데이트 — 소스C 자체 테스트 5건 수정
+// [2026-04-19] blend-daily-dev가 매일 이 함수 내용을 업데이트해서 최신 데이터 유지
+// 수동 업데이트: GAS 에디터에서 setTodayData() 실행 후 sendBlendDailyReport() 실행
 function setTodayData() {
   var data = {
     dayNumber: 16,
-    files: 80,
-    lines: 15985,
-    features: 4,
+    files: 20,
+    lines: 3766,
+    features: 19,
     cost: '$0',
     newFeatures: [
-      '[소스C-1] 🐛 Fix: claude-opus-4-7 model entry — Korean in description field, wrong contextLength (128K→200K), missing descriptionKo',
-      '[소스C-2] 🐛 Fix: gemini-robotics-er-1.6-preview — Korean text in English description field, fixed with bilingual descriptions',
-      '[소스C-3] 🐛 Fix: gemini-3.1-flash-tts-preview — Korean text in English description field, fixed with bilingual descriptions',
-      '[소스C-4] 🔧 Fix: chat-store + settings-store saveToStorage() lacked try-catch for localStorage QuotaExceededError'
+      '💳 billing-view: Lifetime 플랜($29) + Toss/Xendit 결제 연동 + 이중통화(KRW/USD) + BYOK notice',
+      '📊 dashboard-view: API Usage Breakdown 패널 신규 + 토큰 차트 재디자인 + formatDual() 이중통화',
+      '🎙️ meeting-view: YouTube Whisper fallback + ASR 수동 붙여넣기 + 서버사이드 트랜스크립트',
+      '🤖 agents-view: __auto__ → i18n 라벨 (AI 자동 선택 / Auto AI matching)',
+      '🌐 locales ko/en: billing, agents, dashboard, savings, compare, plugins 26개 키 추가',
+      '🔌 api/yt-transcript.js: Vercel serverless YouTube 트랜스크립트 + rate limit 10req/min',
+      '📍 use-country.ts: 국가 감지 훅 (ipapi.co, KR/PH/other, 24h 캐시)'
     ],
     issues: [
-      {issue: 'Browser self-test (STEP 2.5) could not run — Chrome extension not connected at nighttime', solution: 'QA to verify TEST-029 / TEST-030 manually: check Claude Opus 4.7 description in /en and /ko model dropdown'},
-      {issue: 'TC append_tc_row may have written both TCs to same row (TEST-029)', solution: 'QA to review Test Checklist rows 35-36 and correct if needed'}
+      {issue: 'TEST-038 FAIL: toFixed(1) 소수점 표시 누락', solution: 'nighttask 24번 — Math.round() → toFixed(1) 복구 예정'},
+      {issue: 'TEST-041 FAIL: BYOK 골드 스타일링 미적용', solution: 'nighttask 28번 빌링 i18n 작업 시 함께 처리'},
+      {issue: 'TEST-045 FAIL: CTA 버튼 결제 섹션 스크롤 미작동', solution: 'onClick → scrollIntoView() 추가 예정'},
+      {issue: 'TEST-046 FAIL: 모바일 툴바 ··· 접기 미구현', solution: 'chat-view.tsx MoreHorizontal 드롭다운 구현 예정'}
     ],
     tomorrowPlan: [
-      'QA verify TEST-029/030: Claude Opus 4.7 shows correct bilingual descriptions in model dropdown',
-      'Source C follow-up: add fetch timeout / AbortSignal-based timeout to chat-api.ts',
-      'Source C follow-up: searchMatches() called 4x in same render — memoize result'
+      'nighttask 24: toFixed(1) 소수점 복구 (TEST-038 fix)',
+      'nighttask 25: 중복 모델별 비용 바 차트 제거',
+      'nighttask 26: 대시보드 영문 헤더 i18n 적용',
+      'nighttask 27: 토큰 차트 재디자인',
+      'nighttask 28: 빌링 페이지 전체 i18n',
+      'nighttask 29: 전체 페이지 i18n 감사',
+      'nighttask 30: About Blend 메뉴 + 페이지 신규 (TEST-043 fix)'
     ],
     confluenceLinks: [
-      {title: 'Blend 개발 일지 — 2026-04-19', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/13467649/Blend+2026-04-19'},
-      {title: 'Blend 개발 일지 — 2026-04-18', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/12910593/Blend+2026-04-18'}
+      {title: 'Blend 개발 일지 — 2026-04-18~19', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/13664257'},
+      {title: 'Blend 앱 개발 허브', url: 'https://ai4min.atlassian.net/wiki/spaces/Blend/pages/9371649'}
     ],
-    githubLinks: [],
-    runStart: '01:00',
-    runEnd: '01:45',
+    githubLinks: [
+      {title: '07db84e: billing/dashboard/meeting/agents/i18n', url: 'https://github.com/toroymin-bot/blend/commit/07db84e'}
+    ],
+    runStart: '11:00',
+    runEnd: '12:00',
     totalCommits: 1,
-    qaFailCount: 0,
+    qaFailCount: 7,
     qaFixedCount: 0,
-    qaNewTests: 2,
+    qaNewTests: 19,
     bugFixedCount: 0,
-    selfTestCount: 100,
-    selfTestIssues: 4,
-    devLogRows: 2
+    selfTestCount: 0,
+    selfTestIssues: 0,
+    devLogRows: 1
   };
   PropertiesService.getScriptProperties().setProperty('BLEND_REPORT_DATA', JSON.stringify(data));
   Logger.log('BLEND_REPORT_DATA updated: Day ' + data.dayNumber + ', ' + data.files + ' files, ' + data.totalCommits + ' commits');

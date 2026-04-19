@@ -1107,3 +1107,45 @@ File path: /Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusine
 
 IMPORTANT: Only use graph_excel.py to modify Excel. Never use openpyxl local save.
 graph_excel.py path: /Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/
+
+---
+
+## ⚠️ 영구 필수 규칙: 커밋 후 반드시 해야 할 3가지 (절대 빠뜨리면 안됨)
+
+### 1. 커밋 메시지 — 파일별 세부 내용 전부 포함
+커밋 메시지는 아래 형식으로 작성. 변경된 파일 하나하나 + 구체적으로 무엇을 했는지 명시:
+```
+feat/fix/chore: 한 줄 요약
+
+- src/modules/ui/billing-view.tsx: Lifetime 플랜 추가, Toss/Xendit 결제 탭, 이중 통화 표시
+- src/modules/ui/dashboard-view.tsx: API Usage Breakdown 패널 추가, 토큰 차트 색상 개선
+- src/locales/ko.json, en.json: billing/agents/dashboard 키 추가
+- api/yt-transcript.js: YouTube 자막 서버리스 함수 + rate limiting (10req/min)
+- src/lib/use-country.ts: 국가 감지 훅 (ipapi.co, KR/PH/기타)
+...등 변경된 모든 파일 포함
+```
+절대로 "다수 파일 수정" 같은 뭉뚱그린 표현 금지.
+
+### 2. Dev 시트 업데이트 — 커밋 URL + Confluence 링크 반드시 기록
+커밋 완료 후 `graph_excel.py`로 Dev 시트에 기록:
+```python
+gx.append_dev_row({
+    "type": "feat/fix/chore",
+    "work_type": "Development",
+    "summary": "커밋 요약",
+    "details": "변경 파일 및 내용 상세",
+    "commit_hash": "커밋 해시",       # → H열 GitHub URL 자동 생성
+    "confluence_url": "컨플루언스 URL", # → I열
+    "notes": ""
+})
+```
+- commit_hash: `git rev-parse HEAD` 로 확인
+- confluence_url: Confluence 개발일지 페이지 URL (업데이트 후)
+
+### 3. Confluence 개발일지 업데이트
+커밋 후 Confluence의 개발일지 페이지에 작업 내용 추가:
+- 날짜, 커밋 해시, 변경 파일 목록, 작업 내용 요약 기록
+- Atlassian MCP 툴(mcp__64c148ea...) 사용해서 업데이트
+- Confluence 페이지 ID는 설정에서 확인하거나 기존 페이지 검색
+
+**이 3가지는 매 커밋마다 반드시 실행. QA 테스트 후 결과 기록과 동일하게 절대 빠뜨리면 안됨.**
