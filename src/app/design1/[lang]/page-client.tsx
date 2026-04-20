@@ -1,13 +1,13 @@
 'use client';
 
 // /design1/[lang]/ — Design variant 1 page client
-// Independent clone of /[lang]/page-client.tsx for design comparison.
-// Modify this file freely to test new design changes.
+// AppContentDesign1을 사용 — 원본 AppContent와 완전 독립.
+// design1 전용 뷰를 바꾸려면 app-content-design1.tsx의 import만 교체하면 됨.
 
 import { useEffect } from 'react';
 import { useSettingsStore } from '@/stores/settings-store';
 import { Language } from '@/lib/i18n';
-import AppContent from '@/components/app-content';
+import AppContentDesign1 from '@/components/app-content-design1';
 
 const SUPPORTED_LANGS: Language[] = ['ko', 'en'];
 
@@ -32,7 +32,7 @@ export default function LangPageClient({ lang }: Props) {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <AppContent />
+      <AppContentDesign1 />
     </div>
   );
 }
