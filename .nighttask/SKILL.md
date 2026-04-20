@@ -3,6 +3,19 @@ name: nighttask-country-detection-billing
 description: 국가 감지 + 결제 탭 강조 + 이중 통화 표시 + Excel 기록
 ---
 
+## ⚠️ STEP 0 — 시작 전 반드시 먼저 읽기 (절대 건너뛰면 안됨)
+
+**매 nighttask 시작 시 가장 먼저 아래 파일을 읽고 미완료 항목을 오늘 작업 목록 최상단에 추가:**
+```
+/Users/jesikroymin/Library/CloudStorage/OneDrive-MIN/Apps/Whichbusinesses/Blend/.nighttask/BACKLOG.md
+```
+- `[ ]` 미완료 항목 → 오늘 밤 반드시 전부 실행
+- 완료 후 → `[x]` + 날짜 표시 후 완료 섹션으로 이동
+- 새 요청 들어오면 → 즉시 BACKLOG.md에 추가 (세션 끊겨도 파일에 남음)
+
+**실행 시간: 새벽 1:07 ~ 오전 7:00 (6시간 풀가동)**
+
+---
 
 ## 오늘(2026-04-19 새벽) 해야 할 작업
 
