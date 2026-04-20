@@ -33,13 +33,38 @@ export function AboutView({ onNavigate }: AboutViewProps) {
     <div className="h-full overflow-y-auto bg-surface p-6">
       <div className="max-w-3xl mx-auto">
 
-        {/* Hero */}
-        <div className="text-center mb-12">
-          <div className="text-5xl mb-4">🔀</div>
-          <h1 className="text-3xl font-bold text-on-surface mb-3">
-            <span className="text-blue-400 font-bold">{t('about.hero_title')}</span>
+        {/* Hero — savings-first */}
+        <div className="text-center mb-10">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-white leading-tight mb-7">
+            {t('billing.hero_headline')}
           </h1>
-          <p className="text-on-surface-muted text-lg">{t('about.hero_subtitle')}</p>
+
+          {/* $60 → $9 visual */}
+          <div className="flex items-center justify-center gap-6 mb-6">
+            <div className="text-center">
+              <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">{t('billing.hero_vs_individual')}</p>
+              <p className="text-3xl font-bold text-gray-500 line-through">$60</p>
+            </div>
+            <div className="text-3xl text-gray-600 font-light">→</div>
+            <div className="text-center">
+              <p className="text-xs text-blue-400 mb-1 uppercase tracking-wide">{t('billing.hero_vs_blend')}</p>
+              <p className="text-5xl font-extrabold text-blue-400">$9</p>
+            </div>
+          </div>
+
+          {/* Savings badges */}
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <span className="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-full text-sm font-semibold">
+              💰 $51 {t('billing.hero_savings_month')}
+            </span>
+            <span className="px-3 py-1.5 bg-green-500/10 text-green-500 rounded-full text-sm font-semibold">
+              $612 {t('billing.hero_savings_year')}
+            </span>
+          </div>
+
+          <p className="text-on-surface-muted text-base max-w-xl mx-auto">
+            {t('about.hero_subtitle')}
+          </p>
         </div>
 
         {/* 3 explanation cards */}
@@ -105,18 +130,18 @@ export function AboutView({ onNavigate }: AboutViewProps) {
         </div>
 
         {/* CTA buttons */}
-        <div className="flex gap-3 justify-center">
-          <button
-            onClick={() => onNavigate('chat')}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-colors"
-          >
-            {t('about.cta_chat')} →
-          </button>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
           <button
             onClick={() => onNavigate('billing')}
-            className="px-6 py-3 bg-surface-2 hover:bg-gray-700 text-on-surface rounded-xl font-semibold text-sm transition-colors border border-gray-700"
+            className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-colors"
           >
-            {t('about.cta_billing')}
+            {t('billing.hero_cta')} →
+          </button>
+          <button
+            onClick={() => onNavigate('chat')}
+            className="w-full sm:w-auto px-8 py-3.5 bg-surface-2 hover:bg-gray-700 text-on-surface rounded-xl font-semibold text-sm transition-colors border border-gray-700"
+          >
+            {t('about.cta_chat')}
           </button>
         </div>
 
