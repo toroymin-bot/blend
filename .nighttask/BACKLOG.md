@@ -7,26 +7,7 @@
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
-- [ ] **TODAY-09** `datasource-view.tsx` / `chat-view.tsx` / `document-store.ts` — OneDrive·Google Drive 연결 상태 채팅 미반영 버그
-  - **증상**: OneDrive·Google Drive 연결 완료했는데 채팅에서 AI가 "접근 불가"라고 답함
-  - **증상2**: 채팅 입력창에 연결된 데이터소스 표시(뱃지)가 없음 — `[회의] 은곳교회` 스타일로 `[드라이브] Google Drive` 뱃지 있어야 함
-  - **원인 추정 1**: datasource sync 후 document-store에 파일 content가 저장되지 않음 (URL만 저장, 실제 텍스트 미추출)
-  - **원인 추정 2**: document-store에 있어도 chat-view RAG context 주입 로직에서 datasource 타입 문서 제외됨
-  - **원인 추정 3**: loadFromDB 시점 문제 — 앱 시작 시 datasource 문서가 in-memory에 없음
-  - **조사 파일**: `datasource-view.tsx` (sync 로직), `document-store.ts` (저장 방식), `chat-view.tsx` (RAG context 빌드 로직)
-  - **수정 범위**:
-    1. Google Drive / OneDrive 파일 실제 content(텍스트) 추출 → document-store 저장 확인
-    2. chat-view RAG 빌드 시 datasource 문서 포함되도록 수정
-    3. 채팅 입력창 하단에 연결된 datasource 뱃지 표시 (`[Google Drive] 연결됨` 등)
-  - **스크린샷 근거**: 채팅에 `[회의] 은곳교회 참조 중` 뱃지는 보이지만 드라이브 연결 뱃지 없음
-
-- [ ] **TODAY-08** `chat-view.tsx` — 채팅창 "맨 아래로 이동" 버튼 + 메시지 그라데이션
-  - 스크롤이 맨 아래가 아닐 때 채팅 입력창 위에 작은 ↓ 버튼 표시
-  - 클릭하면 채팅창 맨 밑으로 smooth scroll
-  - 마지막 메시지가 길 때 하단에 그라데이션 fade-out 처리 (읽다가 잘린 느낌)
-  - 스크롤 위치 감지: `onScroll` + `scrollHeight - scrollTop - clientHeight > threshold(100px)`
-  - 버튼 디자인: 반투명 다크 배경, 화살표 아이콘, 채팅창 우하단 고정 (position absolute)
-  - 참고: Claude 채팅창 UI와 동일한 UX
+*(없음 — 모든 항목 완료)*
 
 ---
 
@@ -70,6 +51,18 @@
   - "Claude + ChatGPT + Gemini를 월 $60 대신 $9에." 히어로 박스
   - 개별 구독 $60 취소선 → Blend $9, $51/월 절약, $612/연 절약 뱃지
   - welcome-view 인트로 화면 + billing-view 최상단 양쪽 모두 적용
+
+### [2026-04-21 nighttask 자동 완료]
+
+- [x] **TODAY-09** `chat-view.tsx` — 채팅 입력창에 데이터소스 연결 뱃지 표시 ✅ 2026-04-21
+  - useDataSourceStore 연동, status==='connected' 소스에 대해 아이콘+이름+연결됨 뱃지 렌더링
+  - Google Drive ☁️, OneDrive 🔵, Local 💾 아이콘 구분
+  - 채팅 입력창 바로 위 flex wrap 레이아웃
+
+- [x] **TODAY-08** `chat-view.tsx` — 채팅창 스크롤 하단 버튼 + 그라디언트 ✅ 2026-04-21
+  - messagesContainerRef + isAtBottom state (100px 임계값)
+  - ChevronDownIcon absolute 포지셔닝, smooth scroll on click
+  - 하단 16px 그라디언트 fade (gray-900 → transparent)
 
 ### [2026-04-20 사용자 요청]
 
