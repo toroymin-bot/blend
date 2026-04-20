@@ -20,6 +20,7 @@ import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } fr
 import { generateImage, extractImagePrompt, extractImageURLs } from '@/modules/plugins/image-gen';
 import { downloadChat, downloadChatAsPDF, downloadChatAsJSON } from '@/modules/chat/export-chat';
 import { useDocumentStore } from '@/stores/document-store';
+import { useDataSourceStore } from '@/stores/datasource-store';
 import { buildContext } from '@/modules/plugins/document-plugin';
 import { routeToModel } from '@/lib/model-router';
 import { AUTO_MATCH_AGENT_ID } from '@/stores/agent-store';
@@ -49,6 +50,7 @@ export function ChatView() {
   const { systemPrompt, customModels, settings } = useSettingsStore();
   const { isInstalled, loadFromStorage: loadPlugins } = usePluginStore();
   const { getActiveDocs, loadFromDB } = useDocumentStore();
+  const { sources: dataSources } = useDataSourceStore();
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
@@ -84,8 +86,10 @@ export function ChatView() {
   const [summaryText, setSummaryText] = useState('');
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const tokenHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -882,7 +886,7 @@ export function ChatView() {
 
   return (
     <div
-      className="flex flex-col h-full bg-surface"
+      className="flex flex-col h-full bg-surface relative"
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
       onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) handleImageFiles(e.dataTransfer.files); }}
     >
@@ -984,9 +988,35 @@ export function ChatView() {
         </div>
       )}
 
+      {/* Messages area wrapper — relative for gradient + scroll button overlay */}
+      <div className="flex-1 relative min-h-0">
+      {/* Scroll-to-bottom button */}
+      {!isAtBottom && (
+        <div className="absolute bottom-4 right-4 z-30 pointer-events-auto">
+          <button
+            onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-700/90 border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-600 shadow-lg backdrop-blur-sm transition-colors"
+            title={t('chat.scroll_to_bottom')}
+          >
+            <ChevronDownIcon size={18} />
+          </button>
+        </div>
+      )}
+      {/* Bottom gradient fade */}
+      {!isAtBottom && (
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-16 z-20" style={{ background: 'linear-gradient(to top, #111827 0%, transparent 100%)' }} />
+      )}
+
       {/* Messages area */}
       <div
-        className="flex-1 overflow-y-auto chat-messages"
+        ref={messagesContainerRef}
+        className="h-full overflow-y-auto chat-messages"
+        onScroll={() => {
+          const el = messagesContainerRef.current;
+          if (!el) return;
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+          setIsAtBottom(atBottom);
+        }}
         onTouchMove={() => {
           if (showSearch) { setShowSearch(false); setSearchQuery(''); setSearchMatchIndex(0); }
         }}
@@ -1294,6 +1324,7 @@ export function ChatView() {
           </div>
         )}
       </div>
+      </div> {/* end messages area wrapper */}
 
       {/* Streaming token counter — fixed bottom-right */}
       {showTokenCounter && (
@@ -1427,7 +1458,7 @@ export function ChatView() {
                   ? 'bg-blue-900/40 text-blue-400 hover:bg-blue-900/60'
                   : 'bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700'
               }`}
-              title={ttsAutoplay ? 'TTS autoplay ON — click to disable' : 'TTS autoplay OFF — click to enable'}
+              title={ttsAutoplay ? t('chat.tts_on_hint') : t('chat.tts_off_hint')}
             >
               {ttsAutoplay ? <Volume2 size={13} /> : <VolumeX size={13} />}
             </button>
@@ -1557,6 +1588,20 @@ export function ChatView() {
             <div className="flex items-center gap-1.5 mb-2 text-xs text-blue-400">
               <FileText size={12} />
               <span>{t('chat.referencing', { docs: getActiveDocs().map((d) => d.name).join(', ') })}</span>
+            </div>
+          )}
+
+          {/* Datasource connection badges */}
+          {dataSources.filter((s) => s.status === 'connected').length > 0 && (
+            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+              {dataSources.filter((s) => s.status === 'connected').map((src) => {
+                const icon = src.type === 'google-drive' ? '☁️' : src.type === 'onedrive' ? '🔵' : src.type === 'local' ? '💾' : '🗄️';
+                return (
+                  <span key={src.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-900/30 border border-emerald-700/40 rounded text-xs text-emerald-400">
+                    {icon} [{src.name}] {t('chat.datasource_connected')}
+                  </span>
+                );
+              })}
             </div>
           )}
 

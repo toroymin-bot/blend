@@ -28,10 +28,10 @@ const PLANS = [
     price: { monthly: 0, yearly: 0 },
     descKey: 'billing.plan_free_subtitle',
     features: [
-      { textKey: '10 messages/day' },
-      { textKey: '3 AI models' },
-      { textKey: 'Basic chat' },
-      { textKey: 'Web search' },
+      { textKey: 'billing.feature_free_msgs' },
+      { textKey: 'billing.feature_free_models' },
+      { textKey: 'billing.feature_free_chat' },
+      { textKey: 'billing.feature_free_search' },
     ],
     ctaKey: 'billing.get_started',
     highlighted: false,
@@ -291,7 +291,7 @@ export function BillingView() {
 
         {/* BYOK notice */}
         <p className="text-base font-semibold text-amber-400 text-center mb-8">
-          🔑 Blend는 내 API 키로 직접 연결해요. API 비용은 각 서비스에 별도 청구되며, 평균 월 $5 수준이에요.
+          🔑 {t('billing.byok_notice')}
         </p>
 
         {/* Payment Method Selection */}
@@ -328,8 +328,8 @@ export function BillingView() {
           {/* Tab content */}
           {paymentTab === 'paddle' && (
             <div className="text-sm text-gray-400 space-y-2">
-              <p>Pay with card — Paddle supports Korea &amp; worldwide (200+ countries).</p>
-              <p className="text-xs text-gray-500">VAT &amp; tax handled automatically by Paddle.</p>
+              <p>{t('billing.paddle_desc')}</p>
+              <p className="text-xs text-gray-500">{t('billing.paddle_vat')}</p>
               <button
                 onClick={() => {
                   const priceId = yearly
@@ -345,20 +345,20 @@ export function BillingView() {
                 }`}
               >
                 {process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY_PRICE_ID
-                  ? 'Pay with Card →'
-                  : 'Setup required — see Confluence'}
+                  ? t('billing.paddle_cta')
+                  : t('billing.setup_required')}
               </button>
             </div>
           )}
           {paymentTab === 'toss' && (
             <div className="text-sm text-gray-400 space-y-2">
-              <p>토스페이먼츠로 결제 — 토스페이, 카카오페이, 네이버페이, 카드 지원.</p>
+              <p>{t('billing.toss_desc')}</p>
               {paymentError && paymentTab === 'toss' && (
                 <p className="text-red-400 text-xs">{paymentError}</p>
               )}
               <button
                 onClick={async () => {
-                  if (!isTossConfigured()) { setPaymentError('Setup required — NEXT_PUBLIC_TOSS_CLIENT_KEY not set. See Confluence.'); return; }
+                  if (!isTossConfigured()) { setPaymentError(t('billing.setup_required')); return; }
                   setPaymentLoading(true); setPaymentError('');
                   try {
                     const price = yearly ? 7 : 9;
@@ -368,26 +368,26 @@ export function BillingView() {
                       orderName: `Blend Pro (${yearly ? 'Yearly' : 'Monthly'})`,
                     });
                   } catch (e) {
-                    setPaymentError(e instanceof Error ? e.message : '결제 오류가 발생했습니다.');
+                    setPaymentError(e instanceof Error ? e.message : t('billing.payment_error'));
                   } finally { setPaymentLoading(false); }
                 }}
                 disabled={paymentLoading}
                 className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
               >
-                {paymentLoading ? '처리 중...' : '토스페이먼츠로 결제 →'}
+                {paymentLoading ? t('billing.processing') : t('billing.toss_cta')}
               </button>
             </div>
           )}
           {paymentTab === 'xendit' && (
             <div className="text-sm text-gray-400 space-y-2">
-              <p>Pay via Xendit — GCash, Maya, credit/debit card for Philippines &amp; SE Asia.</p>
-              <p className="text-xs text-gray-500">Malaysia: Touch &apos;n Go, GrabPay, FPX also supported.</p>
+              <p>{t('billing.xendit_desc')}</p>
+              <p className="text-xs text-gray-500">{t('billing.xendit_note')}</p>
               {paymentError && paymentTab === 'xendit' && (
                 <p className="text-red-400 text-xs">{paymentError}</p>
               )}
               <button
                 onClick={async () => {
-                  if (!isXenditConfigured()) { setPaymentError('Setup required — NEXT_PUBLIC_XENDIT_PUBLIC_KEY not set. See Confluence.'); return; }
+                  if (!isXenditConfigured()) { setPaymentError(t('billing.setup_required')); return; }
                   setPaymentLoading(true); setPaymentError('');
                   try {
                     const price = yearly ? 350 : 450;
@@ -397,13 +397,13 @@ export function BillingView() {
                       description: `Blend Pro (${yearly ? 'Yearly' : 'Monthly'})`,
                     });
                   } catch (e) {
-                    setPaymentError(e instanceof Error ? e.message : 'Payment error. Please try again.');
+                    setPaymentError(e instanceof Error ? e.message : t('billing.payment_error'));
                   } finally { setPaymentLoading(false); }
                 }}
                 disabled={paymentLoading}
                 className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
               >
-                {paymentLoading ? 'Processing...' : 'Continue with Xendit →'}
+                {paymentLoading ? t('billing.processing') : t('billing.xendit_cta')}
               </button>
             </div>
           )}

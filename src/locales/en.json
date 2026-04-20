@@ -174,7 +174,11 @@
     "tagline_search": "search",
     "tagline_speaking": "speaking",
     "tagline_image": "image",
-    "tagline_coding": "coding"
+    "tagline_coding": "coding",
+    "scroll_to_bottom": "Scroll to bottom",
+    "datasource_connected": "connected",
+    "tts_on_hint": "TTS autoplay ON — click to disable",
+    "tts_off_hint": "TTS autoplay OFF — click to enable"
   },
   "settings": {
     "title": "Settings",
@@ -271,7 +275,14 @@
     "guide_groq_visit": "Open console.groq.com",
     "guide_groq_signup": "Log in with email or GitHub",
     "guide_groq_create": "Click \"Create API Key\"",
-    "guide_groq_copy": "Copy the string starting with gsk_... and paste it above"
+    "guide_groq_copy": "Copy the string starting with gsk_... and paste it above",
+    "about_blend_title": "About Blend",
+    "about_blend_1": "Blend lets you use multiple AI models in one app.",
+    "about_blend_2": "It uses your own API keys (BYOK — Bring Your Own Key).",
+    "about_blend_3": "AI usage costs are billed directly by OpenAI, Anthropic, etc.",
+    "about_blend_4": "Blend subscription ($9/mo or $29 lifetime) is the app usage fee.",
+    "about_blend_5": "Average API cost is ~$5/mo and varies by usage.",
+    "api_key_byok_note": "Your API key connects directly to each service. Check usage costs on their dashboards."
   },
   "agents": {
     "title": "Agents",
@@ -896,7 +907,23 @@
     "lifetime_badge": "Lifetime",
     "lifetime_oneshot": "No subscription · No renewal · Permanently yours",
     "lifetime_cta": "Get Lifetime Access — $29",
-    "lifetime_after": "All features unlocked instantly after purchase"
+    "lifetime_after": "All features unlocked instantly after purchase",
+    "feature_free_msgs": "10 messages/day",
+    "feature_free_models": "3 AI models",
+    "feature_free_chat": "Basic chat",
+    "feature_free_search": "Web search",
+    "byok_notice": "Blend connects with your own API key. AI usage fees are billed separately by each service — avg. ~$5/mo.",
+    "paddle_desc": "Pay with card — Paddle supports Korea & 200+ countries worldwide.",
+    "paddle_vat": "VAT & tax handled automatically by Paddle.",
+    "paddle_cta": "Pay with Card →",
+    "setup_required": "Setup required",
+    "toss_desc": "Pay via Toss Payments — Toss Pay, Kakao Pay, Naver Pay, card supported.",
+    "toss_cta": "Pay with Toss →",
+    "processing": "Processing...",
+    "payment_error": "Payment error. Please try again.",
+    "xendit_desc": "Pay via Xendit — GCash, Maya, credit/debit card for Philippines & SE Asia.",
+    "xendit_note": "Malaysia: Touch 'n Go, GrabPay, FPX also supported.",
+    "xendit_cta": "Continue with Xendit →"
   },
   "about": {
     "title": "About Blend",

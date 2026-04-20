@@ -287,13 +287,13 @@ export function SettingsView() {
 
         {/* About Blend info card */}
         <div className="bg-blue-900/20 border border-blue-800/30 rounded-xl p-4 mb-8">
-          <h2 className="text-sm font-semibold text-blue-300 mb-2">ℹ️ Blend 소개</h2>
+          <h2 className="text-sm font-semibold text-blue-300 mb-2">ℹ️ {t('settings.about_blend_title')}</h2>
           <ul className="space-y-1 text-xs text-on-surface-muted">
-            <li>• Blend는 여러 AI 모델을 하나의 앱에서 사용할 수 있는 서비스예요.</li>
-            <li>• 본인의 API 키를 직접 연결하는 BYOK(Bring Your Own Key) 방식이에요.</li>
-            <li>• AI 사용 비용은 OpenAI, Anthropic 등 각 서비스에 직접 청구됩니다.</li>
-            <li>• Blend 구독료($9/월 또는 $29 평생)는 앱 기능 이용료예요.</li>
-            <li>• 평균 API 비용은 월 $5 수준이며 사용량에 따라 달라져요.</li>
+            <li>• {t('settings.about_blend_1')}</li>
+            <li>• {t('settings.about_blend_2')}</li>
+            <li>• {t('settings.about_blend_3')}</li>
+            <li>• {t('settings.about_blend_4')}</li>
+            <li>• {t('settings.about_blend_5')}</li>
           </ul>
         </div>
 
@@ -305,7 +305,7 @@ export function SettingsView() {
             {t('settings.api_keys_desc')}
           </p>
           <p className="text-xs text-gray-500 mb-2">
-            입력한 API 키로 각 서비스에 직접 연결돼요. 비용은 해당 서비스에서 확인할 수 있어요.
+            {t('settings.api_key_byok_note')}
           </p>
 
           <div className="space-y-3">
