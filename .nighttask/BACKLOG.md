@@ -57,11 +57,43 @@
 
 ---
 
-## 📌 영구 정책 (매 nighttask마다 자동 적용)
+## 📌 영구 정책 (매 nighttask마다 자동 적용, 절대 빠뜨리면 안됨)
 
-- 커밋 메시지: 파일별 세부 내용 전부 포함
-- 커밋 후: Dev시트 + Confluence + GAS 이메일 업데이트
+### 🔁 개발 완료 후 반드시 실행하는 4단계 프로세스
+
+**① GitHub 커밋** — 파일별 세부 내용 전부 포함
+```bash
+git add -A
+git commit -m "feat: ... (변경된 모든 파일 + 구체적 내용)"
+git push
+```
+
+**② Blend_QA_Task.xlsx Dev 시트 기록** — graph_excel.py 사용
+```python
+gx.append_dev_row({
+    "commit_hash": "커밋해시",       # → H열 GitHub URL 자동생성
+    "confluence_url": "컨플루언스URL", # → I열
+    "summary": "작업 요약",
+    "details": "파일별 상세 내용",
+})
+```
+
+**③ Confluence 개발일지 업데이트**
+- cloudId: 74f8aa88-85be-4fe3-a0af-6526eb54a763
+- space: 5079095 (Blend), parent: 9371649
+- 상세하게 작성: 변경 파일별 bullet + QA 결과 표 + 다음 예정 작업
+
+**④ GAS 이메일 발송** — 오늘 실제 데이터로 업데이트 후 발송
+```bash
+GAS_URL="https://script.google.com/macros/s/AKfycbzZbYIKx7CSfMC2HhxBtkmL4p4t1DBYwoMAZwgRwSKRYztjwQbXcvxEK2MeoMvdMFfM/exec"
+curl -s -L "${GAS_URL}?action=setData&data=${오늘데이터}"
+curl -s -L "${GAS_URL}?action=sendDevReport"
+```
+
+---
+
+### 기타 영구 정책
 - QA: ko/qatest + en/qatest 두 화면 모두 테스트
 - QA Phase 1~4 매일 실행 (총 300개+)
 - 모델 sync: 패밀리별 최신 2개만 유지
-- 실행 시간: 새벽 1:07 ~ 오전 7:00 (6시간)
+- 실행 시간: 새벽 1:07 ~ 오전 7:00 (6시간 풀가동)
