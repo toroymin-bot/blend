@@ -3,7 +3,7 @@
 // Use this URL to test & compare new design changes without affecting the main app.
 // isQAPath() detects /qatest in URL → auto-injects env API keys for QA testing.
 
-import LangPageClient from '../../page-client';
+import LangPageClient from '../page-client';
 
 export function generateStaticParams() {
   return [{ lang: 'ko' }, { lang: 'en' }];
