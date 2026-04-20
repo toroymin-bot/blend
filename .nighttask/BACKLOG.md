@@ -7,6 +7,19 @@
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
+- [ ] **TODAY-09** `datasource-view.tsx` / `chat-view.tsx` / `document-store.ts` — OneDrive·Google Drive 연결 상태 채팅 미반영 버그
+  - **증상**: OneDrive·Google Drive 연결 완료했는데 채팅에서 AI가 "접근 불가"라고 답함
+  - **증상2**: 채팅 입력창에 연결된 데이터소스 표시(뱃지)가 없음 — `[회의] 은곳교회` 스타일로 `[드라이브] Google Drive` 뱃지 있어야 함
+  - **원인 추정 1**: datasource sync 후 document-store에 파일 content가 저장되지 않음 (URL만 저장, 실제 텍스트 미추출)
+  - **원인 추정 2**: document-store에 있어도 chat-view RAG context 주입 로직에서 datasource 타입 문서 제외됨
+  - **원인 추정 3**: loadFromDB 시점 문제 — 앱 시작 시 datasource 문서가 in-memory에 없음
+  - **조사 파일**: `datasource-view.tsx` (sync 로직), `document-store.ts` (저장 방식), `chat-view.tsx` (RAG context 빌드 로직)
+  - **수정 범위**:
+    1. Google Drive / OneDrive 파일 실제 content(텍스트) 추출 → document-store 저장 확인
+    2. chat-view RAG 빌드 시 datasource 문서 포함되도록 수정
+    3. 채팅 입력창 하단에 연결된 datasource 뱃지 표시 (`[Google Drive] 연결됨` 등)
+  - **스크린샷 근거**: 채팅에 `[회의] 은곳교회 참조 중` 뱃지는 보이지만 드라이브 연결 뱃지 없음
+
 - [ ] **TODAY-08** `chat-view.tsx` — 채팅창 "맨 아래로 이동" 버튼 + 메시지 그라데이션
   - 스크롤이 맨 아래가 아닐 때 채팅 입력창 위에 작은 ↓ 버튼 표시
   - 클릭하면 채팅창 맨 밑으로 smooth scroll
