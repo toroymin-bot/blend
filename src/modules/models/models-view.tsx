@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { DEFAULT_MODELS, getProviderColor, getModelCategory, MODEL_CATEGORY_META, PROVIDER_META, ModelCategory } from './model-registry';
+import { DEFAULT_MODELS, getDisplayModels, getProviderColor, getModelCategory, MODEL_CATEGORY_META, PROVIDER_META, ModelCategory } from './model-registry';
 import { useChatStore } from '@/stores/chat-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -21,7 +21,8 @@ export function ModelsView({ onApply }: { onApply?: () => void }) {
   const { hasKey } = useAPIKeyStore();
   const { customModels } = useSettingsStore();
 
-  const allModels = [...DEFAULT_MODELS, ...customModels];
+  // [2026-04-20] Apply family policy: max 2 per family, no dated versions
+  const allModels = getDisplayModels(customModels);
   const providers = [...new Set(allModels.map((m) => m.provider))];
   const [activeProvider, setActiveProvider] = useState<string>('all');
   const [activeCategory, setActiveCategory] = useState<ModelCategory | 'all'>('all');

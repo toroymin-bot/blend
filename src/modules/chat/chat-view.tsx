@@ -8,7 +8,7 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { usePluginStore } from '@/stores/plugin-store';
 import { sendChatRequest } from './chat-api';
-import { getModelById, calculateCost, DEFAULT_MODELS } from '@/modules/models/model-registry';
+import { getModelById, calculateCost, DEFAULT_MODELS, getDisplayModels } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
 import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon, Paperclip, Sparkles, Eye, Brain, Volume2, VolumeX, Loader2 as Loader2Icon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -150,7 +150,8 @@ export function ChatView() {
   };
 
   const chat = getCurrentChat();
-  const allModels = [...DEFAULT_MODELS, ...customModels];
+  // [2026-04-20] Apply family policy: max 2 per family, no dated versions
+  const allModels = getDisplayModels(customModels);
   const model = getModelById(selectedModel, customModels);
   const enabledModels = allModels.filter((m) => m.enabled);
 
@@ -543,7 +544,7 @@ export function ChatView() {
     // 기존: if (!currentModel) return;  — 아무 안내 없이 조용히 실패
     let currentModel = getModelById(selectedModel, customModels);
     if (!currentModel) {
-      const fallback = [...DEFAULT_MODELS, ...customModels].find((m) => m.enabled);
+      const fallback = getDisplayModels(customModels).find((m) => m.enabled);
       if (!fallback) {
         addMessage(chatId, {
           id: crypto.randomUUID(),
@@ -567,7 +568,7 @@ export function ChatView() {
     // setSelectedModel은 비동기라 위에서 쓸 수 없으므로 currentModel을 직접 교체
     const routingAgent = getActiveAgent();
     if (routingAgent?.id === AUTO_MATCH_AGENT_ID) {
-      const allEnabled = [...DEFAULT_MODELS, ...customModels].filter((m) => m.enabled);
+      const allEnabled = getDisplayModels(customModels).filter((m) => m.enabled);
       const route = routeToModel(input.trim(), attachedImages.length > 0, allEnabled, hasKey);
       const routedModel = getModelById(route.modelId, customModels);
       if (routedModel && hasKey(routedModel.provider)) {

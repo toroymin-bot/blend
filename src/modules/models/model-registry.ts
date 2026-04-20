@@ -1560,3 +1560,64 @@ export const PROVIDER_META: Record<string, { label: string; color: string }> = {
   groq:      { label: 'Groq',      color: '#F55036' },
   custom:    { label: 'Custom',    color: '#6b7280' },
 };
+
+// ── Model Family Policy (keep latest 2 per family, no dated versions) ─────────
+// Date pattern: ends with -YYYY-MM-DD, -YYYYMMDD, or similar numeric date suffixes
+const DATE_VERSION_RE = /-\d{4}[-_]\d{2}[-_]\d{2}$|-\d{8}$/;
+
+/** True if the model id contains an explicit date version suffix (e.g. -2025-04-14, -20251022) */
+export function isDateVersionedModel(id: string): boolean {
+  return DATE_VERSION_RE.test(id);
+}
+
+/**
+ * Derive a canonical family name from a model id.
+ * Strips trailing date suffixes, then takes the prefix up to any "variant" suffix.
+ * e.g. "gpt-4.1-mini-2025-04-14" → "gpt-4.1-mini"
+ *      "claude-sonnet-4-5-20250929" → "claude-sonnet-4-5"
+ *      "gemini-2.5-flash" → "gemini-2.5-flash"
+ */
+export function modelFamily(id: string): string {
+  return id.replace(DATE_VERSION_RE, '');
+}
+
+/**
+ * Apply the per-family policy to a model list:
+ *  1. Remove all models with explicit date-version suffixes.
+ *  2. Group by family (modelFamily(id)).
+ *  3. Within each family keep at most MAX_PER_FAMILY models, preferring enabled ones.
+ * The order of the original array is preserved within each family.
+ */
+const MAX_PER_FAMILY = 2;
+
+export function applyFamilyPolicy(models: AIModel[]): AIModel[] {
+  // Step 1 — drop dated versions
+  const undated = models.filter((m) => !isDateVersionedModel(m.id));
+
+  // Step 2 — group by family
+  const familyMap = new Map<string, AIModel[]>();
+  for (const m of undated) {
+    const fam = modelFamily(m.id);
+    if (!familyMap.has(fam)) familyMap.set(fam, []);
+    familyMap.get(fam)!.push(m);
+  }
+
+  // Step 3 — keep max 2 per family (enabled first, then disabled)
+  const result: AIModel[] = [];
+  for (const [, members] of familyMap) {
+    const enabled  = members.filter((m) => m.enabled);
+    const disabled = members.filter((m) => !m.enabled);
+    const kept = [...enabled, ...disabled].slice(0, MAX_PER_FAMILY);
+    result.push(...kept);
+  }
+  return result;
+}
+
+/**
+ * Returns the filtered model list for display in chat dropdowns, model views,
+ * and auto AI matching. Applies family policy + custom models (not filtered).
+ */
+export function getDisplayModels(customModels: AIModel[] = []): AIModel[] {
+  const base = applyFamilyPolicy(DEFAULT_MODELS);
+  return [...base, ...customModels];
+}

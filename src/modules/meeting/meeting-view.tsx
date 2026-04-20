@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Link, Mic, Loader2, Trash2, FileAudio, CheckSquare, Square, Tag, AlertCircle } from 'lucide-react';
+import { Upload, Link, Mic, Loader2, Trash2, FileAudio, CheckSquare, Square, Tag, AlertCircle, Printer, X as XIcon } from 'lucide-react';
 import { useMeetingStore } from '@/stores/meeting-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { MeetingAnalysis, ActionItem } from '@/types';
@@ -42,6 +42,206 @@ function PriorityBadge({ priority }: { priority: ActionItem['priority'] }) {
   );
 }
 
+// ── PDF Preview Modal ─────────────────────────────────────────────────────────
+// [2026-04-20 PREV-01] PDF preview modal — shows professional meeting minutes format
+// Print via browser window.print() with @media print CSS
+
+function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClose: () => void }) {
+  const { t } = useTranslation();
+  const date = new Date(meeting.createdAt);
+  const dateStr = date.toLocaleDateString();
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const handlePrint = () => {
+    // Open a print-dedicated popup window
+    const pw = window.open('', '_blank', 'width=800,height=900');
+    if (!pw) { window.print(); return; }
+
+    const styles = `
+      body { font-family: 'Noto Sans KR', Arial, sans-serif; margin: 40px; color: #111; font-size: 13px; }
+      h1 { font-size: 20px; font-weight: bold; margin-bottom: 4px; }
+      h2 { font-size: 15px; font-weight: bold; margin-top: 20px; margin-bottom: 6px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+      h3 { font-size: 13px; font-weight: 600; margin: 8px 0 4px; }
+      .meta { color: #666; font-size: 12px; margin-bottom: 16px; }
+      .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; margin-right: 4px; }
+      .badge-high { background: #fee2e2; color: #b91c1c; }
+      .badge-med { background: #fef3c7; color: #92400e; }
+      .badge-low { background: #d1fae5; color: #065f46; }
+      .segment { margin-bottom: 8px; padding: 6px 10px; background: #f9f9f9; border-radius: 6px; }
+      .speaker { font-weight: 600; margin-right: 6px; color: #1d4ed8; }
+      ul { margin: 0; padding-left: 18px; }
+      li { margin-bottom: 3px; }
+      .action-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 4px; }
+      .action-row .task { flex: 1; }
+      .decision { padding: 4px 10px; background: #f0fdf4; border-left: 3px solid #16a34a; margin-bottom: 4px; }
+      @media print { body { margin: 20px; } }
+    `;
+
+    const priorityBadge = (p: string) => {
+      const cls = p === 'high' ? 'badge-high' : p === 'medium' ? 'badge-med' : 'badge-low';
+      const label = p === 'high' ? '높음' : p === 'medium' ? '중간' : '낮음';
+      return `<span class="badge ${cls}">${label}</span>`;
+    };
+
+    const transcriptHtml = meeting.segments.length > 0
+      ? meeting.segments.map((s) =>
+          `<div class="segment"><span class="speaker">${s.speaker}</span>${s.text}</div>`
+        ).join('')
+      : `<div class="segment">${meeting.rawTranscript.replace(/\n/g, '<br/>')}</div>`;
+
+    const topicsHtml = meeting.topics.map((t) => `<li>${t}</li>`).join('');
+
+    const actionHtml = meeting.actionItems.map((a) =>
+      `<div class="action-row"><span class="task">${a.task}</span>${priorityBadge(a.priority)}${a.owner ? `<span>${a.owner}</span>` : ''}${a.deadline ? `<span>${a.deadline}</span>` : ''}</div>`
+    ).join('');
+
+    const decisionHtml = meeting.decisions.map((d) => `<div class="decision">✓ ${d}</div>`).join('');
+
+    const summaryHtml = `
+      <p><strong>${meeting.summary.oneLiner || '—'}</strong></p>
+      <ul>${meeting.summary.bullets.map((b) => `<li>${b}</li>`).join('')}</ul>
+      ${meeting.summary.full ? `<p style="margin-top:8px;white-space:pre-wrap">${meeting.summary.full}</p>` : ''}
+    `;
+
+    pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>회의록 — ${meeting.title}</title><style>${styles}</style></head><body>
+      <h1>📋 ${meeting.title}</h1>
+      <div class="meta">
+        📅 날짜: ${dateStr} &nbsp;|&nbsp; ⏰ 시간: ${timeStr} &nbsp;|&nbsp; 📁 출처: ${meeting.source === 'youtube' ? 'YouTube' : '파일 업로드'}
+      </div>
+      ${meeting.topics.length > 0 ? `<h2>🏷️ 안건 / 주요 주제</h2><ul>${topicsHtml}</ul>` : ''}
+      <h2>💬 대화 내용</h2>${transcriptHtml}
+      <h2>📊 분석 결과</h2>
+      ${meeting.decisions.length > 0 ? `<h3>결정 사항</h3>${decisionHtml}` : ''}
+      ${meeting.actionItems.length > 0 ? `<h3>액션 아이템</h3>${actionHtml}` : ''}
+      <h2>📝 요약</h2>${summaryHtml}
+    </body></html>`);
+    pw.document.close();
+    setTimeout(() => { pw.focus(); pw.print(); }, 300);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+        {/* Modal header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Printer size={18} className="text-blue-400" /> 회의록 미리보기
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+            <XIcon size={20} />
+          </button>
+        </div>
+
+        {/* Preview content */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 text-sm text-gray-200">
+          {/* Header info */}
+          <div>
+            <h1 className="text-xl font-bold text-white mb-1">📋 {meeting.title}</h1>
+            <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+              <span>📅 {dateStr}</span>
+              <span>⏰ {timeStr}</span>
+              <span>📁 {meeting.source === 'youtube' ? 'YouTube' : '파일 업로드'}</span>
+            </div>
+          </div>
+
+          {/* Topics */}
+          {meeting.topics.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">🏷️ 안건 / 주요 주제</h3>
+              <div className="flex flex-wrap gap-2">
+                {meeting.topics.map((topic, i) => (
+                  <span key={i} className="px-2 py-0.5 bg-blue-900/40 text-blue-300 rounded-full text-xs">{topic}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Transcript */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">💬 대화 내용</h3>
+            <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-800/40 rounded-lg p-3">
+              {meeting.segments.length > 0 ? meeting.segments.map((s, i) => (
+                <div key={i} className="text-xs">
+                  <span className="font-semibold text-blue-300 mr-2">{s.speaker}</span>
+                  <span className="text-gray-300">{s.text}</span>
+                </div>
+              )) : (
+                <p className="text-xs text-gray-400 whitespace-pre-wrap line-clamp-6">{meeting.rawTranscript}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Decisions */}
+          {meeting.decisions.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">✅ 결정 사항</h3>
+              <div className="space-y-1">
+                {meeting.decisions.map((d, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="text-green-400 shrink-0">✓</span>
+                    <span className="text-gray-300">{d}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action Items */}
+          {meeting.actionItems.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">📌 액션 아이템</h3>
+              <div className="space-y-1.5">
+                {meeting.actionItems.map((a, i) => {
+                  const badgeColor = a.priority === 'high' ? 'bg-red-900/40 text-red-300' : a.priority === 'medium' ? 'bg-yellow-900/40 text-yellow-300' : 'bg-green-900/40 text-green-300';
+                  return (
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <span className={`px-1.5 py-0.5 rounded ${badgeColor} shrink-0`}>
+                        {a.priority === 'high' ? '높음' : a.priority === 'medium' ? '중간' : '낮음'}
+                      </span>
+                      <span className="text-gray-300 flex-1">{a.task}</span>
+                      {a.owner && <span className="text-gray-500">{a.owner}</span>}
+                      {a.deadline && <span className="text-gray-500">{a.deadline}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Summary */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">📝 요약</h3>
+            <p className="text-sm font-medium text-blue-300 mb-2">{meeting.summary.oneLiner || '—'}</p>
+            <ul className="space-y-1">
+              {meeting.summary.bullets.map((b, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-xs text-gray-300">
+                  <span className="text-blue-400 shrink-0">•</span>{b}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Footer buttons */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-700">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 rounded-lg transition-colors"
+          >
+            취소
+          </button>
+          <button
+            onClick={handlePrint}
+            className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+          >
+            <Printer size={14} /> 출력
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MeetingView() {
   const { t } = useTranslation();
   const { meetings, currentMeetingId, addMeeting, deleteMeeting, setCurrentMeeting, loadFromStorage } = useMeetingStore();
@@ -55,6 +255,7 @@ export function MeetingView() {
   const [step, setStep] = useState<ProcessStep>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [completedItems, setCompletedItems] = useState<Set<number>>(new Set());
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // [2026-04-18] Manual transcript paste fallback (for ASR-only YouTube videos)
   const [showManualPaste, setShowManualPaste] = useState(false);
@@ -538,6 +739,11 @@ export function MeetingView() {
 
         {/* Meeting results */}
         {currentMeeting && (
+          <>
+          {/* [2026-04-20 PREV-01] PDF preview modal */}
+          {showPdfPreview && (
+            <PdfPreviewModal meeting={currentMeeting} onClose={() => setShowPdfPreview(false)} />
+          )}
           <div className="max-w-3xl mx-auto space-y-4">
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
@@ -548,6 +754,13 @@ export function MeetingView() {
                 </div>
                 <p className="text-xs text-on-surface-muted">{new Date(currentMeeting.createdAt).toLocaleString()}</p>
               </div>
+              {/* PDF 출력 버튼 */}
+              <button
+                onClick={() => setShowPdfPreview(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-xs font-medium transition-colors shrink-0"
+              >
+                <Printer size={13} /> PDF 출력
+              </button>
             </div>
 
             {/* Result tabs */}
@@ -696,6 +909,7 @@ export function MeetingView() {
               </div>
             )}
           </div>
+          </>
         )}
       </div>
     </div>

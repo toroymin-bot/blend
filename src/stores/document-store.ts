@@ -21,7 +21,7 @@ interface DocumentState {
   toggleActive: (id: string) => void;
   getActiveDocs: () => ParsedDocument[];
   clearAll: () => void;
-  loadFromDB: () => Promise<void>;
+  loadFromDB: (opts?: { force?: boolean }) => Promise<void>;
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
@@ -29,8 +29,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   activeDocIds: new Set(),
   isLoaded: false,
 
-  loadFromDB: async () => {
-    if (get().isLoaded) return;
+  loadFromDB: async (opts) => {
+    // [2026-04-20] BUG-FIX: force=true allows reload after datasource sync / meeting analysis
+    // Without this, isLoaded guard prevented refreshing newly-indexed documents.
+    if (get().isLoaded && !opts?.force) return;
     try {
       const [docs, activeIds] = await Promise.all([getAllDocuments(), getActiveDocIds()]);
       set({

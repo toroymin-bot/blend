@@ -1,57 +1,99 @@
 'use client';
 
-// OAuth 2.0 Implicit Flow callback page
-// Both Google and OneDrive redirect here after authorization.
-// Parses the hash fragment, posts the token back to the opener, then closes.
+// OAuth callback page — handles both Google (implicit/hash) and OneDrive (PKCE/code)
 //
-// Three delivery methods for the token, to handle all browsers/platforms:
+// Google OAuth: access_token in URL hash fragment
+// OneDrive OAuth: authorization_code in URL query string (PKCE flow)
+//
+// Three delivery methods for the token:
 //  1. window.opener.postMessage — works on desktop browsers
-//  2. BroadcastChannel       — works on iOS Safari / Firefox where opener is null
-//  3. localStorage            — ultimate fallback (polled by the connector)
+//  2. BroadcastChannel         — works on iOS Safari / Firefox (opener is null)
+//  3. localStorage             — ultimate fallback (polled by the connector)
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function OAuthCallback() {
+  const [status, setStatus] = useState('Authenticating...');
+
   useEffect(() => {
-    const hash = window.location.hash.slice(1); // remove leading #
-    const params = new URLSearchParams(hash);
-    const search = new URLSearchParams(window.location.search);
+    async function handleCallback() {
+      const hash = window.location.hash.slice(1); // remove leading #
+      const hashParams = new URLSearchParams(hash);
+      const searchParams = new URLSearchParams(window.location.search);
 
-    const accessToken = params.get('access_token');
-    const error = params.get('error') ?? search.get('error');
-    const state = params.get('state') ?? search.get('state'); // 'google' | 'onedrive'
-    const expiresIn = parseInt(params.get('expires_in') ?? '3600', 10);
-    const expiry = Date.now() + expiresIn * 1000;
+      // ── Google OAuth (implicit flow — access_token in hash) ──────────────
+      const accessToken = hashParams.get('access_token');
+      const hashError = hashParams.get('error');
+      const hashState = hashParams.get('state'); // 'google'
+      const expiresIn = parseInt(hashParams.get('expires_in') ?? '3600', 10);
 
-    const msg = accessToken && state
-      ? { type: 'OAUTH_TOKEN', provider: state, token: accessToken, expiry }
-      : error
-      ? { type: 'OAUTH_ERROR', provider: state ?? 'unknown', error }
-      : null;
+      if (accessToken && hashState === 'google') {
+        const expiry = Date.now() + expiresIn * 1000;
+        deliver({ type: 'OAUTH_TOKEN', provider: 'google', token: accessToken, expiry });
+        return;
+      }
 
-    if (!msg) { setTimeout(() => window.close(), 300); return; }
+      if (hashError && hashState === 'google') {
+        deliver({ type: 'OAUTH_ERROR', provider: 'google', error: hashError });
+        return;
+      }
 
-    // 1. window.opener postMessage (desktop)
-    try { window.opener?.postMessage(msg, window.location.origin); } catch {}
+      // ── OneDrive OAuth (PKCE code flow — code in query string) ───────────
+      const code = searchParams.get('code');
+      const queryState = searchParams.get('state');
+      const queryError = searchParams.get('error');
+      const errorDescription = searchParams.get('error_description');
 
-    // 2. BroadcastChannel (iOS Safari / Firefox — opener is null for new tab)
-    try {
-      const bc = new BroadcastChannel('oauth_callback');
-      bc.postMessage(msg);
-      setTimeout(() => { try { bc.close(); } catch {} }, 1000);
-    } catch {}
+      if (queryError) {
+        deliver({ type: 'OAUTH_ERROR', provider: 'onedrive', error: errorDescription ?? queryError });
+        return;
+      }
 
-    // 3. localStorage polling fallback
-    try {
-      localStorage.setItem('blend:oauth_result', JSON.stringify({ ...msg, ts: Date.now() }));
-    } catch {}
+      if (code && queryState?.startsWith('onedrive')) {
+        setStatus('Exchanging authorization code...');
+        try {
+          // Dynamic import to keep this page light
+          const { exchangeOneDriveCode } = await import('@/lib/connectors/onedrive-connector');
+          const { token, expiry } = await exchangeOneDriveCode(code);
+          deliver({ type: 'OAUTH_TOKEN', provider: 'onedrive', token, expiry });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Token exchange failed';
+          setStatus(`Error: ${msg}`);
+          deliver({ type: 'OAUTH_ERROR', provider: 'onedrive', error: msg });
+        }
+        return;
+      }
 
-    setTimeout(() => window.close(), 500);
+      // Unknown / no params — just close
+      setTimeout(() => window.close(), 300);
+    }
+
+    handleCallback();
   }, []);
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-900 text-gray-300 text-sm">
-      Authenticating... This window will close automatically.
+      {status} This window will close automatically.
     </div>
   );
+}
+
+// ── Helper: broadcast token to opener via all available channels ─────────────
+function deliver(msg: object) {
+  // 1. window.opener postMessage (desktop)
+  try { window.opener?.postMessage(msg, window.location.origin); } catch {}
+
+  // 2. BroadcastChannel (iOS Safari / Firefox — opener is null for new tab)
+  try {
+    const bc = new BroadcastChannel('oauth_callback');
+    bc.postMessage(msg);
+    setTimeout(() => { try { bc.close(); } catch {} }, 1000);
+  } catch {}
+
+  // 3. localStorage polling fallback
+  try {
+    localStorage.setItem('blend:oauth_result', JSON.stringify({ ...msg, ts: Date.now() }));
+  } catch {}
+
+  setTimeout(() => window.close(), 500);
 }

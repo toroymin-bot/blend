@@ -114,9 +114,57 @@ export function BillingView() {
     <div className="h-full bg-gray-950 text-white overflow-y-auto">
       <div className="max-w-4xl mx-auto px-4 py-12">
 
+        {/* ── Hero Savings Anchor ── */}
+        <div className="text-center mb-12">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-white leading-tight mb-6">
+            {t('billing.hero_headline')}
+          </h1>
+          {/* Comparison row */}
+          <div className="flex items-center justify-center gap-6 mb-6 flex-wrap">
+            <div className="flex flex-col items-center">
+              <p className="text-xs text-gray-500 mb-1">{t('billing.hero_vs_individual')}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-3xl font-bold text-gray-500 line-through">$60</span>
+                <div className="text-xs text-gray-600 text-left leading-tight">
+                  <div>ChatGPT Plus $20</div>
+                  <div>Claude Pro $20</div>
+                  <div>Gemini Adv $20</div>
+                </div>
+              </div>
+            </div>
+            <div className="text-4xl text-gray-600">→</div>
+            <div className="flex flex-col items-center">
+              <p className="text-xs text-gray-500 mb-1">{t('billing.hero_vs_blend')}</p>
+              <span className="text-5xl font-extrabold text-blue-400">$9</span>
+              <span className="text-xs text-gray-500">/mo</span>
+            </div>
+          </div>
+          {/* Savings badge */}
+          <div className="flex items-center justify-center gap-4 mb-8">
+            <div className="bg-green-900/40 border border-green-500/40 rounded-xl px-5 py-3 text-center">
+              <p className="text-2xl font-extrabold text-green-400">$51</p>
+              <p className="text-xs text-green-300/70">{t('billing.hero_savings_month')}</p>
+            </div>
+            <div className="bg-green-900/40 border border-green-500/40 rounded-xl px-5 py-3 text-center">
+              <p className="text-2xl font-extrabold text-green-400">$612</p>
+              <p className="text-xs text-green-300/70">{t('billing.hero_savings_year')}</p>
+            </div>
+          </div>
+          {/* CTA */}
+          <a
+            href="#plans"
+            className="inline-block px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-base transition-colors shadow-lg shadow-blue-900/40"
+          >
+            {t('billing.hero_cta')} →
+          </a>
+        </div>
+
+        {/* Divider */}
+        <div id="plans" className="border-t border-gray-800 mb-10" />
+
         {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold mb-3">{t('billing.title')}</h1>
+          <h2 className="text-2xl font-bold mb-3">{t('billing.title')}</h2>
           <p className="text-gray-400 mb-6">{t('billing.subtitle')}</p>
 
           {/* Monthly / Yearly toggle */}

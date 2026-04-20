@@ -7,73 +7,57 @@
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
-### [이전 세션 누락 항목]
-
-- [ ] **PREV-01** `meeting-view.tsx` — PDF 출력 버튼 추가
-  - PDF 출력 버튼 (회의 분석 화면 상단)
-  - 클릭 시 미리보기 모달 → 전문 회의록 포맷 (제목/날짜/시간/참석자/안건/대화/분석/요약/액션아이템)
-  - 미리보기에서 "출력" + "취소" 버튼
-  - 모든 탭(대화내용+분석+요약+Mind Map) 통합 PDF
-  - 요청일: 2026-04-19
-
-### [오늘 (2026-04-19) 신규 요청]
-
-- [ ] **TODAY-01** `meeting-view.tsx` — Mind Map 버그 수정
-  - 현상: Mind Map 탭 선택 시 마크다운 텍스트 그대로 표시됨
-  - 수정: 마크다운 파싱 → 노드/브랜치 시각적 마인드맵으로 렌더링
-  - 요청일: 2026-04-19
-
-- [ ] **TODAY-02** `data-source-view.tsx` / `chat-view.tsx` — RAG/회의분석/데이터소스 채팅 연동 버그
-  - 현상: 파일 업로드+활성화해도 채팅에서 AI가 내용 모름
-  - 수정: 활성화된 문서 청크를 채팅 context에 자동 주입
-  - 채팅 자동 AI 매칭이 문서 관련 질문 감지 → 관련 청크 주입 → 최적 AI 답변
-  - 문서검색 RAG + 회의분석 + 데이터소스 연결 세 메뉴 모두 적용
-  - 요청일: 2026-04-19
-
-- [ ] **TODAY-03** `data-source-view.tsx` — UI 텍스트 변경
-  - "데이터 소스 (기업용)" → "데이터 소스 연결"
-  - 요청일: 2026-04-19
-
-- [ ] **TODAY-04** `data-source-view.tsx` — OneDrive OAuth 버그 수정
-  - 현상: Microsoft 로그인 시 `unsupported_response_type` 에러
-  - 수정: OAuth redirect_uri / response_type 파라미터 확인 및 수정
-  - 요청일: 2026-04-19
-
-- [ ] **TODAY-05** `data-source-view.tsx` — NAS/WebDAV 비활성화
-  - 클릭 불가 + 회색 처리 + "준비 중" 뱃지 표시
-  - 요청일: 2026-04-19
-
-- [ ] **TODAY-06** `model-registry.ts` + `blend-model-sync` — 모델 날짜 버전 정리
-  - 정책: 모델 패밀리별 최신 2개만 유지, 날짜 버전 전부 제거
-  - 모든 메뉴 (채팅 드롭다운, 모델 뷰, 자동 AI 매칭) 동일 정책
-  - blend-model-sync (3시간마다) 실행 시마다 자동 필터링 적용
-  - 요청일: 2026-04-19
-
-- [ ] **TODAY-07** `welcome-view.tsx` / `billing-view.tsx` — 히어로 절약 앵커 디자인
-  - **핵심 명제**: "얼마 아끼는가"가 첫 화면에서 숫자로 꽂혀야 함
-  - **히어로 헤드라인 (앵커 문구)**:
-    ```
-    Claude + ChatGPT + Gemini를 월 $60 대신 $29에.
-    ```
-  - **계산 로직 (동적 표시)**:
-    - 개별 구독: ChatGPT Plus $20 + Claude Pro $20 + Gemini Advanced $20 = $60/월
-    - Blend: $9/월 (또는 $29 평생)
-    - 절약액: $51/월, 연 $612
-    - 숫자는 크고 굵게 — 컴포넌트·색은 부차적
-  - **위치**: 앱 첫 진입 화면 (welcome/landing) 최상단 히어로 영역
-  - **구성**:
-    1. 앵커 문구 1줄 (크고 굵게)
-    2. 개별 vs Blend 비교 수치 (취소선으로 $60 → $9)
-    3. "지금 시작하기" CTA → billing 탭
-  - 한국어: "Claude + ChatGPT + Gemini, 월 $60 대신 $9에."
-  - 영어: "Claude + ChatGPT + Gemini. $60/mo → just $9."
-  - 요청일: 2026-04-19
+*(현재 미완료 항목 없음 — 모두 2026-04-20 낮 세션에서 완료됨)*
 
 ---
 
 ## ✅ 완료된 항목
 
-*(완료 시 여기로 이동 + 날짜 기록)*
+### [이전 세션 누락 항목]
+
+- [x] **PREV-01** `meeting-view.tsx` — PDF 출력 버튼 추가 ✅ 2026-04-20
+  - PDF 출력 버튼 (회의 분석 화면 상단 우측)
+  - 클릭 시 미리보기 모달 → 전문 회의록 포맷 (제목/날짜/시간/안건/대화/분석/요약/액션아이템)
+  - 미리보기에서 "출력" + "취소" 버튼
+  - 브라우저 print popup으로 PDF 저장/출력
+
+### [2026-04-19 신규 요청]
+
+- [x] **TODAY-01** `meeting-view.tsx` — Mind Map 버그 수정 ✅ 2026-04-20
+  - markmap-lib/view 동적임포트 실패 → 순수 React 비주얼 렌더러로 교체
+  - 마크다운 파싱 → 노드/브랜치 컬러 코딩 트리로 렌더링
+
+- [x] **TODAY-02** `data-source-view.tsx` / `chat-view.tsx` — RAG/회의분석/데이터소스 채팅 연동 버그 ✅ 2026-04-20
+  - 원인: `loadFromDB()` isLoaded 가드로 인해 sync 후 in-memory store 미업데이트
+  - 수정: `loadFromDB({ force: true })` 파라미터 추가 + datasource sync 후 강제 재로드
+  - document-store.ts에 `opts?: { force?: boolean }` 파라미터 추가
+
+- [x] **TODAY-03** `data-source-view.tsx` — UI 텍스트 변경 ✅ 2026-04-20
+  - "데이터 소스 (기업용)" → "데이터 소스 연결" (ko.json + en.json)
+
+- [x] **TODAY-04** `data-source-view.tsx` — OneDrive OAuth 버그 수정 ✅ 2026-04-20
+  - Implicit flow (response_type=token) → PKCE code flow로 완전 교체
+  - onedrive-connector.ts + oauth-callback/page.tsx 업데이트
+
+- [x] **TODAY-05** `data-source-view.tsx` — NAS/WebDAV 비활성화 ✅ 2026-04-20
+  - 클릭 불가 + 회색 처리 + "준비 중" 뱃지 표시
+
+- [x] **TODAY-06** `model-registry.ts` + `chat-view.tsx` + `models-view.tsx` — 모델 날짜 버전 정리 ✅ 2026-04-20
+  - `applyFamilyPolicy()` + `getDisplayModels()` 함수 추가
+  - 날짜 버전 (YYYY-MM-DD 등) 자동 제거, 패밀리별 최신 2개만 유지
+  - chat-view, models-view 모두 getDisplayModels() 사용으로 통일
+
+- [x] **TODAY-07** `welcome-view.tsx` / `billing-view.tsx` — 히어로 절약 앵커 디자인 ✅ 2026-04-20
+  - "Claude + ChatGPT + Gemini를 월 $60 대신 $9에." 히어로 박스
+  - 개별 구독 $60 취소선 → Blend $9, $51/월 절약, $612/연 절약 뱃지
+  - welcome-view 인트로 화면 + billing-view 최상단 양쪽 모두 적용
+
+### [2026-04-20 사용자 요청]
+
+- [x] **DESIGN1-01** design1 클론 라우트 생성 ✅ 2026-04-20
+  - `/design1/ko/qatest`, `/design1/en/qatest` URL 추가
+  - `src/app/design1/[lang]/qatest/page.tsx` + `page-client.tsx` 생성
+  - 기존 링크와 완전 별개 — 디자인 비교/선택용
 
 ---
 
@@ -114,6 +98,7 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 
 ### 기타 영구 정책
 - QA: ko/qatest + en/qatest 두 화면 모두 테스트
+- design1 QA: /design1/ko/qatest + /design1/en/qatest 두 화면 포함
 - QA Phase 1~4 매일 실행 (총 300개+)
 - 모델 sync: 패밀리별 최신 2개만 유지
 - 실행 시간: 새벽 1:07 ~ 오전 7:00 (6시간 풀가동)

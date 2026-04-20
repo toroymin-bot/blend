@@ -1,5 +1,6 @@
 // Blend - OneDrive Connector (Microsoft Graph API)
-// OAuth 2.0 implicit flow — BYOK client_id from Azure App Registration.
+// OAuth 2.0 PKCE flow (public client, no client secret needed)
+// Replaces deprecated implicit flow that caused unsupported_response_type error.
 // Scope: Files.Read — read-only access.
 
 const GRAPH_API = 'https://graph.microsoft.com/v1.0';
@@ -15,20 +16,60 @@ export interface OneDriveItem {
   '@microsoft.graph.downloadUrl'?: string;
 }
 
-// ── OAuth helpers ─────────────────────────────────────────────────────────────
+// ── PKCE helpers ──────────────────────────────────────────────────────────────
+
+function generateCodeVerifier(): string {
+  const array = new Uint8Array(64);
+  crypto.getRandomValues(array);
+  return base64urlEncode(array);
+}
+
+async function generateCodeChallenge(verifier: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64urlEncode(new Uint8Array(digest));
+}
+
+function base64urlEncode(buffer: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+// ── OAuth PKCE helpers ────────────────────────────────────────────────────────
 
 export function requestOneDriveAccessToken(
   clientId: string,
   tenantId = 'common'
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const redirectUri = `${window.location.origin}/oauth-callback`;
+
+    // Generate PKCE pair
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    const state = `onedrive_${Date.now()}`;
+
+    // Store verifier + state for callback to retrieve
+    try {
+      localStorage.setItem('blend:onedrive_pkce', JSON.stringify({ codeVerifier, state, clientId, tenantId }));
+    } catch {}
+
     const params = new URLSearchParams({
       client_id: clientId,
-      response_type: 'token',
+      response_type: 'code',
       redirect_uri: redirectUri,
       scope: 'Files.Read offline_access',
-      state: 'onedrive',
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      response_mode: 'query',
     });
 
     // Clear stale result before opening popup
@@ -104,6 +145,41 @@ export function requestOneDriveAccessToken(
       try { bc?.close(); } catch {}
     };
   });
+}
+
+// ── Token exchange (called from oauth-callback page) ─────────────────────────
+
+/** Exchange authorization code for access token using PKCE code_verifier. */
+export async function exchangeOneDriveCode(code: string): Promise<{ token: string; expiry: number }> {
+  const raw = localStorage.getItem('blend:onedrive_pkce');
+  if (!raw) throw new Error('PKCE state missing — please try again.');
+  const { codeVerifier, clientId, tenantId } = JSON.parse(raw) as {
+    codeVerifier: string; clientId: string; tenantId: string;
+  };
+  localStorage.removeItem('blend:onedrive_pkce');
+
+  const redirectUri = `${window.location.origin}/oauth-callback`;
+  const body = new URLSearchParams({
+    client_id: clientId,
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirectUri,
+    code_verifier: codeVerifier,
+  });
+
+  const res = await fetch(
+    `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+    { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error_description?: string })?.error_description ?? `Token exchange failed: ${res.status}`);
+  }
+  const data = await res.json();
+  return {
+    token: data.access_token as string,
+    expiry: Date.now() + (parseInt(data.expires_in ?? '3600', 10) * 1000),
+  };
 }
 
 // ── Graph API calls ───────────────────────────────────────────────────────────

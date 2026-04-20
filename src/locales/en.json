@@ -389,7 +389,7 @@
   },
   "datasources": {
     "title": "Data Sources",
-    "page_title": "Data Sources (Enterprise)",
+    "page_title": "Data Source Connect",
     "page_subtitle": "Connect your files, drives, and cloud so AI can reference your data",
     "no_key_warn": "No AI search key — only keyword search available (add OpenAI or Google key in Settings to improve)",
     "add": "Add Source",
@@ -850,6 +850,12 @@
     "copy_suffix": " (copy)"
   },
   "billing": {
+    "hero_headline": "Claude + ChatGPT + Gemini. $60/mo → just $9.",
+    "hero_vs_individual": "Individual subscriptions",
+    "hero_vs_blend": "Blend monthly",
+    "hero_savings_month": "saved / month",
+    "hero_savings_year": "saved / year",
+    "hero_cta": "Get started now",
     "title": "Simple, transparent pricing",
     "subtitle": "Start free. Upgrade anytime.",
     "monthly": "Monthly",

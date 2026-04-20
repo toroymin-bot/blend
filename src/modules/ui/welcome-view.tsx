@@ -46,22 +46,48 @@ export function WelcomeView({ onComplete }: WelcomeViewProps) {
 
   if (step === 'intro') {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-gray-900 px-6 text-center">
-        <div className="max-w-sm">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white mx-auto mb-6 shadow-2xl">
+      <div className="flex flex-col items-center justify-center h-full bg-gray-900 px-6 text-center overflow-y-auto py-8">
+        <div className="max-w-sm w-full">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white mx-auto mb-4 shadow-2xl">
             B
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">{t('welcome.title')}</h1>
-          <p className="text-gray-400 mb-2 text-sm leading-relaxed">
+
+          {/* ── Hero Savings Anchor ── */}
+          <div className="mb-6 p-4 bg-gray-800/80 rounded-2xl border border-blue-500/30">
+            <p className="text-lg font-extrabold text-white leading-tight mb-3">
+              {t('billing.hero_headline')}
+            </p>
+            <div className="flex items-center justify-center gap-4 mb-3">
+              <div className="text-center">
+                <p className="text-xs text-gray-500 mb-0.5">{t('billing.hero_vs_individual')}</p>
+                <span className="text-2xl font-bold text-gray-500 line-through">$60<span className="text-xs">/mo</span></span>
+              </div>
+              <span className="text-gray-600 text-xl">→</span>
+              <div className="text-center">
+                <p className="text-xs text-gray-500 mb-0.5">{t('billing.hero_vs_blend')}</p>
+                <span className="text-3xl font-extrabold text-blue-400">$9<span className="text-xs font-normal text-gray-500">/mo</span></span>
+              </div>
+            </div>
+            <div className="flex justify-center gap-3">
+              <div className="bg-green-900/40 border border-green-500/30 rounded-lg px-3 py-1.5 text-center">
+                <p className="text-base font-bold text-green-400">$51</p>
+                <p className="text-xs text-green-300/60">{t('billing.hero_savings_month')}</p>
+              </div>
+              <div className="bg-green-900/40 border border-green-500/30 rounded-lg px-3 py-1.5 text-center">
+                <p className="text-base font-bold text-green-400">$612</p>
+                <p className="text-xs text-green-300/60">{t('billing.hero_savings_year')}</p>
+              </div>
+            </div>
+          </div>
+
+          <h1 className="text-2xl font-bold text-white mb-2">{t('welcome.title')}</h1>
+          <p className="text-gray-400 mb-5 text-sm leading-relaxed">
             {t('welcome.subtitle').split('\n').map((line, i) => (
               <span key={i}>{line}{i === 0 ? <br /> : null}</span>
             ))}
           </p>
-          <p className="text-xs text-gray-500 mb-8">
-            Bring Your Own Key — 비싼 구독료 대신, 쓴 만큼만 스마트하게
-          </p>
 
-          <div className="space-y-3 mb-8 text-left">
+          <div className="space-y-2.5 mb-6 text-left">
             {FEATURES.map((f, i) => (
               <div key={i} className="flex items-center gap-3 text-gray-300 text-sm">
                 <span className="text-blue-400">{f.icon}</span>

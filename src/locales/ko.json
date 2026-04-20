@@ -389,7 +389,7 @@
   },
   "datasources": {
     "title": "데이터 소스",
-    "page_title": "데이터 소스 (기업용)",
+    "page_title": "데이터 소스 연결",
     "page_subtitle": "내 파일·드라이브·클라우드를 연결하면 AI가 내 자료를 참고해 답해줘요",
     "no_key_warn": "AI 검색 키가 없어요 — 지금은 단어 검색만 돼요 (설정에서 OpenAI 또는 Google 키를 넣으면 똑똑해져요)",
     "add": "소스 추가",
@@ -850,6 +850,12 @@
     "copy_suffix": " (복사)"
   },
   "billing": {
+    "hero_headline": "Claude + ChatGPT + Gemini, 월 $60 대신 $9에.",
+    "hero_vs_individual": "개별 구독 합계",
+    "hero_vs_blend": "Blend 월 구독",
+    "hero_savings_month": "절약 / 월",
+    "hero_savings_year": "절약 / 연",
+    "hero_cta": "지금 시작하기",
     "title": "심플한 요금제",
     "subtitle": "무료로 시작, 언제든 업그레이드",
     "monthly": "월간",

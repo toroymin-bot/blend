@@ -224,8 +224,8 @@ export function DataSourceView() {
         lastSync: Date.now(),
         error: errors.length > 0 ? t('datasources.errors_count', { count: errors.length }) : undefined,
       });
-      // Reload document store so new docs appear in RAG
-      await loadFromDB();
+      // [2026-04-20] BUG-FIX: force reload so newly-indexed docs appear in RAG chat immediately
+      await loadFromDB({ force: true });
       setToast(t('datasources.sync_complete', { name: source.name, count: indexed }));
       setTimeout(() => setToast(null), 3000);
     } catch (e: unknown) {
@@ -246,7 +246,7 @@ export function DataSourceView() {
     { id: 'local' as AddMode, label: t('datasources.local_drive'), icon: <HardDrive size={16} />, color: 'bg-green-500/10 border-green-500/30 text-green-400', action: handleAddLocal },
     { id: 'google-drive' as AddMode, label: 'Google Drive', icon: <Cloud size={16} />, color: 'bg-blue-500/10 border-blue-500/30 text-blue-400' },
     { id: 'onedrive' as AddMode, label: 'OneDrive', icon: <Cloud size={16} />, color: 'bg-blue-600/10 border-blue-600/30 text-blue-500' },
-    { id: 'webdav' as AddMode, label: 'NAS / WebDAV', icon: <Server size={16} />, color: 'bg-purple-500/10 border-purple-500/30 text-purple-400' },
+    { id: 'webdav' as AddMode, label: 'NAS / WebDAV', icon: <Server size={16} />, color: 'bg-purple-500/10 border-purple-500/30 text-purple-400', disabled: true },
   ];
 
   return (
@@ -279,12 +279,16 @@ export function DataSourceView() {
           {ADD_TYPES.map((addType) => (
             <button
               key={addType.id}
-              onClick={addType.action ?? (() => setAddMode(addMode === addType.id ? null : addType.id))}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${addType.color} hover:opacity-80`}
+              onClick={addType.disabled ? undefined : (addType.action ?? (() => setAddMode(addMode === addType.id ? null : addType.id)))}
+              disabled={addType.disabled}
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${addType.disabled ? 'opacity-40 cursor-not-allowed bg-gray-800/40 border-gray-700 text-gray-500' : `${addType.color} hover:opacity-80`}`}
             >
               {addType.icon} {addType.label}
-              {!addType.action && (addMode === addType.id ? <ChevronUp size={12} className="ml-auto" /> : <ChevronDown size={12} className="ml-auto" />)}
-              {addType.id === 'local' && <Plus size={12} className="ml-auto" />}
+              {addType.disabled && (
+                <span className="ml-auto text-xs px-1.5 py-0.5 bg-gray-700 text-gray-400 rounded-full">{t('common.coming_soon')}</span>
+              )}
+              {!addType.disabled && !addType.action && (addMode === addType.id ? <ChevronUp size={12} className="ml-auto" /> : <ChevronDown size={12} className="ml-auto" />)}
+              {!addType.disabled && addType.id === 'local' && <Plus size={12} className="ml-auto" />}
             </button>
           ))}
         </div>
