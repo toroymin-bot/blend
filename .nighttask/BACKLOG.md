@@ -7,7 +7,13 @@
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
-*(현재 미완료 항목 없음 — 모두 2026-04-20 낮 세션에서 완료됨)*
+- [ ] **TODAY-08** `chat-view.tsx` — 채팅창 "맨 아래로 이동" 버튼 + 메시지 그라데이션
+  - 스크롤이 맨 아래가 아닐 때 채팅 입력창 위에 작은 ↓ 버튼 표시
+  - 클릭하면 채팅창 맨 밑으로 smooth scroll
+  - 마지막 메시지가 길 때 하단에 그라데이션 fade-out 처리 (읽다가 잘린 느낌)
+  - 스크롤 위치 감지: `onScroll` + `scrollHeight - scrollTop - clientHeight > threshold(100px)`
+  - 버튼 디자인: 반투명 다크 배경, 화살표 아이콘, 채팅창 우하단 고정 (position absolute)
+  - 참고: Claude 채팅창 UI와 동일한 UX
 
 ---
 
@@ -55,6 +61,12 @@
 ### [2026-04-20 사용자 요청]
 
 - [x] **DESIGN1-01** design1 클론 라우트 생성 ✅ 2026-04-20
+
+- [x] **TODAY-07b** `about-view.tsx` — 블렌드 소개 히어로 절약 앵커 적용 ✅ 2026-04-20
+  - billing.hero_headline 재사용: "Claude + ChatGPT + Gemini, 월 $60 대신 $9에."
+  - $60 취소선 → $9 블루 비교 시각
+  - $51/월·$612/연 절약 뱃지
+  - CTA 버튼 순서: "지금 시작하기"(billing) 우선
   - `/design1/ko/qatest`, `/design1/en/qatest` URL 추가
   - `src/app/design1/[lang]/qatest/page.tsx` + `page-client.tsx` 생성
   - 기존 링크와 완전 별개 — 디자인 비교/선택용
