@@ -49,6 +49,26 @@
   - blend-model-sync (3시간마다) 실행 시마다 자동 필터링 적용
   - 요청일: 2026-04-19
 
+- [ ] **TODAY-07** `welcome-view.tsx` / `billing-view.tsx` — 히어로 절약 앵커 디자인
+  - **핵심 명제**: "얼마 아끼는가"가 첫 화면에서 숫자로 꽂혀야 함
+  - **히어로 헤드라인 (앵커 문구)**:
+    ```
+    Claude + ChatGPT + Gemini를 월 $60 대신 $29에.
+    ```
+  - **계산 로직 (동적 표시)**:
+    - 개별 구독: ChatGPT Plus $20 + Claude Pro $20 + Gemini Advanced $20 = $60/월
+    - Blend: $9/월 (또는 $29 평생)
+    - 절약액: $51/월, 연 $612
+    - 숫자는 크고 굵게 — 컴포넌트·색은 부차적
+  - **위치**: 앱 첫 진입 화면 (welcome/landing) 최상단 히어로 영역
+  - **구성**:
+    1. 앵커 문구 1줄 (크고 굵게)
+    2. 개별 vs Blend 비교 수치 (취소선으로 $60 → $9)
+    3. "지금 시작하기" CTA → billing 탭
+  - 한국어: "Claude + ChatGPT + Gemini, 월 $60 대신 $9에."
+  - 영어: "Claude + ChatGPT + Gemini. $60/mo → just $9."
+  - 요청일: 2026-04-19
+
 ---
 
 ## ✅ 완료된 항목
