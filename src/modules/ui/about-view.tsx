@@ -67,6 +67,65 @@ export function AboutView({ onNavigate }: AboutViewProps) {
           </p>
         </div>
 
+        {/* Why section — subscription trap logic */}
+        <div className="mb-10 bg-surface-2 rounded-2xl overflow-hidden border border-gray-700/50">
+          {/* Header */}
+          <div className="px-6 pt-6 pb-4 border-b border-gray-700/50">
+            <h2 className="text-base font-bold text-on-surface mb-1">{t('about.why_title')}</h2>
+            <p className="text-2xl font-extrabold text-yellow-400">{t('about.why_hook')}</p>
+            <p className="text-sm text-on-surface-muted mt-1.5">{t('about.why_hook_sub')}</p>
+          </div>
+
+          {/* Per-AI breakdown */}
+          <div className="px-6 py-5">
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {[
+                { name: 'ChatGPT', sub: '$20', actual: '$5', waste: '$15' },
+                { name: 'Claude',  sub: '$20', actual: '$5', waste: '$15' },
+                { name: 'Gemini',  sub: '$19.99', actual: '$5', waste: '$14.99' },
+              ].map((ai) => (
+                <div key={ai.name} className="bg-gray-800/60 rounded-xl p-3 text-center">
+                  <p className="text-xs font-semibold text-on-surface-muted mb-2">{ai.name}</p>
+                  <p className="text-lg font-bold text-red-400 line-through opacity-70">{ai.sub}</p>
+                  <div className="mt-1.5 space-y-0.5">
+                    <p className="text-xs text-green-400">
+                      {t('about.why_actual_label')} <span className="font-bold">{ai.actual}</span>
+                    </p>
+                    <p className="text-xs text-red-400/80">
+                      {t('about.why_waste_label')} <span className="font-bold">{ai.waste}</span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Before / After total */}
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                <p className="text-xs text-red-400 font-semibold mb-1 uppercase tracking-wide">{t('about.why_compare_sub')}</p>
+                <p className="text-2xl font-extrabold text-red-400">$60<span className="text-sm font-normal text-red-400/60">/mo</span></p>
+                <p className="text-xs text-red-400/60 mt-1">실사용 $15 + 낭비 $45</p>
+              </div>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+                <p className="text-xs text-blue-400 font-semibold mb-1 uppercase tracking-wide">{t('about.why_compare_blend')}</p>
+                <p className="text-2xl font-extrabold text-blue-400">~$24<span className="text-sm font-normal text-blue-400/60">/mo</span></p>
+                <p className="text-xs text-blue-400/60 mt-1">API $15 + Blend $9</p>
+              </div>
+            </div>
+
+            {/* Conclusion */}
+            <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-4">
+              <p className="text-sm font-semibold text-on-surface mb-1">💡 {t('about.why_api_title')}</p>
+              <p className="text-xs text-on-surface-muted leading-relaxed">{t('about.why_api_body')}</p>
+            </div>
+          </div>
+
+          {/* Footer note */}
+          <div className="px-6 pb-4">
+            <p className="text-xs text-gray-600">{t('about.why_note')}</p>
+          </div>
+        </div>
+
         {/* 3 explanation cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
           {cards.map((card) => (

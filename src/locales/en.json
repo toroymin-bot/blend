@@ -915,6 +915,17 @@
     "faq2_q": "How much are AI usage fees?",
     "faq2_a": "It varies by usage, but typically $3–$10 per month. You can check real-time costs on the Blend dashboard.",
     "cta_chat": "Start Chatting",
-    "cta_billing": "View Plans"
+    "cta_billing": "View Plans",
+    "why_title": "The subscription trap — why $9 covers it all",
+    "why_hook": "$20/mo subscription, actual usage: $5",
+    "why_hook_sub": "Most AI subscribers use only 20–30% of their plan. The other $15 is a fixed fee for features you never touch.",
+    "why_waste_label": "wasted",
+    "why_actual_label": "actual use",
+    "why_sub_total": "3 subscriptions total",
+    "why_api_title": "API key = pay only what you use",
+    "why_api_body": "With your own API key, there's no subscription — you pay OpenAI, Anthropic, and Google directly for actual usage. The Blend $9/mo is just the app fee to manage all three in one place.",
+    "why_compare_sub": "Individual subscriptions",
+    "why_compare_blend": "Blend + API",
+    "why_note": "* API fees are billed directly by OpenAI, Anthropic, and Google. Blend never touches that money."
   }
 }
