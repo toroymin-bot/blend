@@ -684,7 +684,8 @@
     "cat_flagship": "강력",
     "cat_fast": "빠르고 저렴",
     "cat_reasoning": "추론 특화",
-    "cat_image": "이미지 생성"
+    "cat_image": "이미지 생성",
+    "apply": "적용"
   },
   "compare_errors": {
     "insufficient_balance": "크레딧 충전 필요",
@@ -902,6 +903,7 @@
     "plan_free_subtitle": "API 키 연결로 무료 시작",
     "label_one_time": "일회성 결제",
     "label_most_popular": "가장 인기",
+    "label_per_month": "/월",
     "payment_method": "결제 수단",
     "get_started": "시작하기",
     "upgrade": "Pro로 업그레이드",

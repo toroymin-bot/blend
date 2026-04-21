@@ -479,8 +479,8 @@ export function DashboardView() {
                         <div className="bg-green-500 h-full" style={{ width: `${100 - inputPct}%` }} />
                       </div>
                       <div className="flex justify-between text-[10px] text-on-surface-muted mt-0.5 mx-4">
-                        <span>{t('dashboard.input_pct', { pct: inputPct })}</span>
-                        <span>{t('dashboard.output_pct', { pct: 100 - inputPct })}</span>
+                        <span>{t('dashboard.input_tokens_label')} {inputPct}%</span>
+                        <span>{t('dashboard.output_tokens_label')} {100 - inputPct}%</span>
                       </div>
                     </div>
                   );

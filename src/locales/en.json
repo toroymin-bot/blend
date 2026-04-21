@@ -684,7 +684,8 @@
     "cat_flagship": "Powerful",
     "cat_fast": "Fast & Cheap",
     "cat_reasoning": "Reasoning",
-    "cat_image": "Image Generation"
+    "cat_image": "Image Generation",
+    "apply": "Apply"
   },
   "compare_errors": {
     "insufficient_balance": "Insufficient credits",
@@ -902,6 +903,7 @@
     "plan_free_subtitle": "Start free with your API key",
     "label_one_time": "one-time",
     "label_most_popular": "Most Popular",
+    "label_per_month": "/mo",
     "payment_method": "Payment Method",
     "get_started": "Get Started",
     "upgrade": "Upgrade to Pro",

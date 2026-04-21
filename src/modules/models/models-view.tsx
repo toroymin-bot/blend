@@ -191,7 +191,7 @@ export function ModelsView({ onApply }: { onApply?: () => void }) {
                                       }}
                                       className="ml-1 px-3 py-1 bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold rounded-lg shrink-0"
                                     >
-                                      적용
+                                      {t('models_view.apply')}
                                     </button>
                                   )}
                                 </div>
