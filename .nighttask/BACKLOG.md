@@ -32,6 +32,37 @@
   - **i18n**: ko.json + en.json 팝오버 관련 키 추가
   - **참고 파일**: `src/modules/ui/sidebar.tsx`
 
+- [ ] **FIX-01** 전체 금액 표시 소수점 정리 — `$9.0` → `$9`, `$9.5` → `$9.5`
+  - **규칙**: 소수점 첫째 자리가 0이면 소수점 제거, 0이 아니면 1자리까지만 표시
+  - **로직**:
+    ```ts
+    // src/lib/format-currency.ts (신규 유틸 파일 생성)
+    export function formatUSD(amount: number): string {
+      const rounded = Math.round(amount * 10) / 10;
+      return rounded % 1 === 0 ? `$${rounded}` : `$${rounded.toFixed(1)}`;
+    }
+    // 원화 병기 포함 버전
+    export function formatUSDWithKRW(amount: number, country?: string): string {
+      const base = formatUSD(amount);
+      if (country === 'KR') return `${base} (₩${Math.round(amount * 1380).toLocaleString()})`;
+      return base;
+    }
+    ```
+  - **적용 대상 파일 전수 검색 후 교체**:
+    - `billing-view.tsx` — 플랜 가격 ($0.0, $9.0, $29.0 등)
+    - `cost-savings-dashboard.tsx` — 절약 금액 표시
+    - `dashboard-view.tsx` — 오늘 비용, 이번 달, 총 누적
+    - `chat-view.tsx` — 메시지별 비용 표시
+    - `models-view.tsx` — 모델별 비용
+    - `about-view.tsx` — 비교 금액
+    - `welcome-view.tsx` — 히어로 금액
+    - 기타 `toFixed(` 또는 `.toLocaleString(` 사용 파일 전부
+  - **검색 명령**:
+    ```bash
+    grep -rn "toFixed\|\.toLocaleString\|\${\|formatPrice\|formatCost" src/ --include="*.tsx" --include="*.ts" -l
+    ```
+  - **원화(₩) 병기도 동일 규칙 적용** — `₩12,420.0` 같은 케이스 없는지 확인
+
 - [ ] **COPY-01** 히어로 메시지 전면 교체 — 정직한 BYOK 가치제안으로
   - **대상 파일**: `ko.json`, `en.json`, `about-view.tsx`, `billing-view.tsx`, `welcome-view.tsx`
   - **새 헤드라인 (ko)**: "당신의 AI 구독료의 75%는 낭비입니다."
