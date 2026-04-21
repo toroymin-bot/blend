@@ -1509,6 +1509,28 @@ export const DEFAULT_MODELS: AIModel[] = [
     descriptionKo: '구글 3세대 빠른 AI',
     enabled: false,
   },
+  {
+    id: 'deep-research-max-preview-04-2026',
+    name: 'Deep Research Max Preview (Apr-21-2026)',
+    provider: 'google',
+    contextLength: 131072,
+    inputPrice: 0.1,
+    outputPrice: 0.4,
+    features: ['streaming', 'vision'],
+    description: '크고 강력한 고성능 AI',
+    enabled: false,
+  },
+  {
+    id: 'deep-research-preview-04-2026',
+    name: 'Deep Research Preview (Apr-21-2026)',
+    provider: 'google',
+    contextLength: 131072,
+    inputPrice: 0.1,
+    outputPrice: 0.4,
+    features: ['streaming', 'vision'],
+    description: '새로 나온 GOOGLE AI',
+    enabled: false,
+  },
 ];
 
 export function getModelById(id: string, customModels: AIModel[] = []): AIModel | undefined {
