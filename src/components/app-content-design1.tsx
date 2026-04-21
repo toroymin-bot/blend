@@ -8,7 +8,6 @@
  * Does NOT modify app-content.tsx or any shared component.
  */
 
-import { useSettingsStore } from '@/stores/settings-store';
 import D1ChatView from '@/modules/chat/chat-view-design1';
 
 const tokens = {
@@ -18,9 +17,8 @@ const tokens = {
   border: 'rgba(10, 10, 10, 0.06)',
 } as const;
 
-export default function AppContentDesign1() {
-  const { settings } = useSettingsStore();
-  const lang = settings.language as 'ko' | 'en';
+export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' }) {
+  const lang = urlLang;
 
   return (
     <div
@@ -75,7 +73,7 @@ export default function AppContentDesign1() {
 
       {/* ── Main content ────────────────────────────────────────── */}
       <main className="relative flex flex-col overflow-hidden">
-        <D1ChatView />
+        <D1ChatView lang={lang} />
       </main>
     </div>
   );

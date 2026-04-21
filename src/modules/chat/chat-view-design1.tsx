@@ -14,7 +14,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import hljs from 'highlight.js';
-import { useSettingsStore } from '@/stores/settings-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { sendChatRequest } from '@/modules/chat/chat-api';
 import type { AIProvider } from '@/types';
@@ -40,7 +39,7 @@ const tokens = {
 // ============================================================
 const copy = {
   ko: {
-    emptyTitle: '오늘',
+    emptyTitle: '',
     emptyTitleAccent: '무엇을',
     emptyTitleEnd: '도와드릴까요?',
     emptySubtitle: '모든 AI가 하나의 대화 안에 있습니다.',
@@ -117,9 +116,7 @@ type Message = {
 // ============================================================
 // Main component
 // ============================================================
-export default function D1ChatView() {
-  const { settings } = useSettingsStore();
-  const lang = (settings.language as Lang) ?? 'en';
+export default function D1ChatView({ lang }: { lang: 'ko' | 'en' }) {
   const { getKey, hasKey } = useAPIKeyStore();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -358,7 +355,7 @@ export default function D1ChatView() {
               className="mb-3.5 font-medium leading-[1.15] tracking-[-0.03em]"
               style={{ fontSize: 'clamp(32px, 4.5vw, 52px)', fontFamily: fontStack }}
             >
-              {t.emptyTitle}{' '}
+              {t.emptyTitle ? <>{t.emptyTitle}{' '}</> : null}
               <span
                 className="italic"
                 style={{
