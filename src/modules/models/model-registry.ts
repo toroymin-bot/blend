@@ -833,6 +833,28 @@ export const DEFAULT_MODELS: AIModel[] = [
     descriptionKo: '긴 문서도 처리하는 구형 GPT-3.5',
     enabled: false,
   },
+  {
+    id: 'gpt-image-2-2026-04-21',
+    name: 'GPT Image 2 2026 04 21',
+    provider: 'openai',
+    contextLength: 128000,
+    inputPrice: 0.5,
+    outputPrice: 1.5,
+    features: ['streaming', 'vision', 'function_calling'],
+    description: '텍스트로 그림을 그려주는 AI',
+    enabled: false,
+  },
+  {
+    id: 'gpt-image-2',
+    name: 'GPT Image 2',
+    provider: 'openai',
+    contextLength: 128000,
+    inputPrice: 0.5,
+    outputPrice: 1.5,
+    features: ['streaming', 'vision', 'function_calling'],
+    description: '텍스트로 그림을 그려주는 AI',
+    enabled: false,
+  },
   // ── Anthropic ──────────────────────────────────────────────────────────────
   {
     id: 'claude-opus-4-6',
