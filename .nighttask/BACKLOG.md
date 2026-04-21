@@ -7,7 +7,7 @@
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
-- [ ] **UI-01** `sidebar.tsx` — 하단 메뉴 5개 → 프로필 트리거 팝오버로 통합
+- [x] **UI-01** `sidebar.tsx` — 하단 메뉴 5개 → 프로필 트리거 팝오버로 통합 ✅ 2026-04-22
   - **배경**: 사이드바 하단 메뉴(절약 대시보드·비용 분석·설정·보안·블렌드 소개) 5개가 너무 많아 공간 낭비
   - **방식**: 안 1 — 프로필 트리거 팝오버 (Claude/Notion/Linear 동일 패턴)
   - **트리거 버튼**: 사이드바 맨 하단 고정
@@ -32,7 +32,7 @@
   - **i18n**: ko.json + en.json 팝오버 관련 키 추가
   - **참고 파일**: `src/modules/ui/sidebar.tsx`
 
-- [ ] **UI-02** `chat-view.tsx` — 모바일 채팅 툴바 정리 (아이콘 노출 + ··· 오버플로우)
+- [x] **UI-02** `chat-view.tsx` — 모바일 채팅 툴바 정리 (아이콘 노출 + ··· 오버플로우) ✅ 2026-04-22
   - **문제**: 모바일에서 자동AI매칭 + 이미지생성 + 요약 + 🔊 + 내보내기가 한 줄에 안 들어가 줄바꿈 발생
   - **추천안**: 안 1 + 안 2 조합
     ```
@@ -84,7 +84,7 @@
     ```
   - **원화(₩) 병기도 동일 규칙 적용** — `₩12,420.0` 같은 케이스 없는지 확인
 
-- [ ] **COPY-01** 히어로 메시지 전면 교체 — 정직한 BYOK 가치제안으로
+- [x] **COPY-01** 히어로 메시지 전면 교체 — 정직한 BYOK 가치제안으로 ✅ 2026-04-22
   - **대상 파일**: `ko.json`, `en.json`, `about-view.tsx`, `billing-view.tsx`, `welcome-view.tsx`
   - **새 헤드라인 (ko)**: "당신의 AI 구독료의 75%는 낭비입니다."
   - **새 서브 (ko)**: "AI 실사용은 약 $5. Blend는 ChatGPT · Claude · Gemini를 구독 없이 연결합니다. 쓴 만큼만 지불하세요."
@@ -94,18 +94,18 @@
   - **교체 범위**: about-view 히어로, billing-view 히어로, welcome-view 히어로 박스 전부
   - **about-view 구독의 함정 섹션**: 헤드라인도 새 카피에 맞게 정렬
 
-- [ ] **TC-FAIL-045** `billing-view.tsx` — Pro/Lifetime CTA 버튼 모바일에서 결제 섹션으로 스크롤 안됨
+- [x] **TC-FAIL-045** `billing-view.tsx` — Pro/Lifetime CTA 버튼 모바일에서 결제 섹션으로 스크롤 안됨 ✅ 2026-04-22 (기구현됨)
   - **출처**: TEST-045, AI Round1 = Fail, 미수정
   - 모바일에서 CTA 버튼 클릭 시 `#plans` / 결제 섹션으로 smooth scroll 되어야 함
   - 수정 후: `gx.update_tc_result(51, 1, 'Pass', '수정 내용', source='ai')` 실행
 
-- [ ] **TC-FAIL-046** `chat-view.tsx` — 모바일 채팅 툴바 `···` 드롭다운 대신 overflow 처리
+- [x] **TC-FAIL-046** `chat-view.tsx` — 모바일 채팅 툴바 `···` 드롭다운 대신 overflow 처리 ✅ 2026-04-22
   - **출처**: TEST-046, AI Round1 = Fail, 미수정
   - 모바일에서 툴바 아이콘이 넘칠 때 `···` 드롭다운 아닌 다른 방식으로 처리해야 함
   - 현재 상태 및 기대 동작 파악 후 수정
   - 수정 후: `gx.update_tc_result(52, 1, 'Pass', '수정 내용', source='ai')` 실행
 
-- [ ] **TC-FAIL-047** `model-registry.ts` / `models-view.tsx` — 모델 설명이 '최신'·'최강' 대신 구체적 use-case 텍스트여야 함
+- [x] **TC-FAIL-047** `model-registry.ts` / `models-view.tsx` — 모델 설명이 '최신'·'최강' 대신 구체적 use-case 텍스트여야 함 ✅ 2026-04-22
   - **출처**: TEST-047, AI Round1 = Fail, 미수정
   - 모델 설명: "최신", "최강" 같은 추상적 표현 → "코딩·분석에 최적", "빠른 일상 대화용" 등 구체적 use-case로 교체
   - model-registry.ts의 description 필드 수정
@@ -116,7 +116,7 @@
   - 파일: `src/locales/ko.json`, `src/locales/en.json`
   - 렌더링: `document-plugin-view.tsx` line 200 `{t('documents.yes')}` — 별도 코드 변경 없음
 
-- [ ] **IMP-005** `chat-view.tsx` (또는 음성 입력 관련 컴포넌트) — 마이크 수동 종료 + 자연 멈춤 처리
+- [x] **IMP-005** `chat-view.tsx` (또는 음성 입력 관련 컴포넌트) — 마이크 수동 종료 + 자연 멈춤 처리 ✅ 2026-04-22 (기구현됨)
   - **출처**: Improvement Requests 시트 row 12, K열 Approved by Anne Baltazar
   - **요구사항**:
     1. 마이크 버튼을 누른 후 → 사용자가 직접 Stop 버튼을 누를 때까지 계속 녹음

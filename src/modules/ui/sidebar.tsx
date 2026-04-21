@@ -4,7 +4,7 @@ import { useChatStore } from '@/stores/chat-store';
 import { useAgentStore } from '@/stores/agent-store';
 import { downloadChat } from '@/modules/chat/export-chat';
 import { ChatTags } from '@/modules/chat/chat-tags';
-import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, FileText, HardDrive, Mic, Sparkles, Shield, CreditCard, Info } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Bot, BookText, Cpu, Trash2, BarChart3, PanelLeftClose, PanelLeft, Check, GitCompareArrows, Download, Edit3, Puzzle, Menu, X, Tag, Pin, PinOff, Folder, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, FileText, HardDrive, Mic, Sparkles, Shield, CreditCard, Info, User } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n';
 
@@ -70,6 +70,8 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editFolderName, setEditFolderName] = useState('');
+  const [profilePopoverOpen, setProfilePopoverOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   // Cmd+K → focus sidebar search (dispatched from page.tsx)
   useEffect(() => {
@@ -99,6 +101,18 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [navExpanded]);
+
+  // Close profile popover when clicking outside
+  useEffect(() => {
+    if (!profilePopoverOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfilePopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [profilePopoverOpen]);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | null>(null);
 
@@ -167,11 +181,15 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
     { id: 'models', icon: Cpu, label: t('nav.models'), desc: t('nav.models_desc') },
     // [2026-04-17] billing moved above savings
     { id: 'billing', icon: CreditCard, label: t('nav.billing'), desc: t('nav.billing_desc') },
-    { id: 'savings', icon: Sparkles, label: t('nav.savings'), desc: t('nav.savings_desc') },
-    { id: 'dashboard', icon: BarChart3, label: t('nav.dashboard'), desc: t('nav.dashboard_desc') },
-    { id: 'settings', icon: Settings, label: t('nav.settings'), desc: t('nav.settings_desc') },
-    { id: 'security', icon: Shield, label: t('nav.security'), desc: t('nav.security_desc') },
-    { id: 'about', icon: Info, label: t('nav.about'), desc: t('nav.about_desc') },
+  ];
+
+  // [UI-01] Profile popover items — savings, dashboard, settings, security, about
+  const profileTabs = [
+    { id: 'savings',   icon: Sparkles,  label: t('sidebar.profile_savings') },
+    { id: 'dashboard', icon: BarChart3, label: t('sidebar.profile_dashboard') },
+    { id: 'settings',  icon: Settings,  label: t('sidebar.profile_settings') },
+    { id: 'security',  icon: Shield,    label: t('sidebar.profile_security') },
+    { id: 'about',     icon: Info,      label: t('sidebar.profile_about') },
   ];
 
   return (
@@ -222,6 +240,46 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
           <div className={`absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t to-transparent pointer-events-none ${
             navExpanded ? 'from-gray-900 via-gray-900/80' : 'from-surface via-surface/80'
           }`} />
+        </div>
+
+        {/* Profile button with popover — replaces bottom 5 menu items (UI-01) */}
+        <div ref={profileRef} className="relative flex-shrink-0 mx-2">
+          <button
+            onClick={() => setProfilePopoverOpen(!profilePopoverOpen)}
+            className={`flex items-center gap-3 rounded-lg transition-colors ${
+              navExpanded
+                ? `w-full px-3 py-2.5 text-left ${profileTabs.some(p => p.id === activeTab) ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-white/10'}`
+                : `w-10 h-10 justify-center ${profileTabs.some(p => p.id === activeTab) ? 'bg-surface-2 text-on-surface' : 'text-on-surface-muted hover:text-on-surface hover:bg-surface-2'}`
+            }`}
+            title={!navExpanded ? t('sidebar.profile_button') : undefined}
+          >
+            <User size={20} className="flex-shrink-0" />
+            {navExpanded && (
+              <div className="min-w-0">
+                <div className="text-sm font-medium leading-tight truncate">{t('sidebar.profile_button')}</div>
+                <div className={`text-xs leading-tight truncate mt-0.5 ${profileTabs.some(p => p.id === activeTab) ? 'text-blue-200' : 'text-gray-500'}`}>
+                  {profileTabs.find(p => p.id === activeTab)?.label ?? ''}
+                </div>
+              </div>
+            )}
+          </button>
+          {/* Popover */}
+          {profilePopoverOpen && (
+            <div className={`absolute bottom-full mb-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1 w-48 flex flex-col ${navExpanded ? 'left-0' : 'left-full ml-2'}`}>
+              {profileTabs.map((pt) => (
+                <button
+                  key={pt.id}
+                  onClick={() => { onTabChange(pt.id); setProfilePopoverOpen(false); setNavExpanded(false); }}
+                  className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left ${
+                    activeTab === pt.id ? 'text-blue-400 bg-blue-500/10' : 'text-gray-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <pt.icon size={16} className="flex-shrink-0" />
+                  {pt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Active agent indicator */}

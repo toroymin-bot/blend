@@ -35,35 +35,11 @@ export function AboutView({ onNavigate }: AboutViewProps) {
 
         {/* Hero — savings-first */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-extrabold text-white leading-tight mb-7">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-white leading-tight mb-4">
             {t('billing.hero_headline')}
           </h1>
-
-          {/* $60 → $9 visual */}
-          <div className="flex items-center justify-center gap-6 mb-6">
-            <div className="text-center">
-              <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">{t('billing.hero_vs_individual')}</p>
-              <p className="text-3xl font-bold text-gray-500 line-through">$60</p>
-            </div>
-            <div className="text-3xl text-gray-600 font-light">→</div>
-            <div className="text-center">
-              <p className="text-xs text-blue-400 mb-1 uppercase tracking-wide">{t('billing.hero_vs_blend')}</p>
-              <p className="text-5xl font-extrabold text-blue-400">$9</p>
-            </div>
-          </div>
-
-          {/* Savings badges */}
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <span className="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-full text-sm font-semibold">
-              💰 $51 {t('billing.hero_savings_month')}
-            </span>
-            <span className="px-3 py-1.5 bg-green-500/10 text-green-500 rounded-full text-sm font-semibold">
-              $612 {t('billing.hero_savings_year')}
-            </span>
-          </div>
-
-          <p className="text-on-surface-muted text-base max-w-xl mx-auto">
-            {t('about.hero_subtitle')}
+          <p className="text-on-surface-muted text-base max-w-xl mx-auto mb-6 leading-relaxed">
+            {t('billing.hero_sub')}
           </p>
         </div>
 

@@ -10,7 +10,7 @@ import { usePluginStore } from '@/stores/plugin-store';
 import { sendChatRequest } from './chat-api';
 import { getModelById, calculateCost, DEFAULT_MODELS, getDisplayModels } from '@/modules/models/model-registry';
 import { ChatMessage } from '@/types';
-import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon, Paperclip, Sparkles, Eye, Brain, Volume2, VolumeX, Loader2 as Loader2Icon } from 'lucide-react';
+import { Send, Square, ChevronDown, Copy, Check, RefreshCw, GitFork, Link, Search, Image, Download, FileText, Pencil, X as XIcon, ChevronUp, ChevronDown as ChevronDownIcon, Paperclip, Sparkles, Eye, Brain, Volume2, VolumeX, Loader2 as Loader2Icon, MoreHorizontal } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
@@ -85,6 +85,9 @@ export function ChatView() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryText, setSummaryText] = useState('');
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  // Mobile ··· dropdown
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const tokenHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
@@ -146,6 +149,18 @@ export function ChatView() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showModelDropdown]);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    if (!showMobileMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
+        setShowMobileMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMobileMenu]);
 
   const handleCopyMessage = async (msgId: string, content: string) => {
     await navigator.clipboard.writeText(content);
@@ -1415,29 +1430,29 @@ export function ChatView() {
               </div>
               <ChevronDown size={14} className="shrink-0 text-gray-400" />
             </button>
-            {/* Active plugin indicators */}
+            {/* Active plugin indicators — desktop only */}
             {isInstalled('url-reader') && (
-              <span className="text-xs text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded flex items-center gap-1">
+              <span className="hidden md:flex text-xs text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded items-center gap-1">
                 <Link size={11} /> {t('plugins.url_reader')}
               </span>
             )}
             {isInstalled('web-search') && (
-              <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded flex items-center gap-1">
+              <span className="hidden md:flex text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded items-center gap-1">
                 <Search size={11} /> {t('plugins.web_search')}
               </span>
             )}
             {isInstalled('image-gen') && (
-              <span className="text-xs text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded flex items-center gap-1">
+              <span className="hidden md:flex text-xs text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded items-center gap-1">
                 <Image size={11} /> {t('plugins.image_gen')}
               </span>
             )}
 
-            {/* Summary button */}
+            {/* Summary button — desktop only */}
             {chat && chat.messages.length > 1 && (
               <button
                 onClick={handleSummarize}
                 disabled={isSummarizing}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 text-xs text-gray-400 hover:text-yellow-300 hover:bg-gray-700 disabled:opacity-50"
+                className="hidden md:flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 text-xs text-gray-400 hover:text-yellow-300 hover:bg-gray-700 disabled:opacity-50"
                 title={t('chat.summarize_chat')}
                 aria-label={t('chat.summarize_chat')}
               >
@@ -1445,7 +1460,7 @@ export function ChatView() {
               </button>
             )}
 
-            {/* [2026-04-16 01:30] TTS auto-play toggle */}
+            {/* TTS auto-play toggle — desktop only */}
             <button
               onClick={() => {
                 setTtsAutoplay((prev) => {
@@ -1455,7 +1470,7 @@ export function ChatView() {
                   return !prev;
                 });
               }}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${
+              className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${
                 ttsAutoplay
                   ? 'bg-blue-900/40 text-blue-400 hover:bg-blue-900/60'
                   : 'bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700'
@@ -1465,9 +1480,9 @@ export function ChatView() {
               {ttsAutoplay ? <Volume2 size={13} /> : <VolumeX size={13} />}
             </button>
 
-            {/* Export button */}
+            {/* Export button — desktop only */}
             {chat && chat.messages.length > 0 && (
-              <div className="relative ml-auto">
+              <div className="hidden md:block relative ml-auto">
                 <button
                   onClick={() => setShowExportMenu(!showExportMenu)}
                   className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-700"
@@ -1507,6 +1522,78 @@ export function ChatView() {
                 )}
               </div>
             )}
+
+            {/* Mobile ··· dropdown — md breakpoint hides desktop buttons, shows this */}
+            <div ref={mobileMenuRef} className="md:hidden relative ml-auto">
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+                title="더보기"
+                aria-label="더보기"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+              {showMobileMenu && (
+                <div className="absolute bottom-full right-0 mb-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 w-44 py-1 flex flex-col">
+                  {/* TTS toggle */}
+                  <button
+                    onClick={() => {
+                      setTtsAutoplay((prev) => {
+                        if (prev && ttsAudioRef.current) ttsAudioRef.current.pause();
+                        return !prev;
+                      });
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2.5 text-sm transition-colors ${
+                      ttsAutoplay ? 'text-blue-400' : 'text-gray-400'
+                    } hover:bg-gray-700`}
+                  >
+                    {ttsAutoplay ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                    {ttsAutoplay ? t('chat.tts_on_hint').split(' —')[0] : t('chat.tts_off_hint').split(' —')[0]}
+                  </button>
+                  {/* Summarize */}
+                  {chat && chat.messages.length > 1 && (
+                    <button
+                      onClick={() => { handleSummarize(); setShowMobileMenu(false); }}
+                      disabled={isSummarizing}
+                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-400 hover:bg-gray-700 hover:text-yellow-300 disabled:opacity-50 transition-colors"
+                    >
+                      <Sparkles size={14} /> {t('chat.summarize')}
+                    </button>
+                  )}
+                  {/* Export */}
+                  {chat && chat.messages.length > 0 && (
+                    <>
+                      <div className="border-t border-gray-700 my-1" />
+                      <button
+                        onClick={() => { downloadChat(chat, 'md'); setShowMobileMenu(false); }}
+                        className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-400 hover:bg-gray-700 transition-colors"
+                      >
+                        <FileText size={14} /> Markdown
+                      </button>
+                      <button
+                        onClick={() => { downloadChat(chat, 'txt'); setShowMobileMenu(false); }}
+                        className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-400 hover:bg-gray-700 transition-colors"
+                      >
+                        <FileText size={14} /> {t('chat.export_txt')}
+                      </button>
+                      <button
+                        onClick={() => { downloadChatAsJSON(chat); setShowMobileMenu(false); }}
+                        className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-400 hover:bg-gray-700 transition-colors"
+                      >
+                        <FileText size={14} /> JSON
+                      </button>
+                      <button
+                        onClick={() => { downloadChatAsPDF(chat); setShowMobileMenu(false); }}
+                        className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-400 hover:bg-gray-700 transition-colors rounded-b-xl"
+                      >
+                        <FileText size={14} /> {t('chat.export_print')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             {showModelDropdown && (
               <div className="absolute bottom-8 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 w-80 max-h-96 overflow-y-auto">

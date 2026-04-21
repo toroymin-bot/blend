@@ -68,7 +68,13 @@
     "menu_expand": "Show Menu",
     "menu_collapse": "Hide Menu",
     "agent_label": "Agent: {{name}}",
-    "open_menu": "Open Menu"
+    "open_menu": "Open Menu",
+    "profile_button": "Profile & Settings",
+    "profile_savings": "Cost Savings",
+    "profile_dashboard": "Dashboard",
+    "profile_settings": "Settings",
+    "profile_security": "Security",
+    "profile_about": "About Blend"
   },
   "chat": {
     "new_chat": "New Chat",
@@ -861,7 +867,8 @@
     "copy_suffix": " (copy)"
   },
   "billing": {
-    "hero_headline": "Claude + ChatGPT + Gemini. $60/mo → just $9.",
+    "hero_headline": "75% of your AI subscription is wasted.",
+    "hero_sub": "Average actual usage is ~$5. Blend connects ChatGPT · Claude · Gemini without subscriptions. Pay only for what you use.",
     "hero_vs_individual": "Individual subscriptions",
     "hero_vs_blend": "Blend monthly",
     "hero_savings_month": "saved / month",

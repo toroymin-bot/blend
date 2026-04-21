@@ -13,8 +13,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 2,
     outputPrice: 8,
     features: ['vision', 'streaming', 'function_calling'],
-    description: 'Top coding & analysis — latest GPT-4',
-    descriptionKo: '코딩·분석 최강 — 가장 최신 GPT-4',
+    description: 'Coding & analysis',
+    descriptionKo: '코딩·분석용',
     enabled: true,
   },
   {
@@ -25,8 +25,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.4,
     outputPrice: 1.6,
     features: ['vision', 'streaming', 'function_calling'],
-    description: 'GPT-4.1 Lite — fast and affordable',
-    descriptionKo: 'GPT-4.1 경량 — 빠르고 저렴',
+    description: 'Everyday chat',
+    descriptionKo: '일상 대화용',
     enabled: true,
   },
   {
@@ -37,8 +37,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 2.5,
     outputPrice: 10,
     features: ['vision', 'streaming', 'function_calling'],
-    description: 'Understands both text and images',
-    descriptionKo: '글·이미지 모두 잘 이해하는 AI',
+    description: 'Image + text tasks',
+    descriptionKo: '이미지·텍스트용',
     enabled: true,
   },
   {
@@ -49,8 +49,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.15,
     outputPrice: 0.6,
     features: ['vision', 'streaming', 'function_calling'],
-    description: 'Lightweight and fast for everyday chat',
-    descriptionKo: '가볍고 빠른 일상 대화용',
+    description: 'Fast everyday use',
+    descriptionKo: '빠른 일상용',
     enabled: true,
   },
   {
@@ -61,8 +61,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 10,
     outputPrice: 40,
     features: ['streaming', 'thinking'],
-    description: 'Top-tier math and logic reasoning',
-    descriptionKo: '수학·논리 최고 수준 추론',
+    description: 'Math & logic',
+    descriptionKo: '수학·논리용',
     enabled: true,
   },
   {
@@ -73,8 +73,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 1.1,
     outputPrice: 4.4,
     features: ['vision', 'streaming', 'thinking'],
-    description: 'Reasoning specialist — faster & cheaper than o3',
-    descriptionKo: '추론 특화 — o3보다 빠르고 저렴',
+    description: 'Reasoning tasks',
+    descriptionKo: '추론·분석용',
     enabled: true,
   },
   {
@@ -85,8 +85,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'function_calling'],
-    description: 'Ultra-cheap — for simple Q&A and translation',
-    descriptionKo: '초저가 — 단순 질문·번역용',
+    description: 'Simple Q&A',
+    descriptionKo: '단순 질문용',
     enabled: false,
   },
   {
@@ -361,8 +361,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 15,
     outputPrice: 60,
     features: ['streaming', 'vision', 'thinking', 'function_calling'],
-    description: 'o1 Pro — for the hardest problems',
-    descriptionKo: 'o1 최고급 — 가장 어려운 문제용',
+    description: 'Hard problem solving',
+    descriptionKo: '고난도 문제용',
     enabled: false,
   },
   {
@@ -444,8 +444,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.1,
     outputPrice: 0.4,
     features: ['streaming', 'vision', 'function_calling'],
-    description: 'GPT-4.1 Nano — smallest and fastest',
-    descriptionKo: 'GPT-4.1 초소형 — 가장 작고 빠름',
+    description: 'Ultra-light chat',
+    descriptionKo: '초경량 대화용',
     enabled: true,
   },
   {
@@ -456,8 +456,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.04,
     outputPrice: 0,
     features: ['vision'],
-    description: 'Generate high-quality images from text',
-    descriptionKo: '텍스트로 고품질 이미지를 만들어요',
+    description: 'Image generation',
+    descriptionKo: '이미지 생성용',
     // [2026-04-16 01:10] disabled — enabled: false, // was incorrectly set to false, blocking image_gen auto-routing
     enabled: true, // [2026-04-16] re-enabled — required for DALL-E auto-selection via model router
   },
@@ -469,8 +469,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: 'AI that draws images from text',
-    descriptionKo: '텍스트로 그림을 그려주는 AI',
+    description: 'Image generation',
+    descriptionKo: '이미지 생성용',
     enabled: false,
   },
   {
@@ -505,8 +505,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: 'GPT-5 base — great at writing and coding',
-    descriptionKo: 'GPT-5 기본형 — 글·코딩 모두 능숙',
+    description: 'Writing & coding',
+    descriptionKo: '글·코딩 범용',
     enabled: false,
   },
   {
@@ -529,8 +529,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: 'GPT-5 Lite — fast and affordable',
-    descriptionKo: 'GPT-5 경량판 — 빠르고 저렴',
+    description: 'Fast general use',
+    descriptionKo: '빠른 범용',
     enabled: false,
   },
   {
@@ -565,8 +565,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: 'GPT-5 specialized for coding',
-    descriptionKo: '코딩 전용으로 특화된 GPT-5',
+    description: 'Coding only',
+    descriptionKo: '코딩 전용',
     enabled: false,
   },
   {
@@ -601,8 +601,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.5,
     outputPrice: 1.5,
     features: ['streaming', 'vision', 'function_calling'],
-    description: 'GPT-5 Pro — most powerful GPT-5',
-    descriptionKo: 'GPT-5 최고급 — 가장 강력한 GPT-5',
+    description: 'Complex tasks',
+    descriptionKo: '복잡한 작업용',
     enabled: false,
   },
   {
@@ -842,8 +842,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 15,
     outputPrice: 75,
     features: ['vision', 'streaming', 'thinking'],
-    description: 'Latest Claude Opus — most powerful',
-    descriptionKo: '최신 Claude Opus — 가장 강력',
+    description: 'Deep analysis',
+    descriptionKo: '심층 분석용',
     enabled: true,
   },
   {
@@ -854,8 +854,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 3,
     outputPrice: 15,
     features: ['vision', 'streaming', 'thinking'],
-    description: 'Latest Claude Sonnet — fast and accurate',
-    descriptionKo: '최신 Claude Sonnet — 빠르고 정확',
+    description: 'Coding & tasks',
+    descriptionKo: '코딩·작업용',
     enabled: true,
   },
   {
@@ -866,8 +866,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.8,
     outputPrice: 4,
     features: ['vision', 'streaming'],
-    description: 'Fast Claude Haiku fixed version',
-    descriptionKo: '빠른 Claude Haiku 고정 버전',
+    description: 'Quick answers',
+    descriptionKo: '빠른 답변용',
     enabled: false,
   },
   {
@@ -878,8 +878,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 3,
     outputPrice: 15,
     features: ['vision', 'streaming'],
-    description: 'Previous gen Sonnet — stable',
-    descriptionKo: '이전 세대 Sonnet — 안정적',
+    description: 'Stable tasks',
+    descriptionKo: '안정적 작업용',
     enabled: false,
   },
   {
@@ -890,8 +890,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.25,
     outputPrice: 1.25,
     features: ['vision', 'streaming'],
-    description: 'Ultra-cheap — fastest Claude',
-    descriptionKo: '초저가 — 가장 빠른 Claude',
+    description: 'Budget chat',
+    descriptionKo: '초저가 대화용',
     enabled: false,
   },
   {
@@ -966,8 +966,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 15,
     outputPrice: 75,
     features: ['streaming', 'vision', 'thinking', 'function_calling'],
-    description: 'Top Claude Opus — best for long docs and deep analysis',
-    descriptionKo: '긴 글 읽고 깊이 분석하는 최고급 AI',
+    description: 'Deep analysis',
+    descriptionKo: '심층 분석용',
     enabled: true,
   },
   // ── Google ─────────────────────────────────────────────────────────────────
@@ -979,8 +979,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 1.25,
     outputPrice: 10,
     features: ['vision', 'streaming', 'thinking'],
-    description: 'Google top AI — reads entire books at once',
-    descriptionKo: '책 한 권도 한 번에 읽는 구글 최강 AI',
+    description: 'Large doc processing',
+    descriptionKo: '대용량 처리용',
     enabled: true,
   },
   {
@@ -991,8 +991,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.15,
     outputPrice: 0.6,
     features: ['vision', 'streaming', 'thinking'],
-    description: 'Fast and affordable latest Google AI',
-    descriptionKo: '빠르고 저렴한 구글 최신 AI',
+    description: 'Fast general use',
+    descriptionKo: '빠른 범용',
     enabled: true,
   },
   {
@@ -1039,8 +1039,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.1,
     outputPrice: 0.4,
     features: ['streaming', 'vision'],
-    description: 'Fast Google AI — for everyday tasks',
-    descriptionKo: '빠른 구글 AI — 일상 작업용',
+    description: 'Everyday tasks',
+    descriptionKo: '일상 작업용',
     enabled: true,
   },
   {
@@ -1123,8 +1123,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.1,
     outputPrice: 0.4,
     features: ['streaming', 'vision'],
-    description: 'Medium open AI by Google',
-    descriptionKo: '구글이 만든 중형 오픈 AI',
+    description: 'Open-source mid',
+    descriptionKo: '오픈소스 중형',
     enabled: false,
   },
   {
@@ -1135,8 +1135,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.1,
     outputPrice: 0.4,
     features: ['streaming', 'vision'],
-    description: 'Large open AI by Google',
-    descriptionKo: '구글이 만든 대형 오픈 AI',
+    description: 'Open-source large',
+    descriptionKo: '오픈소스 대형',
     enabled: false,
   },
   {
@@ -1401,8 +1401,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.27,
     outputPrice: 1.1,
     features: ['streaming', 'function_calling'],
-    description: 'Best Chinese coding & reasoning — GPT-4 quality at 1/10 price',
-    descriptionKo: '중국발 최강 코딩·추론 — GPT-4급을 1/10 가격에',
+    description: 'Budget coding',
+    descriptionKo: '저가 코딩용',
     enabled: false, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
@@ -1413,8 +1413,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.55,
     outputPrice: 2.19,
     features: ['streaming', 'thinking'],
-    description: 'o1-level reasoning — specialized for math, logic, and code',
-    descriptionKo: 'o1급 추론 모델 — 수학·논리·코드 특화',
+    description: 'Math & reasoning',
+    descriptionKo: '수학·논리용',
     enabled: false, // [2026-04-14] sync-bot 오비활성화 복구
   },
 
@@ -1427,8 +1427,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.59,
     outputPrice: 0.79,
     features: ['streaming', 'function_calling'],
-    description: 'Meta latest 70B — fast and balanced',
-    descriptionKo: 'Meta 최신 70B — 빠르고 균형 잡힌 성능',
+    description: 'Open-source general',
+    descriptionKo: '오픈소스 범용',
     enabled: false, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
@@ -1439,8 +1439,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.05,
     outputPrice: 0.08,
     features: ['streaming', 'function_calling'],
-    description: 'Ultra-fast ultra-cheap — for simple Q&A',
-    descriptionKo: '초고속 초저가 — 간단 질의응답용',
+    description: 'Ultra-fast lite',
+    descriptionKo: '초고속 경량용',
     enabled: false, // [2026-04-14] sync-bot 오비활성화 복구
   },
   {
@@ -1451,8 +1451,8 @@ export const DEFAULT_MODELS: AIModel[] = [
     inputPrice: 0.24,
     outputPrice: 0.24,
     features: ['streaming', 'function_calling'],
-    description: 'MoE architecture — multilingual & code balanced',
-    descriptionKo: 'MoE 구조 — 다국어·코드 균형',
+    description: 'Multilingual & code',
+    descriptionKo: '다국어·코딩용',
     enabled: false, // decommissioned by Groq
   },
   {

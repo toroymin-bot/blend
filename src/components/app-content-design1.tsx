@@ -27,12 +27,12 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     >
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside
-        className="group relative flex w-16 flex-col items-center overflow-hidden border-r py-5 transition-[width] duration-[450ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:w-[280px] hover:bg-white/60 hover:backdrop-blur-xl hover:backdrop-saturate-150"
+        className="group relative flex w-16 flex-col overflow-hidden border-r py-5 transition-[width] duration-[450ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:w-[260px] hover:bg-white/60 hover:backdrop-blur-xl hover:backdrop-saturate-150"
         style={{ borderColor: tokens.border }}
       >
         {/* Logo */}
         <div
-          className="mb-7 leading-none tracking-tight"
+          className="mb-7 flex h-10 w-full items-center pl-[15px] leading-none tracking-tight"
           style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontSize: 28 }}
         >
           B
@@ -50,9 +50,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
           </svg>
         </D1SidebarBtn>
 
-        {/* Expanded sidebar content */}
-        <div className="pointer-events-none mt-6 w-[240px] px-5 opacity-0 transition-opacity duration-200 delay-100 group-hover:pointer-events-auto group-hover:opacity-100">
-          <div className="mb-2 px-2 text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+        {/* Expanded sidebar content — recent conversations */}
+        <div className="pointer-events-none mt-6 min-w-0 px-3 opacity-0 transition-opacity duration-200 delay-100 group-hover:pointer-events-auto group-hover:opacity-100">
+          <div className="mb-1 px-2 text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
             {lang === 'ko' ? '최근' : 'Recent'}
           </div>
           <div className="px-2 py-2 text-[13px]" style={{ color: tokens.textFaint }}>
@@ -61,7 +61,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
         </div>
 
         {/* Settings button at bottom */}
-        <div className="mt-auto flex w-full flex-col items-center gap-1.5">
+        <div className="mt-auto flex w-full flex-col gap-1.5">
           <D1SidebarBtn title={lang === 'ko' ? '설정' : 'Settings'}>
             <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
@@ -92,10 +92,22 @@ function D1SidebarBtn({
     <button
       onClick={onClick}
       title={title}
-      className="flex h-10 w-10 items-center justify-center rounded-[10px] border-none bg-transparent transition-colors duration-150 hover:bg-black/5"
+      className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none bg-transparent pl-[15px] pr-3 transition-colors duration-150 hover:bg-black/5"
       style={{ color: tokens.text }}
     >
-      {children}
+      {/* Icon — fixed width so it stays aligned in both collapsed + expanded states */}
+      <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+        {children}
+      </span>
+      {/* Text label — fades in when sidebar expands on hover */}
+      {title && (
+        <span
+          className="truncate text-[13.5px] font-normal opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+          style={{ color: tokens.text, transitionDelay: '80ms' }}
+        >
+          {title}
+        </span>
+      )}
     </button>
   );
 }

@@ -52,32 +52,14 @@ export function WelcomeView({ onComplete }: WelcomeViewProps) {
             B
           </div>
 
-          {/* ── Hero Savings Anchor ── */}
+          {/* ── Hero ── */}
           <div className="mb-6 p-4 bg-gray-800/80 rounded-2xl border border-blue-500/30">
-            <p className="text-lg font-extrabold text-white leading-tight mb-3">
+            <p className="text-lg font-extrabold text-white leading-tight mb-2">
               {t('billing.hero_headline')}
             </p>
-            <div className="flex items-center justify-center gap-4 mb-3">
-              <div className="text-center">
-                <p className="text-xs text-gray-500 mb-0.5">{t('billing.hero_vs_individual')}</p>
-                <span className="text-2xl font-bold text-gray-500 line-through">$60<span className="text-xs">/mo</span></span>
-              </div>
-              <span className="text-gray-600 text-xl">→</span>
-              <div className="text-center">
-                <p className="text-xs text-gray-500 mb-0.5">{t('billing.hero_vs_blend')}</p>
-                <span className="text-3xl font-extrabold text-blue-400">$9<span className="text-xs font-normal text-gray-500">/mo</span></span>
-              </div>
-            </div>
-            <div className="flex justify-center gap-3">
-              <div className="bg-green-900/40 border border-green-500/30 rounded-lg px-3 py-1.5 text-center">
-                <p className="text-base font-bold text-green-400">$51</p>
-                <p className="text-xs text-green-300/60">{t('billing.hero_savings_month')}</p>
-              </div>
-              <div className="bg-green-900/40 border border-green-500/30 rounded-lg px-3 py-1.5 text-center">
-                <p className="text-base font-bold text-green-400">$612</p>
-                <p className="text-xs text-green-300/60">{t('billing.hero_savings_year')}</p>
-              </div>
-            </div>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              {t('billing.hero_sub')}
+            </p>
           </div>
 
           <h1 className="text-2xl font-bold text-white mb-2">{t('welcome.title')}</h1>
