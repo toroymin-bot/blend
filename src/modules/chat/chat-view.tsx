@@ -160,8 +160,10 @@ export function ChatView() {
   const enabledModels = allModels.filter((m) => m.enabled);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat?.messages, streamingText]);
+    if (isAtBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chat?.messages, streamingText, isAtBottom]);
 
   // In-chat search: compute matching message ids
   const searchMatches = useCallback((): string[] => {
