@@ -188,6 +188,46 @@ body {
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #cbd5e1; }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+/* ============================================================
+   Design 1 Theme — .design1-shell 하위 전체에 적용
+   폰트: Pretendard Variable (KR) + Geist (EN) + Instrument Serif (악센트)
+   액센트: #c65a3c (번트 시에나)
+   애니메이션: cubic-bezier(0.16, 1, 0.3, 1)
+   ============================================================ */
+
+.design1-shell {
+  /* 폰트 스택: Geist(EN 라틴) → Pretendard Variable(KR 한글) */
+  font-family: var(--font-geist-sans), 'Pretendard Variable', 'Pretendard', sans-serif;
+
+  /* 악센트 컬러 오버라이드 — components that use --accent-token will pick this up */
+  --accent: #c65a3c;
+  --accent-token: #c65a3c;
+
+  /* Instrument Serif 악센트 폰트 변수 (헤드라인 등에서 사용 가능) */
+  --font-accent: var(--font-instrument-serif), 'Instrument Serif', Georgia, serif;
+
+  /* iOS easeOutExpo 애니메이션 커브 */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* 사이드바 transition에 기본 적용 */
+  --sidebar-transition: all 0.45s var(--ease-out-expo);
+}
+
+/* design1 내 accent-token 색상 사용 유틸리티 자동 반영 */
+.design1-shell [class*="text-accent-token"]  { color: var(--accent-token); }
+.design1-shell [class*="bg-accent-token"]    { background-color: var(--accent-token); }
+.design1-shell [class*="border-accent-token"] { border-color: var(--accent-token); }
+
+/* design1 Instrument Serif 헬퍼 클래스 — 헤드라인에 .font-accent 적용 시 사용 */
+.design1-shell .font-accent {
+  font-family: var(--font-accent);
+}
+
+/* design1 easeOutExpo 트랜지션 헬퍼 */
+.design1-shell .transition-expo {
+  transition-timing-function: var(--ease-out-expo);
+}
+
 /* Code blocks background */
 [data-theme="light"] pre { background: #f1f5f9 !important; }
 [data-theme="light"] code { background: #f1f5f9; color: #1e293b; }
