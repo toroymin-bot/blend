@@ -111,6 +111,11 @@
   - model-registry.ts의 description 필드 수정
   - 수정 후: `gx.update_tc_result(53, 1, 'Pass', '수정 내용', source='ai')` 실행
 
+- [x] **FIX-02** `ko.json` / `en.json` — RAG 문서 삭제 확인 버튼 "예" → "삭제" ✅ 2026-04-21
+  - `documents.yes`: "예" → "삭제" (ko), "Yes" → "Delete" (en)
+  - 파일: `src/locales/ko.json`, `src/locales/en.json`
+  - 렌더링: `document-plugin-view.tsx` line 200 `{t('documents.yes')}` — 별도 코드 변경 없음
+
 - [ ] **IMP-005** `chat-view.tsx` (또는 음성 입력 관련 컴포넌트) — 마이크 수동 종료 + 자연 멈춤 처리
   - **출처**: Improvement Requests 시트 row 12, K열 Approved by Anne Baltazar
   - **요구사항**:

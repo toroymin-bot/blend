@@ -373,7 +373,7 @@
     "no_documents": "No documents uploaded",
     "delete": "Delete",
     "delete_confirm": "Delete?",
-    "yes": "Yes",
+    "yes": "Delete",
     "cancel": "Cancel",
     "indexing": "Indexing...",
     "indexed": "Indexed",
