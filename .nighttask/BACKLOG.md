@@ -7,7 +7,19 @@
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
-*(없음 — 모든 항목 완료)*
+- [ ] **IMP-005** `chat-view.tsx` (또는 음성 입력 관련 컴포넌트) — 마이크 수동 종료 + 자연 멈춤 처리
+  - **출처**: Improvement Requests 시트 row 12, K열 Approved by Anne Baltazar
+  - **요구사항**:
+    1. 마이크 버튼을 누른 후 → 사용자가 직접 Stop 버튼을 누를 때까지 계속 녹음
+    2. 자연스러운 말 끊김(silence) 감지 시 조기 중단 금지 — 멈춤이 있어도 계속 대기
+    3. 녹음 제출은 Enter 버튼(파란 화살표)으로만 → 별도 제출 플로우
+    4. 사용자가 녹음 종료 + 제출을 완전히 제어
+  - **작업 순서**:
+    1. `gx.update_improvement_status(12, "🟠 In Progress")` 먼저 실행
+    2. 현재 STT/음성 입력 구현 파일 파악 (`chat-view.tsx` 또는 별도 hook)
+    3. silenceDetection / auto-stop 로직 비활성화
+    4. 수동 stop + Enter 제출 UX 구현
+    5. 완료 후 `gx.update_improvement_status(12, "🔵 Pending Re-test", notes="...")` 실행
 
 ---
 
