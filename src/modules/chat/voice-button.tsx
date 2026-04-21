@@ -82,6 +82,11 @@ export function VoiceButton({ onTranscript, onFallbackRecorded, disabled, lang =
 
   // ── Web Speech API path ────────────────────────────────────────────────────
 
+  // [2026-04-21] IMP-005 fix: manual stop only — no auto-stop on silence
+  // continuous=true keeps recognition alive through natural speech pauses.
+  // onend auto-restarts if user hasn't explicitly stopped (handles browser-forced stops).
+  const isRecordingRef = useRef(false);
+
   const startWebSpeech = () => {
     const SpeechRecognitionAPI = getSpeechRecognition();
     if (!SpeechRecognitionAPI) return false;
@@ -89,7 +94,7 @@ export function VoiceButton({ onTranscript, onFallbackRecorded, disabled, lang =
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
     recognition.interimResults = true;  // real-time live text
-    recognition.continuous = false;
+    recognition.continuous = true;      // [IMP-005] keep recording through pauses
     recognition.maxAlternatives = 1;
 
     recognition.onresult = (event: ISpeechRecognitionEvent) => {
@@ -111,23 +116,41 @@ export function VoiceButton({ onTranscript, onFallbackRecorded, disabled, lang =
     };
 
     recognition.onend = () => {
-      setRecording(false);
-      setPulseAnim(false);
+      // [IMP-005] If user hasn't explicitly stopped, restart to survive browser-forced ends
+      if (isRecordingRef.current) {
+        try {
+          recognition.start();
+        } catch {
+          // Recognition already started or unavailable — treat as genuine stop
+          isRecordingRef.current = false;
+          setRecording(false);
+          setPulseAnim(false);
+        }
+      } else {
+        setRecording(false);
+        setPulseAnim(false);
+      }
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event: Event) => {
+      const errEvent = event as Event & { error?: string };
+      // 'no-speech' is not a fatal error — ignore and let onend restart
+      if (errEvent.error === 'no-speech') return;
+      isRecordingRef.current = false;
       setRecording(false);
       setPulseAnim(false);
     };
 
     recognition.start();
     recognitionRef.current = recognition;
+    isRecordingRef.current = true;
     setRecording(true);
     setPulseAnim(true);
     return true;
   };
 
   const stopWebSpeech = () => {
+    isRecordingRef.current = false;  // signal onend not to restart
     recognitionRef.current?.stop();
     setRecording(false);
     setPulseAnim(false);
