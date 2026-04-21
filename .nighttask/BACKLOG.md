@@ -7,6 +7,23 @@
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
+- [ ] **TC-FAIL-045** `billing-view.tsx` — Pro/Lifetime CTA 버튼 모바일에서 결제 섹션으로 스크롤 안됨
+  - **출처**: TEST-045, AI Round1 = Fail, 미수정
+  - 모바일에서 CTA 버튼 클릭 시 `#plans` / 결제 섹션으로 smooth scroll 되어야 함
+  - 수정 후: `gx.update_tc_result(51, 1, 'Pass', '수정 내용', source='ai')` 실행
+
+- [ ] **TC-FAIL-046** `chat-view.tsx` — 모바일 채팅 툴바 `···` 드롭다운 대신 overflow 처리
+  - **출처**: TEST-046, AI Round1 = Fail, 미수정
+  - 모바일에서 툴바 아이콘이 넘칠 때 `···` 드롭다운 아닌 다른 방식으로 처리해야 함
+  - 현재 상태 및 기대 동작 파악 후 수정
+  - 수정 후: `gx.update_tc_result(52, 1, 'Pass', '수정 내용', source='ai')` 실행
+
+- [ ] **TC-FAIL-047** `model-registry.ts` / `models-view.tsx` — 모델 설명이 '최신'·'최강' 대신 구체적 use-case 텍스트여야 함
+  - **출처**: TEST-047, AI Round1 = Fail, 미수정
+  - 모델 설명: "최신", "최강" 같은 추상적 표현 → "코딩·분석에 최적", "빠른 일상 대화용" 등 구체적 use-case로 교체
+  - model-registry.ts의 description 필드 수정
+  - 수정 후: `gx.update_tc_result(53, 1, 'Pass', '수정 내용', source='ai')` 실행
+
 - [ ] **IMP-005** `chat-view.tsx` (또는 음성 입력 관련 컴포넌트) — 마이크 수동 종료 + 자연 멈춤 처리
   - **출처**: Improvement Requests 시트 row 12, K열 Approved by Anne Baltazar
   - **요구사항**:
