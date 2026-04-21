@@ -7,6 +7,16 @@
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
+- [ ] **COPY-01** 히어로 메시지 전면 교체 — 정직한 BYOK 가치제안으로
+  - **대상 파일**: `ko.json`, `en.json`, `about-view.tsx`, `billing-view.tsx`, `welcome-view.tsx`
+  - **새 헤드라인 (ko)**: "당신의 AI 구독료의 75%는 낭비입니다."
+  - **새 서브 (ko)**: "AI 실사용은 약 $5. Blend는 ChatGPT · Claude · Gemini를 구독 없이 연결합니다. 쓴 만큼만 지불하세요."
+  - **새 헤드라인 (en)**: "75% of your AI subscription is wasted."
+  - **새 서브 (en)**: "Average actual usage is ~$5. Blend connects ChatGPT · Claude · Gemini without subscriptions. Pay only for what you use."
+  - **제거**: 기존 `billing.hero_headline` (`$60 대신 $9에`) — 논리 오류 (Blend $9 + API 실사용비 별도인데 $9만 비교한 오해 유발)
+  - **교체 범위**: about-view 히어로, billing-view 히어로, welcome-view 히어로 박스 전부
+  - **about-view 구독의 함정 섹션**: 헤드라인도 새 카피에 맞게 정렬
+
 - [ ] **TC-FAIL-045** `billing-view.tsx` — Pro/Lifetime CTA 버튼 모바일에서 결제 섹션으로 스크롤 안됨
   - **출처**: TEST-045, AI Round1 = Fail, 미수정
   - 모바일에서 CTA 버튼 클릭 시 `#plans` / 결제 섹션으로 smooth scroll 되어야 함
