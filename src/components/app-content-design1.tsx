@@ -26,9 +26,13 @@ import { ModelsView }           from '@/modules/models/models-view';
 import { AgentsView }           from '@/modules/agents/agents-view';
 import { CostSavingsDashboard } from '@/modules/ui/cost-savings-dashboard';
 import { DashboardView }        from '@/modules/ui/dashboard-view';
-import { SettingsView }         from '@/modules/settings/settings-view';
+import { D1SettingsView }       from '@/modules/settings/settings-view-design1';
 import { SecurityView }         from '@/modules/ui/security-view';
 import { AboutView }            from '@/modules/ui/about-view';
+
+// ── Design1 온보딩
+import { D1OnboardingView }     from '@/modules/onboarding/onboarding-view-design1';
+import { useAPIKeyStore }       from '@/stores/api-key-store';
 
 // ── Design tokens
 const tokens = {
@@ -57,6 +61,25 @@ const labels = {
 export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' }) {
   const lang = urlLang;
   const t = labels[lang];
+
+  // ── 온보딩 가드: 저장된 키가 없으면 온보딩 화면 표시 ──────────
+  const { keys, loadFromStorage } = useAPIKeyStore();
+  const [keysChecked, setKeysChecked] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    loadFromStorage();
+    setKeysChecked(true);
+  }, []);
+
+  useEffect(() => {
+    if (!keysChecked) return;
+    const hasAnyKey = Object.values(keys).some(Boolean);
+    setShowOnboarding(!hasAnyKey);
+  }, [keysChecked, keys]);
+
+  // 온보딩 완료 시 메인 앱으로 전환
+  const handleOnboardingDone = () => setShowOnboarding(false);
 
   const [activeView, setActiveView] = useState<ViewId>('chat');
   const [convKey,    setConvKey]    = useState(0);
@@ -106,7 +129,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       agents:      <AgentsView />,
       savings:     <CostSavingsDashboard />,
       dashboard:   <DashboardView />,
-      settings:    <SettingsView />,
+      settings:    <D1SettingsView />,
       security:    <SecurityView />,
       about:       <AboutView onNavigate={(tab) => nav(tab as ViewId)} />,
     };
@@ -123,6 +146,11 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     ['security',    t.security,    <SecurityIcon    key="se" />],
     ['settings',    t.settings,    <SettingsIcon    key="st" />],
   ];
+
+  // 온보딩 화면
+  if (keysChecked && showOnboarding) {
+    return <D1OnboardingView onDone={handleOnboardingDone} lang={lang} />;
+  }
 
   return (
     <div
