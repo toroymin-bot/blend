@@ -79,7 +79,7 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
 
     const priorityBadge = (p: string) => {
       const cls = p === 'high' ? 'badge-high' : p === 'medium' ? 'badge-med' : 'badge-low';
-      const label = p === 'high' ? '높음' : p === 'medium' ? '중간' : '낮음';
+      const label = p === 'high' ? t('meeting_view.priority_high') : p === 'medium' ? t('meeting_view.priority_medium') : t('meeting_view.priority_low');
       return `<span class="badge ${cls}">${label}</span>`;
     };
 
@@ -103,17 +103,17 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
       ${meeting.summary.full ? `<p style="margin-top:8px;white-space:pre-wrap">${meeting.summary.full}</p>` : ''}
     `;
 
-    pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>회의록 — ${meeting.title}</title><style>${styles}</style></head><body>
+    pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${t('meeting_view.pdf_preview_title')} — ${meeting.title}</title><style>${styles}</style></head><body>
       <h1>📋 ${meeting.title}</h1>
       <div class="meta">
-        📅 날짜: ${dateStr} &nbsp;|&nbsp; ⏰ 시간: ${timeStr} &nbsp;|&nbsp; 📁 출처: ${meeting.source === 'youtube' ? 'YouTube' : '파일 업로드'}
+        📅 ${t('meeting_view.pdf_date_label')}: ${dateStr} &nbsp;|&nbsp; ⏰ ${t('meeting_view.pdf_time_label')}: ${timeStr} &nbsp;|&nbsp; 📁 ${t('meeting_view.pdf_source_label')}: ${meeting.source === 'youtube' ? 'YouTube' : t('meeting_view.pdf_source_file')}
       </div>
-      ${meeting.topics.length > 0 ? `<h2>🏷️ 안건 / 주요 주제</h2><ul>${topicsHtml}</ul>` : ''}
-      <h2>💬 대화 내용</h2>${transcriptHtml}
-      <h2>📊 분석 결과</h2>
-      ${meeting.decisions.length > 0 ? `<h3>결정 사항</h3>${decisionHtml}` : ''}
-      ${meeting.actionItems.length > 0 ? `<h3>액션 아이템</h3>${actionHtml}` : ''}
-      <h2>📝 요약</h2>${summaryHtml}
+      ${meeting.topics.length > 0 ? `<h2>🏷️ ${t('meeting_view.pdf_topics_label')}</h2><ul>${topicsHtml}</ul>` : ''}
+      <h2>💬 ${t('meeting_view.pdf_transcript_label')}</h2>${transcriptHtml}
+      <h2>📊 ${t('meeting_view.pdf_analysis_label')}</h2>
+      ${meeting.decisions.length > 0 ? `<h3>${t('meeting_view.pdf_decisions_label')}</h3>${decisionHtml}` : ''}
+      ${meeting.actionItems.length > 0 ? `<h3>${t('meeting_view.pdf_action_items_label')}</h3>${actionHtml}` : ''}
+      <h2>📝 ${t('meeting_view.pdf_summary_label')}</h2>${summaryHtml}
     </body></html>`);
     pw.document.close();
     setTimeout(() => { pw.focus(); pw.print(); }, 300);
@@ -125,7 +125,7 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
         {/* Modal header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Printer size={18} className="text-blue-400" /> 회의록 미리보기
+            <Printer size={18} className="text-blue-400" /> {t('meeting_view.pdf_preview_title')}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
             <XIcon size={20} />
@@ -140,14 +140,14 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
             <div className="flex flex-wrap gap-3 text-xs text-gray-400">
               <span>📅 {dateStr}</span>
               <span>⏰ {timeStr}</span>
-              <span>📁 {meeting.source === 'youtube' ? 'YouTube' : '파일 업로드'}</span>
+              <span>📁 {meeting.source === 'youtube' ? 'YouTube' : t('meeting_view.pdf_source_file')}</span>
             </div>
           </div>
 
           {/* Topics */}
           {meeting.topics.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">🏷️ 안건 / 주요 주제</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">🏷️ {t('meeting_view.pdf_topics_label')}</h3>
               <div className="flex flex-wrap gap-2">
                 {meeting.topics.map((topic, i) => (
                   <span key={i} className="px-2 py-0.5 bg-blue-900/40 text-blue-300 rounded-full text-xs">{topic}</span>
@@ -158,7 +158,7 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
 
           {/* Transcript */}
           <div>
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">💬 대화 내용</h3>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">💬 {t('meeting_view.pdf_transcript_label')}</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-800/40 rounded-lg p-3">
               {meeting.segments.length > 0 ? meeting.segments.map((s, i) => (
                 <div key={i} className="text-xs">
@@ -174,7 +174,7 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
           {/* Decisions */}
           {meeting.decisions.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">✅ 결정 사항</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">✅ {t('meeting_view.pdf_decisions_label')}</h3>
               <div className="space-y-1">
                 {meeting.decisions.map((d, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
@@ -189,14 +189,14 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
           {/* Action Items */}
           {meeting.actionItems.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">📌 액션 아이템</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">📌 {t('meeting_view.pdf_action_items_label')}</h3>
               <div className="space-y-1.5">
                 {meeting.actionItems.map((a, i) => {
                   const badgeColor = a.priority === 'high' ? 'bg-red-900/40 text-red-300' : a.priority === 'medium' ? 'bg-yellow-900/40 text-yellow-300' : 'bg-green-900/40 text-green-300';
                   return (
                     <div key={i} className="flex items-start gap-2 text-xs">
                       <span className={`px-1.5 py-0.5 rounded ${badgeColor} shrink-0`}>
-                        {a.priority === 'high' ? '높음' : a.priority === 'medium' ? '중간' : '낮음'}
+                        {a.priority === 'high' ? t('meeting_view.priority_high') : a.priority === 'medium' ? t('meeting_view.priority_medium') : t('meeting_view.priority_low')}
                       </span>
                       <span className="text-gray-300 flex-1">{a.task}</span>
                       {a.owner && <span className="text-gray-500">{a.owner}</span>}
@@ -210,7 +210,7 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
 
           {/* Summary */}
           <div>
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">📝 요약</h3>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">📝 {t('meeting_view.pdf_summary_label')}</h3>
             <p className="text-sm font-medium text-blue-300 mb-2">{meeting.summary.oneLiner || '—'}</p>
             <ul className="space-y-1">
               {meeting.summary.bullets.map((b, i) => (
@@ -228,13 +228,13 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 rounded-lg transition-colors"
           >
-            취소
+            {t('meeting_view.pdf_cancel')}
           </button>
           <button
             onClick={handlePrint}
             className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
           >
-            <Printer size={14} /> 출력
+            <Printer size={14} /> {t('meeting_view.pdf_print')}
           </button>
         </div>
       </div>
@@ -759,7 +759,7 @@ export function MeetingView() {
                 onClick={() => setShowPdfPreview(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-xs font-medium transition-colors shrink-0"
               >
-                <Printer size={13} /> PDF 출력
+                <Printer size={13} /> {t('meeting_view.pdf_export')}
               </button>
             </div>
 

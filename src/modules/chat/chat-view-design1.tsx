@@ -413,7 +413,6 @@ export default function D1ChatView({
             isStreaming={isStreaming}
             placeholder={t.placeholder}
             attachLabel={t.attachFile}
-            voiceLabel={t.voiceInput}
             sendLabel={t.send}
             floating={false}
           />
@@ -477,7 +476,6 @@ export default function D1ChatView({
               isStreaming={isStreaming}
               placeholder={t.placeholderActive}
               attachLabel={t.attachFile}
-              voiceLabel={t.voiceInput}
               sendLabel={t.send}
               floating
             />
@@ -732,7 +730,6 @@ function D1InputBar({
   isStreaming,
   placeholder,
   attachLabel,
-  voiceLabel,
   sendLabel,
   floating,
 }: {
@@ -746,10 +743,23 @@ function D1InputBar({
   isStreaming: boolean;
   placeholder: string;
   attachLabel: string;
-  voiceLabel: string;
   sendLabel: string;
   floating: boolean;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleAttachClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      onChange(value ? `${value}\n[첨부: ${file.name}]` : `[첨부: ${file.name}]`);
+      e.target.value = '';
+    }
+  }
+
   return (
     <div
       className="w-full max-w-[720px] rounded-[20px] border bg-white px-[18px] pt-4 pb-3 transition-[border-color,box-shadow] duration-200 focus-within:shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
@@ -760,6 +770,14 @@ function D1InputBar({
         margin: floating ? '0 auto' : undefined,
       }}
     >
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileChange}
+        accept="image/*,.pdf,.txt,.md,.csv,.json,.docx,.xlsx"
+      />
       <textarea
         ref={textareaRef}
         value={value}
@@ -772,11 +790,8 @@ function D1InputBar({
       />
       <div className="mt-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <D1IconButton title={attachLabel}>
+          <D1IconButton title={attachLabel} onClick={handleAttachClick}>
             <AttachIcon />
-          </D1IconButton>
-          <D1IconButton title={voiceLabel}>
-            <MicIcon />
           </D1IconButton>
         </div>
         <button
