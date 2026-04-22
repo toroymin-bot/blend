@@ -3,7 +3,7 @@
 > 새 세션 시작 시 이 파일 하나만 읽으면 전체 컨텍스트 복원됩니다.  
 > 매 작업 완료 후 꼬미가 이 파일을 업데이트합니다.
 
-**Last updated:** 2026-04-22 (QA Phase 2~4 완료 후)
+**Last updated:** 2026-04-22 (Design1 Phase 3 완료 — 온보딩 + D1SettingsView)
 
 ---
 
@@ -60,10 +60,11 @@ openpyxl 로컬 저장 절대 금지
 | Phase 3b | API 키 온보딩 화면 (D1KeyOnboarding) | 03783f7 |
 | Phase 4 | 전체 사이드바 재설계 + feature parity | 57ac124 |
 | Bug fix | async params /en/ 영어 표시 수정 | 8ebad9c |
+| Phase 3 | 온보딩 가드 + D1SettingsView + 공용 providers | 1a8e2c4 |
 
 #### Design1 남은 작업
-- Phase 5+: 내부 뷰 리디자인 (Compare, Documents, Models, Meeting, Agents, Prompts, Settings, Dashboard, Security, Billing, About)
-- 현재 내부 뷰는 메인 컴포넌트 재사용 중
+- Phase 5+: 내부 뷰 리디자인 (Compare, Documents, Models, Meeting, Agents, Prompts, Dashboard, Security, Billing, About)
+- 현재 내부 뷰는 메인 컴포넌트 재사용 중 (Settings만 D1SettingsView로 교체 완료)
 
 #### Design1 핵심 규칙
 - 컴포넌트 prefix: `D1` (D1ChatView, D1KeyOnboarding, D1Sidebar 등)
@@ -73,10 +74,13 @@ openpyxl 로컬 저장 절대 금지
 
 #### Design1 핵심 파일
 ```
-src/app/design1/[lang]/page-client.tsx   ← 메인 진입점
-src/app/design1/[lang]/qatest/page.tsx   ← QA 테스트 페이지
+src/app/design1/[lang]/page-client.tsx              ← 메인 진입점
+src/app/design1/[lang]/qatest/page.tsx              ← QA 테스트 페이지
 src/app/design1/layout.tsx
-src/modules/chat/chat-view-design1.tsx   ← D1 채팅 뷰
+src/modules/chat/chat-view-design1.tsx              ← D1 채팅 뷰
+src/modules/onboarding/onboarding-view-design1.tsx  ← D1 온보딩 (Phase 3)
+src/modules/settings/settings-view-design1.tsx      ← D1 설정 Apple-style (Phase 3)
+src/modules/shared/providers-design1.ts             ← D1_PROVIDERS + API_GUIDE_STEPS_KEYS 공유
 ```
 
 ### Design2 — `/design2/[lang]/`
@@ -127,6 +131,7 @@ src/modules/chat/chat-view-design1.tsx   ← D1 채팅 뷰
 
 | 해시 | 내용 |
 |------|------|
+| 1a8e2c4 | feat(design1): Phase 3 온보딩 + D1SettingsView + providers 공유 파일 |
 | 183adc9 | fix(QA): i18n 하드코딩 한국어 제거 + main async params 수정 |
 | a052d3b | fix: design2/3 async params 수정 |
 | 6f8163b | fix(i18n): chat.more_options → chat 섹션 이동 |
