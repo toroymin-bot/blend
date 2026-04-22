@@ -123,7 +123,9 @@ export default function D1ChatView({
   lang: 'ko' | 'en';
   onConversationStart?: (title: string) => void;
 }) {
-  const { getKey, hasKey } = useAPIKeyStore();
+  const { getKey, hasKey, loadFromStorage } = useAPIKeyStore();
+
+  useEffect(() => { loadFromStorage(); }, []);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -133,6 +135,7 @@ export default function D1ChatView({
 
   const t = copy[lang] ?? copy.en;
   const hasMessages = messages.length > 0 || isStreaming;
+  const hasAnyKey = (['openai', 'anthropic', 'google', 'deepseek', 'groq'] as AIProvider[]).some(p => hasKey(p));
 
   const [value, setValue] = useState('');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
@@ -313,6 +316,10 @@ export default function D1ChatView({
   const fontStack = lang === 'ko'
     ? '"Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif'
     : '"Geist", -apple-system, system-ui, sans-serif';
+
+  if (!hasAnyKey) {
+    return <D1KeyOnboarding lang={lang} />;
+  }
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
@@ -864,6 +871,151 @@ function D1IconButton({
     >
       {children}
     </button>
+  );
+}
+
+// ============================================================
+// API Key Onboarding
+// ============================================================
+const ONBOARD_PROVIDERS = [
+  { id: 'openai'    as AIProvider, name: 'OpenAI',    color: '#10a37f', placeholder: 'sk-...',      hint_ko: 'GPT-4o, GPT-4.1',        hint_en: 'GPT-4o, GPT-4.1' },
+  { id: 'anthropic' as AIProvider, name: 'Anthropic', color: '#d97757', placeholder: 'sk-ant-...', hint_ko: 'Claude Opus 4, Sonnet 4', hint_en: 'Claude Opus 4, Sonnet 4' },
+  { id: 'google'    as AIProvider, name: 'Google',    color: '#4285f4', placeholder: 'AIza...',     hint_ko: 'Gemini 1.5 Flash (무료)', hint_en: 'Gemini 1.5 Flash (free)' },
+  { id: 'groq'      as AIProvider, name: 'Groq',      color: '#f55036', placeholder: 'gsk_...',     hint_ko: 'Llama 3 (무료)',          hint_en: 'Llama 3 (free)' },
+  { id: 'deepseek'  as AIProvider, name: 'DeepSeek',  color: '#4B5EFC', placeholder: 'sk-...',      hint_ko: 'DeepSeek-V3',            hint_en: 'DeepSeek-V3' },
+] as const;
+
+function D1KeyOnboarding({ lang }: { lang: Lang }) {
+  const { setKey } = useAPIKeyStore();
+  const [selected, setSelected] = useState<string | null>(null);
+  const [keyInput, setKeyInput] = useState('');
+  const [saved, setSaved] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const provider = ONBOARD_PROVIDERS.find(p => p.id === selected);
+
+  const fontStack = lang === 'ko'
+    ? '"Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif'
+    : '"Geist", -apple-system, system-ui, sans-serif';
+
+  const t = {
+    title:    lang === 'ko' ? 'API 키 설정'                                         : 'Set up your API key',
+    subtitle: lang === 'ko' ? 'AI와 대화하려면 API 키를 먼저 등록해주세요.'              : 'Add an API key from any provider to start chatting.',
+    choose:   lang === 'ko' ? 'AI 제공사 선택'                                        : 'Choose a provider',
+    inputLabel: (name: string) => lang === 'ko' ? `${name} API 키 입력` : `Enter your ${name} API key`,
+    save:     lang === 'ko' ? '저장하고 시작하기'                                      : 'Save and start',
+    privacy:  lang === 'ko' ? '키는 브라우저에만 저장됩니다. 서버로 전송되지 않습니다.'   : 'Keys are stored in your browser only — never sent to our servers.',
+    back:     lang === 'ko' ? '← 뒤로'                                               : '← Back',
+  };
+
+  function handleSave() {
+    if (!selected || !keyInput.trim() || !provider) return;
+    setKey(provider.id, keyInput.trim());
+    setSaved(true);
+  }
+
+  useEffect(() => {
+    if (selected && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 80);
+    }
+  }, [selected]);
+
+  return (
+    <div
+      className="flex h-full flex-col items-center justify-center px-8 pb-16"
+      style={{ fontFamily: fontStack, background: tokens.bg }}
+    >
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes d1-rise { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+      `}} />
+
+      {/* Card */}
+      <div
+        className="w-full max-w-[420px] rounded-[24px] border bg-white px-8 py-10"
+        style={{ borderColor: tokens.borderStrong, boxShadow: '0 12px 48px rgba(0,0,0,0.07)', animation: 'd1-rise 600ms cubic-bezier(0.16,1,0.3,1) both' }}
+      >
+        {/* Key icon */}
+        <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-[14px]" style={{ background: tokens.accentSoft }}>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={tokens.accent} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4" />
+          </svg>
+        </div>
+
+        <h2 className="mb-1.5 text-[22px] font-semibold tracking-[-0.03em]" style={{ color: tokens.text }}>
+          {t.title}
+        </h2>
+        <p className="mb-7 text-[14px] leading-[1.55]" style={{ color: tokens.textDim }}>
+          {t.subtitle}
+        </p>
+
+        {!selected ? (
+          /* Provider list */
+          <div className="flex flex-col gap-2">
+            <p className="mb-1 text-[11.5px] font-medium uppercase tracking-[0.07em]" style={{ color: tokens.textFaint }}>
+              {t.choose}
+            </p>
+            {ONBOARD_PROVIDERS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => { setSelected(p.id); setKeyInput(''); }}
+                className="flex items-center gap-3 rounded-[12px] border px-4 py-3 text-left transition-all duration-150 hover:bg-black/[0.025]"
+                style={{ borderColor: tokens.borderStrong }}
+              >
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: p.color }} />
+                <span className="flex-1 text-[14px] font-medium" style={{ color: tokens.text }}>{p.name}</span>
+                <span className="text-[12px]" style={{ color: tokens.textFaint }}>
+                  {lang === 'ko' ? p.hint_ko : p.hint_en}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          /* Key input */
+          <div style={{ animation: 'd1-rise 250ms cubic-bezier(0.16,1,0.3,1) both' }}>
+            <button
+              onClick={() => { setSelected(null); setKeyInput(''); setSaved(false); }}
+              className="mb-4 text-[13px] transition-colors hover:opacity-60"
+              style={{ color: tokens.textDim }}
+            >
+              {t.back}
+            </button>
+
+            <div className="mb-3 flex items-center gap-2.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: provider?.color ?? tokens.accent }} />
+              <span className="text-[15px] font-semibold" style={{ color: tokens.text }}>{provider?.name}</span>
+            </div>
+
+            <label className="mb-1.5 block text-[12px]" style={{ color: tokens.textDim }}>
+              {provider ? t.inputLabel(provider.name) : ''}
+            </label>
+            <input
+              ref={inputRef}
+              type="password"
+              value={keyInput}
+              onChange={e => { setKeyInput(e.target.value); setSaved(false); }}
+              placeholder={provider?.placeholder ?? ''}
+              onKeyDown={e => e.key === 'Enter' && handleSave()}
+              className="mb-4 w-full rounded-[10px] border px-4 py-3 text-[14px] font-mono outline-none transition-[border-color,box-shadow] focus:border-transparent focus:shadow-[0_0_0_2px_rgba(198,90,60,0.25)]"
+              style={{ borderColor: tokens.borderStrong, color: tokens.text, background: tokens.surfaceAlt }}
+            />
+
+            <button
+              onClick={handleSave}
+              disabled={!keyInput.trim() || saved}
+              className="w-full rounded-[12px] py-3 text-[14px] font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background: saved ? '#22c55e' : tokens.accent, color: '#fff' }}
+            >
+              {saved ? (lang === 'ko' ? '저장됨 ✓' : 'Saved ✓') : t.save}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Privacy note */}
+      <p className="mt-6 max-w-[360px] text-center text-[12px] leading-[1.6]" style={{ color: tokens.textFaint }}>
+        {t.privacy}
+      </p>
+    </div>
   );
 }
 
