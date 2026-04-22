@@ -184,7 +184,8 @@
     "scroll_to_bottom": "맨 아래로",
     "datasource_connected": "연결됨",
     "tts_on_hint": "TTS 자동재생 ON — 클릭하여 끄기",
-    "tts_off_hint": "TTS 자동재생 OFF — 클릭하여 켜기"
+    "tts_off_hint": "TTS 자동재생 OFF — 클릭하여 켜기",
+    "more_options": "더보기"
   },
   "settings": {
     "title": "설정",

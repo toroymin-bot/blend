@@ -184,7 +184,8 @@
     "scroll_to_bottom": "Scroll to bottom",
     "datasource_connected": "connected",
     "tts_on_hint": "TTS autoplay ON — click to disable",
-    "tts_off_hint": "TTS autoplay OFF — click to enable"
+    "tts_off_hint": "TTS autoplay OFF — click to enable",
+    "more_options": "More options"
   },
   "settings": {
     "title": "Settings",
