@@ -80,7 +80,7 @@ export function AboutView({ onNavigate }: AboutViewProps) {
               <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
                 <p className="text-xs text-red-400 font-semibold mb-1 uppercase tracking-wide">{t('about.why_compare_sub')}</p>
                 <p className="text-2xl font-extrabold text-red-400">$60<span className="text-sm font-normal text-red-400/60">/mo</span></p>
-                <p className="text-xs text-red-400/60 mt-1">실사용 $15 + 낭비 $45</p>
+                <p className="text-xs text-red-400/60 mt-1">{t('about.why_sub_breakdown')}</p>
               </div>
               <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
                 <p className="text-xs text-blue-400 font-semibold mb-1 uppercase tracking-wide">{t('about.why_compare_blend')}</p>

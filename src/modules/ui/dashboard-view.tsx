@@ -36,11 +36,7 @@ function ProviderLinksNotice({ t }: { t: (key: string) => string }) {
     <div className="relative mb-4">
       <div className="flex items-center gap-1.5 bg-surface-2 rounded-lg px-3 py-2 text-xs text-on-surface-muted">
         <span>💡</span>
-        <span>
-          이 기기{' '}
-          <span className="text-yellow-400 font-medium">사용량</span>
-          {' '}기준이에요. 실제 청구는 각 AI 서비스에서 확인하세요.
-        </span>
+        <span>{t('dashboard.per_device_notice')}</span>
         <button
           onClick={() => setOpen((v) => !v)}
           className="ml-auto flex items-center gap-0.5 text-blue-400 hover:text-blue-300 transition-colors shrink-0"

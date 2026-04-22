@@ -979,6 +979,7 @@
     "why_api_body": "With your own API key, there's no subscription — you pay OpenAI, Anthropic, and Google directly for actual usage. The Blend $9/mo is just the app fee to manage all three in one place.",
     "why_compare_sub": "Individual subscriptions",
     "why_compare_blend": "Blend + API",
-    "why_note": "* API fees are billed directly by OpenAI, Anthropic, and Google. Blend never touches that money."
+    "why_note": "* API fees are billed directly by OpenAI, Anthropic, and Google. Blend never touches that money.",
+    "why_sub_breakdown": "Actual $15 + wasted $45"
   }
 }

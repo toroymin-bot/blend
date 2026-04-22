@@ -8,6 +8,7 @@ export function generateStaticParams() {
   return [{ lang: 'ko' }, { lang: 'en' }];
 }
 
-export default function LangPage({ params }: { params: { lang: string } }) {
-  return <LangPageClient lang={params.lang} />;
+export default async function LangPage({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang } = await params;
+  return <LangPageClient lang={lang} />;
 }

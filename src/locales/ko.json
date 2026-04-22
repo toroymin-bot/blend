@@ -979,6 +979,7 @@
     "why_api_body": "API 키를 등록하면 구독 없이 OpenAI·Anthropic·Google에 실사용분만 내요. Blend 구독 $9는 3개 AI를 하나로 묶어주는 앱 이용료예요 — AI 요금이 아니에요.",
     "why_compare_sub": "개별 구독 방식",
     "why_compare_blend": "Blend API 방식",
-    "why_note": "* API 사용료는 OpenAI·Anthropic·Google에 직접 청구돼요. 블렌드 서버를 거치지 않아요."
+    "why_note": "* API 사용료는 OpenAI·Anthropic·Google에 직접 청구돼요. 블렌드 서버를 거치지 않아요.",
+    "why_sub_breakdown": "실사용 $15 + 낭비 $45"
   }
 }
