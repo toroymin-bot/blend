@@ -116,7 +116,13 @@ type Message = {
 // ============================================================
 // Main component
 // ============================================================
-export default function D1ChatView({ lang }: { lang: 'ko' | 'en' }) {
+export default function D1ChatView({
+  lang,
+  onConversationStart,
+}: {
+  lang: 'ko' | 'en';
+  onConversationStart?: (title: string) => void;
+}) {
   const { getKey, hasKey } = useAPIKeyStore();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -130,6 +136,7 @@ export default function D1ChatView({ lang }: { lang: 'ko' | 'en' }) {
 
   const [value, setValue] = useState('');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const modelChipRef = useRef<HTMLButtonElement>(null);
@@ -153,6 +160,17 @@ export default function D1ChatView({ lang }: { lang: 'ko' | 'en' }) {
     const id = setTimeout(() => textareaRef.current?.focus(), 300);
     return () => clearTimeout(id);
   }, []);
+
+  // Scroll-to-bottom tracking
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 100);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [hasMessages]);
 
   // Close dropdown on outside click / escape
   useEffect(() => {
@@ -184,6 +202,9 @@ export default function D1ChatView({ lang }: { lang: 'ko' | 'en' }) {
     const userMsg: Message = { id: Date.now().toString(), role: 'user', content };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
+    if (messages.length === 0 && onConversationStart) {
+      onConversationStart(content.slice(0, 45));
+    }
     setIsStreaming(true);
     setStreamingContent('');
 
@@ -416,6 +437,20 @@ export default function D1ChatView({ lang }: { lang: 'ko' | 'en' }) {
             {t.footer}
           </div>
         </div>
+      )}
+
+      {/* Scroll-to-bottom button */}
+      {hasMessages && !isAtBottom && (
+        <button
+          onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })}
+          className="absolute bottom-[148px] right-6 z-10 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)]"
+          style={{ borderColor: tokens.borderStrong }}
+          aria-label={lang === 'ko' ? '맨 아래로' : 'Scroll to bottom'}
+        >
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: tokens.textDim }}>
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
       )}
 
       {/* Sticky bottom input (only when messages exist) */}
