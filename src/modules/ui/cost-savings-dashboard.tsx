@@ -8,10 +8,15 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useTranslation } from '@/lib/i18n';
 import { useCountry } from '@/lib/use-country';
 
+function formatUSD(amount: number): string {
+  const rounded = Math.round(amount * 10) / 10;
+  return rounded % 1 === 0 ? `$${rounded}` : `$${rounded.toFixed(1)}`;
+}
 function formatDual(usd: number, country: string): string {
-  if (country === 'KR') return `$${usd.toFixed(1)} (₩${Math.round(usd * 1380).toLocaleString()})`;
-  if (country === 'PH') return `$${usd.toFixed(1)} (₱${Math.round(usd * 56).toLocaleString()})`;
-  return `$${usd.toFixed(1)}`;
+  const base = formatUSD(usd);
+  if (country === 'KR') return `${base} (₩${Math.round(usd * 1380).toLocaleString()})`;
+  if (country === 'PH') return `${base} (₱${Math.round(usd * 56).toLocaleString()})`;
+  return base;
 }
 
 // Monthly subscription prices (USD, 2026 market rates)

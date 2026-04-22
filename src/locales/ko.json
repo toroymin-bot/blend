@@ -667,7 +667,9 @@
     "tag": "태그",
     "tag_name": "태그 이름",
     "add_tag": "태그 추가",
-    "remove_tag": "태그 제거"
+    "remove_tag": "태그 제거",
+    "coming_soon": "준비 중",
+    "more_options": "더보기"
   },
   "models_view": {
     "title": "모델 관리",
@@ -768,7 +770,21 @@
     "topics_label": "주요 토픽",
     "assignee": "담당자",
     "due_date": "마감일",
-    "key_decision": "주요 결정"
+    "key_decision": "주요 결정",
+    "pdf_export": "PDF 출력",
+    "pdf_preview_title": "회의록 미리보기",
+    "pdf_date_label": "날짜",
+    "pdf_time_label": "시간",
+    "pdf_source_label": "출처",
+    "pdf_source_file": "파일 업로드",
+    "pdf_topics_label": "안건 / 주요 주제",
+    "pdf_transcript_label": "대화 내용",
+    "pdf_analysis_label": "분석 결과",
+    "pdf_decisions_label": "결정 사항",
+    "pdf_action_items_label": "액션 아이템",
+    "pdf_summary_label": "요약",
+    "pdf_cancel": "취소",
+    "pdf_print": "출력"
   },
   "security_view": {
     "page_title": "보안 안내",

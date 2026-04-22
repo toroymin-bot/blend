@@ -667,7 +667,9 @@
     "tag": "Tag",
     "tag_name": "Tag name",
     "add_tag": "Add tag",
-    "remove_tag": "Remove tag"
+    "remove_tag": "Remove tag",
+    "coming_soon": "Coming Soon",
+    "more_options": "More options"
   },
   "models_view": {
     "title": "Model Management",
@@ -768,7 +770,21 @@
     "topics_label": "Key Topics",
     "assignee": "Assignee",
     "due_date": "Due date",
-    "key_decision": "Key decision"
+    "key_decision": "Key decision",
+    "pdf_export": "PDF Export",
+    "pdf_preview_title": "Meeting Minutes Preview",
+    "pdf_date_label": "Date",
+    "pdf_time_label": "Time",
+    "pdf_source_label": "Source",
+    "pdf_source_file": "File Upload",
+    "pdf_topics_label": "Agenda / Key Topics",
+    "pdf_transcript_label": "Transcript",
+    "pdf_analysis_label": "Analysis Results",
+    "pdf_decisions_label": "Decisions",
+    "pdf_action_items_label": "Action Items",
+    "pdf_summary_label": "Summary",
+    "pdf_cancel": "Cancel",
+    "pdf_print": "Print"
   },
   "security_view": {
     "page_title": "Security Guide",

@@ -53,7 +53,7 @@
     - 자동 AI 매칭 선택기: 변경 없음 (그대로 유지)
   - **참고 파일**: `src/modules/chat/chat-view.tsx` (툴바 렌더링 부분)
 
-- [ ] **FIX-01** 전체 금액 표시 소수점 정리 — `$9.0` → `$9`, `$9.5` → `$9.5`
+- [x] **FIX-01** 전체 금액 표시 소수점 정리 — `$9.0` → `$9`, `$9.5` → `$9.5` ✅ 2026-04-22
   - **규칙**: 소수점 첫째 자리가 0이면 소수점 제거, 0이 아니면 1자리까지만 표시
   - **로직**:
     ```ts
@@ -129,6 +129,15 @@
     3. silenceDetection / auto-stop 로직 비활성화
     4. 수동 stop + Enter 제출 UX 구현
     5. 완료 후 `gx.update_improvement_status(12, "🔵 Pending Re-test", notes="...")` 실행
+
+- [x] **FIX-03** `chat-view.tsx:1531-1532` — `더보기` 하드코딩 → i18n 키로 교체 ✅ 2026-04-22
+  - `title="더보기"` / `aria-label="더보기"` → `t('chat.more_options')` 로 교체
+  - ko.json: `"more_options": "더보기"`, en.json: `"more_options": "More options"` 추가
+
+- [ ] **GAS-AUTH** GAS Web App 재인증 필요
+  - 현상: sendDevReport 실행 시 Gmail 권한 오류 발생
+  - 해결: 사용자가 GAS 에디터에서 수동 재인증 필요 (Gmail scope 승인)
+  - URL: https://script.google.com/macros/s/AKfycbzZbYIKx7CSfMC2HhxBtkmL4p4t1DBYwoMAZwgRwSKRYztjwQbXcvxEK2MeoMvdMFfM/exec
 
 ---
 

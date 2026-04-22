@@ -1528,8 +1528,8 @@ export function ChatView() {
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700"
-                title="더보기"
-                aria-label="더보기"
+                title={t('chat.more_options')}
+                aria-label={t('chat.more_options')}
               >
                 <MoreHorizontal size={16} />
               </button>

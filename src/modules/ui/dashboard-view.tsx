@@ -10,10 +10,15 @@ import { useCountry } from '@/lib/use-country';
 const KRW = 1380;
 const PHP = 56;
 
+function formatUSD(amount: number): string {
+  const rounded = Math.round(amount * 10) / 10;
+  return rounded % 1 === 0 ? `$${rounded}` : `$${rounded.toFixed(1)}`;
+}
 function formatDual(usd: number, country: string): string {
-  if (country === 'KR') return `$${usd.toFixed(1)} (₩${Math.round(usd * KRW).toLocaleString()})`;
-  if (country === 'PH') return `$${usd.toFixed(1)} (₱${Math.round(usd * PHP).toLocaleString()})`;
-  return `$${usd.toFixed(1)}`;
+  const base = formatUSD(usd);
+  if (country === 'KR') return `${base} (₩${Math.round(usd * KRW).toLocaleString()})`;
+  if (country === 'PH') return `${base} (₱${Math.round(usd * PHP).toLocaleString()})`;
+  return base;
 }
 
 // ── Provider Usage Links Dropdown ─────────────────────────────────────────────
