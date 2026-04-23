@@ -143,6 +143,17 @@
 
 ## ✅ 완료된 항목
 
+### [2026-04-23 nighttask 자동 완료]
+
+- [x] **TEST-010** `meeting-mindmap.tsx` — Mind Map 줌/드래그 인터랙션 추가 ✅ 2026-04-23
+  - 마우스 휠 줌 (0.3x~3x), 드래그 패닝, +/− 버튼, ↺ 리셋, 줌% 표시
+  - i18n: tab_mindmap, mindmap_no_data, mindmap_zoom_hint 키 추가
+
+- [x] **i18n-AUDIT** 전체 i18n 감사 완료 ✅ 2026-04-23
+  - about-view.tsx 비교표 헤더 "Service"/"Individual"/"Total" → t() 키 교체
+  - meeting-view.tsx "Mind Map" 탭 라벨 → t('meeting_view.tab_mindmap') 교체
+  - KO/EN 931개 키 완전 일치 (미번역 0개)
+
 ### [이전 세션 누락 항목]
 
 - [x] **PREV-01** `meeting-view.tsx` — PDF 출력 버튼 추가 ✅ 2026-04-20

@@ -986,6 +986,9 @@
     "why_sub_breakdown": "실사용 $15 + 낭비 $45",
     "compare_col_service": "서비스",
     "compare_col_individual": "개별 구독",
-    "compare_col_total": "합계"
+    "compare_col_total": "합계",
+    "why_blend_note": "API $15 + Blend $9",
+    "compare_total_sub_price": "$60+/월",
+    "compare_total_blend_price": "$9/월 + API"
   }
 }

@@ -986,6 +986,9 @@
     "why_sub_breakdown": "Actual $15 + wasted $45",
     "compare_col_service": "Service",
     "compare_col_individual": "Individual",
-    "compare_col_total": "Total"
+    "compare_col_total": "Total",
+    "why_blend_note": "API $15 + Blend $9",
+    "compare_total_sub_price": "$60+/mo",
+    "compare_total_blend_price": "$9/mo + API"
   }
 }

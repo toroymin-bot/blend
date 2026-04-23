@@ -124,25 +124,25 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-on-surface">{t('savings_view.individual_total_label')}</span>
-                <span className="text-red-300 font-medium">${Math.round(totalIndividual)}/{t('savings_view.per_month').replace('/ ', '')}</span>
+                <span className="text-red-300 font-medium">{formatUSD(totalIndividual)}/{t('savings_view.per_month').replace('/ ', '')}</span>
               </div>
               <div className="h-6 bg-gray-800 rounded-full overflow-hidden">
                 <div className="h-full bg-red-500/70 rounded-full flex items-center justify-end pr-2" style={{ width: '100%' }}>
-                  <span className="text-xs text-red-200 font-medium">${totalIndividual.toFixed(0)}</span>
+                  <span className="text-xs text-red-200 font-medium">{formatUSD(totalIndividual)}</span>
                 </div>
               </div>
             </div>
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-on-surface">{t('savings_view.blend_direct')}</span>
-                <span className="text-blue-300 font-medium">~${Math.round(effectiveBlendMonthly)}/{t('savings_view.per_month').replace('/ ', '')}</span>
+                <span className="text-blue-300 font-medium">~{formatUSD(effectiveBlendMonthly)}/{t('savings_view.per_month').replace('/ ', '')}</span>
               </div>
               <div className="h-6 bg-gray-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue-500/70 rounded-full flex items-center justify-end pr-2"
                   style={{ width: `${Math.max(4, (effectiveBlendMonthly / totalIndividual) * 100)}%` }}
                 >
-                  <span className="text-xs text-blue-200 font-medium">${effectiveBlendMonthly.toFixed(0)}</span>
+                  <span className="text-xs text-blue-200 font-medium">{formatUSD(effectiveBlendMonthly)}</span>
                 </div>
               </div>
             </div>
@@ -153,10 +153,10 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
             <span className="text-2xl">💰</span>
             <div>
               <p className="text-sm font-medium text-green-300">
-                {t('savings_view.savings_message', { amount: Math.round(savings), pct: savingsPercent })}
+                {t('savings_view.savings_message', { amount: savings.toFixed(1), pct: savingsPercent })}
               </p>
               <p className="text-xs text-on-surface-muted mt-0.5">
-                {t('savings_view.yearly_savings', { amount: (savings * 12).toFixed(0) })}
+                {t('savings_view.yearly_savings', { amount: (savings * 12).toFixed(1) })}
               </p>
             </div>
           </div>

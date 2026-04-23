@@ -449,7 +449,7 @@ export function SettingsView() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-on-surface-muted mb-1 block">Base URL</label>
+                <label className="text-xs text-on-surface-muted mb-1 block">{t('settings.base_url')}</label>
                 <input
                   type="text"
                   value={newModelBaseUrl}

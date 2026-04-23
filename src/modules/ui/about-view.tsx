@@ -85,7 +85,7 @@ export function AboutView({ onNavigate }: AboutViewProps) {
               <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
                 <p className="text-xs text-blue-400 font-semibold mb-1 uppercase tracking-wide">{t('about.why_compare_blend')}</p>
                 <p className="text-2xl font-extrabold text-blue-400">~$24<span className="text-sm font-normal text-blue-400/60">/mo</span></p>
-                <p className="text-xs text-blue-400/60 mt-1">API $15 + Blend $9</p>
+                <p className="text-xs text-blue-400/60 mt-1">{t('about.why_blend_note')}</p>
               </div>
             </div>
 
@@ -134,8 +134,8 @@ export function AboutView({ onNavigate }: AboutViewProps) {
               ))}
               <tr className="font-semibold">
                 <td className="pt-3 text-on-surface">{t('about.compare_col_total')}</td>
-                <td className="pt-3 text-right text-red-400 text-base">$60+/mo</td>
-                <td className="pt-3 text-right text-blue-400 text-base">$9/mo + API</td>
+                <td className="pt-3 text-right text-red-400 text-base">{t('about.compare_total_sub_price')}</td>
+                <td className="pt-3 text-right text-blue-400 text-base">{t('about.compare_total_blend_price')}</td>
               </tr>
             </tbody>
           </table>
