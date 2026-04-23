@@ -119,8 +119,8 @@ export function AboutView({ onNavigate }: AboutViewProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-on-surface-muted text-xs uppercase tracking-wider border-b border-gray-700">
-                <th className="text-left pb-2">Service</th>
-                <th className="text-right pb-2">Individual</th>
+                <th className="text-left pb-2">{t('about.compare_col_service')}</th>
+                <th className="text-right pb-2">{t('about.compare_col_individual')}</th>
                 <th className="text-right pb-2">Blend</th>
               </tr>
             </thead>
@@ -133,7 +133,7 @@ export function AboutView({ onNavigate }: AboutViewProps) {
                 </tr>
               ))}
               <tr className="font-semibold">
-                <td className="pt-3 text-on-surface">Total</td>
+                <td className="pt-3 text-on-surface">{t('about.compare_col_total')}</td>
                 <td className="pt-3 text-right text-red-400 text-base">$60+/mo</td>
                 <td className="pt-3 text-right text-blue-400 text-base">$9/mo + API</td>
               </tr>

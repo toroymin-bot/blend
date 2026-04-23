@@ -785,7 +785,10 @@
     "pdf_action_items_label": "Action Items",
     "pdf_summary_label": "Summary",
     "pdf_cancel": "Cancel",
-    "pdf_print": "Print"
+    "pdf_print": "Print",
+    "tab_mindmap": "Mind Map",
+    "mindmap_no_data": "No mindmap data available.",
+    "mindmap_zoom_hint": "Scroll to zoom · Drag to pan"
   },
   "security_view": {
     "page_title": "Security Guide",
@@ -980,6 +983,9 @@
     "why_compare_sub": "Individual subscriptions",
     "why_compare_blend": "Blend + API",
     "why_note": "* API fees are billed directly by OpenAI, Anthropic, and Google. Blend never touches that money.",
-    "why_sub_breakdown": "Actual $15 + wasted $45"
+    "why_sub_breakdown": "Actual $15 + wasted $45",
+    "compare_col_service": "Service",
+    "compare_col_individual": "Individual",
+    "compare_col_total": "Total"
   }
 }

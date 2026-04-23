@@ -770,7 +770,7 @@ export function MeetingView() {
                 ['analysis', t('meeting_view.tab_analysis')],
                 ['summary', t('meeting_view.tab_summary')],
                 // [2026-04-16 01:20] New: mindmap visualization tab
-                ['mindmap', 'Mind Map'],
+                ['mindmap', t('meeting_view.tab_mindmap')],
               ] as const).map(([id, label]) => (
                 <button
                   key={id}

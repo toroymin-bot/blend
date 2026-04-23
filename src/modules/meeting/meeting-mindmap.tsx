@@ -3,8 +3,10 @@
 // [2026-04-20] Rewrite: pure React visual mindmap renderer
 // Replaces markmap-lib/view dynamic import (caused plain-text display bug in Next.js)
 // Parses # ## ### heading hierarchy → color-coded node tree
+// [2026-04-23] Add zoom (wheel) + drag (pan) interaction
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
+import { useTranslation } from '@/lib/i18n';
 
 interface MeetingMindmapProps {
   markdown: string;
@@ -118,44 +120,130 @@ function BranchCard({ node }: { node: MindNode }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function MeetingMindmap({ markdown }: MeetingMindmapProps) {
+  const { t } = useTranslation();
   const tree = useMemo(() => parseMarkdown(markdown), [markdown]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+
+  // Wheel zoom
+  const onWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+    setScale((s) => Math.min(3, Math.max(0.3, s - e.deltaY * 0.001)));
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [onWheel]);
+
+  // Drag to pan
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    dragging.current = true;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - lastPos.current.x;
+    const dy = e.clientY - lastPos.current.y;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    setOffset((o) => ({ x: o.x + dx, y: o.y + dy }));
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
+
+  const onReset = useCallback(() => {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+  }, []);
 
   if (!tree || !tree.text) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-500 text-sm">
-        No mindmap data available.
+        {t('meeting_view.mindmap_no_data')}
       </div>
     );
   }
 
   return (
-    <div className="w-full rounded-xl bg-gray-900/60 border border-gray-700/50 p-6 overflow-x-auto">
-      {/* Root node */}
-      <div className="flex flex-col items-center mb-8">
-        <div className="px-6 py-3 rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-xl shadow-blue-900/50 text-center max-w-xs">
-          {tree.text}
-        </div>
+    <div
+      ref={containerRef}
+      className="relative w-full rounded-xl bg-gray-900/60 border border-gray-700/50 overflow-hidden"
+      style={{ minHeight: 320, cursor: dragging.current ? 'grabbing' : 'grab', userSelect: 'none' }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+    >
+      {/* Controls */}
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => setScale((s) => Math.min(3, +(s + 0.2).toFixed(1)))}
+          className="w-7 h-7 rounded-lg bg-gray-700/80 hover:bg-gray-600 text-white text-sm flex items-center justify-center select-none"
+        >+</button>
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => setScale((s) => Math.max(0.3, +(s - 0.2).toFixed(1)))}
+          className="w-7 h-7 rounded-lg bg-gray-700/80 hover:bg-gray-600 text-white text-sm flex items-center justify-center select-none"
+        >−</button>
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={onReset}
+          className="h-7 px-2 rounded-lg bg-gray-700/80 hover:bg-gray-600 text-gray-300 text-xs select-none"
+        >↺</button>
+        <span className="text-xs text-gray-500 select-none">{Math.round(scale * 100)}%</span>
       </div>
 
-      {tree.children.length > 0 && (
-        <>
-          {/* Connector line from root */}
-          <div className="flex justify-center mb-0">
-            <div className="w-px h-4 bg-blue-500/40" />
+      {/* Zoomable / pannable canvas */}
+      <div
+        style={{
+          transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+          transformOrigin: 'center top',
+          transition: dragging.current ? 'none' : 'transform 0.05s',
+          padding: '1.5rem',
+        }}
+      >
+        {/* Root node */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="px-6 py-3 rounded-2xl bg-blue-600 text-white font-bold text-lg shadow-xl shadow-blue-900/50 text-center max-w-xs">
+            {tree.text}
           </div>
+        </div>
 
-          {/* Branch grid */}
-          <div className="flex flex-wrap justify-center gap-4 pt-2">
-            {tree.children.map((branch, i) => (
-              <div key={i} className="flex flex-col items-center gap-0">
-                {/* Connector to branch */}
-                <div className="w-px h-4 bg-blue-500/30" />
-                <BranchCard node={branch} />
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+        {tree.children.length > 0 && (
+          <>
+            {/* Connector line from root */}
+            <div className="flex justify-center mb-0">
+              <div className="w-px h-4 bg-blue-500/40" />
+            </div>
+
+            {/* Branch grid */}
+            <div className="flex flex-wrap justify-center gap-4 pt-2">
+              {tree.children.map((branch, i) => (
+                <div key={i} className="flex flex-col items-center gap-0">
+                  {/* Connector to branch */}
+                  <div className="w-px h-4 bg-blue-500/30" />
+                  <BranchCard node={branch} />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Hint */}
+      <div className="absolute bottom-2 left-3 text-[10px] text-gray-600 select-none pointer-events-none">
+        {t('meeting_view.mindmap_zoom_hint')}
+      </div>
     </div>
   );
 }
