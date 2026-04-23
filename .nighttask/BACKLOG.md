@@ -134,7 +134,7 @@
   - `title="더보기"` / `aria-label="더보기"` → `t('chat.more_options')` 로 교체
   - ko.json: `"more_options": "더보기"`, en.json: `"more_options": "More options"` 추가
 
-- [ ] **GAS-AUTH** GAS Web App 재인증 필요
+- [ ] **GAS-AUTH** GAS Web App 재인증 필요 (2026-04-24에도 미해결 — Gmail scope 오류 지속)
   - 현상: sendDevReport 실행 시 Gmail 권한 오류 발생
   - 해결: 사용자가 GAS 에디터에서 수동 재인증 필요 (Gmail scope 승인)
   - URL: https://script.google.com/macros/s/AKfycbzZbYIKx7CSfMC2HhxBtkmL4p4t1DBYwoMAZwgRwSKRYztjwQbXcvxEK2MeoMvdMFfM/exec
@@ -142,6 +142,17 @@
 ---
 
 ## ✅ 완료된 항목
+
+### [2026-04-24 nighttask 자동 완료]
+
+- [x] **SKILL-24** `cost-savings-dashboard.tsx` — toFixed(1) 복구: Math.round/toFixed(0) → formatUSD() 적용 ✅ 2026-04-24
+- [x] **SKILL-25~27** `dashboard-view.tsx` — 중복 바 차트 제거, 영문 헤더 i18n, 토큰 차트 재디자인 (이전 nighttask에서 이미 구현됨 확인) ✅ 2026-04-24
+- [x] **SKILL-28~29** `billing-view.tsx` 전체 i18n + 전체 i18n 감사 (이전 nighttask에서 이미 구현됨 확인) ✅ 2026-04-24
+- [x] **SKILL-30** `about-view.tsx` About Blend 페이지 + 사이드바 연결 (이미 구현됨 확인) ✅ 2026-04-24
+- [x] **i18n-FIX** `settings-view.tsx` Base URL 하드코딩 → t('settings.base_url') 교체 ✅ 2026-04-24
+- [x] **i18n-FIX** `about-view.tsx` 3개 하드코딩 문자열 → t() 키로 교체 (why_blend_note, compare_total_sub_price, compare_total_blend_price) ✅ 2026-04-24
+- [x] **TC-010** TEST-010 Round2 Pass 업데이트 (zoom/drag 코드 이미 구현됨, QA 결과가 오래된 버전 기준이었음) ✅ 2026-04-24
+- [x] **QA** 코드 기반 Phase 3/4 감사 — 보안/타입/i18n/라우팅 전체 통과 ✅ 2026-04-24
 
 ### [2026-04-23 nighttask 자동 완료]
 
