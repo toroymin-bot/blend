@@ -96,7 +96,7 @@ const MODELS = [
   { id: 'gpt-4o',            name: 'GPT-4o',          brand: 'openai',    provider: 'openai' as AIProvider,     apiModel: 'gpt-4o',                   desc_ko: '강력한 범용 성능',                   desc_en: 'Strong all-around performance' },
   { id: 'claude-3-5-haiku',  name: 'Claude 3.5 Haiku',brand: 'anthropic', provider: 'anthropic' as AIProvider,  apiModel: 'claude-3-5-haiku-20241022', desc_ko: '빠른 Anthropic 모델',               desc_en: 'Fast Anthropic model' },
   { id: 'claude-opus-4',     name: 'Claude Opus 4',   brand: 'anthropic', provider: 'anthropic' as AIProvider,  apiModel: 'claude-opus-4-5',          desc_ko: '글 쓰기와 추론에 최적',              desc_en: 'Best for writing and reasoning' },
-  { id: 'gemini-2.0-flash',  name: 'Gemini 2.0 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-2.0-flash-001',     desc_ko: '체험 가능 · 무료 AI',                desc_en: 'Free trial · no key needed' },
+  { id: 'gemini-2.5-flash',  name: 'Gemini 2.5 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-2.5-flash',         desc_ko: '체험 가능 · 무료 AI',                desc_en: 'Free trial · no key needed' },
   { id: 'gemini-1.5-flash',  name: 'Gemini 1.5 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-1.5-flash',         desc_ko: '실시간 정보와 멀티모달',             desc_en: 'Real-time info and multimodal' },
 ] as const;
 
@@ -147,7 +147,7 @@ export default function D1ChatView({
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [currentModel, setCurrentModel] = useState('gemini-2.0-flash');
+  const [currentModel, setCurrentModel] = useState('gemini-2.5-flash');
   const abortRef = useRef<AbortController | null>(null);
 
   const t = copy[lang] ?? copy.en;
@@ -220,7 +220,7 @@ export default function D1ChatView({
 
     // ── Trial mode gate ──────────────────────────────────────────
     if (isTrialMode) {
-      if (currentModel !== 'gemini-2.0-flash') {
+      if (currentModel !== 'gemini-2.5-flash') {
         const modelDef = MODELS.find(m => m.id === currentModel);
         const PROVIDER_NAMES: Record<string, string> = {
           openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google',
@@ -254,7 +254,7 @@ export default function D1ChatView({
     let accumulated = '';
 
     // ── Trial path (Gemini 2.0 Flash, no user key) ───────────────
-    if (isTrialMode && currentModel === 'gemini-2.0-flash') {
+    if (isTrialMode && currentModel === 'gemini-2.5-flash') {
       sendTrialMessage({
         messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
         signal: controller.signal,
@@ -267,7 +267,7 @@ export default function D1ChatView({
             id: Date.now().toString() + '_ai',
             role: 'assistant',
             content: fullText,
-            modelUsed: 'gemini-2.0-flash',
+            modelUsed: 'gemini-2.5-flash',
           }]);
           setIsStreaming(false);
           setStreamingContent('');
@@ -409,7 +409,7 @@ export default function D1ChatView({
               className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium"
               style={{ background: tokens.accentSoft, color: tokens.accent, fontFamily: fontStack }}
             >
-              {lang === 'ko' ? `체험 · ${trialRemaining}/10` : `Trial · ${trialRemaining}/10`}
+              {lang === 'ko' ? `무료 체험중 · ${trialRemaining}/10` : `Free trial · ${trialRemaining}/10`}
             </span>
           )}
         </div>
@@ -573,7 +573,7 @@ export default function D1ChatView({
         <D1KeyRequiredModal
           lang={lang}
           providerName={showKeyRequired.providerName}
-          onSwitchToGemini={() => setCurrentModel('gemini-2.0-flash')}
+          onSwitchToGemini={() => setCurrentModel('gemini-2.5-flash')}
           onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))}
           onClose={() => setShowKeyRequired(null)}
         />
