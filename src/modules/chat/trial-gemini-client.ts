@@ -56,7 +56,7 @@ export async function sendTrialMessage({
     };
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${key}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:streamGenerateContent?alt=sse&key=${key}`;
 
   try {
     const res = await fetch(url, {
