@@ -44,6 +44,7 @@ export default function RootLayout({
       lang="en"
       data-theme="dark"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
         {/* [2026-04-17] Paddle Billing v2 — loaded globally for overlay checkout */}

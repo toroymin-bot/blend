@@ -331,9 +331,10 @@ export function DashboardView() {
     loadFromStorage,
   } = useUsageStore();
 
-  // [2026-04-16 01:15] Bug fix: 5-minute auto-sync
-  const [lastSync, setLastSync] = useState<Date>(new Date());
+  // [2026-04-25] Fix: null initial value avoids SSR/CSR timestamp mismatch (React #418)
+  const [lastSync, setLastSync] = useState<Date | null>(null);
   useEffect(() => {
+    setLastSync(new Date());
     loadFromStorage();
     const interval = setInterval(() => {
       if (document.visibilityState !== 'hidden') {
@@ -371,10 +372,12 @@ export function DashboardView() {
             <BarChart3 size={24} className="text-blue-400" />
             <h1 className="text-2xl font-bold text-on-surface">{t('dashboard.page_title')}</h1>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-on-surface-muted">
-            <RefreshCw size={11} />
-            <span>{t('dashboard.last_updated', { min: Math.round((Date.now() - lastSync.getTime()) / 60000) })}</span>
-          </div>
+          {lastSync && (
+            <div className="flex items-center gap-1.5 text-xs text-on-surface-muted" suppressHydrationWarning>
+              <RefreshCw size={11} />
+              <span suppressHydrationWarning>{t('dashboard.last_updated', { min: Math.round((Date.now() - lastSync.getTime()) / 60000) })}</span>
+            </div>
+          )}
         </div>
 
         <ProviderLinksNotice t={t} />

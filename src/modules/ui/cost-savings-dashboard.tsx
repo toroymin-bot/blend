@@ -40,9 +40,10 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
   const { country } = useCountry();
   const { getThisMonthCost, loadFromStorage } = useUsageStore();
 
-  // [2026-04-16 01:15] Bug fix: 5-minute auto-sync — reload usage data from localStorage
-  const [lastSync, setLastSync] = useState<Date>(new Date());
+  // [2026-04-25] Fix: null initial value avoids SSR/CSR timestamp mismatch (React #418)
+  const [lastSync, setLastSync] = useState<Date | null>(null);
   useEffect(() => {
+    setLastSync(new Date());
     loadFromStorage();
     const interval = setInterval(() => {
       if (document.visibilityState !== 'hidden') {
@@ -75,11 +76,12 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
             <Sparkles size={24} className="text-yellow-400" />
             <h1 className="text-2xl font-bold text-on-surface">{t('savings_view.title')}</h1>
           </div>
-          {/* [2026-04-16 01:15] 5-minute auto-sync last-updated indicator */}
-          <div className="flex items-center gap-1.5 text-xs text-on-surface-muted">
-            <RefreshCw size={11} />
-            <span>{t('dashboard.last_updated', { min: Math.round((Date.now() - lastSync.getTime()) / 60000) })}</span>
-          </div>
+          {lastSync && (
+            <div className="flex items-center gap-1.5 text-xs text-on-surface-muted" suppressHydrationWarning>
+              <RefreshCw size={11} />
+              <span suppressHydrationWarning>{t('dashboard.last_updated', { min: Math.round((Date.now() - lastSync.getTime()) / 60000) })}</span>
+            </div>
+          )}
         </div>
 
         {/* Summary cards */}

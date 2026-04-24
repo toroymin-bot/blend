@@ -602,7 +602,7 @@ export function MeetingView() {
                     {m.source === 'youtube' ? <span className="text-red-400 text-xs flex-shrink-0">YT</span> : <FileAudio size={11} className="text-blue-400 flex-shrink-0" />}
                     <span className="text-xs text-on-surface truncate">{m.title}</span>
                   </div>
-                  <span className="text-xs text-on-surface-muted">{new Date(m.createdAt).toLocaleDateString()}</span>
+                  <span className="text-xs text-on-surface-muted" suppressHydrationWarning>{new Date(m.createdAt).toLocaleDateString()}</span>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteMeeting(m.id); }}
@@ -752,7 +752,7 @@ export function MeetingView() {
                   {currentMeeting.source === 'youtube' ? <span className="text-red-400 text-sm font-bold">YT</span> : <FileAudio size={16} className="text-blue-400" />}
                   <h1 className="text-lg font-semibold text-on-surface">{currentMeeting.title}</h1>
                 </div>
-                <p className="text-xs text-on-surface-muted">{new Date(currentMeeting.createdAt).toLocaleString()}</p>
+                <p className="text-xs text-on-surface-muted" suppressHydrationWarning>{new Date(currentMeeting.createdAt).toLocaleString()}</p>
               </div>
               {/* PDF 출력 버튼 */}
               <button
