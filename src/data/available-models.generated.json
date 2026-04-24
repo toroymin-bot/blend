@@ -1,0 +1,302 @@
+{
+  "generatedAt": "2026-04-24T12:38:42.077Z",
+  "providers": [
+    "google"
+  ],
+  "errors": [
+    {
+      "provider": "anthropic",
+      "message": "API key missing, skipped"
+    },
+    {
+      "provider": "openai",
+      "message": "API key missing, skipped"
+    },
+    {
+      "provider": "deepseek",
+      "message": "API key missing, skipped"
+    },
+    {
+      "provider": "groq",
+      "message": "API key missing, skipped"
+    }
+  ],
+  "models": [
+    {
+      "id": "gemini-2.5-pro",
+      "provider": "google",
+      "displayName": "Gemini 2.5 Pro",
+      "description_ko": "Google 플래그십",
+      "description_en": "Google flagship",
+      "tier": "flagship",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-3-pro-preview",
+      "provider": "google",
+      "displayName": "Gemini 3 Pro Preview",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "flagship",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-3.1-pro-preview",
+      "provider": "google",
+      "displayName": "Gemini 3.1 Pro Preview",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "flagship",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-3.1-pro-preview-customtools",
+      "provider": "google",
+      "displayName": "Gemini 3.1 Pro Preview Customtools",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "flagship",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-pro-latest",
+      "provider": "google",
+      "displayName": "Gemini Pro Latest",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "flagship",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemma-3-12b-it",
+      "provider": "google",
+      "displayName": "Gemma 3 12b It",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "balanced",
+      "contextWindow": 32768,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemma-3-1b-it",
+      "provider": "google",
+      "displayName": "Gemma 3 1b It",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "balanced",
+      "contextWindow": 32768,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemma-3-27b-it",
+      "provider": "google",
+      "displayName": "Gemma 3 27b It",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "balanced",
+      "contextWindow": 131072,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemma-3-4b-it",
+      "provider": "google",
+      "displayName": "Gemma 3 4b It",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "balanced",
+      "contextWindow": 32768,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemma-3n-e2b-it",
+      "provider": "google",
+      "displayName": "Gemma 3n E2b It",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "balanced",
+      "contextWindow": 8192,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemma-3n-e4b-it",
+      "provider": "google",
+      "displayName": "Gemma 3n E4b It",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "balanced",
+      "contextWindow": 8192,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemma-4-26b-a4b-it",
+      "provider": "google",
+      "displayName": "Gemma 4 26b A4b It",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "balanced",
+      "contextWindow": 262144,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemma-4-31b-it",
+      "provider": "google",
+      "displayName": "Gemma 4 31b It",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "balanced",
+      "contextWindow": 262144,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-2.0-flash",
+      "provider": "google",
+      "displayName": "Gemini 2.0 Flash",
+      "description_ko": "빠른 Google 모델",
+      "description_en": "Fast Google model",
+      "tier": "fast",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-2.0-flash-001",
+      "provider": "google",
+      "displayName": "Gemini 2.0 Flash 001",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "fast",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-2.0-flash-lite",
+      "provider": "google",
+      "displayName": "Gemini 2.0 Flash Lite",
+      "description_ko": "초경량 Google 모델",
+      "description_en": "Ultra-light Google model",
+      "tier": "fast",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-2.0-flash-lite-001",
+      "provider": "google",
+      "displayName": "Gemini 2.0 Flash Lite 001",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "fast",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-2.5-flash-lite",
+      "provider": "google",
+      "displayName": "Gemini 2.5 Flash Lite",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "fast",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "provider": "google",
+      "displayName": "Gemini 3 Flash Preview",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "fast",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-3.1-flash-lite-preview",
+      "provider": "google",
+      "displayName": "Gemini 3.1 Flash Lite Preview",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "fast",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-flash-latest",
+      "provider": "google",
+      "displayName": "Gemini Flash Latest",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "fast",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-flash-lite-latest",
+      "provider": "google",
+      "displayName": "Gemini Flash Lite Latest",
+      "description_ko": "google 모델",
+      "description_en": "google model",
+      "tier": "fast",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "provider": "google",
+      "displayName": "Gemini 2.5 Flash",
+      "description_ko": "체험 가능 · 무료 AI",
+      "description_en": "Free trial available",
+      "tier": "trial",
+      "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    }
+  ]
+}

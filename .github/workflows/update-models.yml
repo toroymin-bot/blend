@@ -1,0 +1,44 @@
+name: Update Model Registry
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'  # every 3 hours
+  workflow_dispatch:        # manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm ci
+
+      - name: Run model updater
+        env:
+          ANTHROPIC_MODELS_KEY: ${{ secrets.ANTHROPIC_MODELS_KEY }}
+          OPENAI_MODELS_KEY:    ${{ secrets.OPENAI_MODELS_KEY }}
+          GOOGLE_MODELS_KEY:    ${{ secrets.GOOGLE_MODELS_KEY }}
+          DEEPSEEK_MODELS_KEY:  ${{ secrets.DEEPSEEK_MODELS_KEY }}
+          GROQ_MODELS_KEY:      ${{ secrets.GROQ_MODELS_KEY }}
+        run: npx tsx scripts/update-models.ts
+
+      - name: Commit if changed
+        run: |
+          if ! git diff --quiet src/data/available-models.generated.json; then
+            git config user.name "blend-bot"
+            git config user.email "bot@blend.ai4min.com"
+            git add src/data/available-models.generated.json
+            git commit -m "chore(models): auto-update registry [$(date -u +"%Y-%m-%d %H:%M UTC")]"
+            git push
+          else
+            echo "No changes to commit."
+          fi
