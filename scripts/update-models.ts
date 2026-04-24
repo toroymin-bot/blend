@@ -17,6 +17,7 @@
 
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { generateMeta } from './generate-descriptions.js';
 
 // ============================================================
 // Types
@@ -199,6 +200,39 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
     description_en: 'Free · very fast',
     tier: 'fast',
   },
+
+  // ===== AUTO-APPEND BELOW (do not delete this line) =====
+  'gemma-3-27b-it': {
+    displayName: "Gemma 3 27B",
+    description_ko: "어려운 문제를 풀어요",
+    description_en: "Solves complex problems",
+    tier: "reasoning",
+  },  // auto-generated 2026-04-24
+  'gemini-pro-latest': {
+    displayName: "Gemini 1.5 Pro",
+    description_ko: "어려운 문제를 풀어요",
+    description_en: "Solves difficult problems",
+    tier: "reasoning",
+  },  // auto-generated 2026-04-24
+  'gemini-3-pro-preview': {
+    displayName: "Gemini 3 Pro Preview",
+    description_ko: "미리 써볼 수 있어요",
+    description_en: "You can try it out early",
+    tier: "trial",
+  },  // auto-generated 2026-04-24
+  'gemini-3-flash-preview': {
+    displayName: "Gemini 3 Flash Preview",
+    description_ko: "빠르게 응답해요",
+    description_en: "Fast, early preview model",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gemini-3.1-pro-preview': {
+    displayName: "Gemini 3.1 Pro",
+    description_ko: "어려운 문제를 풀어요",
+    description_en: "Solves complex problems",
+    tier: "reasoning",
+  },  // auto-generated 2026-04-24
+
 };
 
 // ============================================================
@@ -443,6 +477,48 @@ async function main() {
     }
   }
 
+  // ================================================================
+  // AI-generate descriptions for unknown models
+  // ================================================================
+  const geminiKey = process.env.GOOGLE_MODELS_KEY;
+  const newlyGenerated: Record<string, any> = {};
+
+  if (geminiKey) {
+    // Find models that ended up with heuristic fallback descriptions
+    const needsGeneration = output.models.filter((m) => {
+      const isHeuristic =
+        m.description_ko === `${m.provider} 모델` ||
+        m.description_en === `${m.provider} model`;
+      return isHeuristic && !META_OVERRIDES[m.id];
+    });
+
+    if (needsGeneration.length > 0) {
+      console.log(`\n🤖 Generating AI descriptions for ${needsGeneration.length} new models...`);
+
+      for (const m of needsGeneration) {
+        const generated = await generateMeta(
+          { id: m.id, provider: m.provider, createdAt: m.createdAt },
+          geminiKey
+        );
+
+        if (generated) {
+          m.displayName    = generated.displayName;
+          m.description_ko = generated.description_ko;
+          m.description_en = generated.description_en;
+          m.tier           = generated.tier;
+          newlyGenerated[m.id] = generated;
+        } else {
+          console.warn(`  ⚠ Generation failed for ${m.id}, keeping heuristic`);
+        }
+
+        // Gemini Flash free tier: ~15 req/min — throttle slightly
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+  } else {
+    console.log('\n(GOOGLE_MODELS_KEY missing, skipping AI description generation)');
+  }
+
   // Sort: tier priority within provider
   const tierOrder = { flagship: 0, reasoning: 1, balanced: 2, fast: 3, trial: 4 };
   output.models.sort((a, b) => {
@@ -475,7 +551,47 @@ async function main() {
   } else {
     console.log('\nNo changes.');
   }
+
+  // Persist newly AI-generated metas into META_OVERRIDES so next run is free
+  if (Object.keys(newlyGenerated).length > 0) {
+    await persistNewMetas(newlyGenerated);
+  }
+
   process.exit(0);
+}
+
+// ============================================================
+// Append AI-generated metas back into META_OVERRIDES in this file.
+// Next run will use the static lookup instead of calling Gemini again.
+// ============================================================
+async function persistNewMetas(newMetas: Record<string, any>) {
+  const scriptPath = join(process.cwd(), 'scripts/update-models.ts');
+  const source = readFileSync(scriptPath, 'utf-8');
+
+  const marker = '// ===== AUTO-APPEND BELOW (do not delete this line) =====';
+  const markerIdx = source.indexOf(marker);
+  if (markerIdx === -1) {
+    console.warn('  ⚠ AUTO-APPEND marker not found in update-models.ts, skipping persistence');
+    return;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const additions = Object.entries(newMetas)
+    .map(([id, meta]) =>
+      `  '${id}': {\n` +
+      `    displayName: ${JSON.stringify(meta.displayName)},\n` +
+      `    description_ko: ${JSON.stringify(meta.description_ko)},\n` +
+      `    description_en: ${JSON.stringify(meta.description_en)},\n` +
+      `    tier: ${JSON.stringify(meta.tier)},\n` +
+      `  },  // auto-generated ${today}`
+    )
+    .join('\n');
+
+  const insertPoint = markerIdx + marker.length;
+  const updated = source.slice(0, insertPoint) + '\n' + additions + '\n' + source.slice(insertPoint);
+
+  writeFileSync(scriptPath, updated);
+  console.log(`  ✓ Persisted ${Object.keys(newMetas).length} new entries to META_OVERRIDES`);
 }
 
 main().catch((err) => {

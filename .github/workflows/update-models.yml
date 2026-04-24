@@ -33,11 +33,11 @@ jobs:
 
       - name: Commit if changed
         run: |
-          if ! git diff --quiet src/data/available-models.generated.json; then
+          if ! git diff --quiet src/data/available-models.generated.json scripts/update-models.ts; then
             git config user.name "blend-bot"
             git config user.email "bot@blend.ai4min.com"
-            git add src/data/available-models.generated.json
-            git commit -m "chore(models): auto-update registry [$(date -u +"%Y-%m-%d %H:%M UTC")]"
+            git add src/data/available-models.generated.json scripts/update-models.ts
+            git commit -m "chore(models): auto-update registry + meta [$(date -u +"%Y-%m-%d %H:%M UTC")]"
             git push
           else
             echo "No changes to commit."
