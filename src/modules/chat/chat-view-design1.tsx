@@ -96,7 +96,7 @@ const MODELS = [
   { id: 'gpt-4o',            name: 'GPT-4o',          brand: 'openai',    provider: 'openai' as AIProvider,     apiModel: 'gpt-4o',                   desc_ko: '강력한 범용 성능',                   desc_en: 'Strong all-around performance' },
   { id: 'claude-3-5-haiku',  name: 'Claude 3.5 Haiku',brand: 'anthropic', provider: 'anthropic' as AIProvider,  apiModel: 'claude-3-5-haiku-20241022', desc_ko: '빠른 Anthropic 모델',               desc_en: 'Fast Anthropic model' },
   { id: 'claude-opus-4',     name: 'Claude Opus 4',   brand: 'anthropic', provider: 'anthropic' as AIProvider,  apiModel: 'claude-opus-4-5',          desc_ko: '글 쓰기와 추론에 최적',              desc_en: 'Best for writing and reasoning' },
-  { id: 'gemini-2.0-flash',  name: 'Gemini 2.0 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-2.0-flash',         desc_ko: '체험 가능 · 무료 AI',                desc_en: 'Free trial · no key needed' },
+  { id: 'gemini-2.0-flash',  name: 'Gemini 2.0 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-2.0-flash-001',     desc_ko: '체험 가능 · 무료 AI',                desc_en: 'Free trial · no key needed' },
   { id: 'gemini-1.5-flash',  name: 'Gemini 1.5 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-1.5-flash',         desc_ko: '실시간 정보와 멀티모달',             desc_en: 'Real-time info and multimodal' },
 ] as const;
 
