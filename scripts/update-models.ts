@@ -226,6 +226,355 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },
 
   // ===== AUTO-APPEND BELOW (do not delete this line) =====
+  'claude-opus-4-5-20251101': {
+    displayName: "Claude Opus 4.5",
+    description_ko: "가장 정확하게 써내려가요",
+    description_en: "Writes with the highest accuracy",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+  'claude-opus-4-1-20250805': {
+    displayName: "Claude Opus 4.1",
+    description_ko: "가장 창의적인 글을 써요",
+    description_en: "Best for creative writing",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+  'claude-opus-4-20250514': {
+    displayName: "Claude Opus 4.2",
+    description_ko: "가장 긴 글을 잘 써요",
+    description_en: "Best at very long writing",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+  'claude-sonnet-4-20250514': {
+    displayName: "Claude Sonnet 4.2",
+    description_ko: "최신 일상 업무에 좋아요",
+    description_en: "Good for daily tasks, latest version",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-4-turbo': {
+    displayName: "GPT-4 Turbo",
+    description_ko: "최신 정보를 잘 알아요",
+    description_en: "Up-to-date knowledge",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-4o-audio-preview': {
+    displayName: "GPT-4o Audio Preview",
+    description_ko: "음성 대화에 특화됐어요",
+    description_en: "Specialized for audio conversations",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-4o-realtime-preview': {
+    displayName: "GPT-4o Realtime Preview",
+    description_ko: "최신 정보에 빠르게 답해요",
+    description_en: "Responds quickly with latest info",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'o1': {
+    displayName: "OpenAI O1",
+    description_ko: "어려운 추론을 잘해요",
+    description_en: "Good at complex reasoning",
+    tier: "reasoning",
+  },  // auto-generated 2026-04-24
+  'gpt-4o-mini-realtime-preview': {
+    displayName: "GPT-4o Mini",
+    description_ko: "가장 빠르고 가벼워요",
+    description_en: "Fastest and lightest",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-4o-mini-audio-preview': {
+    displayName: "GPT-4o Mini Audio Preview",
+    description_ko: "음성 대화에 좋아요",
+    description_en: "Good for voice conversations",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'o3-mini': {
+    displayName: "O3 Mini",
+    description_ko: "가볍고 추론을 잘해요",
+    description_en: "Lightweight, good at reasoning",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-4o-mini-search-preview': {
+    displayName: "GPT-4o Mini Search Preview",
+    description_ko: "최신 정보를 잘 찾아요",
+    description_en: "Good at finding latest info",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-4o-transcribe': {
+    displayName: "GPT-4o Transcribe",
+    description_ko: "음성을 글로 바꿔요",
+    description_en: "Transcribes speech to text",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-4o-mini-transcribe': {
+    displayName: "GPT-4o Mini Transcribe",
+    description_ko: "음성 인식을 잘해요",
+    description_en: "Good at speech recognition",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'o1-pro': {
+    displayName: "O1 Pro",
+    description_ko: "가장 심층 추론을 해요",
+    description_en: "Deepest reasoning power",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+  'o3': {
+    displayName: "GPT-5.3",
+    description_ko: "더 깊게 추론해요",
+    description_en: "Deeper reasoning",
+    tier: "reasoning",
+  },  // auto-generated 2026-04-24
+  'o4-mini': {
+    displayName: "O4 Mini",
+    description_ko: "가볍고 빨라요",
+    description_en: "Light and fast",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-4.1': {
+    displayName: "GPT-4.1",
+    description_ko: "최신 정보를 잘 알아요",
+    description_en: "Good with up-to-date information",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-4.1-mini': {
+    displayName: "GPT-4.1 Mini",
+    description_ko: "가볍고 빨라요",
+    description_en: "Light and fast",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-4.1-nano': {
+    displayName: "GPT-4.1 Nano",
+    description_ko: "가장 가볍고 빨라요",
+    description_en: "Lightest and fastest",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-4o-transcribe-diarize': {
+    displayName: "GPT-4o Transcribe",
+    description_ko: "음성 기록을 잘해요",
+    description_en: "Good at transcribing audio",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5-chat-latest': {
+    displayName: "GPT-5 Chat",
+    description_ko: "일상 대화에 좋아요",
+    description_en: "Good for everyday conversations",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5': {
+    displayName: "GPT-5",
+    description_ko: "가장 강력한 모델이에요",
+    description_en: "Our most powerful model",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+  'gpt-5-mini': {
+    displayName: "GPT-5 Mini",
+    description_ko: "가볍고 아주 빨라요",
+    description_en: "Lightweight and very fast",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-5-nano': {
+    displayName: "GPT-5 Nano",
+    description_ko: "가볍고 아주 빨라요",
+    description_en: "Extremely fast and light",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-realtime': {
+    displayName: "GPT Realtime",
+    description_ko: "최신 정보를 빠르게 찾아요",
+    description_en: "Fast access to real-time info",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-audio': {
+    displayName: "GPT-Audio",
+    description_ko: "음성 이해를 잘해요",
+    description_en: "Good at understanding audio",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5-codex': {
+    displayName: "GPT-5 Codex",
+    description_ko: "코딩에 가장 강해요",
+    description_en: "Best at coding",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5-pro': {
+    displayName: "GPT-5 Pro",
+    description_ko: "가장 강력한 모델이에요",
+    description_en: "Our most powerful model",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+  'gpt-audio-mini': {
+    displayName: "GPT Audio Mini",
+    description_ko: "음성 이해에 특화됐어요",
+    description_en: "Specialized in audio understanding",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-5-search-api': {
+    displayName: "GPT-5 Search API",
+    description_ko: "최신 정보를 검색해요",
+    description_en: "Searches for the latest information",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-realtime-mini': {
+    displayName: "GPT Realtime Mini",
+    description_ko: "실시간 정보에 강해요",
+    description_en: "Strong at real-time information",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-5.1-chat-latest': {
+    displayName: "GPT-5.1 Chat",
+    description_ko: "최신 모델이에요",
+    description_en: "Latest model",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5.1': {
+    displayName: "GPT-5.1",
+    description_ko: "최신 정보를 잘 알아요",
+    description_en: "Good at up-to-date information",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5.1-codex': {
+    displayName: "GPT-5.1 Codex",
+    description_ko: "코딩에 특화되었어요",
+    description_en: "Specialized for coding",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5.1-codex-mini': {
+    displayName: "GPT-5.1 Codex Mini",
+    description_ko: "코딩에 특화된 경량 모델이에요",
+    description_en: "Lightweight, specialized for code",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-5.1-codex-max': {
+    displayName: "GPT-5.1 Codex Max",
+    description_ko: "코딩과 문제 해결에 가장 강해요",
+    description_en: "Best at code and problem-solving",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+  'gpt-5.2-chat-latest': {
+    displayName: "GPT-5.2 Chat",
+    description_ko: "최신 모델이에요",
+    description_en: "Our latest model",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5.2-codex': {
+    displayName: "GPT-5.2 Codex",
+    description_ko: "코딩과 추론을 잘해요",
+    description_en: "Strong at coding and reasoning",
+    tier: "reasoning",
+  },  // auto-generated 2026-04-24
+  'gpt-5.3-codex': {
+    displayName: "GPT-5.3 Codex",
+    description_ko: "코딩에 특화됐어요",
+    description_en: "Specialized for coding",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-realtime-1.5': {
+    displayName: "GPT Realtime 1.5",
+    description_ko: "가장 빠르게 답변해요",
+    description_en: "Responds fastest",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gpt-audio-1.5': {
+    displayName: "GPT-Audio 1.5",
+    description_ko: "음성 이해를 잘해요",
+    description_en: "Good at understanding audio",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-4o-search-preview': {
+    displayName: "GPT-4o Search Preview",
+    description_ko: "최신 정보를 검색해요",
+    description_en: "Searches for the latest info",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5.3-chat-latest': {
+    displayName: "GPT-5.3 Chat",
+    description_ko: "일상 대화에 좋아요",
+    description_en: "Good for daily conversations",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5.4-pro': {
+    displayName: "GPT-5.4 Pro",
+    description_ko: "가장 강력한 문제 해결을 해요",
+    description_en: "Most powerful for problems and code",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+  'gemini-2.0-flash-001': {
+    displayName: "Gemini 2.0 Flash",
+    description_ko: "빠르고 저렴해요",
+    description_en: "Fast and affordable",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gemini-2.0-flash-lite-001': {
+    displayName: "Gemini 2.0 Flash Lite",
+    description_ko: "가장 빠르고 가벼워요",
+    description_en: "Fastest and lightest",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gemini-2.0-flash-lite': {
+    displayName: "Gemini 2.0 Flash Lite",
+    description_ko: "가장 빠르고 가벼워요",
+    description_en: "Fastest and lightest",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gemma-3-1b-it': {
+    displayName: "Gemma 3.1B IT",
+    description_ko: "오픈소스 구글 모델이에요",
+    description_en: "Open-source Google model",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gemma-3n-e4b-it': {
+    displayName: "Gemma 3 Nano",
+    description_ko: "오픈소스 구글 모델이에요",
+    description_en: "Open-source Google model",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gemma-3n-e2b-it': {
+    displayName: "Gemma 3 Nano",
+    description_ko: "가볍고 빨라요",
+    description_en: "Lightweight and fast",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gemma-4-26b-a4b-it': {
+    displayName: "Gemma 4 26B IT",
+    description_ko: "오픈소스 구글 모델이에요",
+    description_en: "Open-source Google model",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gemma-4-31b-it': {
+    displayName: "Gemma 4 31B IT",
+    description_ko: "오픈소스 구글 모델이에요",
+    description_en: "Open-source Google model",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gemini-flash-latest': {
+    displayName: "Gemini Flash",
+    description_ko: "가장 빠르고 저렴해요",
+    description_en: "Fastest and most affordable",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gemini-flash-lite-latest': {
+    displayName: "Gemini Flash Lite",
+    description_ko: "가장 빠르고 가벼워요",
+    description_en: "Fastest and lightest",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'gemini-3.1-pro-preview-customtools': {
+    displayName: "Gemini 3.1 Pro Preview",
+    description_ko: "도구를 잘 써요",
+    description_en: "Great with custom tools",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+  'gemini-3.1-flash-lite-preview': {
+    displayName: "Gemini 3.1 Flash Lite Preview",
+    description_ko: "가볍고 빨라요",
+    description_en: "Lightweight and fast",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+  'llama-3.1-8b-instant': {
+    displayName: "Llama 3.1 8B Instant",
+    description_ko: "무료로 아주 빨라요",
+    description_en: "Free and very fast",
+    tier: "fast",
+  },  // auto-generated 2026-04-24
+
   'gemma-3-27b-it': {
     displayName: "Gemma 3 27B",
     description_ko: "어려운 문제를 풀어요",
