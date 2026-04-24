@@ -226,6 +226,19 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },
 
   // ===== AUTO-APPEND BELOW (do not delete this line) =====
+  'gpt-5.5': {
+    displayName: "GPT-5.5",
+    description_ko: "최신 모델로 더 똑똑해요",
+    description_en: "Smarter with the latest updates",
+    tier: "balanced",
+  },  // auto-generated 2026-04-24
+  'gpt-5.5-pro': {
+    displayName: "GPT-5.5 Pro",
+    description_ko: "가장 강력한 모델이에요",
+    description_en: "Our most powerful model",
+    tier: "flagship",
+  },  // auto-generated 2026-04-24
+
   'claude-opus-4-5-20251101': {
     displayName: "Claude Opus 4.5",
     description_ko: "가장 정확하게 써내려가요",

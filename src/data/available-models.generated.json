@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-24T16:08:17.163Z",
+  "generatedAt": "2026-04-24T19:01:53.443Z",
   "providers": [
     "anthropic",
     "openai",
@@ -512,6 +512,18 @@
       "supportsStreaming": true
     },
     {
+      "id": "gpt-5.5-pro",
+      "provider": "openai",
+      "displayName": "GPT-5.5 Pro",
+      "description_ko": "가장 강력한 모델이에요",
+      "description_en": "Our most powerful model",
+      "tier": "flagship",
+      "createdAt": 1776894349,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
       "id": "o1-pro",
       "provider": "openai",
       "displayName": "O1 Pro",
@@ -771,6 +783,18 @@
       "description_en": "Specialized for coding",
       "tier": "balanced",
       "createdAt": 1770537915,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gpt-5.5",
+      "provider": "openai",
+      "displayName": "GPT-5.5",
+      "description_ko": "최신 모델로 더 똑똑해요",
+      "description_en": "Smarter with the latest updates",
+      "tier": "balanced",
+      "createdAt": 1776824847,
       "deprecated": false,
       "supportsVision": true,
       "supportsStreaming": true
