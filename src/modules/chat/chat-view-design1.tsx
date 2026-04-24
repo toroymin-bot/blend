@@ -21,6 +21,10 @@ import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
 import { getFeaturedModels, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
+import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
+import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
+import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
+import { exportD1Chat, type D1ExportFormat } from '@/modules/chat/export-utils-design1';
 
 // ============================================================
 // Design tokens (same as Phase 1)
@@ -188,6 +192,109 @@ export default function D1ChatView({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const modelChipRef = useRef<HTMLButtonElement>(null);
+
+  // ── Persistence / history ─────────────────────────────────────
+  const d1Chats        = useD1ChatStore((s) => s.chats);
+  const d1Loaded       = useD1ChatStore((s) => s.loaded);
+  const d1Load         = useD1ChatStore((s) => s.loadFromStorage);
+  const d1Upsert       = useD1ChatStore((s) => s.upsertChat);
+  const d1Delete       = useD1ChatStore((s) => s.deleteChat);
+  const d1DeriveTitle  = useD1ChatStore((s) => s.deriveTitle);
+
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [chatCreatedAt, setChatCreatedAt] = useState<number>(() => Date.now());
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  useEffect(() => { d1Load(); }, [d1Load]);
+
+  // Save whenever messages change (if we have any messages)
+  useEffect(() => {
+    if (!d1Loaded) return;
+    if (messages.length === 0) return;
+    const id = activeChatId ?? `d1_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    if (!activeChatId) setActiveChatId(id);
+    const now = Date.now();
+    const persisted: D1Chat = {
+      id,
+      title: d1DeriveTitle(messages as D1Message[]) || '',
+      messages: messages.map<D1Message>((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        modelUsed: m.modelUsed,
+        createdAt: now,
+      })),
+      model: currentModel,
+      createdAt: activeChatId ? chatCreatedAt : now,
+      updatedAt: now,
+    };
+    if (!activeChatId) setChatCreatedAt(now);
+    d1Upsert(persisted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, d1Loaded]);
+
+  // Cmd/Ctrl+K → open history
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setHistoryOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // Build chat summaries for the overlay
+  const chatSummaries = useMemo<ChatSummary[]>(() => {
+    return d1Chats.map((c) => ({
+      id: c.id,
+      title: c.title,
+      updatedAt: c.updatedAt,
+      messageCount: c.messages.length,
+      model: c.model,
+      preview: c.messages[c.messages.length - 1]?.content?.slice(0, 120),
+      allText: c.messages.map((m) => m.content).join(' '),
+    }));
+  }, [d1Chats]);
+
+  // Load a chat from history
+  const loadChat = (chatId: string) => {
+    const chat = useD1ChatStore.getState().getChat(chatId);
+    if (!chat) return;
+    setActiveChatId(chat.id);
+    setChatCreatedAt(chat.createdAt);
+    setCurrentModel(chat.model || 'auto');
+    setMessages(chat.messages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      modelUsed: m.modelUsed,
+    })));
+  };
+
+  // Export current chat
+  const handleExport = (format: D1ExportFormat) => {
+    if (messages.length === 0) return;
+    const now = Date.now();
+    const id = activeChatId ?? 'd1_unsaved';
+    const chat: D1Chat = {
+      id,
+      title: d1DeriveTitle(messages as D1Message[]) || (lang === 'ko' ? 'Blend 대화' : 'Blend Chat'),
+      messages: messages.map<D1Message>((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        modelUsed: m.modelUsed,
+        createdAt: now,
+      })),
+      model: currentModel,
+      createdAt: chatCreatedAt,
+      updatedAt: now,
+    };
+    exportD1Chat(chat, format);
+  };
 
   // Auto-resize input
   useEffect(() => {
@@ -445,12 +552,38 @@ export default function D1ChatView({
           )}
         </div>
         <div className="flex items-center gap-1">
-          <D1IconButton title={t.history}>
+          <D1IconButton
+            title={`${t.history} (${typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) ? '⌘K' : 'Ctrl+K'})`}
+            onClick={() => setHistoryOpen(true)}
+          >
             <HistoryIcon />
           </D1IconButton>
-          <D1IconButton title={t.share}>
-            <ShareIcon />
-          </D1IconButton>
+          <div className="relative">
+            <button
+              onClick={() => { if (messages.length > 0) setExportOpen((o) => !o); }}
+              title={
+                messages.length === 0
+                  ? (lang === 'ko' ? '대화를 시작하면 내보낼 수 있어요' : 'Start a conversation to export')
+                  : (lang === 'ko' ? '대화 내보내기' : 'Export conversation')
+              }
+              aria-label={lang === 'ko' ? '대화 내보내기' : 'Export conversation'}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border-none bg-transparent transition-colors duration-150 hover:bg-black/5"
+              style={{
+                color: tokens.textDim,
+                opacity: messages.length === 0 ? 0.35 : 1,
+                cursor: messages.length === 0 ? 'not-allowed' : 'pointer',
+                background: exportOpen ? 'rgba(0,0,0,0.05)' : undefined,
+              }}
+            >
+              <ShareIcon />
+            </button>
+            <D1ExportDropdown
+              open={exportOpen}
+              onClose={() => setExportOpen(false)}
+              onExport={handleExport}
+              lang={lang}
+            />
+          </div>
         </div>
 
         {/* Model Dropdown */}
@@ -609,6 +742,22 @@ export default function D1ChatView({
           onClose={() => setShowKeyRequired(null)}
         />
       )}
+
+      {/* History overlay (Cmd/Ctrl+K or History icon) */}
+      <D1HistoryOverlay
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onSelect={(id) => loadChat(id)}
+        onDelete={(id) => {
+          d1Delete(id);
+          if (id === activeChatId) {
+            setActiveChatId(null);
+            setMessages([]);
+          }
+        }}
+        chats={chatSummaries}
+        lang={lang}
+      />
 
       {/* Global styles */}
       <style dangerouslySetInnerHTML={{ __html: `

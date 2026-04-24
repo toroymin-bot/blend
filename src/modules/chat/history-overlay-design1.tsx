@@ -1,0 +1,346 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+const tokens = {
+  bg:          '#fafaf9',
+  surface:     '#ffffff',
+  text:        '#0a0a0a',
+  textDim:     '#6b6862',
+  textFaint:   '#a8a49b',
+  accent:      '#c65a3c',
+  accentSoft:  'rgba(198, 90, 60, 0.08)',
+  border:      'rgba(10, 10, 10, 0.06)',
+  borderStrong:'rgba(10, 10, 10, 0.12)',
+} as const;
+
+export interface ChatSummary {
+  id: string;
+  title: string;
+  updatedAt: number;
+  messageCount: number;
+  model: string;
+  preview?: string;
+  allText?: string;
+}
+
+interface D1HistoryOverlayProps {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (chatId: string) => void;
+  onDelete?: (chatId: string) => void;
+  chats: ChatSummary[];
+  lang: 'ko' | 'en';
+}
+
+type FilterRange = 'today' | 'week' | 'month' | 'all';
+
+export function D1HistoryOverlay({
+  open, onClose, onSelect, onDelete, chats, lang,
+}: D1HistoryOverlayProps) {
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<FilterRange>('all');
+  const [highlightIdx, setHighlightIdx] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Reset + focus on open
+  useEffect(() => {
+    if (open) {
+      setQuery('');
+      setFilter('all');
+      setHighlightIdx(0);
+      const id = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(id);
+    }
+  }, [open]);
+
+  // Compute time boundaries once per render
+  const { startOfToday, startOfYesterday, startOfWeek, startOfMonth } = useMemo(() => {
+    const oneDay = 24 * 60 * 60 * 1000;
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const sow = new Date(t);
+    const day = t.getDay();
+    sow.setDate(t.getDate() + ((day === 0 ? -6 : 1) - day));
+    const som = new Date(t.getFullYear(), t.getMonth(), 1);
+    return {
+      startOfToday: t.getTime(),
+      startOfYesterday: t.getTime() - oneDay,
+      startOfWeek: sow.getTime(),
+      startOfMonth: som.getTime(),
+    };
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const inRange = (c: ChatSummary) => {
+      if (filter === 'all')   return true;
+      if (filter === 'today') return c.updatedAt >= startOfToday;
+      if (filter === 'week')  return c.updatedAt >= startOfWeek;
+      if (filter === 'month') return c.updatedAt >= startOfMonth;
+      return true;
+    };
+    const matches = (c: ChatSummary) => {
+      if (!q) return true;
+      const hay = `${c.title} ${c.allText ?? ''} ${c.preview ?? ''}`.toLowerCase();
+      return hay.includes(q);
+    };
+    return chats
+      .filter(inRange)
+      .filter(matches)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  }, [chats, filter, query, startOfToday, startOfWeek, startOfMonth]);
+
+  // Keyboard nav + ESC
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); return; }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightIdx((i) => Math.min(i + 1, Math.max(0, filtered.length - 1)));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightIdx((i) => Math.max(i - 1, 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const sel = filtered[highlightIdx];
+        if (sel) { onSelect(sel.id); onClose(); }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, filtered, highlightIdx, onSelect, onClose]);
+
+  const counts = useMemo(() => ({
+    today: chats.filter((c) => c.updatedAt >= startOfToday).length,
+    week:  chats.filter((c) => c.updatedAt >= startOfWeek).length,
+    month: chats.filter((c) => c.updatedAt >= startOfMonth).length,
+    all:   chats.length,
+  }), [chats, startOfToday, startOfWeek, startOfMonth]);
+
+  const groups = useMemo(() => {
+    const buckets = { today: [] as ChatSummary[], yesterday: [] as ChatSummary[], week: [] as ChatSummary[], month: [] as ChatSummary[], older: [] as ChatSummary[] };
+    for (const c of filtered) {
+      if (c.updatedAt >= startOfToday) buckets.today.push(c);
+      else if (c.updatedAt >= startOfYesterday) buckets.yesterday.push(c);
+      else if (c.updatedAt >= startOfWeek) buckets.week.push(c);
+      else if (c.updatedAt >= startOfMonth) buckets.month.push(c);
+      else buckets.older.push(c);
+    }
+    return buckets;
+  }, [filtered, startOfToday, startOfYesterday, startOfWeek, startOfMonth]);
+
+  const L = lang === 'ko'
+    ? {
+        placeholder: '모든 대화 검색...',
+        today: '오늘', week: '이번 주', month: '이번 달', all: '전체',
+        groupToday: '오늘', groupYesterday: '어제',
+        groupWeek: '이번 주', groupMonth: '이번 달', groupOlder: '더 오래된',
+        empty: '검색 결과가 없어요',
+        emptyAll: '아직 저장된 대화가 없어요',
+        hint: '↑↓ 이동 · Enter 열기 · ESC 닫기',
+        untitled: '제목 없음',
+        msgs: (n: number) => `${n}개 메시지`,
+        delete: '삭제',
+      }
+    : {
+        placeholder: 'Search all conversations...',
+        today: 'Today', week: 'This week', month: 'This month', all: 'All',
+        groupToday: 'Today', groupYesterday: 'Yesterday',
+        groupWeek: 'This week', groupMonth: 'This month', groupOlder: 'Older',
+        empty: 'No results',
+        emptyAll: 'No saved conversations yet',
+        hint: '↑↓ Navigate · Enter Open · ESC Close',
+        untitled: 'Untitled',
+        msgs: (n: number) => `${n} msgs`,
+        delete: 'Delete',
+      };
+
+  const formatRelative = (ts: number): string => {
+    const diff = Date.now() - ts;
+    const minutes = Math.floor(diff / 60000);
+    const hours   = Math.floor(diff / 3600000);
+    const days    = Math.floor(diff / 86400000);
+    if (lang === 'ko') {
+      if (minutes < 1)  return '방금 전';
+      if (minutes < 60) return `${minutes}분 전`;
+      if (hours < 24)   return `${hours}시간 전`;
+      if (days === 1)   return '어제';
+      if (days < 5)     return `${days}일 전`;
+      const d = new Date(ts);
+      return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+    }
+    if (minutes < 1)  return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24)   return `${hours}h ago`;
+    if (days === 1)   return 'yesterday';
+    if (days < 5)     return `${days}d ago`;
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  if (!open) return null;
+
+  const renderGroup = (label: string, list: ChatSummary[], startIdx: number) => {
+    if (list.length === 0) return null;
+    return (
+      <div className="mb-3" key={label}>
+        <div
+          className="mb-1 px-4 text-[11px] font-semibold uppercase tracking-[0.08em]"
+          style={{ color: tokens.textFaint }}
+        >
+          {label}
+        </div>
+        {list.map((c, localI) => {
+          const globalIdx = startIdx + localI;
+          const isActive = globalIdx === highlightIdx;
+          return (
+            <div
+              key={c.id}
+              onMouseEnter={() => setHighlightIdx(globalIdx)}
+              className="group flex items-start gap-2 px-4 py-2.5 transition-colors"
+              style={{ background: isActive ? tokens.accentSoft : 'transparent' }}
+            >
+              <button
+                onClick={() => { onSelect(c.id); onClose(); }}
+                className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
+              >
+                <div className="truncate text-[14px] font-medium" style={{ color: tokens.text }}>
+                  {c.title || L.untitled}
+                </div>
+                <div className="flex items-center gap-2 text-[11.5px]" style={{ color: tokens.textFaint }}>
+                  <span>{formatRelative(c.updatedAt)}</span>
+                  <span>·</span>
+                  <span className="truncate">{c.model}</span>
+                  <span>·</span>
+                  <span>{L.msgs(c.messageCount)}</span>
+                </div>
+              </button>
+              {onDelete && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
+                  className="shrink-0 rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/5"
+                  title={L.delete}
+                  aria-label={L.delete}
+                >
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ color: tokens.textFaint }}>
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  let cursor = 0;
+  const todayStart     = cursor; cursor += groups.today.length;
+  const yesterdayStart = cursor; cursor += groups.yesterday.length;
+  const weekStart      = cursor; cursor += groups.week.length;
+  const monthStart     = cursor; cursor += groups.month.length;
+  const olderStart     = cursor;
+
+  const fontFamily = lang === 'ko'
+    ? '"Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif'
+    : '"Geist", -apple-system, system-ui, sans-serif';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]"
+      style={{ fontFamily, animation: 'd1-fade 180ms ease both' }}
+    >
+      <div className="absolute inset-0" style={{ background: 'rgba(10,10,10,0.32)' }} onClick={onClose} />
+      <div
+        className="relative z-10 flex w-full max-w-[720px] flex-col overflow-hidden rounded-[16px]"
+        style={{
+          background: tokens.surface,
+          boxShadow: '0 24px 80px rgba(0,0,0,0.24)',
+          maxHeight: '70vh',
+          animation: 'd1-rise 240ms cubic-bezier(0.16,1,0.3,1) both',
+        }}
+      >
+        {/* Search */}
+        <div className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: tokens.border }}>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: tokens.textFaint }}>
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setHighlightIdx(0); }}
+            placeholder={L.placeholder}
+            className="flex-1 bg-transparent text-[15px] outline-none"
+            style={{ color: tokens.text, fontFamily }}
+          />
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 transition-colors hover:bg-black/5"
+            aria-label="Close"
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: tokens.textFaint }}>
+              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex gap-1 border-b px-3 py-2" style={{ borderColor: tokens.border }}>
+          {([
+            ['today', L.today, counts.today],
+            ['week',  L.week,  counts.week],
+            ['month', L.month, counts.month],
+            ['all',   L.all,   counts.all],
+          ] as const).map(([key, label, count]) => (
+            <button
+              key={key}
+              onClick={() => { setFilter(key as FilterRange); setHighlightIdx(0); }}
+              className="rounded-full px-3 py-1 text-[12.5px] transition-colors"
+              style={{
+                background: filter === key ? tokens.text : 'transparent',
+                color: filter === key ? tokens.bg : tokens.textDim,
+              }}
+            >
+              {label}{count > 0 && <span className="opacity-60"> · {count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto py-2">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-[13px]" style={{ color: tokens.textFaint }}>
+              <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.45 }}>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <div className="mt-3">{chats.length === 0 ? L.emptyAll : L.empty}</div>
+            </div>
+          ) : (
+            <>
+              {renderGroup(L.groupToday,     groups.today,     todayStart)}
+              {renderGroup(L.groupYesterday, groups.yesterday, yesterdayStart)}
+              {renderGroup(L.groupWeek,      groups.week,      weekStart)}
+              {renderGroup(L.groupMonth,     groups.month,     monthStart)}
+              {renderGroup(L.groupOlder,     groups.older,     olderStart)}
+            </>
+          )}
+        </div>
+
+        {/* Footer hint */}
+        <div className="border-t px-5 py-2 text-[11px]" style={{ borderColor: tokens.border, color: tokens.textFaint }}>
+          {L.hint}
+        </div>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes d1-fade { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes d1-rise {
+          from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+      `}} />
+    </div>
+  );
+}
