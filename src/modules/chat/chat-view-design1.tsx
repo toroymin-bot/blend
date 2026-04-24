@@ -147,7 +147,7 @@ export default function D1ChatView({
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [currentModel, setCurrentModel] = useState('gemini-2.5-flash');
+  const [currentModel, setCurrentModel] = useState('auto');
   const abortRef = useRef<AbortController | null>(null);
 
   const t = copy[lang] ?? copy.en;
@@ -220,7 +220,10 @@ export default function D1ChatView({
 
     // ── Trial mode gate ──────────────────────────────────────────
     if (isTrialMode) {
-      if (currentModel !== 'gemini-2.5-flash') {
+      // auto → gemini-2.5-flash (trial route)
+      // 명시적으로 유료 모델 선택 시에만 키 요구 모달 표시
+      const trialCompatible = currentModel === 'auto' || currentModel === 'gemini-2.5-flash';
+      if (!trialCompatible) {
         const modelDef = MODELS.find(m => m.id === currentModel);
         const PROVIDER_NAMES: Record<string, string> = {
           openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google',
@@ -253,8 +256,8 @@ export default function D1ChatView({
     abortRef.current = controller;
     let accumulated = '';
 
-    // ── Trial path (Gemini 2.0 Flash, no user key) ───────────────
-    if (isTrialMode && currentModel === 'gemini-2.5-flash') {
+    // ── Trial path (Gemini 2.5 Flash, no user key) ───────────────
+    if (isTrialMode) {
       sendTrialMessage({
         messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
         signal: controller.signal,
