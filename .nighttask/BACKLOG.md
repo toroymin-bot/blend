@@ -5,6 +5,16 @@
 
 ---
 
+## 🐛 QA 발견 버그 (야간 자동 픽스 대상)
+
+- [ ] **BUG-003** React hydration error #418 — text content mismatch on `/ko/qatest` load (2026-04-24 QA 발견)
+  - **증상**: 페이지 로드 시 콘솔에 "Minified React error #418" 2건 발생 (Text content does not match server-rendered HTML)
+  - **재현**: blend.ai4min.com/ko/qatest 접속 → DevTools Console 확인 → 5:08, 5:10 AM 각 1건
+  - **원인 추정**: Date.now(), locale-dependent text, 또는 Math.random() 등 SSR/CSR 불일치 렌더링
+  - **영향**: 하이드레이션 bailout → 초기 렌더 깜박임 or SSR 신뢰성 저하 가능
+  - **픽스**: 해당 컴포넌트에서 `suppressHydrationWarning` 추가 또는 서버/클라이언트 동일 값 보장
+  - **Excel**: Bug Report sheet row 8 에 등록됨
+
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
 - [x] **UI-01** `sidebar.tsx` — 하단 메뉴 5개 → 프로필 트리거 팝오버로 통합 ✅ 2026-04-22

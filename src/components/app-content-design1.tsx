@@ -62,21 +62,20 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   const lang = urlLang;
   const t = labels[lang];
 
-  // ── 온보딩 가드: 저장된 키가 없으면 온보딩 화면 표시 ──────────
-  const { keys, loadFromStorage } = useAPIKeyStore();
-  const [keysChecked, setKeysChecked] = useState(false);
+  // ── 온보딩: 이벤트 기반 (d1:open-onboarding) ───────────────────
+  const { loadFromStorage } = useAPIKeyStore();
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     loadFromStorage();
-    setKeysChecked(true);
   }, []);
 
+  // d1:open-onboarding 이벤트 → 온보딩 열기
   useEffect(() => {
-    if (!keysChecked) return;
-    const hasAnyKey = Object.values(keys).some(Boolean);
-    setShowOnboarding(!hasAnyKey);
-  }, [keysChecked, keys]);
+    const handler = () => setShowOnboarding(true);
+    window.addEventListener('d1:open-onboarding', handler);
+    return () => window.removeEventListener('d1:open-onboarding', handler);
+  }, []);
 
   // 온보딩 완료 시 메인 앱으로 전환
   const handleOnboardingDone = () => setShowOnboarding(false);
@@ -148,7 +147,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   ];
 
   // 온보딩 화면
-  if (keysChecked && showOnboarding) {
+  if (showOnboarding) {
     return <D1OnboardingView onDone={handleOnboardingDone} lang={lang} />;
   }
 

@@ -17,6 +17,9 @@ import hljs from 'highlight.js';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { sendChatRequest } from '@/modules/chat/chat-api';
 import type { AIProvider } from '@/types';
+import { useTrialStore } from '@/stores/trial-store';
+import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
+import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
 
 // ============================================================
 // Design tokens (same as Phase 1)
@@ -93,6 +96,7 @@ const MODELS = [
   { id: 'gpt-4o',            name: 'GPT-4o',          brand: 'openai',    provider: 'openai' as AIProvider,     apiModel: 'gpt-4o',                   desc_ko: '강력한 범용 성능',                   desc_en: 'Strong all-around performance' },
   { id: 'claude-3-5-haiku',  name: 'Claude 3.5 Haiku',brand: 'anthropic', provider: 'anthropic' as AIProvider,  apiModel: 'claude-3-5-haiku-20241022', desc_ko: '빠른 Anthropic 모델',               desc_en: 'Fast Anthropic model' },
   { id: 'claude-opus-4',     name: 'Claude Opus 4',   brand: 'anthropic', provider: 'anthropic' as AIProvider,  apiModel: 'claude-opus-4-5',          desc_ko: '글 쓰기와 추론에 최적',              desc_en: 'Best for writing and reasoning' },
+  { id: 'gemini-2.0-flash',  name: 'Gemini 2.0 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-2.0-flash',         desc_ko: '체험 가능 · 무료 AI',                desc_en: 'Free trial · no key needed' },
   { id: 'gemini-1.5-flash',  name: 'Gemini 1.5 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-1.5-flash',         desc_ko: '실시간 정보와 멀티모달',             desc_en: 'Real-time info and multimodal' },
 ] as const;
 
@@ -123,14 +127,27 @@ export default function D1ChatView({
   lang: 'ko' | 'en';
   onConversationStart?: (title: string) => void;
 }) {
-  const { getKey, hasKey, loadFromStorage } = useAPIKeyStore();
+  const { keys, getKey, hasKey, loadFromStorage } = useAPIKeyStore();
 
   useEffect(() => { loadFromStorage(); }, []);
+
+  // ── Trial store ──────────────────────────────────────────────
+  const { resetIfNewDay: trialResetIfNewDay } = useTrialStore();
+  const trialDailyCount = useTrialStore((s) => s.dailyCount);
+  const trialMaxPerDay  = useTrialStore((s) => s.maxPerDay);
+  const trialRemaining  = Math.max(0, trialMaxPerDay - trialDailyCount);
+  useEffect(() => { trialResetIfNewDay(); }, []);
+
+  const [showTrialExhausted, setShowTrialExhausted] = useState(false);
+  const [showKeyRequired, setShowKeyRequired] = useState<{ providerName: string } | null>(null);
+
+  const hasAnyUserKey = Object.values(keys).some((k) => k && k.trim().length > 0);
+  const isTrialMode   = !hasAnyUserKey && TRIAL_KEY_AVAILABLE;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [currentModel, setCurrentModel] = useState('auto');
+  const [currentModel, setCurrentModel] = useState('gemini-2.0-flash');
   const abortRef = useRef<AbortController | null>(null);
 
   const t = copy[lang] ?? copy.en;
@@ -200,8 +217,29 @@ export default function D1ChatView({
   function handleSend() {
     if (!canSend) return;
     const content = value.trim();
-    setValue('');
 
+    // ── Trial mode gate ──────────────────────────────────────────
+    if (isTrialMode) {
+      if (currentModel !== 'gemini-2.0-flash') {
+        const modelDef = MODELS.find(m => m.id === currentModel);
+        const PROVIDER_NAMES: Record<string, string> = {
+          openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google',
+          deepseek: 'DeepSeek', groq: 'Groq', blend: 'Blend',
+        };
+        const providerName = modelDef
+          ? (PROVIDER_NAMES[modelDef.provider] ?? modelDef.provider)
+          : 'Unknown';
+        setShowKeyRequired({ providerName });
+        return;
+      }
+      const ok = useTrialStore.getState().useTrial();
+      if (!ok) {
+        setShowTrialExhausted(true);
+        return;
+      }
+    }
+
+    setValue('');
     const userMsg: Message = { id: Date.now().toString(), role: 'user', content };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
@@ -211,7 +249,45 @@ export default function D1ChatView({
     setIsStreaming(true);
     setStreamingContent('');
 
-    // Resolve model/provider
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let accumulated = '';
+
+    // ── Trial path (Gemini 2.0 Flash, no user key) ───────────────
+    if (isTrialMode && currentModel === 'gemini-2.0-flash') {
+      sendTrialMessage({
+        messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+        signal: controller.signal,
+        onChunk: (text) => {
+          accumulated += text;
+          setStreamingContent(accumulated);
+        },
+        onDone: (fullText) => {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString() + '_ai',
+            role: 'assistant',
+            content: fullText,
+            modelUsed: 'gemini-2.0-flash',
+          }]);
+          setIsStreaming(false);
+          setStreamingContent('');
+          abortRef.current = null;
+        },
+        onError: (err) => {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString() + '_err',
+            role: 'assistant',
+            content: `Error: ${err.message}`,
+          }]);
+          setIsStreaming(false);
+          setStreamingContent('');
+          abortRef.current = null;
+        },
+      });
+      return;
+    }
+
+    // ── Normal (BYOK) path ───────────────────────────────────────
     const FALLBACK_ORDER: Array<{ provider: AIProvider; apiModel: string }> = [
       { provider: 'openai',    apiModel: 'gpt-4o-mini' },
       { provider: 'anthropic', apiModel: 'claude-3-5-haiku-20241022' },
@@ -252,10 +328,6 @@ export default function D1ChatView({
         resolvedModelId = modelDef.id;
       }
     }
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-    let accumulated = '';
 
     sendChatRequest({
       messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
@@ -317,24 +389,30 @@ export default function D1ChatView({
     ? '"Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif'
     : '"Geist", -apple-system, system-ui, sans-serif';
 
-  if (!hasAnyKey) {
-    return <D1KeyOnboarding lang={lang} />;
-  }
-
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
       {/* ============ TOP BAR ============ */}
       <header className="flex h-14 shrink-0 items-center justify-between px-8">
-        <button
-          ref={modelChipRef}
-          onClick={() => setShowModelDropdown((s) => !s)}
-          className="inline-flex items-center gap-2 rounded-full border bg-transparent px-3 py-1.5 pl-2.5 text-[13px] transition-colors hover:bg-white"
-          style={{ borderColor: tokens.borderStrong, color: tokens.text, fontFamily: fontStack }}
-        >
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: tokens.accent }} />
-          {MODELS.find((m) => m.id === currentModel)?.name ?? t.modelAuto}
-          <ChevronIcon />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            ref={modelChipRef}
+            onClick={() => setShowModelDropdown((s) => !s)}
+            className="inline-flex items-center gap-2 rounded-full border bg-transparent px-3 py-1.5 pl-2.5 text-[13px] transition-colors hover:bg-white"
+            style={{ borderColor: tokens.borderStrong, color: tokens.text, fontFamily: fontStack }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: tokens.accent }} />
+            {MODELS.find((m) => m.id === currentModel)?.name ?? t.modelAuto}
+            <ChevronIcon />
+          </button>
+          {isTrialMode && (
+            <span
+              className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium"
+              style={{ background: tokens.accentSoft, color: tokens.accent, fontFamily: fontStack }}
+            >
+              {lang === 'ko' ? `체험 · ${trialRemaining}/10` : `Trial · ${trialRemaining}/10`}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1">
           <D1IconButton title={t.history}>
             <HistoryIcon />
@@ -481,6 +559,24 @@ export default function D1ChatView({
             />
           </div>
         </div>
+      )}
+
+      {/* Trial modals */}
+      {showTrialExhausted && (
+        <D1TrialExhaustedModal
+          lang={lang}
+          onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))}
+          onClose={() => setShowTrialExhausted(false)}
+        />
+      )}
+      {showKeyRequired && (
+        <D1KeyRequiredModal
+          lang={lang}
+          providerName={showKeyRequired.providerName}
+          onSwitchToGemini={() => setCurrentModel('gemini-2.0-flash')}
+          onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))}
+          onClose={() => setShowKeyRequired(null)}
+        />
       )}
 
       {/* Global styles */}
