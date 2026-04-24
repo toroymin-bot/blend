@@ -20,6 +20,7 @@ import type { AIProvider } from '@/types';
 import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
+import { getFeaturedModels } from '@/data/available-models';
 
 // ============================================================
 // Design tokens (same as Phase 1)
@@ -88,23 +89,50 @@ const copy = {
 type Lang = keyof typeof copy;
 
 // ============================================================
-// Model registry
+// Model registry — built from live available-models.generated.json
 // ============================================================
-const MODELS = [
-  { id: 'auto',              name: 'Auto',            brand: 'blend',     provider: 'openai' as AIProvider,     apiModel: 'gpt-4o-mini',              desc_ko: '질문에 가장 적합한 AI를 자동 선택',  desc_en: 'Picks the best AI for each question' },
-  { id: 'gpt-4o-mini',       name: 'GPT-4o mini',     brand: 'openai',    provider: 'openai' as AIProvider,     apiModel: 'gpt-4o-mini',              desc_ko: '빠르고 경제적인 OpenAI 모델',        desc_en: 'Fast and affordable OpenAI model' },
-  { id: 'gpt-4o',            name: 'GPT-4o',          brand: 'openai',    provider: 'openai' as AIProvider,     apiModel: 'gpt-4o',                   desc_ko: '강력한 범용 성능',                   desc_en: 'Strong all-around performance' },
-  { id: 'claude-3-5-haiku',  name: 'Claude 3.5 Haiku',brand: 'anthropic', provider: 'anthropic' as AIProvider,  apiModel: 'claude-3-5-haiku-20241022', desc_ko: '빠른 Anthropic 모델',               desc_en: 'Fast Anthropic model' },
-  { id: 'claude-opus-4',     name: 'Claude Opus 4',   brand: 'anthropic', provider: 'anthropic' as AIProvider,  apiModel: 'claude-opus-4-5',          desc_ko: '글 쓰기와 추론에 최적',              desc_en: 'Best for writing and reasoning' },
-  { id: 'gemini-2.5-flash',  name: 'Gemini 2.5 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-2.5-flash',         desc_ko: '체험 가능 · 무료 AI',                desc_en: 'Free trial · no key needed' },
-  { id: 'gemini-1.5-flash',  name: 'Gemini 1.5 Flash',brand: 'google',    provider: 'google' as AIProvider,     apiModel: 'gemini-1.5-flash',         desc_ko: '실시간 정보와 멀티모달',             desc_en: 'Real-time info and multimodal' },
-] as const;
+type ModelEntry = {
+  id: string;
+  name: string;
+  brand: string;
+  provider: AIProvider;
+  apiModel: string;
+  desc_ko: string;
+  desc_en: string;
+};
+
+// Auto entry (special, not in registry)
+const AUTO_ENTRY: ModelEntry = {
+  id: 'auto',
+  name: 'Auto',
+  brand: 'blend',
+  provider: 'openai',
+  apiModel: 'gpt-4o-mini',
+  desc_ko: '질문에 가장 적합한 AI를 자동 선택',
+  desc_en: 'Picks the best AI for each question',
+};
+
+// Built once at module load from registry
+const MODELS: ModelEntry[] = [
+  AUTO_ENTRY,
+  ...getFeaturedModels().map((m): ModelEntry => ({
+    id: m.id,
+    name: m.displayName,
+    brand: m.provider,
+    provider: m.provider as AIProvider,
+    apiModel: m.id, // in registry, id IS the API model ID
+    desc_ko: m.description_ko,
+    desc_en: m.description_en,
+  })),
+];
 
 const BRAND_COLORS: Record<string, string> = {
   blend:     '#c65a3c',
   openai:    '#10a37f',
   anthropic: '#d97757',
   google:    '#4285f4',
+  deepseek:  '#4B5EFC',
+  groq:      '#f55036',
 };
 
 // ============================================================
