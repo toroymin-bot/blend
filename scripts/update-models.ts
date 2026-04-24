@@ -48,103 +48,155 @@ interface RegistryOutput {
 // Human-curated metadata overrides
 // ============================================================
 const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
-  // Anthropic
+  // ============================================
+  // Anthropic (claude-*)
+  // ============================================
   'claude-opus-4-7': {
     displayName: 'Claude Opus 4.7',
-    description_ko: '글쓰기 · 추론 · 코딩 최고 성능',
-    description_en: 'Best for writing, reasoning, and code',
+    description_ko: '글을 가장 잘 쓰고, 깊이 생각해요',
+    description_en: 'Best at writing and deep thinking',
     tier: 'flagship',
   },
   'claude-opus-4-6': {
     displayName: 'Claude Opus 4.6',
-    description_ko: '이전 플래그십 · 1M 컨텍스트',
-    description_en: 'Previous flagship · 1M context',
+    description_ko: '복잡한 일을 오래 붙잡고 해결해요',
+    description_en: 'Tackles long, complex tasks',
     tier: 'flagship',
   },
   'claude-opus-4-5': {
     displayName: 'Claude Opus 4.5',
-    description_ko: '이전 플래그십',
-    description_en: 'Previous flagship',
+    description_ko: '복잡한 일을 깊게 생각해요',
+    description_en: 'Thinks deeply on complex tasks',
     tier: 'flagship',
   },
   'claude-sonnet-4-6': {
     displayName: 'Claude Sonnet 4.6',
-    description_ko: '일상 업무에 균형형',
-    description_en: 'Balanced for everyday work',
+    description_ko: '빠르면서 똑똑해요 · 매일 쓰기 좋아요',
+    description_en: 'Smart and quick · great for everyday',
     tier: 'balanced',
   },
   'claude-haiku-4-5': {
     displayName: 'Claude Haiku 4.5',
-    description_ko: '빠르고 경제적',
-    description_en: 'Fast and economical',
+    description_ko: '가장 빠르고 가벼워요',
+    description_en: 'Fastest and lightest',
     tier: 'fast',
   },
   'claude-3-5-haiku-20241022': {
     displayName: 'Claude 3.5 Haiku',
-    description_ko: '빠른 Anthropic 모델',
-    description_en: 'Fast Anthropic model',
+    description_ko: '가볍고 빠른 Anthropic 모델',
+    description_en: 'Light and fast Anthropic model',
     tier: 'fast',
   },
 
-  // OpenAI
+  // ============================================
+  // OpenAI (gpt-*, o*)
+  // ============================================
+  'gpt-5.4': {
+    displayName: 'GPT-5.4',
+    description_ko: '코딩과 문제 해결에 강해요',
+    description_en: 'Strong at coding and solving problems',
+    tier: 'flagship',
+  },
+  'gpt-5.4-mini': {
+    displayName: 'GPT-5.4 mini',
+    description_ko: '가볍고 빨라요',
+    description_en: 'Light and fast',
+    tier: 'fast',
+  },
+  'gpt-5.4-nano': {
+    displayName: 'GPT-5.4 nano',
+    description_ko: '아주 작고 아주 빨라요',
+    description_en: 'Tiny and very fast',
+    tier: 'fast',
+  },
+  'gpt-5.2': {
+    displayName: 'GPT-5.2',
+    description_ko: '어려운 문제를 천천히 풀어요',
+    description_en: 'Thinks slowly to solve hard problems',
+    tier: 'reasoning',
+  },
+  'gpt-5.2-pro': {
+    displayName: 'GPT-5.2 Pro',
+    description_ko: '제일 어려운 문제 전용',
+    description_en: 'For the hardest problems',
+    tier: 'reasoning',
+  },
   'gpt-4o': {
     displayName: 'GPT-4o',
-    description_ko: '강력한 범용 성능',
-    description_en: 'Strong all-around performance',
+    description_ko: '코딩과 분석을 잘해요',
+    description_en: 'Good at coding and analysis',
     tier: 'flagship',
   },
   'gpt-4o-mini': {
     displayName: 'GPT-4o mini',
-    description_ko: '빠르고 경제적인 OpenAI 모델',
-    description_en: 'Fast and affordable OpenAI model',
+    description_ko: '가볍고 빨라요',
+    description_en: 'Light and fast',
     tier: 'fast',
   },
 
-  // Google
-  'gemini-2.5-flash': {
-    displayName: 'Gemini 2.5 Flash',
-    description_ko: '체험 가능 · 무료 AI',
-    description_en: 'Free trial available',
-    tier: 'trial',
+  // ============================================
+  // Google (gemini-*)
+  // ============================================
+  'gemini-3.1-pro': {
+    displayName: 'Gemini 3.1 Pro',
+    description_ko: '구글의 최신 모델 · 긴 문서에 강해요',
+    description_en: "Google's newest · great with long documents",
+    tier: 'flagship',
+  },
+  'gemini-3-pro': {
+    displayName: 'Gemini 3 Pro',
+    description_ko: '이미지와 문서를 잘 이해해요',
+    description_en: 'Great with images and documents',
+    tier: 'flagship',
   },
   'gemini-2.5-pro': {
     displayName: 'Gemini 2.5 Pro',
-    description_ko: 'Google 플래그십',
-    description_en: 'Google flagship',
+    description_ko: '코딩 잘하는 구글 모델',
+    description_en: 'Google model that codes well',
     tier: 'flagship',
+  },
+  'gemini-2.5-flash': {
+    displayName: 'Gemini 2.5 Flash',
+    description_ko: '무료로 써볼 수 있어요',
+    description_en: 'Free to try',
+    tier: 'trial',
+  },
+  'gemini-2.5-flash-lite': {
+    displayName: 'Gemini 2.5 Flash Lite',
+    description_ko: '가장 저렴한 구글 모델',
+    description_en: "Google's cheapest",
+    tier: 'fast',
   },
   'gemini-2.0-flash': {
     displayName: 'Gemini 2.0 Flash',
-    description_ko: '빠른 Google 모델',
-    description_en: 'Fast Google model',
-    tier: 'fast',
-  },
-  'gemini-2.0-flash-lite': {
-    displayName: 'Gemini 2.0 Flash Lite',
-    description_ko: '초경량 Google 모델',
-    description_en: 'Ultra-light Google model',
+    description_ko: '빠른 구글 모델 (6월 은퇴 예정)',
+    description_en: 'Fast Google model (retiring June)',
     tier: 'fast',
   },
 
+  // ============================================
   // DeepSeek
+  // ============================================
   'deepseek-chat': {
     displayName: 'DeepSeek V3',
-    description_ko: '초저가 고성능',
-    description_en: 'Ultra-cheap, high quality',
+    description_ko: '저렴한데 잘해요',
+    description_en: 'Cheap but capable',
     tier: 'balanced',
   },
   'deepseek-reasoner': {
     displayName: 'DeepSeek R1',
-    description_ko: '수학 · 코딩 추론',
-    description_en: 'Math & code reasoning',
+    description_ko: '수학과 코딩을 잘 풀어요',
+    description_en: 'Good at math and code',
     tier: 'reasoning',
   },
 
-  // Groq
+  // ============================================
+  // Groq (llama-*, mixtral-*)
+  // ============================================
   'llama-3.3-70b-versatile': {
     displayName: 'Llama 3.3 70B',
-    description_ko: '무료 · 초고속',
-    description_en: 'Free · ultra-fast',
+    description_ko: '무료 · 아주 빨라요',
+    description_en: 'Free · very fast',
     tier: 'fast',
   },
 };
@@ -192,6 +244,9 @@ async function fetchAnthropic(key: string): Promise<NormalizedModel[]> {
     const id = m.id as string;
     // Skip very old models
     if (/claude-3-haiku-|claude-3-sonnet-|claude-3-opus-|claude-instant/.test(id)) continue;
+    // Skip dated snapshots like claude-sonnet-4-5-20250620
+    if (/-\d{8}$/.test(id)) continue;
+    if (/-\d{4}-\d{2}-\d{2}$/.test(id)) continue;
 
     const override = META_OVERRIDES[id];
     const classified = override ?? classifyUnknown(id, 'anthropic');
@@ -265,6 +320,9 @@ async function fetchGoogle(key: string): Promise<NormalizedModel[]> {
     if (/gemini-1\.[05]|bison|gecko|embed|aqa|tts|image|robotics|lyria|banana|deep-research|computer-use/.test(id)) continue;
     // Skip dated preview snapshots like gemini-2.5-flash-preview-04-17 (keep the alias)
     if (/-preview-\d{2}-\d{2}$/.test(id)) continue;
+    // Skip dated snapshots like gemini-2.5-flash-20250115 or gemini-2.5-flash-exp-20250827
+    if (/-\d{8}$/.test(id)) continue;
+    if (/-\d{4}-\d{2}-\d{2}$/.test(id)) continue;
 
     const override = META_OVERRIDES[id];
     const classified = override ?? classifyUnknown(id, 'google');

@@ -45,34 +45,49 @@ export const REGISTRY_GENERATED_AT: string = registry.generatedAt;
 // Convenience selectors
 // ============================================================
 
-/** Top models for the main dropdown (best 1-2 per provider, tier-aware) */
+// ============================================================
+// Curated whitelist — only these IDs (or their fallbacks) appear
+// in the main dropdown. Order here = order in dropdown.
+// ============================================================
+const FEATURED_MODEL_IDS = [
+  'gemini-2.5-flash',   // trial / free
+  'claude-opus-4-7',    // Anthropic flagship
+  'claude-sonnet-4-6',  // Anthropic balanced
+  'gpt-5.4',            // OpenAI flagship
+  'gpt-5.4-mini',       // OpenAI fast
+  'gemini-3.1-pro',     // Google flagship
+  'deepseek-chat',      // DeepSeek value
+] as const;
+
+/** Fallback chain: if the preferred ID isn't in the registry, try these in order */
+const FEATURED_FALLBACKS: Record<string, string[]> = {
+  'gemini-3.1-pro':  ['gemini-2.5-pro', 'gemini-2.5-flash'],
+  'claude-opus-4-7': ['claude-opus-4-6', 'claude-opus-4-5'],
+  'gpt-5.4':         ['gpt-5.3', 'gpt-5.2', 'gpt-4o'],
+  'gpt-5.4-mini':    ['gpt-4o-mini'],
+};
+
+/** Top models for the main dropdown — explicit whitelist, stable order */
 export function getFeaturedModels(): AvailableModel[] {
-  const byProvider = new Map<ProviderId, AvailableModel[]>();
-  for (const m of AVAILABLE_MODELS) {
-    const list = byProvider.get(m.provider) ?? [];
-    list.push(m);
-    byProvider.set(m.provider, list);
-  }
+  const available = new Map(AVAILABLE_MODELS.map((m) => [m.id, m]));
+  const result: AvailableModel[] = [];
 
-  const featured: AvailableModel[] = [];
-
-  // Trial model first (Gemini 2.5 Flash)
-  const trial = AVAILABLE_MODELS.find((m) => m.tier === 'trial');
-  if (trial) featured.push(trial);
-
-  // Top pick from each provider
-  const order: ModelTier[] = ['flagship', 'balanced', 'reasoning', 'fast'];
-  const providers: ProviderId[] = ['anthropic', 'openai', 'google', 'deepseek', 'groq'];
-
-  for (const p of providers) {
-    const list = byProvider.get(p) ?? [];
-    for (const tier of order) {
-      const m = list.find((x) => x.tier === tier && !featured.includes(x));
-      if (m) { featured.push(m); break; }
+  for (const preferredId of FEATURED_MODEL_IDS) {
+    if (available.has(preferredId)) {
+      result.push(available.get(preferredId)!);
+      continue;
     }
+    // Try fallbacks
+    for (const fb of FEATURED_FALLBACKS[preferredId] ?? []) {
+      if (available.has(fb)) {
+        result.push(available.get(fb)!);
+        break;
+      }
+    }
+    // If neither preferred nor fallback found, slot is silently omitted
   }
 
-  return featured;
+  return result;
 }
 
 /** Infer provider from model id (registry lookup) */
