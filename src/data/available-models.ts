@@ -46,49 +46,76 @@ export const REGISTRY_GENERATED_AT: string = registry.generatedAt;
 // ============================================================
 
 // ============================================================
-// Curated whitelist — only these IDs (or their fallbacks) appear
-// in the main dropdown. Order here = order in dropdown.
+// Curated dropdown — grouped by provider, each with 1-3 picks
+// and a fallback chain per slot.
 // ============================================================
-const FEATURED_MODEL_IDS = [
-  'gemini-2.5-flash',   // trial / free
-  'claude-opus-4-7',    // Anthropic flagship
-  'claude-sonnet-4-6',  // Anthropic balanced
-  'gpt-5.4',            // OpenAI flagship
-  'gpt-5.4-mini',       // OpenAI fast
-  'gemini-3.1-pro',     // Google flagship
-  'deepseek-chat',      // DeepSeek value
-] as const;
 
-/** Fallback chain: if the preferred ID isn't in the registry, try these in order */
-const FEATURED_FALLBACKS: Record<string, string[]> = {
-  'gemini-3.1-pro':  ['gemini-2.5-pro', 'gemini-2.5-flash'],
-  'claude-opus-4-7': ['claude-opus-4-6', 'claude-opus-4-5'],
-  'gpt-5.4':         ['gpt-5.3', 'gpt-5.2', 'gpt-4o'],
-  'gpt-5.4-mini':    ['gpt-4o-mini'],
+/** Provider display order in the dropdown */
+export const FEATURED_PROVIDER_ORDER: ProviderId[] = [
+  'google',     // trial/free first for familiarity
+  'anthropic',
+  'openai',
+  'deepseek',
+  'groq',
+];
+
+/**
+ * Per-provider picks, in preferred order. The first available ID wins per
+ * slot — but fallbacks are only used when the preferred one is missing from
+ * the registry (e.g. model retired, API not yet exposing new alias).
+ */
+const PICK_FROM_PROVIDER: Record<ProviderId, string[][]> = {
+  google: [
+    ['gemini-2.5-flash'],                                                    // trial/free
+    ['gemini-3.1-pro', 'gemini-3.1-pro-preview', 'gemini-3-pro', 'gemini-3-pro-preview', 'gemini-2.5-pro'],
+  ],
+  anthropic: [
+    ['claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5'],
+    ['claude-sonnet-4-6', 'claude-sonnet-4-5-20250929'],
+    ['claude-haiku-4-5', 'claude-haiku-4-5-20251001'],
+  ],
+  openai: [
+    ['gpt-5.4', 'gpt-5.3', 'gpt-4o'],
+    ['gpt-5.4-mini', 'gpt-4o-mini'],
+    ['gpt-5.2', 'o3', 'o1'],
+  ],
+  deepseek: [
+    ['deepseek-chat', 'deepseek-v4-pro'],
+    ['deepseek-reasoner', 'deepseek-v4-flash'],
+  ],
+  groq: [
+    ['llama-3.3-70b-versatile'],
+  ],
 };
 
-/** Top models for the main dropdown — explicit whitelist, stable order */
+/** Featured models grouped by provider, in display order */
 export function getFeaturedModels(): AvailableModel[] {
-  const available = new Map(AVAILABLE_MODELS.map((m) => [m.id, m]));
+  const byId = new Map(AVAILABLE_MODELS.map((m) => [m.id, m]));
   const result: AvailableModel[] = [];
 
-  for (const preferredId of FEATURED_MODEL_IDS) {
-    if (available.has(preferredId)) {
-      result.push(available.get(preferredId)!);
-      continue;
-    }
-    // Try fallbacks
-    for (const fb of FEATURED_FALLBACKS[preferredId] ?? []) {
-      if (available.has(fb)) {
-        result.push(available.get(fb)!);
-        break;
+  for (const provider of FEATURED_PROVIDER_ORDER) {
+    const slots = PICK_FROM_PROVIDER[provider] ?? [];
+    for (const fallbackChain of slots) {
+      for (const id of fallbackChain) {
+        if (byId.has(id)) {
+          result.push(byId.get(id)!);
+          break; // first match wins this slot
+        }
       }
     }
-    // If neither preferred nor fallback found, slot is silently omitted
   }
 
   return result;
 }
+
+/** Provider display labels for section headers in the dropdown */
+export const PROVIDER_LABELS: Record<ProviderId, { ko: string; en: string }> = {
+  google:    { ko: 'Google',    en: 'Google' },
+  anthropic: { ko: 'Anthropic', en: 'Anthropic' },
+  openai:    { ko: 'OpenAI',    en: 'OpenAI' },
+  deepseek:  { ko: 'DeepSeek',  en: 'DeepSeek' },
+  groq:      { ko: 'Groq',      en: 'Groq' },
+};
 
 /** Infer provider from model id (registry lookup) */
 export function inferProvider(modelId: string): ProviderId | null {

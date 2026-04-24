@@ -63,6 +63,22 @@ async function callGemini(prompt: string, key: string): Promise<string | null> {
 // ============================================================
 // Prompt builder — strict constraints for Jobs-style output
 // ============================================================
+// Few-shot samples — shown to the model as "existing descriptions
+// you must NOT duplicate". Keeps generated output differentiated.
+const META_OVERRIDES_SAMPLE: Record<string, { provider: string; description_ko: string; description_en: string }> = {
+  'claude-opus-4-7':   { provider: 'anthropic', description_ko: '글을 가장 잘 써요',         description_en: 'Best at writing' },
+  'claude-sonnet-4-6': { provider: 'anthropic', description_ko: '매일 쓰기에 좋아요',       description_en: 'Good for daily tasks' },
+  'claude-haiku-4-5':  { provider: 'anthropic', description_ko: '가장 빠르고 가벼워요',     description_en: 'Fastest and lightest' },
+  'gpt-5.4':           { provider: 'openai',    description_ko: '코딩과 문제 해결을 잘해요', description_en: 'Strong at code and problems' },
+  'gpt-5.4-mini':      { provider: 'openai',    description_ko: '저렴하고 가벼워요',         description_en: 'Cheap and light' },
+  'gpt-5.2':           { provider: 'openai',    description_ko: '어려운 추론을 해요',         description_en: 'Deep reasoning' },
+  'gemini-2.5-flash':  { provider: 'google',    description_ko: '무료로 써볼 수 있어요',     description_en: 'Free to try' },
+  'gemini-3.1-pro':    { provider: 'google',    description_ko: '긴 문서를 잘 봐요',         description_en: 'Great with long documents' },
+  'deepseek-chat':     { provider: 'deepseek',  description_ko: '저렴한데 잘해요',           description_en: 'Cheap but capable' },
+  'deepseek-reasoner': { provider: 'deepseek',  description_ko: '수학과 코딩을 잘 풀어요',   description_en: 'Solves math and code' },
+  'llama-3.3-70b-versatile': { provider: 'groq', description_ko: '무료로 아주 빨라요',       description_en: 'Free and very fast' },
+};
+
 function buildPrompt(hint: ProviderModelHint): string {
   const created = hint.createdAt
     ? new Date(hint.createdAt * 1000).toISOString().split('T')[0]
@@ -70,21 +86,86 @@ function buildPrompt(hint: ProviderModelHint): string {
   const officialDesc = hint.officialDescription
     ? `\n- Official description: ${hint.officialDescription}`
     : '';
+  const sizeMatch = hint.id.match(/\b(\d+)b\b/i)?.[1];
+  const sizeHint = sizeMatch ? `${sizeMatch}B params` : 'unknown';
 
-  return `You are writing UI copy for an AI chat app model picker (non-technical Korean users).
+  // Siblings = existing entries from same provider — shown as "do not duplicate"
+  const siblings = Object.entries(META_OVERRIDES_SAMPLE)
+    .filter(([, v]) => v.provider === hint.provider)
+    .slice(0, 6)
+    .map(([id, v]) => `  - ${id}: "${v.description_ko}" / "${v.description_en}"`)
+    .join('\n');
 
-Generate metadata for: ID=${hint.id}, Provider=${hint.provider}, Created=${created}${officialDesc}
+  return `You write UI copy for an AI chat app used by non-technical Korean and global users.
 
-Rules:
-- displayName: proper product name (e.g. "Gemma 3 12B", "Claude Sonnet 4.7", "GPT-5.4 mini")
-- description_ko: max 15 chars no spaces, ends in 해요/예요/어요, NO jargon (금지: 플래그십, 최첨단, 최고)
-- description_en: max 40 chars, plain English, no marketing words (no: flagship, cutting-edge)
-- tier: flagship | balanced | fast | reasoning | trial
+Generate metadata for this AI model:
+- Model ID: ${hint.id}
+- Provider: ${hint.provider}
+- Model size hint: ${sizeHint}
+- Created: ${created}${officialDesc}
 
-Examples of good description_ko: "빠르고 가벼워요", "코딩을 잘해요", "무료로 써볼 수 있어요", "어려운 문제를 풀어요"
-Tier guide: flagship=best quality, balanced=everyday, fast=mini/lite/nano/haiku, reasoning=thinking/o1, trial=free gemini only
+EXISTING MODELS FROM SAME FAMILY (avoid duplicating these descriptions):
+${siblings || '  (none)'}
 
-Respond with ONLY the JSON object.`;
+Respond with ONLY a JSON object:
+{
+  "displayName": "Human-readable name",
+  "description_ko": "한국어 설명",
+  "description_en": "English description",
+  "tier": "flagship" | "balanced" | "fast" | "reasoning" | "trial"
+}
+
+DIFFERENTIATION RULES — this is critical:
+
+1. Read clues from the model ID:
+   - "pro" / "opus" / "ultra" → tier=flagship
+   - "mini" / "nano" / "haiku" / "lite" → tier=fast
+   - "flash" → tier=fast (or trial if explicitly free)
+   - "sonnet" / "chat" / base model → tier=balanced
+   - "reasoner" / "thinking" / "o1" / "o3" / "o4" → tier=reasoning
+   - "preview" / "experimental" / "exp" → still classify primary tier
+
+2. Each description must answer "WHY pick THIS over the siblings above?":
+   - BAD:  "어려운 문제를 풀어요" (generic, likely duplicate)
+   - GOOD: "글쓰기에 가장 강해요" (unique angle)
+   - GOOD: "저렴한데 잘해요" (price angle)
+
+3. Provider-specific strengths (preferred framing):
+   - gpt-5.x:            "문제 해결과 코딩에 강해요"
+   - gpt-5.x-mini/nano:  "가볍고 빨라요"
+   - o3/o4/gpt-5.2:      "어려운 추론을 해요"
+   - claude-opus-x:      "글쓰기가 가장 좋아요"
+   - claude-sonnet-x:    "일상 업무에 좋아요"
+   - claude-haiku-x:     "가볍고 빨라요"
+   - gemini-x-pro:       "긴 문서를 잘 봐요"
+   - gemini-x-flash:     "빠르고 저렴해요"
+   - deepseek-chat:      "저렴한데 잘해요"
+   - deepseek-reasoner:  "수학과 코딩을 잘 풀어요"
+   - llama-x:            "무료로 아주 빨라요"
+   - gemma-x:            "오픈소스 구글 모델"
+
+STRICT FORMAT RULES:
+
+- displayName:
+  - Brand capitalized correctly: "GPT-5.4", "Claude Opus 4.7", "Gemini 2.5 Pro", "DeepSeek V3"
+  - NEVER "Gpt" or "Gpt 5 4" — must be "GPT-5.4" with dash
+  - NEVER include date stamps like "20250805"
+  - Max 40 characters
+
+- description_ko:
+  - Max 15 Korean characters (공백 제외)
+  - Must end with 해요/예요/어요 (or 이에요/워요/etc. ending in 요)
+  - Forbidden: 플래그십, SOTA, 최첨단, 획기적, 최고의, 최상의
+  - Must be specific — the reader should know what's different about THIS model
+
+- description_en:
+  - Max 40 characters
+  - Forbidden: flagship, state-of-the-art, cutting-edge, revolutionary
+  - Present tense, simple verbs
+
+- tier: exactly one of [flagship, balanced, fast, reasoning, trial]
+
+Respond with ONLY the JSON. No markdown, no explanation.`;
 }
 
 // ============================================================

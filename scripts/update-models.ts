@@ -54,26 +54,26 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   // ============================================
   'claude-opus-4-7': {
     displayName: 'Claude Opus 4.7',
-    description_ko: '글을 가장 잘 쓰고, 깊이 생각해요',
-    description_en: 'Best at writing and deep thinking',
+    description_ko: '글을 가장 잘 써요',
+    description_en: 'Best at writing',
     tier: 'flagship',
   },
   'claude-opus-4-6': {
     displayName: 'Claude Opus 4.6',
-    description_ko: '복잡한 일을 오래 붙잡고 해결해요',
-    description_en: 'Tackles long, complex tasks',
+    description_ko: '글쓰기에 강해요',
+    description_en: 'Strong at writing',
     tier: 'flagship',
   },
   'claude-opus-4-5': {
     displayName: 'Claude Opus 4.5',
-    description_ko: '복잡한 일을 깊게 생각해요',
-    description_en: 'Thinks deeply on complex tasks',
+    description_ko: '깊이 생각해요',
+    description_en: 'Thinks deeply',
     tier: 'flagship',
   },
   'claude-sonnet-4-6': {
     displayName: 'Claude Sonnet 4.6',
-    description_ko: '빠르면서 똑똑해요 · 매일 쓰기 좋아요',
-    description_en: 'Smart and quick · great for everyday',
+    description_ko: '매일 쓰기에 좋아요',
+    description_en: 'Good for daily tasks',
     tier: 'balanced',
   },
   'claude-haiku-4-5': {
@@ -81,6 +81,18 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
     description_ko: '가장 빠르고 가벼워요',
     description_en: 'Fastest and lightest',
     tier: 'fast',
+  },
+  'claude-haiku-4-5-20251001': {
+    displayName: 'Claude Haiku 4.5',
+    description_ko: '가장 빠르고 가벼워요',
+    description_en: 'Fastest and lightest',
+    tier: 'fast',
+  },
+  'claude-sonnet-4-5-20250929': {
+    displayName: 'Claude Sonnet 4.5',
+    description_ko: '매일 쓰기에 좋아요',
+    description_en: 'Good for daily tasks',
+    tier: 'balanced',
   },
   'claude-3-5-haiku-20241022': {
     displayName: 'Claude 3.5 Haiku',
@@ -94,14 +106,14 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   // ============================================
   'gpt-5.4': {
     displayName: 'GPT-5.4',
-    description_ko: '코딩과 문제 해결에 강해요',
-    description_en: 'Strong at coding and solving problems',
+    description_ko: '코딩과 문제 해결을 잘해요',
+    description_en: 'Strong at code and problems',
     tier: 'flagship',
   },
   'gpt-5.4-mini': {
     displayName: 'GPT-5.4 mini',
-    description_ko: '가볍고 빨라요',
-    description_en: 'Light and fast',
+    description_ko: '저렴하고 가벼워요',
+    description_en: 'Cheap and light',
     tier: 'fast',
   },
   'gpt-5.4-nano': {
@@ -112,8 +124,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },
   'gpt-5.2': {
     displayName: 'GPT-5.2',
-    description_ko: '어려운 문제를 천천히 풀어요',
-    description_en: 'Thinks slowly to solve hard problems',
+    description_ko: '어려운 추론을 해요',
+    description_en: 'Deep reasoning',
     tier: 'reasoning',
   },
   'gpt-5.2-pro': {
@@ -140,14 +152,14 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   // ============================================
   'gemini-3.1-pro': {
     displayName: 'Gemini 3.1 Pro',
-    description_ko: '구글의 최신 모델 · 긴 문서에 강해요',
-    description_en: "Google's newest · great with long documents",
+    description_ko: '긴 문서를 잘 봐요',
+    description_en: 'Great with long documents',
     tier: 'flagship',
   },
   'gemini-3-pro': {
     displayName: 'Gemini 3 Pro',
-    description_ko: '이미지와 문서를 잘 이해해요',
-    description_en: 'Great with images and documents',
+    description_ko: '긴 문서를 잘 봐요',
+    description_en: 'Great with long documents',
     tier: 'flagship',
   },
   'gemini-2.5-pro': {
@@ -187,8 +199,20 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   'deepseek-reasoner': {
     displayName: 'DeepSeek R1',
     description_ko: '수학과 코딩을 잘 풀어요',
-    description_en: 'Good at math and code',
+    description_en: 'Solves math and code',
     tier: 'reasoning',
+  },
+  'deepseek-v4-pro': {
+    displayName: 'DeepSeek V4 Pro',
+    description_ko: '저렴한데 잘해요',
+    description_en: 'Cheap but capable',
+    tier: 'flagship',
+  },
+  'deepseek-v4-flash': {
+    displayName: 'DeepSeek V4 Flash',
+    description_ko: '싸고 빨라요',
+    description_en: 'Cheap and fast',
+    tier: 'fast',
   },
 
   // ============================================
@@ -196,8 +220,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   // ============================================
   'llama-3.3-70b-versatile': {
     displayName: 'Llama 3.3 70B',
-    description_ko: '무료 · 아주 빨라요',
-    description_en: 'Free · very fast',
+    description_ko: '무료로 아주 빨라요',
+    description_en: 'Free and very fast',
     tier: 'fast',
   },
 
@@ -238,6 +262,31 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
 // ============================================================
 // Heuristic classification for unknown models
 // ============================================================
+
+/** Brand / keyword capitalization used when building displayName tokens */
+const BRAND_NORMALIZE: Record<string, string> = {
+  // Brand names — proper capitalization
+  gpt:      'GPT',
+  claude:   'Claude',
+  gemini:   'Gemini',
+  gemma:    'Gemma',
+  deepseek: 'DeepSeek',
+  llama:    'Llama',
+  mixtral:  'Mixtral',
+  // Variant keywords
+  opus:     'Opus',
+  sonnet:   'Sonnet',
+  haiku:    'Haiku',
+  pro:      'Pro',
+  flash:    'Flash',
+  mini:     'mini',   // keep lowercase (OpenAI convention)
+  nano:     'nano',
+  lite:     'Lite',
+  ultra:    'Ultra',
+  chat:     'Chat',
+  reasoner: 'Reasoner',
+};
+
 function classifyUnknown(id: string, provider: ProviderId): Partial<NormalizedModel> {
   const lower = id.toLowerCase();
   let tier: NormalizedModel['tier'] = 'balanced';
@@ -248,7 +297,12 @@ function classifyUnknown(id: string, provider: ProviderId): Partial<NormalizedMo
 
   const displayName = id
     .split(/[-_]/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .map((w) => {
+      const normalized = BRAND_NORMALIZE[w.toLowerCase()];
+      if (normalized) return normalized;
+      if (/^\d/.test(w)) return w; // numbers stay as-is
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    })
     .join(' ');
 
   return {
@@ -274,13 +328,21 @@ async function fetchAnthropic(key: string): Promise<NormalizedModel[]> {
   const data = await res.json();
   const models: NormalizedModel[] = [];
 
+  // Build alias set first so we can drop dated snapshots only when a
+  // non-dated alias exists (Anthropic ships Haiku 4.5 only as a dated ID).
+  const rawIds: string[] = (data.data ?? []).map((m: any) => m.id);
+  const allIds = new Set(rawIds);
+  const hasAliasFor = (datedId: string): boolean => {
+    const base = datedId.replace(/-\d{8}$|-\d{4}-\d{2}-\d{2}$/, '');
+    return base !== datedId && allIds.has(base);
+  };
+
   for (const m of data.data ?? []) {
     const id = m.id as string;
     // Skip very old models
     if (/claude-3-haiku-|claude-3-sonnet-|claude-3-opus-|claude-instant/.test(id)) continue;
-    // Skip dated snapshots like claude-sonnet-4-5-20250620
-    if (/-\d{8}$/.test(id)) continue;
-    if (/-\d{4}-\d{2}-\d{2}$/.test(id)) continue;
+    // Drop dated snapshot ONLY when its alias is present in the same response
+    if ((/-\d{8}$/.test(id) || /-\d{4}-\d{2}-\d{2}$/.test(id)) && hasAliasFor(id)) continue;
 
     const override = META_OVERRIDES[id];
     const classified = override ?? classifyUnknown(id, 'anthropic');

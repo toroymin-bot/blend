@@ -20,7 +20,7 @@ import type { AIProvider } from '@/types';
 import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
-import { getFeaturedModels } from '@/data/available-models';
+import { getFeaturedModels, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
 
 // ============================================================
 // Design tokens (same as Phase 1)
@@ -950,10 +950,45 @@ function D1ModelDropdown({
   currentModel: string;
   onSelect: (id: string) => void;
 }) {
+  // Render helper for a single row
+  const renderRow = (m: ModelEntry) => {
+    const selected = m.id === currentModel;
+    const desc = lang === 'ko' ? m.desc_ko : m.desc_en;
+    return (
+      <button
+        key={m.id}
+        onClick={() => onSelect(m.id)}
+        className="flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors hover:bg-black/5"
+      >
+        <span
+          className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+          style={{ background: BRAND_COLORS[m.brand] ?? tokens.accent }}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-medium" style={{ color: tokens.text }}>{m.name}</span>
+            {selected && <CheckIcon />}
+          </div>
+          <span className="mt-0.5 text-[12px]" style={{ color: tokens.textDim }}>{desc}</span>
+        </div>
+      </button>
+    );
+  };
+
+  // Split: Auto row goes on top, rest grouped by provider
+  const autoRow = MODELS.find((m) => m.id === 'auto');
+  const nonAuto = MODELS.filter((m) => m.id !== 'auto');
+  const grouped = new Map<ProviderId, ModelEntry[]>();
+  for (const m of nonAuto) {
+    const list = grouped.get(m.provider as ProviderId) ?? [];
+    list.push(m);
+    grouped.set(m.provider as ProviderId, list);
+  }
+
   return (
     <div
       id="d1-model-dropdown"
-      className="absolute left-8 top-[52px] z-50 w-[340px] overflow-hidden rounded-[16px] border"
+      className="absolute left-8 top-[52px] z-50 w-[340px] max-h-[70vh] overflow-y-auto rounded-[16px] border"
       style={{
         background: 'rgba(255,255,255,0.82)',
         backdropFilter: 'saturate(180%) blur(20px)',
@@ -964,27 +999,35 @@ function D1ModelDropdown({
       }}
     >
       <div className="py-1.5">
-        {MODELS.map((m) => {
-          const selected = m.id === currentModel;
-          const desc = lang === 'ko' ? m.desc_ko : m.desc_en;
+        {autoRow && renderRow(autoRow)}
+
+        {FEATURED_PROVIDER_ORDER.map((provider) => {
+          const models = grouped.get(provider);
+          if (!models || models.length === 0) return null;
           return (
-            <button
-              key={m.id}
-              onClick={() => onSelect(m.id)}
-              className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-black/5"
-            >
-              <span
-                className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-                style={{ background: BRAND_COLORS[m.brand] ?? tokens.accent }}
+            <div key={provider}>
+              <div
+                className="mt-1.5"
+                style={{
+                  borderTop: `1px solid ${tokens.borderStrong}`,
+                  margin: '6px 12px 0',
+                }}
               />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] font-medium" style={{ color: tokens.text }}>{m.name}</span>
-                  {selected && <CheckIcon />}
-                </div>
-                <span className="mt-0.5 text-[12px]" style={{ color: tokens.textDim }}>{desc}</span>
+              <div
+                className="pt-2 pb-1"
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: tokens.textFaint,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  padding: '8px 16px 4px',
+                }}
+              >
+                {PROVIDER_LABELS[provider][lang]}
               </div>
-            </button>
+              {models.map(renderRow)}
+            </div>
           );
         })}
       </div>
