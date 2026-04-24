@@ -1302,6 +1302,7 @@ export function ChatView() {
                       <span
                         className="text-xs text-gray-700 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         title={new Date(msg.createdAt).toLocaleString()}
+                        suppressHydrationWarning
                       >
                         {new Date(msg.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                       </span>
