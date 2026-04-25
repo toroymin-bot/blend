@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ActiveSource } from '@/types/active-source';
 import { useActiveSourceList } from '@/hooks/use-active-source-list';
 import { useDocumentStore } from '@/stores/document-store';
+import { useDataSourceStore } from '@/stores/datasource-store';
 
 const tokens = {
   bg:           'var(--d1-bg)',
@@ -33,6 +34,9 @@ export function ActiveSourcesBar({
   const [showLeftFade, setShowLeftFade]   = useState(false);
   const [showRightFade, setShowRightFade] = useState(false);
 
+  // Tori 핫픽스 (2026-04-25) — datasource-store 마운트 시 localStorage 로딩 보장
+  useEffect(() => { useDataSourceStore.getState().loadFromStorage(); }, []);
+
   // 0개 → 영역 자체 미렌더링
   useEffect(() => {
     const el = scrollRef.current;
@@ -56,8 +60,11 @@ export function ActiveSourcesBar({
   function handleDeactivate(source: ActiveSource) {
     if (source.type === 'document') {
       useDocumentStore.getState().toggleActive(source.documentId);
+    } else if (source.type === 'datasource-folder') {
+      // 비활성화만 — 연결 해제 X (사용자가 라이브러리에서 다시 활성화 가능)
+      useDataSourceStore.getState().setActive(source.dataSourceId, false);
     }
-    // meeting/datasource: 후속 PR
+    // meeting: 후속 PR
   }
 
   function handleClick(source: ActiveSource) {

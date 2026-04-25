@@ -28,6 +28,9 @@ interface DataSourceState {
   updateSource: (id: string, patch: Partial<DataSource>) => void;
   removeSource: (id: string) => void;
   setStatus: (id: string, status: DataSourceStatus, error?: string) => void;
+  // Tori 핫픽스 (2026-04-25) — 채팅 RAG 활성/비활성 토글
+  setActive: (id: string, active: boolean) => void;
+  toggleActive: (id: string) => void;
   getHandle: (id: string) => FileSystemDirectoryHandle | undefined;
   setHandle: (id: string, handle: FileSystemDirectoryHandle) => void;
   loadFromStorage: () => void;
@@ -45,6 +48,8 @@ export const useDataSourceStore = create<DataSourceState>((set, get) => ({
       type: config.type,
       status: 'idle',
       config,
+      // Tori 핫픽스 — 연결 즉시 채팅에서 자동 활용 (Roy 결정)
+      isActive: true,
     };
     if (handle) localHandleMap.set(source.id, handle);
     set((s) => {
@@ -77,6 +82,22 @@ export const useDataSourceStore = create<DataSourceState>((set, get) => ({
       const next = s.sources.map((src) =>
         src.id === id ? { ...src, status, error: error ?? undefined } : src
       );
+      persist(next);
+      return { sources: next };
+    });
+  },
+
+  // Tori 핫픽스 — 채팅 RAG 활성 토글 (연결 해제 X)
+  setActive: (id, active) => {
+    set((s) => {
+      const next = s.sources.map((src) => (src.id === id ? { ...src, isActive: active } : src));
+      persist(next);
+      return { sources: next };
+    });
+  },
+  toggleActive: (id) => {
+    set((s) => {
+      const next = s.sources.map((src) => (src.id === id ? { ...src, isActive: !src.isActive } : src));
       persist(next);
       return { sources: next };
     });
