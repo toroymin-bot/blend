@@ -21,10 +21,10 @@ import D1DocumentsView from '@/modules/documents/documents-view-design1';
 import D1ModelsView from '@/modules/models/models-view-design1';
 import D1DashboardView from '@/modules/dashboard/dashboard-view-design1';
 import D1AgentsView from '@/modules/agents/agents-view-design1';
+import D1MeetingView from '@/modules/meeting/meeting-view-design1';
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
 import { ModelCompareView }     from '@/modules/models/model-compare-view';
-import { MeetingView }          from '@/modules/meeting/meeting-view';
 import { DataSourceView }       from '@/modules/datasources/datasource-view';
 import { CostSavingsDashboard } from '@/modules/ui/cost-savings-dashboard';
 import { D1SettingsView }       from '@/modules/settings/settings-view-design1';
@@ -131,7 +131,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     const map: Partial<Record<ViewId, React.ReactNode>> = {
       compare:     <D1CompareView lang={lang} onContinueInChat={handleContinueInChat} />,
       documents:   <D1DocumentsView lang={lang} />,
-      meeting:     <MeetingView />,
+      meeting:     <D1MeetingView lang={lang} />,
       billing:     <D1BillingView lang={lang} />,
       datasources: <DataSourceView />,
       models:      <D1ModelsView lang={lang} onSelectModel={handleContinueInChat} onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))} />,
