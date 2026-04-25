@@ -15,7 +15,7 @@
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
-import { trackEvent } from '@/lib/analytics';
+import { trackEvent, trackVisit } from '@/lib/analytics';
 // IMP-020: Chat은 default landing이라 eager. 나머지 D1 뷰는 lazy chunk.
 import D1ChatView from '@/modules/chat/chat-view-design1';
 
@@ -73,6 +73,8 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
 
   useEffect(() => {
     loadFromStorage();
+    // Phase 6 — 방문 추적 (옵트아웃 + 일별 dedupe 처리됨)
+    trackVisit();
   }, []);
 
   // d1:open-onboarding 이벤트 → 온보딩 열기

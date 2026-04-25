@@ -1,0 +1,11 @@
+name = "blend-counter"
+main = "blend-counter.ts"
+compatibility_date = "2026-04-25"
+
+# KV namespace id는 GitHub Secrets CF_KV_NAMESPACE_ID로 채워짐.
+# 로컬 배포 시: 아래 PLACEHOLDER_KV_ID를 실제 namespace id로 치환 후 `wrangler deploy`
+# CI 배포 시 : .github/workflows/deploy-worker.yml에서 sed로 치환
+
+[[kv_namespaces]]
+binding = "STATS"
+id = "PLACEHOLDER_KV_ID"
