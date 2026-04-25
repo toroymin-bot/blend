@@ -193,9 +193,10 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   }
 
   // ── Popover items (hidden + About)
-  // Roy 결정 2026-04-25: Prompts 메뉴 제거 (PromptsView 컴포넌트는 보존). Plugins만 유지.
+  // Roy 결정 2026-04-25:
+  // - Prompts 메뉴 제거 (PromptsView 컴포넌트는 보존)
+  // - Data Sources를 메인 사이드바(Documents 아래)로 승격 — popover에서 제거
   const moreItems: [ViewId, string, React.ReactNode][] = [
-    ['datasources', t.datasources, <DataSourcesIcon key="ds" />],
     ['models',      t.models,      <ModelsIcon      key="mo" />],
     ['agents',      t.agents,      <AgentsIcon      key="ag" />],
     ['plugins',     t.plugins,     <PluginsIcon     key="pl" />],
@@ -240,11 +241,13 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
         <div className="mx-4 my-2.5 shrink-0" style={{ height: 1, background: tokens.borderMid }} />
 
         {/* Main nav 5개 */}
-        <SbNavBtn active={activeView==='chat'}      title={t.chat}      onClick={() => nav('chat')}>      <ChatIcon />      </SbNavBtn>
-        <SbNavBtn active={activeView==='compare'}   title={t.compare}   onClick={() => nav('compare')}>   <CompareIcon />   </SbNavBtn>
-        <SbNavBtn active={activeView==='documents'} title={t.documents} onClick={() => nav('documents')}> <DocumentsIcon /> </SbNavBtn>
-        <SbNavBtn active={activeView==='meeting'}   title={t.meeting}   onClick={() => nav('meeting')}>   <MeetingIcon />   </SbNavBtn>
-        <SbNavBtn active={activeView==='billing'}   title={t.billing}   onClick={() => nav('billing')}>   <BillingIcon />   </SbNavBtn>
+        <SbNavBtn active={activeView==='chat'}        title={t.chat}        onClick={() => nav('chat')}>        <ChatIcon />        </SbNavBtn>
+        <SbNavBtn active={activeView==='compare'}     title={t.compare}     onClick={() => nav('compare')}>     <CompareIcon />     </SbNavBtn>
+        <SbNavBtn active={activeView==='documents'}   title={t.documents}   onClick={() => nav('documents')}>   <DocumentsIcon />   </SbNavBtn>
+        {/* Roy 결정 2026-04-25: Data Sources를 Documents 아래에 평면 승격 (popover에서 제거) */}
+        <SbNavBtn active={activeView==='datasources'} title={t.datasources} onClick={() => nav('datasources')}> <DataSourcesIcon /> </SbNavBtn>
+        <SbNavBtn active={activeView==='meeting'}     title={t.meeting}     onClick={() => nav('meeting')}>     <MeetingIcon />     </SbNavBtn>
+        <SbNavBtn active={activeView==='billing'}     title={t.billing}     onClick={() => nav('billing')}>     <BillingIcon />     </SbNavBtn>
 
         {/* Recent conversations (expanded only) */}
         <div className="pointer-events-none min-w-0 flex-1 overflow-y-auto px-3 pt-3 opacity-0 transition-opacity duration-150 delay-75 group-hover:pointer-events-auto group-hover:opacity-100">
