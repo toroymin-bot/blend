@@ -888,8 +888,8 @@
     "copy_suffix": " (복사)"
   },
   "billing": {
-    "hero_headline": "당신의 AI 구독료의 75%는 낭비입니다.",
-    "hero_sub": "AI 실사용은 약 $5. Blend는 ChatGPT · Claude · Gemini를 구독 없이 연결합니다. 쓴 만큼만 지불하세요.",
+    "hero_headline": "모든 AI를 하나의 키로.",
+    "hero_sub": "하나로, 더 싸게, 더 스마트하게.",
     "hero_vs_individual": "개별 구독 합계",
     "hero_vs_blend": "Blend 월 구독",
     "hero_savings_month": "절약 / 월",
