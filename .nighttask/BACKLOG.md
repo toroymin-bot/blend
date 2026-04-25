@@ -332,10 +332,13 @@
   - 커밋 브랜치: `design1/billing-view-redesign`
   - **Roy OK 받은 후 D1-Page-03 진행**
 
-- [ ] **D1-Page-03 — Documents 뷰 리디자인** (디자인 문서: `Documents_2026-04-25_v1.md`)
-  - 신규: documents-view-design1.tsx, file-dropzone, file-list, citation-block, d1-documents-store
+- [x] **D1-Page-03 — Documents 뷰 리디자인** (디자인 문서: `Documents_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: 1d452c2)
+  - 신규: documents-view-design1.tsx (단일 파일, Dropzone + FileCard + ExtBadge + StatusLine + ConfirmModal)
+  - 기존 useDocumentStore + parseDocument + generateEmbeddings 재사용 (별도 d1-documents-store 미생성)
+  - app-content-design1.tsx: DocumentPluginView → D1DocumentsView 교체
+  - 단순화: 좌측 리스트+우측 채팅 분할 대신 파일 관리 전용 뷰 (활성 문서는 chat에서 자동 RAG)
   - 커밋 브랜치: `design1/documents-view-redesign`
-  - **D1-Page-02 Roy OK 후 진행**
+  - **Roy OK 받은 후 D1-Page-04 진행**
 
 - [ ] **D1-Page-04 — Models 뷰 리디자인** (디자인 문서: `Models_2026-04-25_v1.md`)
   - 신규: models-view-design1.tsx, model-card-design1.tsx
