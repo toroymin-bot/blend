@@ -17,6 +17,9 @@ import type { AIProvider } from '@/types';
 // v3 회귀 복구: 음성 파일 업로드 + STT + 화자 분리 (Tori 명세)
 import { sttOpenAI, sttGoogle } from '@/lib/voice-chat';
 import { diarizeSpeakers } from '@/modules/meeting/meeting-plugin';
+// P1.3 Export
+import { exportMeetingPDF } from '@/lib/export/export-meeting-pdf';
+import { exportMeetingDocx } from '@/lib/export/export-meeting-docx';
 
 // ── Tokens ───────────────────────────────────────────────────────
 const tokens = {
@@ -76,6 +79,17 @@ const copy = {
     errSttTimeout:'변환에 시간이 너무 걸렸어요. 더 짧은 녹음을 사용해주세요.',
     errSttFail:   '음성 변환에 실패했어요. 파일이 손상됐을 수 있어요.',
     errAnalyze:   '분석에 실패했어요. 다시 시도해주세요.',
+    // P1.3 Export 카피
+    exportLabel:  '출력',
+    exportTitle:  '회의록 출력',
+    exportPdf:    'PDF로 저장',
+    exportDocx:   'Word로 저장',
+    exportFormat: '형식',
+    exportPreview:'미리보기',
+    exportDownload:'다운로드',
+    exporting:    '생성 중...',
+    errPdfFail:   'PDF 생성에 실패했어요. 다시 시도해주세요.',
+    errDocxFail:  'Word 파일 생성에 실패했어요. 다시 시도해주세요.',
     analyze:      '분석 시작',
     analyzing:    '분석 중...',
     fetchingYT:   'YouTube 자막을 가져오는 중...',
@@ -119,6 +133,16 @@ const copy = {
     errSttTimeout:'Transcription took too long. Try a shorter recording.',
     errSttFail:   'Transcription failed. The file may be corrupted.',
     errAnalyze:   'Analysis failed. Please try again.',
+    exportLabel:  'Export',
+    exportTitle:  'Export Meeting Notes',
+    exportPdf:    'Save as PDF',
+    exportDocx:   'Save as Word',
+    exportFormat: 'Format',
+    exportPreview:'Preview',
+    exportDownload:'Download',
+    exporting:    'Generating...',
+    errPdfFail:   'PDF generation failed. Please try again.',
+    errDocxFail:  'Word generation failed. Please try again.',
     analyze:      'Analyze',
     analyzing:    'Analyzing...',
     fetchingYT:   'Fetching YouTube transcript...',
@@ -478,6 +502,7 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
             result={active}
             onBack={backToInput}
             onToggleAction={toggleAction}
+            lang={lang}
           />
         )}
       </div>
@@ -664,22 +689,40 @@ function InputPhase({
 
 // ── Result phase ─────────────────────────────────────────────────
 function ResultPhase({
-  t, result, onBack, onToggleAction,
+  t, result, onBack, onToggleAction, lang,
 }: {
   t: typeof copy[keyof typeof copy];
   result: MeetingResult;
   onBack: () => void;
   onToggleAction: (idx: number) => void;
+  lang: 'ko' | 'en';
 }) {
+  const [exportOpen, setExportOpen] = useState(false);
   return (
     <>
-      <button
-        onClick={onBack}
-        className="mb-6 text-[13px] transition-opacity hover:opacity-70"
-        style={{ color: tokens.textDim }}
-      >
-        {t.back}
-      </button>
+      <div className="mb-6 flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="text-[13px] transition-opacity hover:opacity-70"
+          style={{ color: tokens.textDim }}
+        >
+          {t.back}
+        </button>
+        <button
+          type="button"
+          onClick={() => setExportOpen(true)}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors"
+          style={{ background: tokens.surfaceAlt, color: tokens.text }}
+          aria-label={t.exportLabel}
+        >
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>{t.exportLabel}</span>
+        </button>
+      </div>
 
       <h1 className="text-[28px] md:text-[36px] font-medium leading-[1.2] tracking-tight">
         {result.title}
@@ -689,6 +732,15 @@ function ResultPhase({
         {result.duration && ` · ${result.duration}`}
         {result.participants ? ` · ${result.participants}` : ''}
       </div>
+
+      {exportOpen && (
+        <MeetingExportModal
+          meeting={result}
+          lang={lang}
+          t={t}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
 
       {result.summary.length > 0 && (
         <Section title={t.summary}>
@@ -789,6 +841,176 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       </h2>
       {children}
     </section>
+  );
+}
+
+// P1.3 — 회의록 출력 모달 (PDF / Word)
+type ExportFormat = 'pdf' | 'docx';
+
+function MeetingExportModal({
+  meeting, lang, t, onClose,
+}: {
+  meeting: MeetingResult;
+  lang: 'ko' | 'en';
+  t: typeof copy[keyof typeof copy];
+  onClose: () => void;
+}) {
+  const [format, setFormat]       = useState<ExportFormat>('pdf');
+  const [exporting, setExporting] = useState(false);
+  const [errMsg, setErrMsg]       = useState<string | null>(null);
+
+  async function handleDownload() {
+    setErrMsg(null);
+    setExporting(true);
+    try {
+      if (format === 'pdf') {
+        await exportMeetingPDF(meeting, lang);
+      } else {
+        await exportMeetingDocx(meeting, lang);
+      }
+      onClose();
+    } catch (e) {
+      const err = e as Error & { code?: string };
+      if (err.code === 'PDF_EXPORT_FAILED') setErrMsg(t.errPdfFail);
+      else if (err.code === 'DOCX_EXPORT_FAILED') setErrMsg(t.errDocxFail);
+      else setErrMsg(t.errAnalyze);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-start justify-center px-4 py-12"
+      style={{ background: 'rgba(0,0,0,0.32)' }}
+      onClick={() => { if (!exporting) onClose(); }}
+    >
+      <div
+        className="w-full max-w-2xl overflow-hidden rounded-2xl"
+        style={{ background: tokens.surface, color: tokens.text, boxShadow: '0 24px 60px rgba(0,0,0,0.18)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div
+          className="flex items-center justify-between gap-3 border-b px-6 py-4"
+          style={{ borderColor: tokens.border }}
+        >
+          <h2 className="text-[16px] font-medium">{t.exportTitle}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={exporting}
+            className="rounded-md p-1.5 transition-opacity hover:opacity-70 disabled:opacity-40"
+            style={{ color: tokens.textFaint }}
+            aria-label={t.cancel}
+          >
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 본문 */}
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+          {/* 형식 선택 */}
+          <div className="mb-5">
+            <div className="mb-2 text-[11px] uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+              {t.exportFormat}
+            </div>
+            <div className="flex gap-2">
+              {(['pdf', 'docx'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFormat(f)}
+                  className="flex-1 rounded-lg border px-4 py-2.5 text-[13px] transition-colors"
+                  style={{
+                    background: format === f ? tokens.text : tokens.bg,
+                    color:      format === f ? tokens.bg   : tokens.text,
+                    borderColor: format === f ? tokens.text : tokens.borderStrong,
+                    fontWeight: format === f ? 500 : 400,
+                  }}
+                >
+                  {f === 'pdf' ? t.exportPdf : t.exportDocx}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 미리보기 */}
+          <div className="mb-2 text-[11px] uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+            {t.exportPreview}
+          </div>
+          <div
+            className="rounded-lg border p-5 text-[13px]"
+            style={{ background: tokens.bg, borderColor: tokens.border, color: tokens.text }}
+          >
+            <h3 className="text-[18px] font-medium" style={{ color: tokens.text }}>{meeting.title}</h3>
+            <div className="mt-1 text-[11.5px]" style={{ color: tokens.textFaint }}>
+              {new Date(meeting.createdAt).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { dateStyle: 'long' })}
+              {meeting.duration ? ` · ${meeting.duration}` : ''}
+              {meeting.participants ? ` · ${meeting.participants}${lang === 'ko' ? '명' : ''}` : ''}
+            </div>
+            {meeting.summary.length > 0 && (
+              <div className="mt-4">
+                <div className="text-[12px] font-medium mb-1.5" style={{ color: tokens.text }}>{t.summary}</div>
+                <ul className="space-y-1">
+                  {meeting.summary.slice(0, 3).map((s, i) => (
+                    <li key={i} className="flex gap-1.5 text-[12.5px]" style={{ color: tokens.textDim }}>
+                      <span>•</span><span>{s}</span>
+                    </li>
+                  ))}
+                  {meeting.summary.length > 3 && (
+                    <li className="text-[11.5px]" style={{ color: tokens.textFaint }}>
+                      {lang === 'ko' ? `... 외 ${meeting.summary.length - 3}개` : `... +${meeting.summary.length - 3} more`}
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
+            {meeting.actionItems.length > 0 && (
+              <div className="mt-3 text-[11.5px]" style={{ color: tokens.textFaint }}>
+                {t.actionItems}: {meeting.actionItems.length} · {t.decisions}: {meeting.decisions.length}
+              </div>
+            )}
+          </div>
+
+          {errMsg && (
+            <div
+              className="mt-4 rounded-lg px-4 py-2.5 text-[12.5px]"
+              style={{ background: 'rgba(204,68,68,0.08)', color: tokens.danger }}
+            >
+              {errMsg}
+            </div>
+          )}
+        </div>
+
+        {/* 푸터 */}
+        <div
+          className="flex justify-end gap-2 border-t px-6 py-4"
+          style={{ borderColor: tokens.border }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={exporting}
+            className="rounded-lg px-4 py-2 text-[13px] disabled:opacity-40"
+            style={{ color: tokens.textDim }}
+          >
+            {t.cancel}
+          </button>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={exporting}
+            className="rounded-lg px-4 py-2 text-[13px] font-medium transition-opacity disabled:opacity-50"
+            style={{ background: tokens.accent, color: '#fff' }}
+          >
+            {exporting ? t.exporting : t.exportDownload}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
