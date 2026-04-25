@@ -118,7 +118,7 @@ export default function D1AgentsView({
 
   useEffect(() => {
     loadFromStorage();
-  }, [loadFromStorage]);
+  }, [loadFromStorage, lang]);
 
   const [editing, setEditing]     = useState<Agent | null>(null);
   const [creating, setCreating]   = useState(false);

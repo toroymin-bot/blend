@@ -31,8 +31,12 @@ export async function openTossCheckout(opts: TossCheckoutOptions): Promise<void>
   const payment = tossPayments.payment({ customerKey: ANONYMOUS });
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const successUrl = opts.successUrl ?? `${origin}/payment/success`;
-  const failUrl = opts.failUrl ?? `${origin}/payment/fail`;
+  // Resolve current lang from URL (/ko/... or /en/...) → fallback ko
+  const langSeg = typeof window !== 'undefined'
+    ? (window.location.pathname.match(/^\/(ko|en)(\/|$)/)?.[1] ?? 'ko')
+    : 'ko';
+  const successUrl = opts.successUrl ?? `${origin}/${langSeg}/payment/success`;
+  const failUrl = opts.failUrl ?? `${origin}/${langSeg}/payment/fail`;
 
   await payment.requestPayment({
     method: 'CARD',

@@ -258,10 +258,10 @@ export function D1SettingsView() {
         className="flex w-[200px] shrink-0 flex-col gap-px overflow-y-auto border-r px-3 py-6"
         style={{ borderColor: tokens.border }}
       >
-        <p className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.08em]"
-           style={{ color: tokens.textFaint }}>
+        <h1 className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.08em]"
+            style={{ color: tokens.textFaint }}>
           {t('settings.title')}
-        </p>
+        </h1>
         {SECTIONS.map((s) => (
           <button
             key={s.id}

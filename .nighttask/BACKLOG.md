@@ -340,30 +340,35 @@
   - 커밋 브랜치: `design1/documents-view-redesign`
   - **Roy OK 받은 후 D1-Page-04 진행**
 
-- [ ] **D1-Page-04 — Models 뷰 리디자인** (디자인 문서: `Models_2026-04-25_v1.md`)
-  - 신규: models-view-design1.tsx, model-card-design1.tsx
-  - 커밋 브랜치: `design1/models-view-redesign`
-  - **D1-Page-03 Roy OK 후 진행**
+- [x] **D1-Page-04 — Models 뷰 리디자인** (디자인 문서: `Models_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: 292e8cb)
+  - 신규: models-view-design1.tsx (단일 파일, FilterChip + ModelCard)
+  - 5개 프로바이더 그룹 + 필터 칩 5종 + REGISTRY_GENERATED_AT 마지막 업데이트
+  - app-content-design1.tsx: ModelsView → D1ModelsView 교체
+  - Confluence: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16416797
 
-- [ ] **D1-Page-05 — Dashboard 뷰 리디자인** (디자인 문서: `Dashboard_2026-04-25_v1.md`)
-  - 신규: dashboard-view-design1.tsx, stat-card, usage-heatmap, top-models-chart, category-donut
-  - 커밋 브랜치: `design1/dashboard-view-redesign`
-  - **D1-Page-04 Roy OK 후 진행**
+- [x] **D1-Page-05 — Dashboard 뷰 리디자인** (디자인 문서: `Dashboard_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: 2ecd378)
+  - 신규: dashboard-view-design1.tsx (단일 파일, KpiCard + Heatmap SVG + 가로막대 + Donut)
+  - Period chips + 4 KPI + 7×24 히트맵 + Top-5 모델 + 카테고리 도넛(모델 휴리스틱)
+  - app-content-design1.tsx: DashboardView → D1DashboardView 교체
+  - Confluence: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16220215
 
-- [ ] **D1-Page-06 — Agents 뷰 리디자인** (디자인 문서: `Agents_2026-04-25_v1.md`)
-  - 신규: agents-view-design1.tsx, agent-card, agent-editor(모달), built-in-agents.ts (8개)
-  - 커밋 브랜치: `design1/agents-view-redesign`
-  - **D1-Page-05 Roy OK 후 진행**
+- [x] **D1-Page-06 — Agents 뷰 리디자인** (디자인 문서: `Agents_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: 39a8175)
+  - 신규: agents-view-design1.tsx (단일 파일, AgentCard + AgentEditor 모달 + ConfirmModal + 이모지 팔레트 32)
+  - Built-in/Custom 분리, 기존 useAgentStore 재사용 (별도 built-in-agents.ts 미생성)
+  - app-content-design1.tsx: AgentsView → D1AgentsView 교체
+  - Confluence: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16351325
 
-- [ ] **D1-Page-07 — Meeting 뷰 리디자인** (디자인 문서: `Meeting_2026-04-25_v1.md`)
-  - 신규: meeting-view-design1.tsx, meeting-input-zone, meeting-analysis, meeting-section, meeting-pdf-export
-  - 커밋 브랜치: `design1/meeting-view-redesign`
-  - **D1-Page-06 Roy OK 후 진행**
+- [x] **D1-Page-07 — Meeting 뷰 리디자인** (디자인 문서: `Meeting_2026-04-25_v1.md`) ✅ 2026-04-25 (commits: cf31772 + d3faf6c)
+  - 신규: meeting-view-design1.tsx (단일 파일, InputPhase + ResultPhase + Section + ConfirmModal)
+  - 텍스트/YouTube 입력 → AI JSON 분석 → 5섹션 결과 + localStorage history 30개
+  - app-content-design1.tsx: MeetingView → D1MeetingView 교체
+  - Confluence: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16351350
+  - ⚠️ Roy 추가 디자인 문서 제공: `~/Downloads/Meeting_2026-04-25_v1.md` — 모든 페이지 끝나면 추가 적용
 
 - [ ] **D1-Page-08 — DataSources 뷰 리디자인** (디자인 문서: `DataSources_2026-04-25_v1.md`)
   - 신규: datasources-view-design1.tsx, connected-source-card, available-source-card
   - 커밋 브랜치: `design1/datasources-view-redesign`
-  - **D1-Page-07 Roy OK 후 진행**
+  - ✅ 2026-04-25 (commit: cc6ed6c) - 신규 디자인 파일 ~/Downloads/DataSources_2026-04-25_v1.md 적용
 
 - [ ] **D1-Page-09 — CostSavings 뷰 리디자인** (디자인 문서: `files (5)/CostSavings_2026-04-25_v1.md`)
   - 역할: "얼마 아꼈나?" — 누적 절약, 만족감·동기부여 (Billing과 분리 — D1 확정)

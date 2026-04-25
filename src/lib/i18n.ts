@@ -53,9 +53,13 @@ export interface UseTranslationResult {
  */
 function getLangFromPath(): Language | null {
   if (typeof window === 'undefined') return null;
-  const seg = window.location.pathname.split('/')[1];
-  if (seg === 'en') return 'en';
-  if (seg === 'ko') return 'ko';
+  const segs = window.location.pathname.split('/').filter(Boolean);
+  // /(ko|en)/...           → segs[0]
+  // /design1/(ko|en)/...   → segs[1]
+  for (const s of segs.slice(0, 2)) {
+    if (s === 'en') return 'en';
+    if (s === 'ko') return 'ko';
+  }
   return null;
 }
 
@@ -99,9 +103,11 @@ export function useTranslation(): UseTranslationResult {
 export function getCurrentLanguage(): Language {
   if (typeof window === 'undefined') return 'ko';
   // URL takes priority — same rule as getLangFromPath()
-  const seg = window.location.pathname.split('/')[1];
-  if (seg === 'en') return 'en';
-  if (seg === 'ko') return 'ko';
+  const segs = window.location.pathname.split('/').filter(Boolean);
+  for (const s of segs.slice(0, 2)) {
+    if (s === 'en') return 'en';
+    if (s === 'ko') return 'ko';
+  }
   // Fallback: read from localStorage
   try {
     const stored = localStorage.getItem('blend:settings');

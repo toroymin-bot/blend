@@ -34,6 +34,7 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en'; onNavigate?: 
         {/* Logo + tagline */}
         <header className="mb-16 text-center">
           <div
+            aria-hidden="true"
             className="mb-3 text-[80px] leading-none"
             style={{
               color: tokens.text,
@@ -43,7 +44,7 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en'; onNavigate?: 
           >
             B
           </div>
-          <div className="text-[32px] md:text-[40px] font-medium tracking-tight">Blend</div>
+          <h1 className="text-[32px] md:text-[40px] font-medium tracking-tight">Blend</h1>
           <p className="mt-5 text-[16px] md:text-[18px]" style={{ color: tokens.textDim }}>
             {isKo ? 'AI를 하나로, 더 싸게, 더 스마트하게.' : 'One AI app — cheaper and smarter.'}
           </p>

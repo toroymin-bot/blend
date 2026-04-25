@@ -71,8 +71,20 @@ export const useD1ChatStore = create<D1ChatStoreState>((set, get) => ({
     try {
       const payload = { version: 1, chats: get().chats };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch {
-      // Storage full or disabled — silently ignore
+    } catch (err) {
+      if ((err as Error)?.name === 'QuotaExceededError') {
+        // Trim oldest 50% and retry once.
+        const chats = get().chats;
+        const half = Math.floor(chats.length / 2);
+        const trimmed = chats.slice(0, chats.length - half);
+        set({ chats: trimmed });
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, chats: trimmed }));
+        } catch {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('blend:storage-quota-exceeded', { detail: { store: 'chats', purged: half } }));
+        }
+      }
     }
   },
 
