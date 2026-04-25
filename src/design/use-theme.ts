@@ -1,30 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+// Roy 결정 (2026-04-25): 테마 시스템 폐기, 라이트 모드 only.
+// 이 훅은 외부 호출 호환을 위해 보존되며 항상 light 반환.
+
 import { useThemeStore } from './theme-store';
 import { D1_TOKENS, type Theme } from './d1-tokens';
 import { D1_PROVIDER_COLORS } from './d1-providers';
 
 export function useTheme() {
   const mode = useThemeStore((s) => s.mode);
-  const [systemPrefersDark, setSystemPrefersDark] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    setSystemPrefersDark(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  const theme: Theme =
-    mode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : mode;
+  const theme: Theme = 'light';
 
   return {
     theme,
-    tokens: D1_TOKENS[theme],
-    providerColors: D1_PROVIDER_COLORS[theme],
-    mode,
+    tokens: D1_TOKENS.light,
+    providerColors: D1_PROVIDER_COLORS.light,
+    mode,  // 'light' 고정 — 외부 호환
   };
 }

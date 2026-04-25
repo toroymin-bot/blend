@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "highlight.js/styles/github-dark.css";
 
+/* Roy 결정 (2026-04-25): 테마 폐기 — 라이트 모드 강제. 시스템 다크 모드 무시. */
+:root {
+  color-scheme: light;
+}
+
 :root {
   --bg-primary: #1a1a1a;
   --bg-secondary: #252525;

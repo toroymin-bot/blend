@@ -1,27 +1,22 @@
-// Blend D1 Provider colors — light/dark separate (Tori 명세)
-// Dark에선 어두운 배경에서 가독성 확보를 위해 명도 약간 올림.
+// Blend D1 Provider colors — light only (Roy 결정 2026-04-25)
+// 테마 시스템 폐기 (Komi_Theme_Removal_2026-04-25.md): dark 분기 제거.
 
 import type { Theme } from './d1-tokens';
 
-export const D1_PROVIDER_COLORS: Record<Theme, Record<string, string>> = {
-  light: {
-    anthropic: '#c65a3c',  // coral (블렌드 accent와 동일)
-    openai:    '#10a37f',  // green
-    google:    '#4285f4',  // blue
-    deepseek:  '#5865f2',  // purple
-    groq:      '#ff6b35',  // orange
-    auto:      '#a8a49b',  // textFaint (중성)
-  },
-  dark: {
-    anthropic: '#e87a5c',
-    openai:    '#2dd4a8',
-    google:    '#6ba2ff',
-    deepseek:  '#7c8aff',
-    groq:      '#ff8a5c',
-    auto:      '#6b6862',
-  },
+const LIGHT = {
+  anthropic: '#c65a3c',  // coral (블렌드 accent와 동일)
+  openai:    '#10a37f',  // green
+  google:    '#4285f4',  // blue
+  deepseek:  '#5865f2',  // purple
+  groq:      '#ff6b35',  // orange
+  auto:      '#a8a49b',  // textFaint (중성)
 } as const;
 
-export function getProviderColor(provider: string, theme: Theme = 'light'): string {
-  return D1_PROVIDER_COLORS[theme][provider] ?? D1_PROVIDER_COLORS[theme].auto;
+// 호환 — 기존 D1_PROVIDER_COLORS[theme] 접근 패턴 유지
+export const D1_PROVIDER_COLORS: Record<Theme, Record<string, string>> = {
+  light: LIGHT,
+};
+
+export function getProviderColor(provider: string, _theme: Theme = 'light'): string {
+  return LIGHT[provider as keyof typeof LIGHT] ?? LIGHT.auto;
 }
