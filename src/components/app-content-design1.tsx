@@ -334,15 +334,25 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                             </svg>
                           </span>
                         </button>
-                        {subExpanded && subItems.map(([sid, slabel, sicon]) => (
-                          <button key={sid} onClick={() => nav(sid)}
-                            className="flex w-full items-center gap-2.5 py-2 pr-3 text-[13px] transition-colors hover:bg-black/5"
-                            style={{ paddingLeft: 32, color: activeView === sid ? tokens.accent : tokens.text }}
-                          >
-                            <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: activeView === sid ? tokens.accent : tokens.textDim }}>{sicon}</span>
-                            {slabel}
-                          </button>
-                        ))}
+                        {/* Tori v2 — 부드러운 max-height + opacity transition */}
+                        <div
+                          style={{
+                            maxHeight: subExpanded ? subItems.length * 36 + 4 : 0,
+                            opacity:   subExpanded ? 1 : 0,
+                            overflow: 'hidden',
+                            transition: 'max-height 220ms ease-out, opacity 160ms ease-out',
+                          }}
+                        >
+                          {subItems.map(([sid, slabel, sicon]) => (
+                            <button key={sid} onClick={() => nav(sid)}
+                              className="flex w-full items-center gap-2.5 py-2 pr-3 text-[13px] transition-colors hover:bg-black/5"
+                              style={{ paddingLeft: 32, color: activeView === sid ? tokens.accent : tokens.text }}
+                            >
+                              <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: activeView === sid ? tokens.accent : tokens.textDim }}>{sicon}</span>
+                              {slabel}
+                            </button>
+                          ))}
+                        </div>
                       </>
                     )}
                   </span>
