@@ -24,11 +24,11 @@ import D1AgentsView from '@/modules/agents/agents-view-design1';
 import D1MeetingView from '@/modules/meeting/meeting-view-design1';
 import D1DataSourcesView from '@/modules/datasources/datasources-view-design1';
 import D1CostSavingsView from '@/modules/cost-savings/cost-savings-view-design1';
+import D1SecurityView from '@/modules/security/security-view-design1';
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
 import { ModelCompareView }     from '@/modules/models/model-compare-view';
 import { D1SettingsView }       from '@/modules/settings/settings-view-design1';
-import { SecurityView }         from '@/modules/ui/security-view';
 import { AboutView }            from '@/modules/ui/about-view';
 
 // ── Design1 온보딩
@@ -139,7 +139,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       savings:     <D1CostSavingsView lang={lang} />,
       dashboard:   <D1DashboardView lang={lang} />,
       settings:    <D1SettingsView />,
-      security:    <SecurityView />,
+      security:    <D1SecurityView lang={lang} />,
       about:       <AboutView onNavigate={(tab) => nav(tab as ViewId)} />,
     };
     return <div className="h-full overflow-y-auto bg-surface">{map[activeView]}</div>;
