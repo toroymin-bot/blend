@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import D1ChatView from '@/modules/chat/chat-view-design1';
+import D1CompareView from '@/modules/compare/compare-view-design1';
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
 import { ModelCompareView }     from '@/modules/models/model-compare-view';
@@ -80,8 +81,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   // 온보딩 완료 시 메인 앱으로 전환
   const handleOnboardingDone = () => setShowOnboarding(false);
 
-  const [activeView, setActiveView] = useState<ViewId>('chat');
-  const [convKey,    setConvKey]    = useState(0);
+  const [activeView,       setActiveView]       = useState<ViewId>('chat');
+  const [convKey,          setConvKey]          = useState(0);
+  const [chatInitialModel, setChatInitialModel] = useState<string | undefined>();
   const [history,    setHistory]    = useState<ConvSummary[]>([]);
   const [showMore,   setShowMore]   = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -90,6 +92,13 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   function handleNewChat() {
     setActiveView('chat');
     setConvKey((k) => k + 1);
+    setChatInitialModel(undefined);
+  }
+
+  function handleContinueInChat(modelId: string) {
+    setActiveView('chat');
+    setConvKey((k) => k + 1);
+    setChatInitialModel(modelId);
   }
 
   function handleConversationStart(title: string) {
@@ -117,10 +126,10 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
 
   function renderView() {
     if (activeView === 'chat') {
-      return <D1ChatView key={convKey} lang={lang} onConversationStart={handleConversationStart} />;
+      return <D1ChatView key={convKey} lang={lang} initialModel={chatInitialModel} onConversationStart={handleConversationStart} />;
     }
     const map: Partial<Record<ViewId, React.ReactNode>> = {
-      compare:     <ModelCompareView />,
+      compare:     <D1CompareView lang={lang} onContinueInChat={handleContinueInChat} />,
       documents:   <DocumentPluginView />,
       meeting:     <MeetingView />,
       billing:     <BillingView />,

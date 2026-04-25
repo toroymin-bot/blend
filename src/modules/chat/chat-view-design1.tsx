@@ -188,9 +188,11 @@ type Message = {
 export default function D1ChatView({
   lang,
   onConversationStart,
+  initialModel,
 }: {
   lang: 'ko' | 'en';
   onConversationStart?: (title: string) => void;
+  initialModel?: string;
 }) {
   const { keys, getKey, hasKey, loadFromStorage } = useAPIKeyStore();
 
@@ -212,7 +214,7 @@ export default function D1ChatView({
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [currentModel, setCurrentModel] = useState('auto');
+  const [currentModel, setCurrentModel] = useState(initialModel ?? 'auto');
   const abortRef = useRef<AbortController | null>(null);
 
   const t = copy[lang] ?? copy.en;
