@@ -630,7 +630,7 @@ export default function D1ChatView({
               style={{ background: tokens.accentSoft, color: tokens.accent, fontFamily: fontStack }}
               suppressHydrationWarning
             >
-              <span style={{ whiteSpace: 'nowrap' }}>
+              <span style={{ whiteSpace: 'nowrap' }} suppressHydrationWarning>
                 {lang === 'ko'
                   ? (isMobile ? `무료 · ${trialRemaining}/10` : `무료 체험중 · ${trialRemaining}/10`)
                   : (isMobile ? `Trial · ${trialRemaining}/10` : `Free trial · ${trialRemaining}/10`)}

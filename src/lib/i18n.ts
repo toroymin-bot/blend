@@ -5,6 +5,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useParams } from 'next/navigation';
 import { useSettingsStore } from '@/stores/settings-store';
 import ko from '@/locales/ko.json';
 import en from '@/locales/en.json';
@@ -65,10 +66,13 @@ function getLangFromPath(): Language | null {
  *   <h1>{t('settings.title')}</h1>
  */
 export function useTranslation(): UseTranslationResult {
+  const params = useParams();
   const { settings, updateSettings } = useSettingsStore();
-  // URL path takes priority over stored setting so /en/ always renders in English
-  // even before the useEffect in page-client.tsx fires.
-  const lang: Language = getLangFromPath() ?? (settings.language as Language) ?? 'ko';
+  // Route params take priority — works during both SSR and client hydration.
+  const urlLang = params?.lang as string | undefined;
+  const lang: Language =
+    urlLang === 'en' ? 'en' : urlLang === 'ko' ? 'ko' :
+    (settings.language as Language) ?? 'ko';
 
   const dict = useMemo(() => translations[lang] ?? translations.ko, [lang]);
 
