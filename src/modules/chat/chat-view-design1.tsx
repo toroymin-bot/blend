@@ -705,77 +705,87 @@ export default function D1ChatView({
           </div>
         </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col items-center justify-center px-8 pb-[120px]">
+        <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col px-4 md:px-8" style={{ minHeight: 0 }}>
+          {/* Hero — naturally centered in the upper region */}
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <div
+              className="text-center"
+              style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) both' }}
+            >
+              <h1
+                className="mb-3.5 text-[40px] md:text-[56px] lg:text-[64px] font-medium leading-[1.1] tracking-[-0.03em]"
+                style={{ fontFamily: fontStack, wordBreak: lang === 'ko' ? 'keep-all' : undefined }}
+              >
+                {t.emptyTitle ? <>{t.emptyTitle}{' '}</> : null}
+                <span
+                  className="italic"
+                  style={{
+                    fontFamily: '"Instrument Serif", Georgia, serif',
+                    color: tokens.accent,
+                    fontWeight: 400,
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  {t.emptyTitleAccent}
+                </span>{' '}
+                {t.emptyTitleEnd}
+              </h1>
+              <p className="text-base tracking-[-0.01em]" style={{ color: tokens.textDim }}>
+                {t.emptySubtitle}
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom block — input + (desktop only) suggestions + footer hint */}
           <div
-            className="mb-12 text-center"
+            className="pb-[max(1.5rem,env(safe-area-inset-bottom))] md:pb-12"
             style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) both' }}
           >
-            <h1
-              className="mb-3.5 text-[40px] md:text-[56px] lg:text-[64px] font-medium leading-[1.1] tracking-[-0.03em]"
-              style={{ fontFamily: fontStack, wordBreak: lang === 'ko' ? 'keep-all' : undefined }}
+            <D1InputBar
+              value={value}
+              onChange={setValue}
+              onSend={handleSend}
+              onStop={handleStop}
+              onKeyDown={handleKeyDown}
+              textareaRef={textareaRef}
+              canSend={canSend}
+              isStreaming={isStreaming}
+              placeholder={t.placeholder}
+              attachLabel={t.attachFile}
+              sendLabel={t.send}
+              floating={false}
+              glowing={inputGlowing}
+            />
+
+            {/* Suggestions — desktop only */}
+            <div
+              className="mt-4 hidden flex-wrap justify-center gap-2 md:flex"
+              style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) 240ms both' }}
             >
-              {t.emptyTitle ? <>{t.emptyTitle}{' '}</> : null}
-              <span
-                className="italic"
-                style={{
-                  fontFamily: '"Instrument Serif", Georgia, serif',
-                  color: tokens.accent,
-                  fontWeight: 400,
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                {t.emptyTitleAccent}
-              </span>{' '}
-              {t.emptyTitleEnd}
-            </h1>
-            <p className="text-base tracking-[-0.01em]" style={{ color: tokens.textDim }}>
-              {t.emptySubtitle}
+              {SUGGESTIONS_WITH_MODEL.map((s) => {
+                const label = lang === 'ko' ? s.ko : s.en;
+                const modelEntry = MODELS.find(m => m.id === s.suggestedModel);
+                const dotColor = BRAND_COLORS[modelEntry?.brand ?? 'blend'] ?? tokens.accent;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => handleSuggestionClick(s)}
+                    className="inline-flex items-center gap-2 rounded-full border bg-transparent px-4 py-2 text-[13.5px] transition-all duration-200 hover:bg-white"
+                    style={{ borderColor: tokens.borderStrong, color: tokens.textDim, fontFamily: fontStack }}
+                  >
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: dotColor }} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p
+              className="mt-3 text-center text-[11.5px]"
+              style={{ color: tokens.textFaint }}
+            >
+              {t.footer}
             </p>
-          </div>
-
-          <D1InputBar
-            value={value}
-            onChange={setValue}
-            onSend={handleSend}
-            onStop={handleStop}
-            onKeyDown={handleKeyDown}
-            textareaRef={textareaRef}
-            canSend={canSend}
-            isStreaming={isStreaming}
-            placeholder={t.placeholder}
-            attachLabel={t.attachFile}
-            sendLabel={t.send}
-            floating={false}
-            glowing={inputGlowing}
-          />
-
-          <div
-            className="mt-8 grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-center"
-            style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) 240ms both' }}
-          >
-            {SUGGESTIONS_WITH_MODEL.map((s) => {
-              const label = lang === 'ko' ? s.ko : s.en;
-              const modelEntry = MODELS.find(m => m.id === s.suggestedModel);
-              const dotColor = BRAND_COLORS[modelEntry?.brand ?? 'blend'] ?? tokens.accent;
-              return (
-                <button
-                  key={label}
-                  onClick={() => handleSuggestionClick(s)}
-                  className="inline-flex items-center gap-2 rounded-full border bg-transparent px-4 py-2 text-[13.5px] transition-all duration-200 hover:bg-white"
-                  style={{ borderColor: tokens.borderStrong, color: tokens.textDim, fontFamily: fontStack }}
-                >
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: dotColor }} />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div
-            className="absolute bottom-5 left-1/2 -translate-x-1/2 text-xs"
-            style={{ color: tokens.textFaint }}
-          >
-            {t.footer}
           </div>
         </div>
       )}
@@ -1209,9 +1219,9 @@ function D1InputBar({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        rows={1}
-        className="w-full resize-none border-none bg-transparent text-base leading-[1.5] tracking-[-0.01em] outline-none placeholder:text-[--d1-placeholder]"
-        style={{ color: tokens.text, minHeight: 28, maxHeight: 200, '--d1-placeholder': tokens.textFaint } as React.CSSProperties}
+        rows={3}
+        className="w-full resize-none border-none bg-transparent text-[15px] md:text-base leading-[1.5] tracking-[-0.01em] outline-none placeholder:text-[--d1-placeholder] min-h-[88px] md:min-h-[96px] max-h-[240px]"
+        style={{ color: tokens.text, '--d1-placeholder': tokens.textFaint } as React.CSSProperties}
       />
       <div className="mt-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1">
