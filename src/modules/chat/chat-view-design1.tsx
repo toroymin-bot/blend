@@ -289,6 +289,7 @@ export default function D1ChatView({
   const [streamingContent, setStreamingContent] = useState('');
   const [currentModel, setCurrentModel] = useState(initialModel ?? 'auto');
   const abortRef = useRef<AbortController | null>(null);
+  const nextModelOverrideRef = useRef<string | null>(null);
 
   const t = copy[lang] ?? copy.en;
   const hasMessages = messages.length > 0 || isStreaming;
@@ -643,7 +644,7 @@ export default function D1ChatView({
   }
 
   // P3.2 — 응답 재생성: 해당 assistant 메시지를 제거하고 직전 user 메시지로 재호출
-  function regenerateAssistantMessage(assistantMsgId: string) {
+  function regenerateAssistantMessage(assistantMsgId: string, newModel?: string) {
     if (isStreaming) return;
     const idx = messages.findIndex((m) => m.id === assistantMsgId);
     if (idx <= 0) return;
@@ -654,7 +655,11 @@ export default function D1ChatView({
     const userMsg = messages[userIdx];
     // user 메시지까지만 남기고 그 이후 모두 제거
     setMessages(messages.slice(0, userIdx + 1));
-    // 같은 user 입력으로 재발사
+    // 다른 모델로 재생성 시 override ref 설정 + UI 칩 업데이트
+    if (newModel) {
+      nextModelOverrideRef.current = newModel;
+      setCurrentModel(newModel);
+    }
     setTimeout(() => {
       performSend(userMsg.content, userMsg.images ?? []);
     }, 0);
@@ -736,13 +741,17 @@ export default function D1ChatView({
       trackEvent('first_message_sent', { lang });
     }
 
+    // Consume any model override set by "Try another AI" — use ref so it survives the closure
+    const effectiveModel = nextModelOverrideRef.current ?? currentModel;
+    nextModelOverrideRef.current = null;
+
     // ── Trial mode gate ──────────────────────────────────────────
     if (isTrialMode) {
       // auto → gemini-2.5-flash (trial route)
       // 명시적으로 유료 모델 선택 시에만 키 요구 모달 표시
-      const trialCompatible = currentModel === 'auto' || currentModel === 'gemini-2.5-flash';
+      const trialCompatible = effectiveModel === 'auto' || effectiveModel === 'gemini-2.5-flash';
       if (!trialCompatible) {
-        const modelDef = MODELS.find(m => m.id === currentModel);
+        const modelDef = MODELS.find(m => m.id === effectiveModel);
         const PROVIDER_NAMES: Record<string, string> = {
           openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google',
           deepseek: 'DeepSeek', groq: 'Groq', blend: 'Blend',
@@ -885,7 +894,7 @@ ${dsLines}`;
     let resolvedApiModel: string;
     let resolvedModelId: string;
 
-    if (currentModel === 'auto') {
+    if (effectiveModel === 'auto') {
       const avail = FALLBACK_ORDER.find(p => hasKey(p.provider));
       if (!avail) {
         setMessages(prev => [...prev, { id: Date.now().toString() + '_err', role: 'assistant', content: t.noApiKey }]);
@@ -896,7 +905,7 @@ ${dsLines}`;
       resolvedApiModel = avail.apiModel;
       resolvedModelId = avail.apiModel;
     } else {
-      const modelDef = MODELS.find(m => m.id === currentModel);
+      const modelDef = MODELS.find(m => m.id === effectiveModel);
       if (!modelDef || !hasKey(modelDef.provider)) {
         const avail = FALLBACK_ORDER.find(p => hasKey(p.provider));
         if (!avail) {
@@ -1084,7 +1093,7 @@ ${dsLines}`;
                 message={msg}
                 lang={lang}
                 t={t}
-                onTryAnother={() => regenerateAssistantMessage(msg.id)}
+                onTryAnother={(newModel?: string) => regenerateAssistantMessage(msg.id, newModel)}
                 onFork={msg.role === 'assistant' ? () => forkChatAtMessage(msg.id) : undefined}
               />
             ))}
@@ -1348,7 +1357,7 @@ type CopyObj = {
   tryAnother: string; comingSoon: string;
 };
 
-function D1MessageRow({ message, lang, t, onTryAnother, onFork }: { message: Message; lang: Lang; t: CopyObj; onTryAnother: () => void; onFork?: () => void }) {
+function D1MessageRow({ message, lang, t, onTryAnother, onFork }: { message: Message; lang: Lang; t: CopyObj; onTryAnother: (newModel?: string) => void; onFork?: () => void }) {
   if (message.role === 'user') {
     return <D1UserMessage content={message.content} lang={lang} />;
   }
@@ -1409,11 +1418,24 @@ function D1AssistantMessage({
   sources?: string[];
   lang: Lang;
   t: CopyObj;
-  onTryAnother?: () => void;
+  onTryAnother?: (newModel?: string) => void;
   onFork?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const modelInfo = MODELS.find((m) => m.id === modelUsed || m.apiModel === modelUsed);
+
+  useEffect(() => {
+    if (!showModelPicker) return;
+    const handleClick = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowModelPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showModelPicker]);
   const tokensStr = formatTokens(totalTokens, lang);
   const costStr   = formatKRW(cost, lang);
 
@@ -1497,14 +1519,40 @@ function D1AssistantMessage({
               </button>
             )}
             {onTryAnother && (
-              <button
-                onClick={onTryAnother}
-                className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[12px] opacity-0 transition-opacity duration-150 hover:!opacity-100 group-hover:opacity-60"
-                style={{ color: tokens.textDim }}
-                title={t.tryAnother}
-              >
-                ↻ {t.tryAnother}
-              </button>
+              <div ref={pickerRef} className="relative ml-auto">
+                <button
+                  onClick={() => setShowModelPicker((v) => !v)}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] opacity-0 transition-opacity duration-150 hover:!opacity-100 group-hover:opacity-60"
+                  style={{ color: tokens.textDim }}
+                  title={t.tryAnother}
+                >
+                  ↻ {t.tryAnother}
+                </button>
+                {showModelPicker && (
+                  <div
+                    className="absolute bottom-full right-0 mb-1 z-50 rounded-xl border py-1.5 shadow-lg"
+                    style={{ background: tokens.surface, borderColor: tokens.border, minWidth: 180 }}
+                  >
+                    {MODELS.filter((m) => m.id !== 'auto').slice(0, 8).map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          setShowModelPicker(false);
+                          onTryAnother(m.id);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] transition-colors hover:bg-black/5"
+                        style={{ color: tokens.text }}
+                      >
+                        <span
+                          className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
+                          style={{ background: BRAND_COLORS[m.brand] ?? tokens.accent }}
+                        />
+                        {m.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

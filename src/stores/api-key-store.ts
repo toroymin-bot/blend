@@ -73,6 +73,10 @@ export const useAPIKeyStore = create<APIKeyState>((set, get) => ({
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('blend:api-keys', JSON.stringify(get().keys));
+    try {
+      localStorage.setItem('blend:api-keys', JSON.stringify(get().keys));
+    } catch (e) {
+      console.warn('[api-key-store] localStorage save failed (quota exceeded?):', e);
+    }
   },
 }));

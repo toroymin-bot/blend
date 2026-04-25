@@ -235,8 +235,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
     const { agents, activeAgentId } = get();
-    localStorage.setItem('blend:agents', JSON.stringify(agents));
-    if (activeAgentId) localStorage.setItem('blend:activeAgentId', activeAgentId);
-    else localStorage.removeItem('blend:activeAgentId');
+    try {
+      localStorage.setItem('blend:agents', JSON.stringify(agents));
+      if (activeAgentId) localStorage.setItem('blend:activeAgentId', activeAgentId);
+      else localStorage.removeItem('blend:activeAgentId');
+    } catch (e) {
+      console.warn('[agent-store] localStorage save failed (quota exceeded?):', e);
+    }
   },
 }));

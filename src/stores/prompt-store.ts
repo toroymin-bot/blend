@@ -308,6 +308,10 @@ export const usePromptStore = create<PromptState>((set, get) => ({
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('blend:prompts', JSON.stringify(get().prompts));
+    try {
+      localStorage.setItem('blend:prompts', JSON.stringify(get().prompts));
+    } catch (e) {
+      console.warn('[prompt-store] localStorage save failed (quota exceeded?):', e);
+    }
   },
 }));

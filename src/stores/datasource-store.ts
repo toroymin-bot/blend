@@ -19,7 +19,11 @@ function load(): DataSource[] {
 }
 
 function persist(sources: DataSource[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(sources));
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(sources));
+  } catch (e) {
+    console.warn('[datasource-store] localStorage save failed (quota exceeded?):', e);
+  }
 }
 
 interface DataSourceState {

@@ -49,6 +49,10 @@ export const usePluginStore = create<PluginState>((set, get) => ({
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
     const { installedPlugins } = get();
-    localStorage.setItem('blend:plugins', JSON.stringify({ installedPlugins }));
+    try {
+      localStorage.setItem('blend:plugins', JSON.stringify({ installedPlugins }));
+    } catch (e) {
+      console.warn('[plugin-store] localStorage save failed (quota exceeded?):', e);
+    }
   },
 }));
