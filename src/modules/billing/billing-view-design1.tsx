@@ -12,16 +12,16 @@ import { useUsageStore } from '@/stores/usage-store';
 
 // ── Design tokens (same as chat-view-design1) ───────────────────
 const tokens = {
-  bg:           '#fafaf9',
-  surface:      '#ffffff',
-  surfaceAlt:   '#f6f5f3',
-  text:         '#0a0a0a',
-  textDim:      '#6b6862',
-  textFaint:    '#a8a49b',
-  accent:       '#c65a3c',
-  accentSoft:   'rgba(198, 90, 60, 0.08)',
-  border:       'rgba(10, 10, 10, 0.06)',
-  borderStrong: 'rgba(10, 10, 10, 0.12)',
+  bg:           'var(--d1-bg)',
+  surface:      'var(--d1-surface)',
+  surfaceAlt:   'var(--d1-surface-alt)',
+  text:         'var(--d1-text)',
+  textDim:      'var(--d1-text-dim)',
+  textFaint:    'var(--d1-text-faint)',
+  accent:       'var(--d1-accent)',
+  accentSoft:   'var(--d1-accent-soft)',
+  border:       'var(--d1-border)',
+  borderStrong: 'var(--d1-border-strong)',
 } as const;
 
 const BRAND_COLORS: Record<string, string> = {

@@ -23,16 +23,16 @@ import type { AIProvider } from '@/types';
 
 // ── Design tokens ────────────────────────────────────────────────
 const tokens = {
-  bg:           '#fafaf9',
-  surface:      '#ffffff',
-  surfaceAlt:   '#f6f5f3',
-  text:         '#0a0a0a',
-  textDim:      '#6b6862',
-  textFaint:    '#a8a49b',
-  accent:       '#c65a3c',
-  accentSoft:   'rgba(198, 90, 60, 0.08)',
-  border:       'rgba(10, 10, 10, 0.06)',
-  borderStrong: 'rgba(10, 10, 10, 0.12)',
+  bg:           'var(--d1-bg)',
+  surface:      'var(--d1-surface)',
+  surfaceAlt:   'var(--d1-surface-alt)',
+  text:         'var(--d1-text)',
+  textDim:      'var(--d1-text-dim)',
+  textFaint:    'var(--d1-text-faint)',
+  accent:       'var(--d1-accent)',
+  accentSoft:   'var(--d1-accent-soft)',
+  border:       'var(--d1-border)',
+  borderStrong: 'var(--d1-border-strong)',
 } as const;
 
 const BRAND_COLORS: Record<ProviderId, string> = {
@@ -76,6 +76,7 @@ const copy = {
     deprecated:   '단종 예정',
     lastUpdate:   '마지막 업데이트',
     none:         '해당하는 모델이 없어요',
+    searchPh:     '모델 검색 (이름, 설명, ID)',
   },
   en: {
     title:        'Models',
@@ -97,6 +98,7 @@ const copy = {
     deprecated:   'Deprecated',
     lastUpdate:   'Last updated',
     none:         'No matching models',
+    searchPh:     'Search models (name, description, id)',
   },
 } as const;
 
@@ -143,6 +145,7 @@ export default function D1ModelsView({
 }) {
   const t = copy[lang];
   const [filter, setFilter] = useState<FilterId>('all');
+  const [query, setQuery] = useState('');
 
   const { hasKey } = useAPIKeyStore();
 
@@ -150,9 +153,19 @@ export default function D1ModelsView({
   const featuredIds = useMemo(() => new Set(getFeaturedModels().map((m) => m.id)), []);
 
   const grouped = useMemo(() => {
-    const filtered = AVAILABLE_MODELS.filter(
-      (m) => !m.deprecated && featuredIds.has(m.id) && modelMatchesFilter(m, filter),
-    );
+    const q = query.trim().toLowerCase();
+    const filtered = AVAILABLE_MODELS.filter((m) => {
+      if (m.deprecated || !featuredIds.has(m.id) || !modelMatchesFilter(m, filter)) return false;
+      if (!q) return true;
+      const haystack = [
+        m.id,
+        m.displayName,
+        m.description_ko,
+        m.description_en,
+        m.provider,
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
     const map = new Map<ProviderId, AvailableModel[]>();
     for (const p of FEATURED_PROVIDER_ORDER) map.set(p, []);
     for (const m of filtered) {
@@ -170,7 +183,7 @@ export default function D1ModelsView({
       });
     }
     return map;
-  }, [filter]);
+  }, [filter, query, featuredIds]);
 
   const totalCount = useMemo(
     () => Array.from(grouped.values()).reduce((s, arr) => s + arr.length, 0),
@@ -198,6 +211,23 @@ export default function D1ModelsView({
             {t.countFmt(FEATURED_PROVIDER_ORDER.length, totalAll)}
           </p>
         </header>
+
+        {/* ══ Search ══ */}
+        <div className="mb-4">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t.searchPh}
+            aria-label={t.searchPh}
+            className="w-full rounded-full border px-4 py-2 text-[14px] outline-none transition-colors focus:border-current"
+            style={{
+              borderColor: tokens.borderStrong,
+              background: tokens.surface,
+              color: tokens.text,
+            }}
+          />
+        </div>
 
         {/* ══ Filter chips ══ */}
         <div className="mb-8 flex flex-wrap gap-2 overflow-x-auto">

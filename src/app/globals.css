@@ -17,6 +17,21 @@
   --on-surface-muted: #adadb2;
   --border: #3a3a3a;
   --accent-token: #4a90e2;
+
+  /* D1 design tokens — light defaults (data-theme 미설정 시 fallback) */
+  --d1-bg:           #fafaf9;
+  --d1-surface:      #ffffff;
+  --d1-surface-alt:  #f6f5f3;
+  --d1-text:         #0a0a0a;
+  --d1-text-dim:     #6b6862;
+  --d1-text-faint:   #a8a49b;
+  --d1-accent:       #c65a3c;
+  --d1-accent-soft:  rgba(198, 90, 60, 0.08);
+  --d1-border:       rgba(10, 10, 10, 0.06);
+  --d1-border-mid:   rgba(10, 10, 10, 0.10);
+  --d1-border-strong:rgba(10, 10, 10, 0.12);
+  --d1-danger:       #c44;
+  --d1-success:      #10a37f;
 }
 
 /* Dark theme (default) */
@@ -35,6 +50,21 @@
   --on-surface-muted: #adadb2;
   --border: #3a3a3a;
   --accent-token: #4a90e2;
+
+  /* D1 design tokens — Claude.ai dark mode benchmark (warm black + coral) */
+  --d1-bg:           #262624;
+  --d1-surface:      #30302e;
+  --d1-surface-alt:  #3a3a37;
+  --d1-text:         #faf9f7;
+  --d1-text-dim:     #c2bfb6;
+  --d1-text-faint:   #8a8780;
+  --d1-accent:       #d97757;
+  --d1-accent-soft:  rgba(217, 119, 87, 0.14);
+  --d1-border:       rgba(250, 249, 247, 0.08);
+  --d1-border-mid:   rgba(250, 249, 247, 0.12);
+  --d1-border-strong:rgba(250, 249, 247, 0.18);
+  --d1-danger:       #e57373;
+  --d1-success:      #10b981;
 }
 
 /* Light theme */
@@ -53,6 +83,21 @@
   --on-surface-muted: #6b7280;
   --border: #e5e7eb;
   --accent-token: #2563eb;
+
+  /* D1 design tokens — Tori 디자인 (light) */
+  --d1-bg:           #fafaf9;
+  --d1-surface:      #ffffff;
+  --d1-surface-alt:  #f6f5f3;
+  --d1-text:         #0a0a0a;
+  --d1-text-dim:     #6b6862;
+  --d1-text-faint:   #a8a49b;
+  --d1-accent:       #c65a3c;
+  --d1-accent-soft:  rgba(198, 90, 60, 0.08);
+  --d1-border:       rgba(10, 10, 10, 0.06);
+  --d1-border-mid:   rgba(10, 10, 10, 0.10);
+  --d1-border-strong:rgba(10, 10, 10, 0.12);
+  --d1-danger:       #c44;
+  --d1-success:      #10a37f;
 }
 
 /* Legacy class-based light theme (backward compat) */

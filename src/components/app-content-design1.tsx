@@ -37,14 +37,14 @@ import { useAPIKeyStore }       from '@/stores/api-key-store';
 
 // ── Design tokens
 const tokens = {
-  bg:         '#fafaf9',
-  text:       '#0a0a0a',
-  textDim:    '#6b6862',
-  textFaint:  '#a8a49b',
-  border:     'rgba(10, 10, 10, 0.06)',
-  borderMid:  'rgba(10, 10, 10, 0.10)',
-  accent:     '#c65a3c',
-  accentSoft: 'rgba(198, 90, 60, 0.10)',
+  bg:         'var(--d1-bg)',
+  text:       'var(--d1-text)',
+  textDim:    'var(--d1-text-dim)',
+  textFaint:  'var(--d1-text-faint)',
+  border:     'var(--d1-border)',
+  borderMid:  'var(--d1-border-mid)',
+  accent:     'var(--d1-accent)',
+  accentSoft: 'var(--d1-accent-soft)',
 } as const;
 
 type ViewId =

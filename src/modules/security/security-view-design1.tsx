@@ -17,17 +17,17 @@ import type { AIProvider } from '@/types';
 
 // ── Tokens ───────────────────────────────────────────────────────
 const tokens = {
-  bg:           '#fafaf9',
-  surface:      '#ffffff',
-  surfaceAlt:   '#f6f5f3',
-  text:         '#0a0a0a',
-  textDim:      '#6b6862',
-  textFaint:    '#a8a49b',
-  accent:       '#c65a3c',
-  accentSoft:   'rgba(198, 90, 60, 0.08)',
-  border:       'rgba(10, 10, 10, 0.06)',
-  borderStrong: 'rgba(10, 10, 10, 0.12)',
-  danger:       '#c44',
+  bg:           'var(--d1-bg)',
+  surface:      'var(--d1-surface)',
+  surfaceAlt:   'var(--d1-surface-alt)',
+  text:         'var(--d1-text)',
+  textDim:      'var(--d1-text-dim)',
+  textFaint:    'var(--d1-text-faint)',
+  accent:       'var(--d1-accent)',
+  accentSoft:   'var(--d1-accent-soft)',
+  border:       'var(--d1-border)',
+  borderStrong: 'var(--d1-border-strong)',
+  danger:       'var(--d1-danger)',
 } as const;
 
 // ── Copy ─────────────────────────────────────────────────────────
@@ -60,6 +60,9 @@ const copy = {
     deleteBtn:    '삭제',
     none:         '등록된 키가 없어요',
     empty:        '비어 있어요',
+    netLog:       '서버 통신 내역',
+    netLogHint:   '이 페이지가 열려있는 동안 외부 호출만 기록 (URL host와 메서드만, 본문/헤더 X)',
+    netLogEmpty:  '아직 기록된 호출이 없어요',
   },
   en: {
     title:        'Security & Privacy',
@@ -89,6 +92,9 @@ const copy = {
     deleteBtn:    'Delete',
     none:         'No keys connected',
     empty:        'Empty',
+    netLog:       'Network calls',
+    netLogHint:   'External calls observed only while this page is open (host + method only, no body/headers)',
+    netLogEmpty:  'No calls recorded yet',
   },
 } as const;
 
@@ -138,6 +144,28 @@ export default function D1SecurityView({ lang }: { lang: 'ko' | 'en' }) {
   const [confirmInput, setConfirmInput] = useState('');
   const [storageInfo, setStorageInfo]   = useState({ mb: 0, total: 10 });
   const [idbMb, setIdbMb]               = useState<number | null>(null);
+  const [netLog, setNetLog]             = useState<{ host: string; method: string; ts: number }[]>([]);
+
+  // IMP-028: fetch interceptor while this page is mounted (host + method only)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const origFetch = window.fetch;
+    const origin = window.location.origin;
+    window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
+      try {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+        const u = new URL(url, origin);
+        // Same-origin requests are local — skip
+        if (u.origin !== origin) {
+          const host = u.host;
+          const method = (init?.method || (input instanceof Request ? input.method : 'GET') || 'GET').toUpperCase();
+          setNetLog((prev) => [{ host, method, ts: Date.now() }, ...prev].slice(0, 50));
+        }
+      } catch {}
+      return origFetch.apply(this, arguments as unknown as [RequestInfo | URL, RequestInit?]);
+    };
+    return () => { window.fetch = origFetch; };
+  }, []);
 
   useEffect(() => {
     setStorageInfo(getLocalStorageUsage());
@@ -313,6 +341,35 @@ export default function D1SecurityView({ lang }: { lang: 'ko' | 'en' }) {
             <p className="mt-5 text-[12px]" style={{ color: tokens.textFaint }}>
               {t.keysExplain}
             </p>
+          </div>
+        </section>
+
+        {/* Network calls log */}
+        <section className="mb-8">
+          <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+            {t.netLog}
+          </h2>
+          <div
+            className="rounded-2xl border p-6"
+            style={{ background: tokens.surface, borderColor: tokens.border }}
+          >
+            <p className="mb-4 text-[12px]" style={{ color: tokens.textFaint }}>{t.netLogHint}</p>
+            {netLog.length === 0 ? (
+              <p className="text-[13px]" style={{ color: tokens.textDim }}>{t.netLogEmpty}</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {netLog.slice(0, 20).map((c, i) => (
+                  <li key={i} className="flex items-baseline justify-between gap-3 text-[12px]">
+                    <code style={{ color: tokens.text, fontFamily: 'ui-monospace, monospace' }}>
+                      <span style={{ color: tokens.accent }}>{c.method}</span> {c.host}
+                    </code>
+                    <span style={{ color: tokens.textFaint }}>
+                      {new Date(c.ts).toLocaleTimeString(lang === 'ko' ? 'ko-KR' : 'en-US')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
 

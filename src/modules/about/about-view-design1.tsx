@@ -6,12 +6,12 @@
  */
 
 const tokens = {
-  bg:        '#fafaf9',
-  text:      '#0a0a0a',
-  textDim:   '#6b6862',
-  textFaint: '#a8a49b',
-  accent:    '#c65a3c',
-  border:    'rgba(10, 10, 10, 0.06)',
+  bg:        'var(--d1-bg)',
+  text:      'var(--d1-text)',
+  textDim:   'var(--d1-text-dim)',
+  textFaint: 'var(--d1-text-faint)',
+  accent:    'var(--d1-accent)',
+  border:    'var(--d1-border)',
 } as const;
 
 const BUILD_DATE = process.env.NEXT_PUBLIC_BUILD_DATE || '2026-04-25';

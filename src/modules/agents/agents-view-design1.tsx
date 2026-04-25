@@ -14,17 +14,17 @@ import type { Agent } from '@/types';
 
 // ── Design tokens ────────────────────────────────────────────────
 const tokens = {
-  bg:           '#fafaf9',
-  surface:      '#ffffff',
-  surfaceAlt:   '#f6f5f3',
-  text:         '#0a0a0a',
-  textDim:      '#6b6862',
-  textFaint:    '#a8a49b',
-  accent:       '#c65a3c',
-  accentSoft:   'rgba(198, 90, 60, 0.08)',
-  border:       'rgba(10, 10, 10, 0.06)',
-  borderStrong: 'rgba(10, 10, 10, 0.12)',
-  danger:       '#c44',
+  bg:           'var(--d1-bg)',
+  surface:      'var(--d1-surface)',
+  surfaceAlt:   'var(--d1-surface-alt)',
+  text:         'var(--d1-text)',
+  textDim:      'var(--d1-text-dim)',
+  textFaint:    'var(--d1-text-faint)',
+  accent:       'var(--d1-accent)',
+  accentSoft:   'var(--d1-accent-soft)',
+  border:       'var(--d1-border)',
+  borderStrong: 'var(--d1-border-strong)',
+  danger:       'var(--d1-danger)',
 } as const;
 
 // ── Copy ─────────────────────────────────────────────────────────
