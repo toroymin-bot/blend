@@ -222,6 +222,7 @@ export default function D1ChatView({
   const [value, setValue] = useState('');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [isModelChanging, setIsModelChanging] = useState(false);
   const [inputGlowing, setInputGlowing] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -229,6 +230,14 @@ export default function D1ChatView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const modelChipRef = useRef<HTMLButtonElement>(null);
   const prevModelRef = useRef(currentModel);
+
+  // isMobile detection
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check, { passive: true });
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Model chip pulse animation on change
   useEffect(() => {
@@ -621,7 +630,11 @@ export default function D1ChatView({
               style={{ background: tokens.accentSoft, color: tokens.accent, fontFamily: fontStack }}
               suppressHydrationWarning
             >
-              {lang === 'ko' ? `무료 체험중 · ${trialRemaining}/10` : `Free trial · ${trialRemaining}/10`}
+              <span style={{ whiteSpace: 'nowrap' }}>
+                {lang === 'ko'
+                  ? (isMobile ? `무료 · ${trialRemaining}/10` : `무료 체험중 · ${trialRemaining}/10`)
+                  : (isMobile ? `Trial · ${trialRemaining}/10` : `Free trial · ${trialRemaining}/10`)}
+              </span>
             </span>
           )}
         </div>
@@ -632,7 +645,7 @@ export default function D1ChatView({
           >
             <HistoryIcon />
           </D1IconButton>
-          <div className="relative">
+          <div className="relative hidden md:flex">
             <button
               onClick={() => { if (messages.length > 0) setExportOpen((o) => !o); }}
               title={
@@ -696,8 +709,8 @@ export default function D1ChatView({
             style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) both' }}
           >
             <h1
-              className="mb-3.5 font-medium leading-[1.15] tracking-[-0.03em]"
-              style={{ fontSize: 'clamp(32px, 4.5vw, 52px)', fontFamily: fontStack }}
+              className="mb-3.5 text-[40px] md:text-[56px] lg:text-[64px] font-medium leading-[1.1] tracking-[-0.03em]"
+              style={{ fontFamily: fontStack, wordBreak: lang === 'ko' ? 'keep-all' : undefined }}
             >
               {t.emptyTitle ? <>{t.emptyTitle}{' '}</> : null}
               <span
@@ -735,7 +748,7 @@ export default function D1ChatView({
           />
 
           <div
-            className="mt-8 flex flex-wrap justify-center gap-2"
+            className="mt-8 grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-center"
             style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) 240ms both' }}
           >
             {SUGGESTIONS_WITH_MODEL.map((s) => {

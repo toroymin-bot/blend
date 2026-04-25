@@ -84,6 +84,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   const [convKey,    setConvKey]    = useState(0);
   const [history,    setHistory]    = useState<ConvSummary[]>([]);
   const [showMore,   setShowMore]   = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
 
   function handleNewChat() {
@@ -153,12 +154,12 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
 
   return (
     <div
-      className="grid h-screen overflow-hidden"
-      style={{ gridTemplateColumns: 'auto 1fr', background: tokens.bg }}
+      className="flex h-screen overflow-hidden"
+      style={{ background: tokens.bg }}
     >
-      {/* ══ SIDEBAR ══ */}
+      {/* ══ SIDEBAR (desktop only) ══ */}
       <aside
-        className="group relative flex w-16 flex-col border-r transition-[width] duration-[420ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:w-[280px]"
+        className="group relative hidden md:flex w-16 shrink-0 flex-col border-r transition-[width] duration-[420ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:w-[280px]"
         style={{ borderColor: tokens.border, background: tokens.bg }}
       >
         {/* Logo — click = new chat */}
@@ -260,14 +261,85 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       </aside>
 
       {/* ══ MAIN ══ */}
-      <main className="relative flex min-h-0 flex-col overflow-hidden">
+      <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Mobile top bar */}
+        <div
+          className="flex h-12 shrink-0 items-center gap-3 border-b px-4 md:hidden"
+          style={{ borderColor: tokens.border, background: tokens.bg }}
+        >
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5"
+            style={{ color: tokens.text }}
+            aria-label="Menu"
+          >
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
+              <path d="M3 6h18M3 12h18M3 18h18"/>
+            </svg>
+          </button>
+          <span style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontSize: 22, color: tokens.text, lineHeight: 1 }}>B</span>
+          <span className="text-[15px] font-semibold tracking-tight" style={{ color: tokens.text }}>{t.logo}</span>
+        </div>
         {renderView()}
       </main>
+
+      {/* ══ MOBILE DRAWER ══ */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
+          <aside
+            className="absolute left-0 top-0 flex h-full w-[280px] flex-col border-r"
+            style={{
+              background: tokens.bg,
+              borderColor: tokens.border,
+              animation: 'drawerSlide 280ms cubic-bezier(0.16,1,0.3,1) both',
+            }}
+          >
+            <button onClick={handleNewChat} className="mb-4 flex h-12 w-full shrink-0 items-center pl-4" title={t.newChat}>
+              <span style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontSize: 28, color: tokens.text, lineHeight: 1 }}>B</span>
+              <span className="ml-3 text-[15px] font-semibold tracking-tight" style={{ color: tokens.text }}>{t.logo}</span>
+            </button>
+            {([
+              ['chat',      t.chat,      <ChatIcon      key="ch" />],
+              ['compare',   t.compare,   <CompareIcon   key="cp" />],
+              ['documents', t.documents, <DocumentsIcon key="dc" />],
+              ['meeting',   t.meeting,   <MeetingIcon   key="me" />],
+              ['billing',   t.billing,   <BillingIcon   key="bi" />],
+            ] as [ViewId, string, React.ReactNode][]).map(([id, label, icon]) => (
+              <button
+                key={id}
+                onClick={() => { nav(id); setDrawerOpen(false); }}
+                className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none pl-4 pr-3 text-[13px] transition-colors"
+                style={{ color: activeView === id ? tokens.accent : tokens.text, background: activeView === id ? tokens.accentSoft : 'transparent' }}
+              >
+                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" style={{ color: activeView === id ? tokens.accent : tokens.textDim }}>{icon}</span>
+                {label}
+              </button>
+            ))}
+            <div className="mx-4 my-2.5 shrink-0" style={{ height: 1, background: tokens.borderMid }} />
+            {moreItems.map(([id, label, icon]) => (
+              <button
+                key={id}
+                onClick={() => { nav(id); setDrawerOpen(false); }}
+                className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none pl-4 pr-3 text-[13px] transition-colors hover:bg-black/5"
+                style={{ color: activeView === id ? tokens.accent : tokens.text }}
+              >
+                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" style={{ color: activeView === id ? tokens.accent : tokens.textDim }}>{icon}</span>
+                {label}
+              </button>
+            ))}
+          </aside>
+        </div>
+      )}
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes popoverRise {
           from { opacity:0; transform:translateY(6px) scale(0.97); }
           to   { opacity:1; transform:translateY(0) scale(1); }
+        }
+        @keyframes drawerSlide {
+          from { opacity:0; transform:translateX(-100%); }
+          to   { opacity:1; transform:translateX(0); }
         }
       ` }} />
     </div>
