@@ -31,6 +31,9 @@ import { VoiceButton } from '@/modules/chat/voice-button';
 import { sttOpenAI } from '@/lib/voice-chat';
 import { generateImage, extractImagePrompt } from '@/modules/plugins/image-gen';
 import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } from '@/modules/plugins/web-search';
+// P3.3 — RAG (활성 문서 컨텍스트) + CitationBlock
+import { useDocumentStore } from '@/stores/document-store';
+import { buildContext } from '@/modules/plugins/document-plugin';
 
 // ============================================================
 // Design tokens (same as Phase 1)
@@ -246,6 +249,8 @@ type Message = {
   cost?: number;
   // v3 회귀 복구 (Tori P0.4): 비전 첨부 이미지 (base64 data URL 배열)
   images?: string[];
+  // P3.3 — 인용 출처 (RAG 컨텍스트로 사용된 문서 파일명 배열)
+  sources?: string[];
 };
 
 // ============================================================
@@ -296,6 +301,10 @@ export default function D1ChatView({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   // v3 회귀 복구 (P0.4 비전): 첨부 이미지 base64 data URL 배열
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  // P3.3 — RAG 활성 문서 (CitationBlock용)
+  const getActiveDocs = useDocumentStore((s) => s.getActiveDocs);
+  const docsLoadFromDB = useDocumentStore((s) => s.loadFromDB);
+  useEffect(() => { docsLoadFromDB(); }, [docsLoadFromDB]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const modelChipRef = useRef<HTMLButtonElement>(null);
@@ -416,6 +425,8 @@ export default function D1ChatView({
       model: c.model,
       preview: c.messages[c.messages.length - 1]?.content?.slice(0, 120),
       allText: c.messages.map((m) => m.content).join(' '),
+      pinned: c.pinned,
+      tags: c.tags,
     }));
   }, [d1Chats]);
 
@@ -554,6 +565,99 @@ export default function D1ChatView({
     }
   }
 
+  // P3.2 — 자동 제목 생성: 첫 응답 후 LLM에 짧은 제목 1회 요청 → window 이벤트로 부모에 전달
+  function triggerAutoTitle(userContent: string, assistantContent: string) {
+    if (typeof window === 'undefined') return;
+    // 사용 가능한 BYOK 또는 trial fallback 결정
+    const FALLBACK_ORDER: Array<{ provider: AIProvider; apiModel: string }> = [
+      { provider: 'openai',    apiModel: 'gpt-4o-mini' },
+      { provider: 'anthropic', apiModel: 'claude-3-5-haiku-20241022' },
+      { provider: 'google',    apiModel: 'gemini-1.5-flash' },
+      { provider: 'deepseek',  apiModel: 'deepseek-chat' },
+      { provider: 'groq',      apiModel: 'llama3-70b-8192' },
+    ];
+    const avail = FALLBACK_ORDER.find((p) => hasKey(p.provider));
+    const sysPrompt = lang === 'ko'
+      ? '대화의 주제를 4-6단어 한국어로 요약하라. 제목만 반환. 따옴표·마침표 금지.'
+      : 'Summarize this conversation in 4-6 English words. Return ONLY the title. No quotes or punctuation.';
+    const userPayload = `User: ${userContent.slice(0, 400)}\n\nAssistant: ${assistantContent.slice(0, 400)}`;
+
+    const onTitle = (raw: string) => {
+      const title = raw.replace(/^["'`]|["'`]$/g, '').replace(/[\n\r]+.*/, '').trim().slice(0, 60);
+      if (title.length >= 2) {
+        window.dispatchEvent(new CustomEvent('d1:chat-retitle', { detail: title }));
+      }
+    };
+
+    if (avail) {
+      sendChatRequest({
+        messages: [
+          { role: 'system', content: sysPrompt },
+          { role: 'user', content: userPayload },
+        ],
+        model: avail.apiModel,
+        provider: avail.provider,
+        apiKey: getKey(avail.provider),
+        onDone: (full) => onTitle(full),
+        onError: () => { /* ignore — fallback derived title 유지 */ },
+      });
+    } else if (TRIAL_KEY_AVAILABLE) {
+      sendTrialMessage({
+        messages: [{ role: 'user', content: `${sysPrompt}\n\n${userPayload}` }],
+        onChunk: () => {},
+        onDone: (full) => onTitle(full),
+        onError: () => {},
+      });
+    }
+  }
+
+  // P3.1 — 메시지 시점에서 분기 (포크)
+  function forkChatAtMessage(messageId: string) {
+    let srcId = activeChatId;
+    if (!srcId) {
+      // 미저장 채팅: 즉시 저장 (id 발급) 후 포크
+      const id = `d1_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+      const now = Date.now();
+      const persisted: D1Chat = {
+        id,
+        title: d1DeriveTitle(messages as D1Message[]) || '',
+        messages: messages.map<D1Message>((m) => ({
+          id: m.id, role: m.role, content: m.content, modelUsed: m.modelUsed, createdAt: now,
+        })),
+        model: currentModel,
+        createdAt: now,
+        updatedAt: now,
+      };
+      d1Upsert(persisted);
+      setActiveChatId(id);
+      setChatCreatedAt(now);
+      srcId = id;
+    }
+    const newId = useD1ChatStore.getState().forkChatAt(srcId, messageId);
+    if (newId) {
+      loadChat(newId);
+      showToast(lang === 'ko' ? '새 채팅으로 분기했어요' : 'Forked to a new chat');
+    }
+  }
+
+  // P3.2 — 응답 재생성: 해당 assistant 메시지를 제거하고 직전 user 메시지로 재호출
+  function regenerateAssistantMessage(assistantMsgId: string) {
+    if (isStreaming) return;
+    const idx = messages.findIndex((m) => m.id === assistantMsgId);
+    if (idx <= 0) return;
+    // 직전 user 메시지 찾기
+    let userIdx = idx - 1;
+    while (userIdx >= 0 && messages[userIdx].role !== 'user') userIdx--;
+    if (userIdx < 0) return;
+    const userMsg = messages[userIdx];
+    // user 메시지까지만 남기고 그 이후 모두 제거
+    setMessages(messages.slice(0, userIdx + 1));
+    // 같은 user 입력으로 재발사
+    setTimeout(() => {
+      performSend(userMsg.content, userMsg.images ?? []);
+    }, 0);
+  }
+
   function handleSend() {
     if (!canSend) return;
     const content = value.trim();
@@ -624,7 +728,7 @@ export default function D1ChatView({
   }
 
   // ── 핵심 LLM 송신 헬퍼: /image, /search 분기 후 또는 일반 입력에서 호출 ──
-  function performSend(content: string, images: string[]) {
+  async function performSend(content: string, images: string[]) {
     // Phase 5.0 Analytics — first message ever
     if (messages.length === 0) {
       trackEvent('first_message_sent', { lang });
@@ -669,6 +773,28 @@ export default function D1ChatView({
     abortRef.current = controller;
     let accumulated = '';
 
+    // P3.3 — 활성 문서 RAG 컨텍스트 빌드 (실패해도 일반 채팅 진행)
+    let docContext = '';
+    let docSources: string[] = [];
+    try {
+      const activeDocs = getActiveDocs();
+      if (activeDocs.length > 0) {
+        const embeddingApiKey = getKey('openai') || getKey('google') || undefined;
+        const embeddingProvider: 'openai' | 'google' | undefined = getKey('openai') ? 'openai' : getKey('google') ? 'google' : undefined;
+        docContext = await buildContext(content, activeDocs, embeddingApiKey, embeddingProvider);
+        if (docContext) {
+          // [source: filename] 마커에서 unique 출처 추출
+          const matches = docContext.match(/\[source:\s*([^\]]+)\]/g) ?? [];
+          const set = new Set<string>();
+          matches.forEach((m) => {
+            const v = m.replace(/^\[source:\s*/, '').replace(/\]$/, '').trim();
+            if (v) set.add(v);
+          });
+          docSources = Array.from(set).slice(0, 8);
+        }
+      }
+    } catch { /* RAG 실패 시 무시 */ }
+
     // 비전(이미지 첨부) 시 user 메시지 content를 multimodal parts로 변환 (chat-api.ts MultimodalPart)
     const toApiContent = (m: Message): import('@/modules/chat/chat-api').MessageContent => {
       if (m.role === 'user' && m.images && m.images.length > 0) {
@@ -695,10 +821,13 @@ export default function D1ChatView({
             role: 'assistant',
             content: fullText,
             modelUsed: 'gemini-2.5-flash',
+            sources: docSources.length ? docSources : undefined,
           }]);
           setIsStreaming(false);
           setStreamingContent('');
           abortRef.current = null;
+          // P3.2 자동 제목 — 첫 응답 직후만 트리거
+          if (messages.length === 0) triggerAutoTitle(content, fullText);
         },
         onError: (err) => {
           setMessages(prev => [...prev, {
@@ -756,8 +885,13 @@ export default function D1ChatView({
       }
     }
 
+    // RAG 컨텍스트 있으면 system 메시지로 prepend
+    const apiMessages = docContext
+      ? [{ role: 'system' as const, content: docContext } as { role: 'system'; content: import('@/modules/chat/chat-api').MessageContent }, ...updatedMessages.map(m => ({ role: m.role, content: toApiContent(m) }))]
+      : updatedMessages.map(m => ({ role: m.role, content: toApiContent(m) }));
+
     sendChatRequest({
-      messages: updatedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
+      messages: apiMessages,
       model: resolvedApiModel,
       provider: resolvedProvider,
       apiKey: getKey(resolvedProvider),
@@ -772,10 +906,13 @@ export default function D1ChatView({
           role: 'assistant',
           content: fullText,
           modelUsed: resolvedModelId,
+          sources: docSources.length ? docSources : undefined,
         }]);
         setIsStreaming(false);
         setStreamingContent('');
         abortRef.current = null;
+        // P3.2 자동 제목 — 첫 응답 직후만 트리거
+        if (messages.length === 0) triggerAutoTitle(content, fullText);
       },
       onError: (err) => {
         setMessages(prev => [...prev, {
@@ -913,7 +1050,14 @@ export default function D1ChatView({
         >
           <div className="mx-auto w-full max-w-[760px] px-8 py-8 pb-[180px]">
             {messages.map((msg) => (
-              <D1MessageRow key={msg.id} message={msg} lang={lang} t={t} onTryAnother={() => showToast(t.comingSoon)} />
+              <D1MessageRow
+                key={msg.id}
+                message={msg}
+                lang={lang}
+                t={t}
+                onTryAnother={() => regenerateAssistantMessage(msg.id)}
+                onFork={msg.role === 'assistant' ? () => forkChatAtMessage(msg.id) : undefined}
+              />
             ))}
             {isStreaming && streamingContent && (
               <D1AssistantMessage content={streamingContent} streaming lang={lang} t={t} />
@@ -1097,6 +1241,7 @@ export default function D1ChatView({
             setMessages([]);
           }
         }}
+        onTogglePin={(id) => useD1ChatStore.getState().togglePin(id)}
         chats={chatSummaries}
         lang={lang}
       />
@@ -1163,7 +1308,7 @@ type CopyObj = {
   tryAnother: string; comingSoon: string;
 };
 
-function D1MessageRow({ message, lang, t, onTryAnother }: { message: Message; lang: Lang; t: CopyObj; onTryAnother: () => void }) {
+function D1MessageRow({ message, lang, t, onTryAnother, onFork }: { message: Message; lang: Lang; t: CopyObj; onTryAnother: () => void; onFork?: () => void }) {
   if (message.role === 'user') {
     return <D1UserMessage content={message.content} lang={lang} />;
   }
@@ -1173,9 +1318,11 @@ function D1MessageRow({ message, lang, t, onTryAnother }: { message: Message; la
       modelUsed={message.modelUsed}
       totalTokens={message.totalTokens}
       cost={message.cost}
+      sources={message.sources}
       lang={lang}
       t={t}
       onTryAnother={onTryAnother}
+      onFork={onFork}
     />
   );
 }
@@ -1208,18 +1355,22 @@ function D1AssistantMessage({
   modelUsed,
   totalTokens,
   cost,
+  sources,
   lang,
   t,
   onTryAnother,
+  onFork,
 }: {
   content: string;
   streaming?: boolean;
   modelUsed?: string;
   totalTokens?: number;
   cost?: number;
+  sources?: string[];
   lang: Lang;
   t: CopyObj;
   onTryAnother?: () => void;
+  onFork?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const modelInfo = MODELS.find((m) => m.id === modelUsed || m.apiModel === modelUsed);
@@ -1294,6 +1445,17 @@ function D1AssistantMessage({
               </span>
             )}
 
+            {/* P3.1 — 포크: 이 메시지 시점에서 분기 */}
+            {onFork && (
+              <button
+                onClick={onFork}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] opacity-0 transition-opacity duration-150 hover:!opacity-100 group-hover:opacity-60"
+                style={{ color: tokens.textDim }}
+                title={lang === 'ko' ? '분기 (포크)' : 'Fork from here'}
+              >
+                ⑂ {lang === 'ko' ? '분기' : 'Fork'}
+              </button>
+            )}
             {onTryAnother && (
               <button
                 onClick={onTryAnother}
@@ -1304,6 +1466,30 @@ function D1AssistantMessage({
                 ↻ {t.tryAnother}
               </button>
             )}
+          </div>
+        )}
+
+        {/* P3.3 — CitationBlock: RAG 인용 출처 */}
+        {!streaming && sources && sources.length > 0 && (
+          <div
+            className="mt-3 flex flex-wrap items-center gap-1.5 text-[11.5px]"
+            style={{ color: tokens.textDim }}
+          >
+            <span>{lang === 'ko' ? '출처:' : 'Sources:'}</span>
+            {sources.map((src, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+                style={{ background: tokens.surfaceAlt, color: tokens.text }}
+                title={src}
+              >
+                <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6" />
+                </svg>
+                <span className="max-w-[180px] truncate">{src}</span>
+              </span>
+            ))}
           </div>
         )}
       </div>

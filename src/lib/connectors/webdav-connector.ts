@@ -2,6 +2,9 @@
 // [2026-04-12 01:07] 기능: 서버 프록시 → 클라이언트 직접 WebDAV 호출 전환 — 이유: output:'export' 정적 빌드
 // 주의: WebDAV 서버가 CORS를 허용해야 동작 (Nextcloud는 허용, Synology/QNAP는 설정 필요)
 // 기존: /api/webdav-proxy를 통한 서버사이드 프록시
+//
+// [2026-04-25 Roy 결정] design1에서는 WebDAV 카드 제거. legacy(design2/3)는 유지.
+// 이 모듈은 legacy 호환을 위해 보존되며, design1에서는 직접 import 안 함.
 const SUPPORTED_EXTS = new Set(['xlsx', 'xls', 'csv', 'txt', 'md', 'pdf']);
 
 export interface WebDAVItem {

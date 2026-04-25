@@ -115,6 +115,22 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     setHistory((prev) => [{ id: convKey, title }, ...prev].slice(0, 8));
   }
 
+  // P3.2 — 자동 제목 이벤트 수신: 가장 최근 conversation 항목 제목 갱신
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === 'string' && detail.length >= 2) {
+        setHistory((prev) => {
+          if (prev.length === 0) return prev;
+          const [first, ...rest] = prev;
+          return [{ ...first, title: detail }, ...rest];
+        });
+      }
+    };
+    window.addEventListener('d1:chat-retitle', handler as EventListener);
+    return () => window.removeEventListener('d1:chat-retitle', handler as EventListener);
+  }, []);
+
   // Tori 사이드바 명세: 더보기 하위(prompts/plugins) 인라인 expand 상태
   const [subExpanded, setSubExpanded] = useState(() => {
     if (typeof window === 'undefined') return false;
