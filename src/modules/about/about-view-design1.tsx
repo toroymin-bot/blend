@@ -68,7 +68,7 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en'; onNavigate?: 
 
         {/* Made by */}
         <Section title={isKo ? '만든 곳' : 'Made by'}>
-          <P>ai4min.com</P>
+          <P>MIN Company</P>
         </Section>
 
         {/* Contact */}
