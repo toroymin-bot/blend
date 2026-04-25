@@ -89,10 +89,10 @@ type AvailableSource = {
   enabled: boolean;
 };
 
+// Tori 보충 명세 (2026-04-25): WebDAV 카드 제거 (사용 수요 적음, NAS 제거와 동일 맥락)
 const AVAILABLE: AvailableSource[] = [
-  { type: 'google-drive', label: 'Google Drive', icon: '☁️', enabled: true  },
-  { type: 'onedrive',     label: 'OneDrive',     icon: '📁', enabled: true  },
-  { type: 'webdav',       label: 'WebDAV',       icon: '🌐', enabled: false },
+  { type: 'google-drive', label: 'Google Drive', icon: '☁️', enabled: true },
+  { type: 'onedrive',     label: 'OneDrive',     icon: '📁', enabled: true },
 ];
 
 const ICON_BY_TYPE: Record<DataSourceType, string> = {

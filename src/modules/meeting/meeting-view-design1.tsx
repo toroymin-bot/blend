@@ -7,13 +7,16 @@
  * Self-contained. 텍스트 입력 + YouTube 자막 추출 → AI 분석 → 5섹션 렌더.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { sendChatRequest } from '@/modules/chat/chat-api';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { useTrialStore } from '@/stores/trial-store';
 import { getFeaturedModels } from '@/data/available-models';
 import type { AIProvider } from '@/types';
+// v3 회귀 복구: 음성 파일 업로드 + STT + 화자 분리 (Tori 명세)
+import { sttOpenAI, sttGoogle } from '@/lib/voice-chat';
+import { diarizeSpeakers } from '@/modules/meeting/meeting-plugin';
 
 // ── Tokens ───────────────────────────────────────────────────────
 const tokens = {
@@ -58,6 +61,11 @@ const copy = {
     or:           '또는',
     youtube:      'YouTube 링크',
     youtubeHint:  '예: https://youtube.com/watch?v=...',
+    audioUpload:  '음성 파일 업로드',
+    audioHint:    'mp3, wav, m4a, webm, ogg, mp4',
+    transcribing: '음성을 텍스트로 변환 중...',
+    diarizing:    '화자 분리 중...',
+    transcript:   '대화 기록',
     analyze:      '분석 시작',
     analyzing:    '분석 중...',
     fetchingYT:   'YouTube 자막을 가져오는 중...',
@@ -87,6 +95,11 @@ const copy = {
     or:           'or',
     youtube:      'YouTube link',
     youtubeHint:  'e.g. https://youtube.com/watch?v=...',
+    audioUpload:  'Upload audio file',
+    audioHint:    'mp3, wav, m4a, webm, ogg, mp4',
+    transcribing: 'Transcribing audio...',
+    diarizing:    'Identifying speakers...',
+    transcript:   'Transcript',
     analyze:      'Analyze',
     analyzing:    'Analyzing...',
     fetchingYT:   'Fetching YouTube transcript...',
@@ -194,6 +207,11 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
   const [history, setHistory]         = useState<MeetingResult[]>([]);
   const [errorMsg, setErrorMsg]       = useState<string | null>(null);
   const [confirmDelId, setConfirmDel] = useState<string | null>(null);
+  // v3 회귀 복구: 음성 파일 + STT 진행 상태 (Tori 명세)
+  const [audioFile, setAudioFile]     = useState<File | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
+  const [diarizing, setDiarizing]     = useState(false);
+  const audioInputRef                 = useRef<HTMLInputElement>(null);
 
   const { hasKey, getKey } = useAPIKeyStore();
   const trialDailyCount = useTrialStore((s) => s.dailyCount);
@@ -226,6 +244,49 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
     setErrorMsg(null);
 
     let inputText = text.trim();
+
+    // 1) 음성 파일 STT (Tori 명세 P0.1)
+    if (!inputText && audioFile) {
+      const openaiKey = getKey('openai') || '';
+      const googleKey = getKey('google') || '';
+      if (!openaiKey && !googleKey) {
+        setErrorMsg(t.needKey);
+        return;
+      }
+      try {
+        setTranscribing(true);
+        const sttLang = lang === 'ko' ? 'ko-KR' : 'en-US';
+        // OpenAI Whisper 우선 (Korean 성능 좋음), 없으면 Google
+        const transcribed = openaiKey
+          ? await sttOpenAI(audioFile, openaiKey, sttLang)
+          : await sttGoogle(audioFile, googleKey, sttLang);
+        if (!transcribed.trim()) throw new Error('empty transcript');
+
+        // 화자 분리 (LLM 기반, 실패해도 단일 화자 fallback)
+        setTranscribing(false);
+        setDiarizing(true);
+        const diarizeProvider = openaiKey ? 'openai' : 'anthropic';
+        const diarizeKey      = openaiKey || (getKey('anthropic') || '');
+        if (diarizeKey) {
+          try {
+            const segments = await diarizeSpeakers(transcribed, diarizeKey, diarizeProvider);
+            inputText = segments.map((s) => `${s.speaker}: ${s.text}`).join('\n');
+          } catch {
+            inputText = transcribed; // 화자 분리 실패 → 원본 사용
+          }
+        } else {
+          inputText = transcribed;
+        }
+        setDiarizing(false);
+      } catch {
+        setTranscribing(false);
+        setDiarizing(false);
+        setErrorMsg(t.error);
+        return;
+      }
+    }
+
+    // 2) YouTube 자막 (기존)
     if (!inputText && ytUrl.trim()) {
       try {
         setAnalyzing(true);
@@ -304,6 +365,8 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
       setPhase('result');
       setText('');
       setYtUrl('');
+      setAudioFile(null);
+      if (audioInputRef.current) audioInputRef.current.value = '';
     } catch {
       setErrorMsg(t.error);
     } finally {
@@ -355,6 +418,11 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
             setText={setText}
             ytUrl={ytUrl}
             setYtUrl={setYtUrl}
+            audioFile={audioFile}
+            setAudioFile={setAudioFile}
+            audioInputRef={audioInputRef}
+            transcribing={transcribing}
+            diarizing={diarizing}
             analyzing={analyzing}
             errorMsg={errorMsg}
             history={history}
@@ -390,13 +458,20 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
 
 // ── Input phase ──────────────────────────────────────────────────
 function InputPhase({
-  t, text, setText, ytUrl, setYtUrl, analyzing, errorMsg, history, onAnalyze, onOpen, onAskDelete, lang,
+  t, text, setText, ytUrl, setYtUrl,
+  audioFile, setAudioFile, audioInputRef, transcribing, diarizing,
+  analyzing, errorMsg, history, onAnalyze, onOpen, onAskDelete, lang,
 }: {
   t: typeof copy[keyof typeof copy];
   text: string;
   setText: (v: string) => void;
   ytUrl: string;
   setYtUrl: (v: string) => void;
+  audioFile: File | null;
+  setAudioFile: (f: File | null) => void;
+  audioInputRef: React.RefObject<HTMLInputElement | null>;
+  transcribing: boolean;
+  diarizing: boolean;
   analyzing: boolean;
   errorMsg: string | null;
   history: MeetingResult[];
@@ -427,11 +502,66 @@ function InputPhase({
           style={{ borderColor: tokens.borderStrong, background: tokens.bg, color: tokens.text }}
         />
 
-        {/*
-         * YouTube link input: v1에서 UI 비활성화 (디자인 v1 결정).
-         * fetchYoutubeTranscript / ytUrl state / runAnalyze 분기는 유지하여
-         * 향후 재활성화 시 UI만 복원하면 동작하도록 함.
-         */}
+        {/* v3 회귀 복구: 음성 파일 업로드 (Tori P0.1) */}
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <span className="text-[12px]" style={{ color: tokens.textFaint }}>{t.or}</span>
+          <div className="h-px flex-1" style={{ background: tokens.border }} />
+        </div>
+
+        <div className="mt-3">
+          <input
+            ref={audioInputRef}
+            type="file"
+            accept=".mp3,.wav,.m4a,.webm,.ogg,.mp4,audio/*,video/mp4"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setAudioFile(f);
+            }}
+            className="hidden"
+            aria-label={t.audioUpload}
+          />
+          {!audioFile ? (
+            <button
+              type="button"
+              onClick={() => audioInputRef.current?.click()}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-4 text-[13px] transition-colors hover:opacity-80"
+              style={{ borderColor: tokens.borderStrong, color: tokens.textDim, background: tokens.bg }}
+            >
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+              </svg>
+              <span>{t.audioUpload}</span>
+              <span className="text-[11.5px]" style={{ color: tokens.textFaint }}>· {t.audioHint}</span>
+            </button>
+          ) : (
+            <div
+              className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-[13px]"
+              style={{ borderColor: tokens.borderStrong, background: tokens.bg }}
+            >
+              <span className="truncate" style={{ color: tokens.text }}>
+                {audioFile.name}
+              </span>
+              <span className="shrink-0 text-[11.5px]" style={{ color: tokens.textFaint }}>
+                {(audioFile.size / (1024 * 1024)).toFixed(1)} MB
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setAudioFile(null);
+                  if (audioInputRef.current) audioInputRef.current.value = '';
+                }}
+                className="rounded-md p-1 transition-opacity hover:opacity-70"
+                style={{ color: tokens.textFaint }}
+                aria-label={t.cancel}
+              >
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
 
         {errorMsg && (
           <div className="mt-4 rounded-lg px-4 py-2.5 text-[13px]" style={{ background: 'rgba(204,68,68,0.08)', color: tokens.danger }}>
@@ -442,11 +572,11 @@ function InputPhase({
         <button
           type="button"
           onClick={onAnalyze}
-          disabled={analyzing || (!text.trim() && !ytUrl.trim())}
+          disabled={analyzing || transcribing || diarizing || (!text.trim() && !ytUrl.trim() && !audioFile)}
           className="mt-6 w-full rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:opacity-40"
           style={{ background: tokens.text, color: tokens.bg }}
         >
-          {analyzing ? t.analyzing : t.analyze}
+          {transcribing ? t.transcribing : diarizing ? t.diarizing : analyzing ? t.analyzing : t.analyze}
         </button>
       </div>
 

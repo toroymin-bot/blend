@@ -162,10 +162,9 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileToggle }: 
 
   const activeAgent = getActiveAgent();
 
-  // [2026-04-16 01:00] disabled — Plugins menu hidden by request
-  const PLUGINS_ENABLED = false; // [2026-04-16] disabled
-  // [2026-04-16 01:00] disabled — Prompts menu hidden by request
-  const PROMPTS_ENABLED = false; // [2026-04-16] disabled
+  // [2026-04-25] re-enabled — Tori P1.1/P1.2 회귀 복구 (legacy 메뉴 통째 누락 → 복원)
+  const PLUGINS_ENABLED = true;
+  const PROMPTS_ENABLED = true;
 
   const tabs = [
     { id: 'chat', icon: MessageSquare, label: t('nav.chat'), desc: t('nav.chat_desc') },
