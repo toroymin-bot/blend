@@ -15,7 +15,7 @@ export default function RefundPage() {
         <h2 className="text-xl font-semibold mb-3">How to Request a Refund</h2>
         <p className="text-gray-700 leading-relaxed mb-3">To request a refund:</p>
         <ol className="list-decimal list-inside text-gray-700 space-y-2">
-          <li>Email us at <a href="mailto:toroymin@gmail.com" className="text-blue-600 underline">toroymin@gmail.com</a></li>
+          <li>Email us at <a href="mailto:blend@ai4min.com" className="text-blue-600 underline">blend@ai4min.com</a></li>
           <li>Include your subscription email address and reason for the refund</li>
           <li>We will process your refund within 5–10 business days</li>
         </ol>
@@ -38,7 +38,7 @@ export default function RefundPage() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-3">Contact</h2>
-        <p className="text-gray-700 leading-relaxed">For refund requests or questions: <a href="mailto:toroymin@gmail.com" className="text-blue-600 underline">toroymin@gmail.com</a></p>
+        <p className="text-gray-700 leading-relaxed">For refund requests or questions: <a href="mailto:blend@ai4min.com" className="text-blue-600 underline">blend@ai4min.com</a></p>
       </section>
     </div>
   );

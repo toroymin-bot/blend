@@ -46,7 +46,7 @@ export default function PrivacyPage() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-3">6. Your Rights</h2>
-        <p className="text-gray-700 leading-relaxed">You have the right to access, correct, or delete your personal data. To exercise these rights, contact us at <a href="mailto:toroymin@gmail.com" className="text-blue-600 underline">toroymin@gmail.com</a>.</p>
+        <p className="text-gray-700 leading-relaxed">You have the right to access, correct, or delete your personal data. To exercise these rights, contact us at <a href="mailto:blend@ai4min.com" className="text-blue-600 underline">blend@ai4min.com</a>.</p>
       </section>
 
       <section className="mb-8">
@@ -55,8 +55,25 @@ export default function PrivacyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-3">8. Contact</h2>
-        <p className="text-gray-700 leading-relaxed">For privacy inquiries, contact: <a href="mailto:toroymin@gmail.com" className="text-blue-600 underline">toroymin@gmail.com</a></p>
+        <h2 className="text-xl font-semibold mb-3">8. Third-party Services</h2>
+        <p className="text-gray-700 leading-relaxed mb-2">Blend uses the following third-party services. Each operates under its own privacy policy:</p>
+        <ul className="text-gray-700 leading-relaxed list-disc pl-6 space-y-1">
+          <li><strong>ipapi.co</strong> — country detection (your IP is sent once, cached 24h locally) for currency display.</li>
+          <li><strong>Paddle</strong> — global card payment processing.</li>
+          <li><strong>Toss Payments</strong> — Korean card payment processing.</li>
+          <li><strong>Xendit</strong> — Southeast Asia payment processing.</li>
+          <li><strong>AI providers</strong> (OpenAI, Anthropic, Google, DeepSeek, Groq) — your messages are sent directly from your browser using your own API keys; Blend does not proxy.</li>
+        </ul>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-3">9. Operator</h2>
+        <p className="text-gray-700 leading-relaxed">Blend is operated by <strong>MIN Company</strong>.</p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-3">10. Contact</h2>
+        <p className="text-gray-700 leading-relaxed">For privacy inquiries, contact: <a href="mailto:blend@ai4min.com" className="text-blue-600 underline">blend@ai4min.com</a></p>
       </section>
     </div>
   );

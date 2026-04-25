@@ -53,7 +53,7 @@ export default function TermsPage() {
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-3">9. Contact</h2>
-        <p className="text-gray-700 leading-relaxed">For questions about these Terms, contact us at: <a href="mailto:toroymin@gmail.com" className="text-blue-600 underline">toroymin@gmail.com</a></p>
+        <p className="text-gray-700 leading-relaxed">For questions about these Terms, contact us at: <a href="mailto:blend@ai4min.com" className="text-blue-600 underline">blend@ai4min.com</a></p>
       </section>
     </div>
   );

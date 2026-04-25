@@ -292,6 +292,104 @@
   - `title="더보기"` / `aria-label="더보기"` → `t('chat.more_options')` 로 교체
   - ko.json: `"more_options": "더보기"`, en.json: `"more_options": "More options"` 추가
 
+---
+
+### 🆕 2026-04-25 — design1 11개 페이지 전면 리디자인 (Web Claude 브리핑)
+
+**배경**: chat-view-design1 디자인 토큰 기준으로 전체 design1 라우트 11페이지 순차 리디자인. 한 번에 1페이지, Roy OK 후 다음 진행. 디자인 문서: Downloads/*.md
+
+처리 순서: Compare → Billing → Documents → Models → Dashboard → Agents → Meeting → DataSources → CostSavings → Security → About
+
+---
+
+디자인 문서 폴더: `/Users/jesikroymin/Downloads/files (4)/` + `/Users/jesikroymin/Downloads/files (5)/` (Billing·CostSavings 업데이트 버전)
+결정 대기 문서: `Design_Decisions_Pending_2026-04-25.md` (D2~D16 결정 필요)
+
+**✅ D1 결정 완료 (2026-04-25): CostSavings 별도 페이지 유지 (옵션 A)**
+- Billing = "얼마 썼나?" (이성적·관리적, 이번 달)
+- CostSavings = "얼마 아꼈나?" (만족감·동기부여, 누적)
+- 근거: 잡스 "calls / music / internet" — 두 메시지 섞으면 둘 다 약해짐
+
+**⚠️ Roy 결정 필요:**
+- D14: 구현 순서 OK? (Compare→Billing→Documents→Models→Dashboard→Agents→Meeting→DataSources→CostSavings→Security→About, 총 11페이지)
+- D15: 페이지별 배포 OK?
+
+---
+
+- [x] **D1-Page-01 — Compare 뷰 리디자인** (디자인 문서: `Compare_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: 3526ed8)
+  - 신규: compare-view-design1.tsx (self-contained, Promise.all streaming, max 3 models)
+  - app-content-design1.tsx: D1CompareView 통합 + handleContinueInChat + chatInitialModel state
+  - chat-view-design1.tsx: initialModel prop 추가 (채팅으로 이어가기 pre-select)
+  - 커밋 브랜치: `design1/compare-view-redesign`
+  - **Roy OK 받은 후 다음 페이지 진행**
+
+- [x] **D1-Page-02 — Billing 뷰 리디자인** (디자인 문서: `files (5)/Billing_2026-04-25_v1.md`) ✅ 2026-04-25 (commits: 47f5c45 + 4e9e820 typefix + 4224fee USD-default-$2)
+  - 역할: "얼마 썼나?" — 이번 달 사용량 + 구독 비교 + 한도 설정 (이성적·관리적)
+  - 누적 절약 포함 안 함 (CostSavings 별도 페이지)
+  - 신규: billing-view-design1.tsx (단일 파일, 섹션1~3 + SVGLineChart + LimitRow + ToggleRow)
+  - app-content-design1.tsx: BillingView → D1BillingView 교체
+  - 한도 저장: USD 정규화(localStorage `d1:billing-limit`), KO에서 ₩ 입력 → /1370 = USD, 기본 일일 한도 $2
+  - 커밋 브랜치: `design1/billing-view-redesign`
+  - **Roy OK 받은 후 D1-Page-03 진행**
+
+- [x] **D1-Page-03 — Documents 뷰 리디자인** (디자인 문서: `Documents_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: 1d452c2)
+  - 신규: documents-view-design1.tsx (단일 파일, Dropzone + FileCard + ExtBadge + StatusLine + ConfirmModal)
+  - 기존 useDocumentStore + parseDocument + generateEmbeddings 재사용 (별도 d1-documents-store 미생성)
+  - app-content-design1.tsx: DocumentPluginView → D1DocumentsView 교체
+  - 단순화: 좌측 리스트+우측 채팅 분할 대신 파일 관리 전용 뷰 (활성 문서는 chat에서 자동 RAG)
+  - 커밋 브랜치: `design1/documents-view-redesign`
+  - **Roy OK 받은 후 D1-Page-04 진행**
+
+- [x] **D1-Page-04 — Models 뷰 리디자인** (디자인 문서: `Models_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: 292e8cb)
+  - 신규: models-view-design1.tsx (단일 파일, FilterChip + ModelCard)
+  - 5개 프로바이더 그룹 + 필터 칩 5종 + REGISTRY_GENERATED_AT 마지막 업데이트
+  - app-content-design1.tsx: ModelsView → D1ModelsView 교체
+  - Confluence: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16416797
+
+- [x] **D1-Page-05 — Dashboard 뷰 리디자인** (디자인 문서: `Dashboard_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: 2ecd378)
+  - 신규: dashboard-view-design1.tsx (단일 파일, KpiCard + Heatmap SVG + 가로막대 + Donut)
+  - Period chips + 4 KPI + 7×24 히트맵 + Top-5 모델 + 카테고리 도넛(모델 휴리스틱)
+  - app-content-design1.tsx: DashboardView → D1DashboardView 교체
+  - Confluence: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16220215
+
+- [x] **D1-Page-06 — Agents 뷰 리디자인** (디자인 문서: `Agents_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: 39a8175)
+  - 신규: agents-view-design1.tsx (단일 파일, AgentCard + AgentEditor 모달 + ConfirmModal + 이모지 팔레트 32)
+  - Built-in/Custom 분리, 기존 useAgentStore 재사용 (별도 built-in-agents.ts 미생성)
+  - app-content-design1.tsx: AgentsView → D1AgentsView 교체
+  - Confluence: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16351325
+
+- [x] **D1-Page-07 — Meeting 뷰 리디자인** (디자인 문서: `Meeting_2026-04-25_v1.md`) ✅ 2026-04-25 (commits: cf31772 + d3faf6c)
+  - 신규: meeting-view-design1.tsx (단일 파일, InputPhase + ResultPhase + Section + ConfirmModal)
+  - 텍스트/YouTube 입력 → AI JSON 분석 → 5섹션 결과 + localStorage history 30개
+  - app-content-design1.tsx: MeetingView → D1MeetingView 교체
+  - Confluence: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16351350
+  - ⚠️ Roy 추가 디자인 문서 제공: `~/Downloads/Meeting_2026-04-25_v1.md` — 모든 페이지 끝나면 추가 적용
+
+- [ ] **D1-Page-08 — DataSources 뷰 리디자인** (디자인 문서: `DataSources_2026-04-25_v1.md`)
+  - 신규: datasources-view-design1.tsx, connected-source-card, available-source-card
+  - 커밋 브랜치: `design1/datasources-view-redesign`
+  - ✅ 2026-04-25 (commit: cc6ed6c) - 신규 디자인 파일 ~/Downloads/DataSources_2026-04-25_v1.md 적용
+
+- [ ] **D1-Page-09 — CostSavings 뷰 리디자인** (디자인 문서: `files (5)/CostSavings_2026-04-25_v1.md`)
+  - 역할: "얼마 아꼈나?" — 누적 절약, 만족감·동기부여 (Billing과 분리 — D1 확정)
+  - Hero: ₩X 절약, 비교 표 (실제 vs 구독), 일별 누적 차트, 모델별 기여
+  - 비교 기준: 3개($60/월) / 5개($90/월) 사용자 선택, localStorage 저장
+  - 신규: cost-savings-view-design1.tsx, savings-hero, comparison-table, savings-chart, by-model-breakdown
+  - 커밋 브랜치: `design1/cost-savings-view-redesign`
+  - **D1-Page-08 Roy OK 후 진행**
+
+- [ ] **D1-Page-10 — Security 뷰 리디자인** (디자인 문서: `Security_2026-04-25_v1.md`)
+  - 신규: security-view-design1.tsx, data-location-card, api-keys-card, communication-log, data-management
+  - 커밋 브랜치: `design1/security-view-redesign`
+  - **D1-Page-09 Roy OK 후 진행**
+
+- [ ] **D1-Page-11 — About 뷰 리디자인** (디자인 문서: `About_2026-04-25_v1.md`)
+  - 신규: about-view-design1.tsx (정적 컨텐츠, 로직 거의 없음)
+  - 커밋 브랜치: `design1/about-view-redesign`
+  - **D1-Page-10 Roy OK 후 진행**
+
+---
+
 - [ ] **Phase 4.1 — "다른 AI로" 재생성** (2026-04-25 이월)
   - Phase 4.0에서 toast 폴백으로 구현됨 ("곧 지원됩니다")
   - 실제 구현: 인라인 미니 드롭다운 → 선택 시 해당 메시지 삭제 후 새 모델로 재생성

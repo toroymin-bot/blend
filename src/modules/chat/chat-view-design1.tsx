@@ -20,7 +20,8 @@ import type { AIProvider } from '@/types';
 import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
-import { getFeaturedModels, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
+import { AVAILABLE_MODELS, getFeaturedModels, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
+import { trackEvent } from '@/lib/analytics';
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
@@ -30,16 +31,16 @@ import { exportD1Chat, type D1ExportFormat } from '@/modules/chat/export-utils-d
 // Design tokens (same as Phase 1)
 // ============================================================
 const tokens = {
-  bg: '#fafaf9',
-  surface: '#ffffff',
-  surfaceAlt: '#f6f5f3',
-  text: '#0a0a0a',
-  textDim: '#6b6862',
-  textFaint: '#a8a49b',
-  accent: '#c65a3c',
-  accentSoft: 'rgba(198, 90, 60, 0.08)',
-  border: 'rgba(10, 10, 10, 0.06)',
-  borderStrong: 'rgba(10, 10, 10, 0.12)',
+  bg: 'var(--d1-bg)',
+  surface: 'var(--d1-surface)',
+  surfaceAlt: 'var(--d1-surface-alt)',
+  text: 'var(--d1-text)',
+  textDim: 'var(--d1-text-dim)',
+  textFaint: 'var(--d1-text-faint)',
+  accent: 'var(--d1-accent)',
+  accentSoft: 'var(--d1-accent-soft)',
+  border: 'var(--d1-border)',
+  borderStrong: 'var(--d1-border-strong)',
 } as const;
 
 // ============================================================
@@ -99,11 +100,45 @@ type Lang = keyof typeof copy;
 // ============================================================
 // Suggestions with recommended models
 // ============================================================
+// IMP-025: SUGGESTIONS suggestedModel을 카탈로그 기반으로 동적 선택.
+// cron 갱신 시 신규 모델이 자동 매핑되도록.
+function pickSuggestedModel(category: 'small' | 'vision' | 'coding' | 'long'): string {
+  const candidates = AVAILABLE_MODELS.filter((m) => !m.deprecated);
+  const score = (m: typeof candidates[number]): number => {
+    const id = m.id.toLowerCase();
+    let s = 0;
+    switch (category) {
+      case 'small':
+        if (m.tier === 'fast') s += 10;
+        if (/mini|haiku|flash|lite/.test(id)) s += 8;
+        break;
+      case 'vision':
+        if (!m.supportsVision) return -1;
+        if (m.provider === 'google') s += 5;
+        if (id.includes('pro')) s += 3;
+        break;
+      case 'coding':
+        if (m.provider === 'anthropic' && id.includes('sonnet')) s += 10;
+        if (id.includes('opus') || id.includes('gpt-4')) s += 6;
+        if (m.tier === 'flagship' || m.tier === 'balanced') s += 2;
+        break;
+      case 'long':
+        if ((m.contextWindow ?? 0) >= 200_000) s += 5;
+        if (m.provider === 'anthropic' && id.includes('sonnet')) s += 4;
+        if (m.provider === 'google' && id.includes('pro')) s += 3;
+        break;
+    }
+    return s;
+  };
+  const ranked = candidates.map((m) => ({ m, s: score(m) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
+  return ranked[0]?.m.id ?? 'gpt-4o-mini';
+}
+
 const SUGGESTIONS_WITH_MODEL = [
-  { ko: '이메일 초안 써줘',    en: 'Draft an email',          suggestedModel: 'gpt-4o-mini' },
-  { ko: '이 이미지 분석해줘',  en: 'Analyze this image',      suggestedModel: 'gemini-2.5-pro' },
-  { ko: '코드 리뷰 해줘',      en: 'Review my code',          suggestedModel: 'claude-sonnet-4-6' },
-  { ko: '긴 글 요약해줘',      en: 'Summarize a long text',   suggestedModel: 'claude-sonnet-4-6' },
+  { ko: '이메일 초안 써줘',    en: 'Draft an email',          suggestedModel: pickSuggestedModel('small') },
+  { ko: '이 이미지 분석해줘',  en: 'Analyze this image',      suggestedModel: pickSuggestedModel('vision') },
+  { ko: '코드 리뷰 해줘',      en: 'Review my code',          suggestedModel: pickSuggestedModel('coding') },
+  { ko: '긴 글 요약해줘',      en: 'Summarize a long text',   suggestedModel: pickSuggestedModel('long') },
 ] as const;
 
 // ============================================================
@@ -188,9 +223,11 @@ type Message = {
 export default function D1ChatView({
   lang,
   onConversationStart,
+  initialModel,
 }: {
   lang: 'ko' | 'en';
   onConversationStart?: (title: string) => void;
+  initialModel?: string;
 }) {
   const { keys, getKey, hasKey, loadFromStorage } = useAPIKeyStore();
 
@@ -212,7 +249,7 @@ export default function D1ChatView({
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [currentModel, setCurrentModel] = useState('auto');
+  const [currentModel, setCurrentModel] = useState(initialModel ?? 'auto');
   const abortRef = useRef<AbortController | null>(null);
 
   const t = copy[lang] ?? copy.en;
@@ -245,11 +282,17 @@ export default function D1ChatView({
     prevModelRef.current = currentModel;
     setIsModelChanging(true);
     const t = setTimeout(() => setIsModelChanging(false), 500);
+    // Phase 5.0 Analytics
+    if (currentModel && currentModel !== 'auto') {
+      const m = AVAILABLE_MODELS.find((x) => x.id === currentModel);
+      trackEvent('model_select', { provider: m?.provider ?? 'unknown', model: currentModel });
+    }
     return () => clearTimeout(t);
   }, [currentModel]);
 
   function handleSuggestionClick(s: (typeof SUGGESTIONS_WITH_MODEL)[number]) {
     const prompt = lang === 'ko' ? s.ko : s.en;
+    trackEvent('suggestion_clicked', { model: s.suggestedModel, label: s.ko });
     setCurrentModel(s.suggestedModel);
     setTimeout(() => {
       setValue(prompt);
@@ -423,6 +466,10 @@ export default function D1ChatView({
   function handleSend() {
     if (!canSend) return;
     const content = value.trim();
+    // Phase 5.0 Analytics — first message ever
+    if (messages.length === 0) {
+      trackEvent('first_message_sent', { lang });
+    }
 
     // ── Trial mode gate ──────────────────────────────────────────
     if (isTrialMode) {
@@ -703,77 +750,87 @@ export default function D1ChatView({
           </div>
         </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col items-center justify-center px-8 pb-[120px]">
+        <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col px-4 md:px-8" style={{ minHeight: 0 }}>
+          {/* Hero — naturally centered in the upper region */}
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <div
+              className="text-center"
+              style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) both' }}
+            >
+              <h1
+                className="mb-3.5 text-[40px] md:text-[56px] lg:text-[64px] font-medium leading-[1.1] tracking-[-0.03em]"
+                style={{ fontFamily: fontStack, wordBreak: lang === 'ko' ? 'keep-all' : undefined }}
+              >
+                {t.emptyTitle ? <>{t.emptyTitle}{' '}</> : null}
+                <span
+                  className="italic"
+                  style={{
+                    fontFamily: '"Instrument Serif", Georgia, serif',
+                    color: tokens.accent,
+                    fontWeight: 400,
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  {t.emptyTitleAccent}
+                </span>{' '}
+                {t.emptyTitleEnd}
+              </h1>
+              <p className="text-base tracking-[-0.01em]" style={{ color: tokens.textDim }}>
+                {t.emptySubtitle}
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom block — input + (desktop only) suggestions + footer hint */}
           <div
-            className="mb-12 text-center"
+            className="pb-[max(1.5rem,env(safe-area-inset-bottom))] md:pb-12"
             style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) both' }}
           >
-            <h1
-              className="mb-3.5 text-[40px] md:text-[56px] lg:text-[64px] font-medium leading-[1.1] tracking-[-0.03em]"
-              style={{ fontFamily: fontStack, wordBreak: lang === 'ko' ? 'keep-all' : undefined }}
+            <D1InputBar
+              value={value}
+              onChange={setValue}
+              onSend={handleSend}
+              onStop={handleStop}
+              onKeyDown={handleKeyDown}
+              textareaRef={textareaRef}
+              canSend={canSend}
+              isStreaming={isStreaming}
+              placeholder={t.placeholder}
+              attachLabel={t.attachFile}
+              sendLabel={t.send}
+              floating={false}
+              glowing={inputGlowing}
+            />
+
+            {/* Suggestions — desktop only */}
+            <div
+              className="mt-4 hidden flex-wrap justify-center gap-2 md:flex"
+              style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) 240ms both' }}
             >
-              {t.emptyTitle ? <>{t.emptyTitle}{' '}</> : null}
-              <span
-                className="italic"
-                style={{
-                  fontFamily: '"Instrument Serif", Georgia, serif',
-                  color: tokens.accent,
-                  fontWeight: 400,
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                {t.emptyTitleAccent}
-              </span>{' '}
-              {t.emptyTitleEnd}
-            </h1>
-            <p className="text-base tracking-[-0.01em]" style={{ color: tokens.textDim }}>
-              {t.emptySubtitle}
+              {SUGGESTIONS_WITH_MODEL.map((s) => {
+                const label = lang === 'ko' ? s.ko : s.en;
+                const modelEntry = MODELS.find(m => m.id === s.suggestedModel);
+                const dotColor = BRAND_COLORS[modelEntry?.brand ?? 'blend'] ?? tokens.accent;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => handleSuggestionClick(s)}
+                    className="inline-flex items-center gap-2 rounded-full border bg-transparent px-4 py-2 text-[13.5px] transition-all duration-200 hover:bg-white"
+                    style={{ borderColor: tokens.borderStrong, color: tokens.textDim, fontFamily: fontStack }}
+                  >
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: dotColor }} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p
+              className="mt-3 text-center text-[11.5px]"
+              style={{ color: tokens.textFaint }}
+            >
+              {t.footer}
             </p>
-          </div>
-
-          <D1InputBar
-            value={value}
-            onChange={setValue}
-            onSend={handleSend}
-            onStop={handleStop}
-            onKeyDown={handleKeyDown}
-            textareaRef={textareaRef}
-            canSend={canSend}
-            isStreaming={isStreaming}
-            placeholder={t.placeholder}
-            attachLabel={t.attachFile}
-            sendLabel={t.send}
-            floating={false}
-            glowing={inputGlowing}
-          />
-
-          <div
-            className="mt-8 grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-center"
-            style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) 240ms both' }}
-          >
-            {SUGGESTIONS_WITH_MODEL.map((s) => {
-              const label = lang === 'ko' ? s.ko : s.en;
-              const modelEntry = MODELS.find(m => m.id === s.suggestedModel);
-              const dotColor = BRAND_COLORS[modelEntry?.brand ?? 'blend'] ?? tokens.accent;
-              return (
-                <button
-                  key={label}
-                  onClick={() => handleSuggestionClick(s)}
-                  className="inline-flex items-center gap-2 rounded-full border bg-transparent px-4 py-2 text-[13.5px] transition-all duration-200 hover:bg-white"
-                  style={{ borderColor: tokens.borderStrong, color: tokens.textDim, fontFamily: fontStack }}
-                >
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: dotColor }} />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div
-            className="absolute bottom-5 left-1/2 -translate-x-1/2 text-xs"
-            style={{ color: tokens.textFaint }}
-          >
-            {t.footer}
           </div>
         </div>
       )}
@@ -1207,9 +1264,9 @@ function D1InputBar({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        rows={1}
-        className="w-full resize-none border-none bg-transparent text-base leading-[1.5] tracking-[-0.01em] outline-none placeholder:text-[--d1-placeholder]"
-        style={{ color: tokens.text, minHeight: 28, maxHeight: 200, '--d1-placeholder': tokens.textFaint } as React.CSSProperties}
+        rows={3}
+        className="w-full resize-none border-none bg-transparent text-[15px] md:text-base leading-[1.5] tracking-[-0.01em] outline-none placeholder:text-[--d1-placeholder] min-h-[88px] md:min-h-[96px] max-h-[240px]"
+        style={{ color: tokens.text, '--d1-placeholder': tokens.textFaint } as React.CSSProperties}
       />
       <div className="mt-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1">

@@ -18,6 +18,8 @@ import { usePromptStore }   from '@/stores/prompt-store';
 import { useAgentStore }    from '@/stores/agent-store';
 import { useUsageStore }    from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { useThemeStore, type ThemeMode } from '@/design/theme-store';
+import { isAnalyticsDisabled, setAnalyticsDisabled } from '@/lib/analytics';
 import { AIProvider }       from '@/types';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 import { useTranslation }   from '@/lib/i18n';
@@ -38,7 +40,7 @@ const tokens = {
 } as const;
 
 // ── Nav sections ──────────────────────────────────────────────────
-type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'language' | 'data' | 'info';
+type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'analytics' | 'language' | 'data' | 'info';
 
 const SECTIONS: { id: SectionId; labelKey: string }[] = [
   { id: 'api',      labelKey: 'settings.api_keys' },
@@ -258,10 +260,10 @@ export function D1SettingsView() {
         className="flex w-[200px] shrink-0 flex-col gap-px overflow-y-auto border-r px-3 py-6"
         style={{ borderColor: tokens.border }}
       >
-        <p className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.08em]"
-           style={{ color: tokens.textFaint }}>
+        <h1 className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.08em]"
+            style={{ color: tokens.textFaint }}>
           {t('settings.title')}
-        </p>
+        </h1>
         {SECTIONS.map((s) => (
           <button
             key={s.id}
@@ -334,6 +336,13 @@ export function D1SettingsView() {
                         setTestResult((s) => ({ ...s, [provider.id]: null }));
                       }}
                       placeholder={provider.placeholder}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      data-1p-ignore
+                      data-lpignore="true"
+                      aria-label={`${provider.name} API key`}
                       className="flex-1 rounded-xl border px-3 py-2 font-mono text-[13px] outline-none transition-[border-color]"
                       style={{ borderColor: tokens.borderMid, background: 'transparent', color: tokens.text }}
                       onFocus={(e) => { e.currentTarget.style.borderColor = tokens.accent; }}
@@ -570,36 +579,11 @@ export function D1SettingsView() {
             </Card>
           </section>
 
-          {/* ── 4. Theme ──────────────────────────────────────── */}
-          <section>
-            <SectionH id="theme" label={t('settings.theme')} />
-            <Card>
-              <Row
-                label={t('settings.color_theme')}
-                sub={settings.theme === 'system' ? t('settings.theme_system') : settings.theme === 'light' ? t('settings.theme_light') : t('settings.theme_dark')}
-                right={
-                  <div className="flex gap-1">
-                    {(['light', 'dark', 'system'] as const).map((theme) => (
-                      <button
-                        key={theme}
-                        onClick={() => updateSettings({ theme })}
-                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
-                        style={{
-                          background: settings.theme === theme ? tokens.text : tokens.navActive,
-                          color:      settings.theme === theme ? tokens.bg  : tokens.textDim,
-                        }}
-                      >
-                        {theme === 'light' && <SunIcon />}
-                        {theme === 'dark'  && <MoonIcon />}
-                        {theme === 'light' ? t('settings.light') : theme === 'dark' ? t('settings.dark') : t('settings.system')}
-                      </button>
-                    ))}
-                  </div>
-                }
-                noBorder
-              />
-            </Card>
-          </section>
+          {/* ── 4. Theme — Tori 명세 (D1ThemeStore 사용) ────────── */}
+          <ThemeSection t={t} />
+
+          {/* ── 4b. Usage Analytics — Tori 명세 (Vercel Analytics 옵트아웃) ── */}
+          <AnalyticsSection t={t} />
 
           {/* ── 5. Language ───────────────────────────────────── */}
           <section>
@@ -748,5 +732,93 @@ export function D1SettingsView() {
         </div>
       )}
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// AnalyticsSection — Tori 명세 (Vercel Analytics 옵트아웃)
+// ════════════════════════════════════════════════════════════════
+function AnalyticsSection({ t }: { t: (k: string) => string }) {
+  const [disabled, setDisabled] = useState(false);
+  useEffect(() => { setDisabled(isAnalyticsDisabled()); }, []);
+  function toggle(checked: boolean) {
+    setAnalyticsDisabled(!checked);
+    setDisabled(!checked);
+  }
+  return (
+    <section>
+      <SectionH id="analytics" label={t('settings.analytics') || '사용 통계'} />
+      <Card>
+        <Row
+          label={t('settings.analytics_collect') || '익명 사용 통계 수집'}
+          sub={t('settings.analytics_desc') || '메뉴 사용 빈도만 익명으로 측정. 대화 내용·IP 미수집. Vercel Analytics 30일 자동 삭제.'}
+          right={
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!disabled}
+              aria-label="Analytics toggle"
+              onClick={() => toggle(disabled)}
+              className="relative h-5 w-9 rounded-full transition-colors"
+              style={{
+                background: disabled ? 'var(--d1-border-strong)' : 'var(--d1-accent)',
+              }}
+            >
+              <span
+                className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
+                style={{ transform: disabled ? 'translateX(2px)' : 'translateX(18px)' }}
+              />
+            </button>
+          }
+          noBorder
+        />
+      </Card>
+    </section>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// ThemeSection — Tori 명세 (D1ThemeStore 사용)
+// ════════════════════════════════════════════════════════════════
+function ThemeSection({ t }: { t: (k: string) => string }) {
+  const mode = useThemeStore((s) => s.mode);
+  const setMode = useThemeStore((s) => s.setMode);
+
+  const options: { value: ThemeMode; labelKey: string; icon: React.ReactNode }[] = [
+    { value: 'light',  labelKey: 'settings.light',  icon: <SunIcon /> },
+    { value: 'dark',   labelKey: 'settings.dark',   icon: <MoonIcon /> },
+    { value: 'system', labelKey: 'settings.system', icon: null },
+  ];
+
+  return (
+    <section>
+      <SectionH id="theme" label={t('settings.theme')} />
+      <Card>
+        <Row
+          label={t('settings.color_theme')}
+          sub={mode === 'system' ? t('settings.theme_system') : mode === 'light' ? t('settings.theme_light') : t('settings.theme_dark')}
+          right={
+            <div className="flex gap-1">
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setMode(opt.value)}
+                  className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+                  style={{
+                    background: mode === opt.value ? 'var(--d1-text)' : 'var(--d1-surface-alt)',
+                    color:      mode === opt.value ? 'var(--d1-bg)'   : 'var(--d1-text-dim)',
+                  }}
+                  aria-pressed={mode === opt.value}
+                >
+                  {opt.icon}
+                  {t(opt.labelKey)}
+                </button>
+              ))}
+            </div>
+          }
+          noBorder
+        />
+      </Card>
+    </section>
   );
 }

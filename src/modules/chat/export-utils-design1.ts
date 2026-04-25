@@ -36,6 +36,10 @@ function adaptToChat(chat: D1Chat): Chat {
 }
 
 export function exportD1Chat(chat: D1Chat, format: D1ExportFormat) {
+  // Phase 5.0 Analytics
+  if (typeof window !== 'undefined') {
+    import('@/lib/analytics').then(({ trackEvent }) => trackEvent('chat_exported', { format })).catch(() => {});
+  }
   const adapted = adaptToChat(chat);
   switch (format) {
     case 'md':

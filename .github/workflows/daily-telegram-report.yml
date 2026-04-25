@@ -1,0 +1,27 @@
+name: Daily Telegram Report
+
+on:
+  schedule:
+    # KST 08:40 = UTC 23:40 (전날)
+    - cron: '40 23 * * *'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Send Daily Telegram Report
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          CF_ACCOUNT_ID:      ${{ secrets.CF_ACCOUNT_ID }}
+          CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+          CF_API_TOKEN:       ${{ secrets.CF_API_TOKEN }}
+        run: node scripts/daily-telegram-report.mjs

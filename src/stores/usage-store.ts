@@ -133,6 +133,22 @@ export const useUsageStore = create<UsageState>((set, get) => ({
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('blend:usage', JSON.stringify(get().records));
+    try {
+      localStorage.setItem('blend:usage', JSON.stringify(get().records));
+    } catch (err) {
+      // QuotaExceededError or similar — purge oldest 50% then retry once.
+      if ((err as Error)?.name === 'QuotaExceededError') {
+        const recs = get().records;
+        const half = Math.floor(recs.length / 2);
+        const trimmed = recs.slice(half);
+        set({ records: trimmed });
+        try {
+          localStorage.setItem('blend:usage', JSON.stringify(trimmed));
+        } catch {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('blend:storage-quota-exceeded', { detail: { store: 'usage', purged: half } }));
+        }
+      }
+    }
   },
 }));

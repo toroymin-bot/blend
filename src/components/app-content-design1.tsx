@@ -13,22 +13,27 @@
  * D1ChatView만 새 디자인 커스텀.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Analytics } from '@vercel/analytics/react';
+import { trackEvent, trackVisit } from '@/lib/analytics';
+// IMP-020: Chat은 default landing이라 eager. 나머지 D1 뷰는 lazy chunk.
 import D1ChatView from '@/modules/chat/chat-view-design1';
+
+const D1CompareView      = lazy(() => import('@/modules/compare/compare-view-design1'));
+const D1BillingView      = lazy(() => import('@/modules/billing/billing-view-design1'));
+const D1DocumentsView    = lazy(() => import('@/modules/documents/documents-view-design1'));
+const D1ModelsView       = lazy(() => import('@/modules/models/models-view-design1'));
+const D1DashboardView    = lazy(() => import('@/modules/dashboard/dashboard-view-design1'));
+const D1AgentsView       = lazy(() => import('@/modules/agents/agents-view-design1'));
+const D1MeetingView      = lazy(() => import('@/modules/meeting/meeting-view-design1'));
+const D1DataSourcesView  = lazy(() => import('@/modules/datasources/datasources-view-design1'));
+const D1CostSavingsView  = lazy(() => import('@/modules/cost-savings/cost-savings-view-design1'));
+const D1SecurityView     = lazy(() => import('@/modules/security/security-view-design1'));
+const D1AboutView        = lazy(() => import('@/modules/about/about-view-design1'));
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
 import { ModelCompareView }     from '@/modules/models/model-compare-view';
-import { DocumentPluginView }   from '@/modules/plugins/document-plugin-view';
-import { MeetingView }          from '@/modules/meeting/meeting-view';
-import { BillingView }          from '@/modules/ui/billing-view';
-import { DataSourceView }       from '@/modules/datasources/datasource-view';
-import { ModelsView }           from '@/modules/models/models-view';
-import { AgentsView }           from '@/modules/agents/agents-view';
-import { CostSavingsDashboard } from '@/modules/ui/cost-savings-dashboard';
-import { DashboardView }        from '@/modules/ui/dashboard-view';
 import { D1SettingsView }       from '@/modules/settings/settings-view-design1';
-import { SecurityView }         from '@/modules/ui/security-view';
-import { AboutView }            from '@/modules/ui/about-view';
 
 // ── Design1 온보딩
 import { D1OnboardingView }     from '@/modules/onboarding/onboarding-view-design1';
@@ -36,14 +41,14 @@ import { useAPIKeyStore }       from '@/stores/api-key-store';
 
 // ── Design tokens
 const tokens = {
-  bg:         '#fafaf9',
-  text:       '#0a0a0a',
-  textDim:    '#6b6862',
-  textFaint:  '#a8a49b',
-  border:     'rgba(10, 10, 10, 0.06)',
-  borderMid:  'rgba(10, 10, 10, 0.10)',
-  accent:     '#c65a3c',
-  accentSoft: 'rgba(198, 90, 60, 0.10)',
+  bg:         'var(--d1-bg)',
+  text:       'var(--d1-text)',
+  textDim:    'var(--d1-text-dim)',
+  textFaint:  'var(--d1-text-faint)',
+  border:     'var(--d1-border)',
+  borderMid:  'var(--d1-border-mid)',
+  accent:     'var(--d1-accent)',
+  accentSoft: 'var(--d1-accent-soft)',
 } as const;
 
 type ViewId =
@@ -68,6 +73,8 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
 
   useEffect(() => {
     loadFromStorage();
+    // Phase 6 — 방문 추적 (옵트아웃 + 일별 dedupe 처리됨)
+    trackVisit();
   }, []);
 
   // d1:open-onboarding 이벤트 → 온보딩 열기
@@ -80,8 +87,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   // 온보딩 완료 시 메인 앱으로 전환
   const handleOnboardingDone = () => setShowOnboarding(false);
 
-  const [activeView, setActiveView] = useState<ViewId>('chat');
-  const [convKey,    setConvKey]    = useState(0);
+  const [activeView,       setActiveView]       = useState<ViewId>('chat');
+  const [convKey,          setConvKey]          = useState(0);
+  const [chatInitialModel, setChatInitialModel] = useState<string | undefined>();
   const [history,    setHistory]    = useState<ConvSummary[]>([]);
   const [showMore,   setShowMore]   = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -90,6 +98,13 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   function handleNewChat() {
     setActiveView('chat');
     setConvKey((k) => k + 1);
+    setChatInitialModel(undefined);
+  }
+
+  function handleContinueInChat(modelId: string) {
+    setActiveView('chat');
+    setConvKey((k) => k + 1);
+    setChatInitialModel(modelId);
   }
 
   function handleConversationStart(title: string) {
@@ -97,6 +112,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   }
 
   function nav(id: ViewId) {
+    trackEvent('menu_click', { menu: id });
     setActiveView(id);
     setShowMore(false);
   }
@@ -117,23 +133,29 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
 
   function renderView() {
     if (activeView === 'chat') {
-      return <D1ChatView key={convKey} lang={lang} onConversationStart={handleConversationStart} />;
+      return <D1ChatView key={convKey} lang={lang} initialModel={chatInitialModel} onConversationStart={handleConversationStart} />;
     }
     const map: Partial<Record<ViewId, React.ReactNode>> = {
-      compare:     <ModelCompareView />,
-      documents:   <DocumentPluginView />,
-      meeting:     <MeetingView />,
-      billing:     <BillingView />,
-      datasources: <DataSourceView />,
-      models:      <ModelsView />,
-      agents:      <AgentsView />,
-      savings:     <CostSavingsDashboard />,
-      dashboard:   <DashboardView />,
+      compare:     <D1CompareView lang={lang} onContinueInChat={handleContinueInChat} />,
+      documents:   <D1DocumentsView lang={lang} onAskAboutDocs={() => { setActiveView('chat'); setConvKey((k) => k + 1); }} />,
+      meeting:     <D1MeetingView lang={lang} />,
+      billing:     <D1BillingView lang={lang} />,
+      datasources: <D1DataSourcesView lang={lang} />,
+      models:      <D1ModelsView lang={lang} onSelectModel={handleContinueInChat} onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))} />,
+      agents:      <D1AgentsView lang={lang} onStartChat={handleContinueInChat} />,
+      savings:     <D1CostSavingsView lang={lang} />,
+      dashboard:   <D1DashboardView lang={lang} />,
       settings:    <D1SettingsView />,
-      security:    <SecurityView />,
-      about:       <AboutView onNavigate={(tab) => nav(tab as ViewId)} />,
+      security:    <D1SecurityView lang={lang} />,
+      about:       <D1AboutView lang={lang} onNavigate={(tab) => nav(tab as ViewId)} />,
     };
-    return <div className="h-full overflow-y-auto bg-surface">{map[activeView]}</div>;
+    return (
+      <div className="h-full overflow-y-auto bg-surface">
+        <Suspense fallback={<div className="flex h-full items-center justify-center text-[13px]" style={{ color: tokens.textFaint }}>···</div>}>
+          {map[activeView]}
+        </Suspense>
+      </div>
+    );
   }
 
   // ── Popover items (hidden 8개 + About)
@@ -328,6 +350,14 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                 {label}
               </button>
             ))}
+            <button
+              onClick={() => { nav('about'); setDrawerOpen(false); }}
+              className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none pl-4 pr-3 text-[13px] transition-colors hover:bg-black/5"
+              style={{ color: activeView === 'about' ? tokens.accent : tokens.text }}
+            >
+              <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" style={{ color: activeView === 'about' ? tokens.accent : tokens.textDim }}><AboutIcon /></span>
+              {t.about}
+            </button>
           </aside>
         </div>
       )}
@@ -342,6 +372,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
           to   { opacity:1; transform:translateX(0); }
         }
       ` }} />
+
+      {/* Phase 5.0 — Vercel Analytics (옵트아웃은 trackEvent 내부) */}
+      <Analytics />
     </div>
   );
 }

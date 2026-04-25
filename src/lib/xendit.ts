@@ -25,6 +25,9 @@ export interface XenditInvoiceResult {
 
 export async function openXenditInvoice(opts: XenditInvoiceOptions): Promise<void> {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const langSeg = typeof window !== 'undefined'
+    ? (window.location.pathname.match(/^\/(ko|en)(\/|$)/)?.[1] ?? 'ko')
+    : 'ko';
 
   const res = await fetch('/api/xendit-invoice', {
     method: 'POST',
@@ -34,8 +37,8 @@ export async function openXenditInvoice(opts: XenditInvoiceOptions): Promise<voi
       currency: opts.currency ?? 'PHP',
       description: opts.description,
       payer_email: opts.payerEmail,
-      success_redirect_url: opts.successRedirectUrl ?? `${origin}/payment/success`,
-      failure_redirect_url: opts.failureRedirectUrl ?? `${origin}/payment/fail`,
+      success_redirect_url: opts.successRedirectUrl ?? `${origin}/${langSeg}/payment/success`,
+      failure_redirect_url: opts.failureRedirectUrl ?? `${origin}/${langSeg}/payment/fail`,
     }),
   });
 

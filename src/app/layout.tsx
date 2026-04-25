@@ -13,10 +13,39 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://blend.ai4min.com";
+const SITE_TITLE = "Blend — One AI app, cheaper and smarter";
+const SITE_DESC_EN = "Use ChatGPT, Claude, Gemini, DeepSeek, Groq from one app. BYOK — pay only for what you use. Average $5/month.";
+const SITE_DESC_KO = "ChatGPT, Claude, Gemini, DeepSeek, Groq를 하나의 앱에서. 내 API 키로 쓴 만큼만. 평균 월 $5.";
+
 export const metadata: Metadata = {
-  title: "Blend - AI Chat Interface",
-  description: "All AI subscriptions — in one, cheaper, smarter",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESC_EN,
   manifest: "/manifest.json",
+  alternates: {
+    canonical: SITE_URL,
+    languages: {
+      "ko-KR": `${SITE_URL}/ko`,
+      "en-US": `${SITE_URL}/en`,
+    },
+  },
+  openGraph: {
+    type: "website",
+    url: SITE_URL,
+    siteName: "Blend",
+    title: SITE_TITLE,
+    description: SITE_DESC_EN,
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Blend — One AI app" }],
+    locale: "en_US",
+    alternateLocale: ["ko_KR"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESC_EN,
+    images: ["/og-image.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -25,6 +54,8 @@ export const metadata: Metadata = {
   other: {
     "mobile-web-app-capable": "yes",
     "theme-color": "#0f1117",
+    // KO description for SEO crawlers that read meta name="description:ko"
+    "description:ko": SITE_DESC_KO,
   },
 };
 
