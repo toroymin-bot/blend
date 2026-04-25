@@ -7,15 +7,162 @@
 
 ## 🐛 QA 발견 버그 (야간 자동 픽스 대상)
 
-- [ ] **BUG-003** React hydration error #418 — text content mismatch on `/ko/qatest` load (2026-04-24 QA 발견)
-  - **증상**: 페이지 로드 시 콘솔에 "Minified React error #418" 2건 발생 (Text content does not match server-rendered HTML)
-  - **재현**: blend.ai4min.com/ko/qatest 접속 → DevTools Console 확인 → 5:08, 5:10 AM 각 1건
-  - **원인 추정**: Date.now(), locale-dependent text, 또는 Math.random() 등 SSR/CSR 불일치 렌더링
-  - **영향**: 하이드레이션 bailout → 초기 렌더 깜박임 or SSR 신뢰성 저하 가능
-  - **픽스**: 해당 컴포넌트에서 `suppressHydrationWarning` 추가 또는 서버/클라이언트 동일 값 보장
-  - **Excel**: Bug Report sheet row 8 에 등록됨
+- [ ] **BUG-004** API 라우트 Rate Limiting 없음 (2026-04-25 QA Phase4 발견)
+  - **증상**: `/api/web-search`, `/api/transcribe`, `/api/image-gen` 등 공개 API 라우트에 rate limiting 미구현
+  - **영향**: DDoS / API 키 남용 위험
+  - **픽스**: 각 라우트에 IP 기반 rate limiter 추가 (yt-transcript.js 방식 참조)
+
+- [ ] **BUG-005** localStorage QuotaExceededError 미처리 (2026-04-25 QA Phase4 발견)
+  - **증상**: 대용량 대화/문서 저장 시 QuotaExceededError 발생해도 앱이 조용히 실패
+  - **픽스**: chat-store.ts, document-store.ts 등 localStorage.setItem 호출부에 try-catch + 사용자 알림 추가
+
+- [x] **BUG-003** React hydration error #418 — text content mismatch on `/ko/qatest` load ✅ 2026-04-25
+  - **픽스 1** (ed07b7a): layout.tsx suppressHydrationWarning on `<html>`; dashboard-view + cost-savings-dashboard useState<Date|null>(null) + null guard; meeting-view.tsx suppressHydrationWarning on locale date spans
+  - **픽스 2** (b543886): splash-screen.tsx h1 suppressHydrationWarning (서버=Korean, /en/ 클라이언트=English 불일치); chat-view-design1.tsx trial badge span suppressHydrationWarning (Zustand persist localStorage mismatch) — 배포 완료 (blend.ai4min.com)
+  - **🔵 Pending Re-test**: 꼬미가 /ko/qatest, /en/qatest, /design1/ko/qatest DevTools Console에서 #418 에러 사라짐 확인 필요
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
+
+### 🆕 2026-04-25 오전 추가 — 컨셉 증명 + 카피 통일 + 모바일 반응형
+
+처리 순서: **4.0a → 4.0 → 3.9** (3개 모두 `chat-view-design1.tsx` 수정 영역 겹침 → 단일 처리도 가능하나 **롤백 용이성을 위해 별도 브랜치/커밋 권장**).
+
+---
+
+- [x] **Phase 4.0a — 결제뷰 카피 통일** (`design1/phase4.0a-billing-copy`) ✅ 2026-04-25 (commit: 10a81e5)
+
+  **배경**: "75%는 낭비입니다" 카피는 컨셉 합의 이전 버전. 새 컨셉으로 통일.
+
+  **수정**:
+  - 결제뷰 (`billing-view*.tsx` + 관련 i18n 파일):
+    - 헤드: `"모든 AI를 하나의 키로."` / `"Every AI, with one key."`
+    - 서브: `"하나로, 더 싸게, 더 스마트하게."` / `"One AI app — cheaper and smarter."`
+  - 페이지 전체 톤 점검:
+    - "75%", "낭비", 🔥/💰 같은 도발/광고 단어·이모지 제거
+    - 가격 비교는 표·사실로만, 형용사 빼기
+    - "구독 vs Blend" 비교 시: "당신의 API 키, 당신의 비용 — Blend는 그 위의 도구"
+
+  **커밋 메시지**: `design1: Phase 4.0a — unify billing copy with new concept`
+
+---
+
+- [x] **Phase 4.0 — 컨셉 증명 디자인 (3가지 통합)** (`design1/phase4.0-concept-proof-design`) ✅ 2026-04-25 (commit: 32ee250) — "다른 AI로" 재생성은 toast 폴백, Phase 4.1로 이월
+
+  **배경**: 블렌드 컨셉 "AI를 하나로, 더 싸게, 더 스마트하게"를 디자인으로 증명. 카피 외침 X, 기능과 디테일로 증명 O. 단계: 첫 진입(강렬) → 사용 중(엿보임) → 깊이(자연스럽게).
+
+  **A. 히어로 서브카피 강화** — `chat-view-design1.tsx` 빈 채팅 상태:
+
+  ```tsx
+  <h1>{lang === 'ko' ? '무엇을 도와드릴까요?' : 'How can I help today?'}</h1>
+  <p>{lang === 'ko' ? '하나로, 더 싸게, 더 스마트하게.' : 'One AI app — cheaper and smarter.'}</p>
+  ```
+
+  **B. 제안 카드 클릭 시 모델 자동 전환 애니메이션** — `chat-view-design1.tsx`:
+
+  1. SUGGESTIONS 배열에 `suggestedModel` 추가:
+     - 이메일 초안 → `gpt-5.4-mini`
+     - 이미지 분석 → `gemini-3.1-pro` (없으면 `gemini-2.5-pro`)
+     - 코드 리뷰 → `claude-sonnet-4-6`
+     - 긴 글 요약 → `claude-sonnet-4-6`
+  2. `handleSuggestionClick` 동작:
+     - `setCurrentModel(s.suggestedModel)` 즉시
+     - 200ms 후 `setValue(s.prompt)` + `inputRef.current?.focus()`
+     - input에 `.d1-input-glow` 클래스 추가 → 800ms 후 제거
+  3. 모델 칩 컴포넌트:
+     - `useEffect`로 currentModel 변경 감지
+     - 변경 시 `isChanging` state 500ms `true → false`
+     - `isChanging` 시: `transform: scale(1.05)`, box-shadow accent ring
+     - 색상 점 background도 transition으로 부드럽게 전환
+  4. CSS:
+     ```css
+     @keyframes d1-glow-pulse {
+       0%, 100% { box-shadow: 0 0 0 0 rgba(198, 90, 60, 0); }
+       50%      { box-shadow: 0 0 0 4px rgba(198, 90, 60, 0.15); }
+     }
+     .d1-input-glow { animation: d1-glow-pulse 800ms cubic-bezier(0.4, 0, 0.6, 1); }
+     ```
+  5. 프로바이더별 색상 (BRAND_COLORS 기 정의됨, 점 색상에 활용):
+     - anthropic `#c65a3c`, openai `#10a37f`, google `#4285f4`, deepseek `#5865f2`, groq `#ff6b35`, auto `#a8a49b`
+
+  **C. 메시지 푸터 메타 + "다른 AI로"** — assistant 메시지 렌더 부분:
+
+  ```tsx
+  <div className="message-footer">
+    <span>{getDisplayName(message.modelUsed)}</span>
+    <span>·</span>
+    <span>{formatTokens(message.totalTokens)}</span>
+    <span>·</span>
+    <span>{formatKRW(message.cost)}</span>
+    <button onClick={() => handleRegenerateWithDifferentModel(message.id)}
+            className="ml-auto opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity">
+      ↻ {lang === 'ko' ? '다른 AI로' : 'Try another'}
+    </button>
+  </div>
+  ```
+
+  유틸:
+  - `formatKRW`: USD → KRW (1 USD = 1370원, 환율 환경변수로 분리 가능). `"₩6"` 형식. 1원 미만은 `"<₩1"`. 영어 모드는 `$0.0042` 유지
+  - `formatTokens`: 234 → "234토큰", 1234 → "1.2K토큰", 영어는 "tokens"
+
+  `handleRegenerateWithDifferentModel`:
+  - 인라인 모델 선택 미니 드롭다운 (`getFeaturedModels()`)
+  - 선택 시 해당 메시지 삭제 → 새 모델로 재생성
+  - **Phase 4.0 범위에서 미구현 시 toast로 "곧 지원됩니다"** 표시 → Phase 4.1로 이월
+
+  **커밋 메시지**: `design1: Phase 4.0 — concept proof (hero subcopy + model swap animation + message footer meta)`
+
+---
+
+- [x] **Phase 3.9 — 모바일 반응형** (`design1/phase3.9-mobile-responsive`) ✅ 2026-04-25 (commit: 9248c2f)
+
+  **배경**: iPhone Safari `/design1/ko` 스크린샷 깨짐 — 데스크탑 우선 디자인이라 컨셉 증명물(체험 배지·히어로)이 첫 인상에서 신뢰 손상.
+
+  **수정**:
+
+  **A. 히어로 타이틀** (`chat-view-design1.tsx` 빈 상태):
+  ```tsx
+  // 한국어만 모바일 줄바꿈, 영어는 한 줄 유지
+  className="text-[40px] md:text-[56px] lg:text-[64px] leading-[1.1]"
+  // "요?" 고아 글자 제거
+  ```
+
+  **B. 체험 배지** (상단바):
+  ```tsx
+  <span style={{ whiteSpace: 'nowrap' }}>
+    {lang === 'ko'
+      ? (isMobile ? `무료 · ${remaining}/10` : `무료 체험중 · ${remaining}/10`)
+      : (isMobile ? `Trial · ${remaining}/10` : `Free trial · ${remaining}/10`)}
+  </span>
+  ```
+  - `isMobile`: `window.innerWidth < 768` (useEffect + resize 리스너)
+  - `whiteSpace: 'nowrap'` 필수 (3줄 분해 방지)
+
+  **C. 내보내기 아이콘** (상단바 우측):
+  - className에 `"hidden md:flex"` 추가 → 모바일에서 숨김
+  - Phase 4.1에서 모바일 "..." 메뉴 검토
+
+  **D. 제안 버튼 그리드**:
+  - 기존 `flex-wrap` → 모바일 `grid grid-cols-2 gap-2 md:flex md:flex-wrap`
+
+  **E. 사이드바 모바일 숨김** (`app-content-design1.tsx`):
+  - `<aside>`: `"hidden md:flex md:flex-col md:w-[72px]"`
+  - 메인 헤더에 햄버거 버튼 (`md:hidden`)
+  - **MobileDrawer 신규 컴포넌트**:
+    - `fixed inset-0 z-50`
+    - 좌측 슬라이드 인 (`transform translate-x`)
+    - 오버레이 배경 클릭 → 닫힘
+    - 안에 Sidebar 재사용
+
+  **검증**: Chrome DevTools Device Mode — iPhone 14 Pro (393x852), iPhone SE (375x667), iPad Mini (744x1133)
+  - 히어로 깔끔한 2줄(KO) / 1줄(EN)
+  - 배지 한 줄 `"무료 · 10/10"`
+  - 사이드바 숨김 + 햄버거 보임
+  - 제안 2x2 그리드
+  - 내보내기 아이콘 안 보임
+
+  **커밋 메시지**: `design1: Phase 3.9 — mobile responsive (hero, badge, sidebar drawer)`
+
+---
 
 - [x] **UI-01** `sidebar.tsx` — 하단 메뉴 5개 → 프로필 트리거 팝오버로 통합 ✅ 2026-04-22
   - **배경**: 사이드바 하단 메뉴(절약 대시보드·비용 분석·설정·보안·블렌드 소개) 5개가 너무 많아 공간 낭비
@@ -143,6 +290,11 @@
 - [x] **FIX-03** `chat-view.tsx:1531-1532` — `더보기` 하드코딩 → i18n 키로 교체 ✅ 2026-04-22
   - `title="더보기"` / `aria-label="더보기"` → `t('chat.more_options')` 로 교체
   - ko.json: `"more_options": "더보기"`, en.json: `"more_options": "More options"` 추가
+
+- [ ] **Phase 4.1 — "다른 AI로" 재생성** (2026-04-25 이월)
+  - Phase 4.0에서 toast 폴백으로 구현됨 ("곧 지원됩니다")
+  - 실제 구현: 인라인 미니 드롭다운 → 선택 시 해당 메시지 삭제 후 새 모델로 재생성
+  - 파일: `src/modules/chat/chat-view-design1.tsx` (`handleRegenerateWithDifferentModel`)
 
 - [ ] **GAS-AUTH** GAS Web App 재인증 필요 (2026-04-24에도 미해결 — Gmail scope 오류 지속)
   - 현상: sendDevReport 실행 시 Gmail 권한 오류 발생
