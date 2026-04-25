@@ -25,11 +25,11 @@ import D1MeetingView from '@/modules/meeting/meeting-view-design1';
 import D1DataSourcesView from '@/modules/datasources/datasources-view-design1';
 import D1CostSavingsView from '@/modules/cost-savings/cost-savings-view-design1';
 import D1SecurityView from '@/modules/security/security-view-design1';
+import D1AboutView from '@/modules/about/about-view-design1';
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
 import { ModelCompareView }     from '@/modules/models/model-compare-view';
 import { D1SettingsView }       from '@/modules/settings/settings-view-design1';
-import { AboutView }            from '@/modules/ui/about-view';
 
 // ── Design1 온보딩
 import { D1OnboardingView }     from '@/modules/onboarding/onboarding-view-design1';
@@ -140,7 +140,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       dashboard:   <D1DashboardView lang={lang} />,
       settings:    <D1SettingsView />,
       security:    <D1SecurityView lang={lang} />,
-      about:       <AboutView onNavigate={(tab) => nav(tab as ViewId)} />,
+      about:       <D1AboutView lang={lang} onNavigate={(tab) => nav(tab as ViewId)} />,
     };
     return <div className="h-full overflow-y-auto bg-surface">{map[activeView]}</div>;
   }
@@ -337,6 +337,14 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                 {label}
               </button>
             ))}
+            <button
+              onClick={() => { nav('about'); setDrawerOpen(false); }}
+              className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none pl-4 pr-3 text-[13px] transition-colors hover:bg-black/5"
+              style={{ color: activeView === 'about' ? tokens.accent : tokens.text }}
+            >
+              <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" style={{ color: activeView === 'about' ? tokens.accent : tokens.textDim }}><AboutIcon /></span>
+              {t.about}
+            </button>
           </aside>
         </div>
       )}
