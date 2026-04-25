@@ -482,7 +482,7 @@ function LimitRow({
   valueKrw: number;
   lang: 'ko' | 'en';
   onSave: (v: number) => void;
-  t: typeof copy['ko'];
+  t: typeof copy[keyof typeof copy];
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(valueKrw > 0 ? String(valueKrw) : '');
