@@ -427,17 +427,11 @@ function InputPhase({
           style={{ borderColor: tokens.borderStrong, background: tokens.bg, color: tokens.text }}
         />
 
-        <div className="my-5 text-center text-[12px]" style={{ color: tokens.textFaint }}>{t.or}</div>
-
-        <label className="mb-2 block text-[12px]" style={{ color: tokens.textDim }}>{t.youtube}</label>
-        <input
-          type="text"
-          value={ytUrl}
-          onChange={(e) => setYtUrl(e.target.value)}
-          placeholder={t.youtubeHint}
-          className="w-full rounded-lg border px-3 py-2 text-[13px] outline-none focus:border-current"
-          style={{ borderColor: tokens.borderStrong, background: tokens.bg, color: tokens.text }}
-        />
+        {/*
+         * YouTube link input: v1에서 UI 비활성화 (디자인 v1 결정).
+         * fetchYoutubeTranscript / ytUrl state / runAnalyze 분기는 유지하여
+         * 향후 재활성화 시 UI만 복원하면 동작하도록 함.
+         */}
 
         {errorMsg && (
           <div className="mt-4 rounded-lg px-4 py-2.5 text-[13px]" style={{ background: 'rgba(204,68,68,0.08)', color: tokens.danger }}>
