@@ -30,10 +30,17 @@ export const useAPIKeyStore = create<APIKeyState>((set, get) => ({
   },
 
   setKey: (provider, key) => {
+    const wasEmpty = !get().keys[provider];
     set((state) => ({
       keys: { ...state.keys, [provider]: key },
     }));
     get().saveToStorage();
+    // Phase 5.0 Analytics — only track first-time registration
+    if (typeof window !== 'undefined' && key && key.trim() && wasEmpty) {
+      import('@/lib/analytics').then(({ trackEvent }) =>
+        trackEvent('key_registered', { provider }),
+      ).catch(() => {});
+    }
   },
 
   // 사용자 입력 키 우선, 없으면 환경변수 fallback

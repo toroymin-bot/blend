@@ -14,6 +14,8 @@
  */
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Analytics } from '@vercel/analytics/react';
+import { trackEvent } from '@/lib/analytics';
 // IMP-020: Chat은 default landing이라 eager. 나머지 D1 뷰는 lazy chunk.
 import D1ChatView from '@/modules/chat/chat-view-design1';
 
@@ -108,6 +110,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   }
 
   function nav(id: ViewId) {
+    trackEvent('menu_click', { menu: id });
     setActiveView(id);
     setShowMore(false);
   }
@@ -367,6 +370,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
           to   { opacity:1; transform:translateX(0); }
         }
       ` }} />
+
+      {/* Phase 5.0 — Vercel Analytics (옵트아웃은 trackEvent 내부) */}
+      <Analytics />
     </div>
   );
 }

@@ -354,6 +354,10 @@ export default function D1CompareView({
     if (!canSend) return;
     const question = inputValue.trim();
     setInputValue('');
+    // Phase 5.0 Analytics
+    import('@/lib/analytics').then(({ trackEvent }) =>
+      trackEvent('compare_used', { model_count: selectedIds.length, models: selectedIds.join(',') }),
+    ).catch(() => {});
 
     colContentRef.current = {};
     Object.values(abortRefs.current).forEach((a) => a.abort());

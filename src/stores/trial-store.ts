@@ -30,6 +30,12 @@ export const useTrialStore = create<TrialState>()(
         const { dailyCount, maxPerDay } = get();
         if (dailyCount >= maxPerDay) return false;
         set({ dailyCount: dailyCount + 1 });
+        // Phase 5.0 Analytics
+        if (typeof window !== 'undefined') {
+          import('@/lib/analytics').then(({ trackEvent }) =>
+            trackEvent('trial_used', { remaining: maxPerDay - (dailyCount + 1) }),
+          ).catch(() => {});
+        }
         return true;
       },
 

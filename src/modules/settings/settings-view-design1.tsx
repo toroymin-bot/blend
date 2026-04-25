@@ -19,6 +19,7 @@ import { useAgentStore }    from '@/stores/agent-store';
 import { useUsageStore }    from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useThemeStore, type ThemeMode } from '@/design/theme-store';
+import { isAnalyticsDisabled, setAnalyticsDisabled } from '@/lib/analytics';
 import { AIProvider }       from '@/types';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 import { useTranslation }   from '@/lib/i18n';
@@ -39,7 +40,7 @@ const tokens = {
 } as const;
 
 // ── Nav sections ──────────────────────────────────────────────────
-type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'language' | 'data' | 'info';
+type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'analytics' | 'language' | 'data' | 'info';
 
 const SECTIONS: { id: SectionId; labelKey: string }[] = [
   { id: 'api',      labelKey: 'settings.api_keys' },
@@ -581,6 +582,9 @@ export function D1SettingsView() {
           {/* ── 4. Theme — Tori 명세 (D1ThemeStore 사용) ────────── */}
           <ThemeSection t={t} />
 
+          {/* ── 4b. Usage Analytics — Tori 명세 (Vercel Analytics 옵트아웃) ── */}
+          <AnalyticsSection t={t} />
+
           {/* ── 5. Language ───────────────────────────────────── */}
           <section>
             <SectionH id="language" label={t('settings.language')} />
@@ -728,6 +732,48 @@ export function D1SettingsView() {
         </div>
       )}
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// AnalyticsSection — Tori 명세 (Vercel Analytics 옵트아웃)
+// ════════════════════════════════════════════════════════════════
+function AnalyticsSection({ t }: { t: (k: string) => string }) {
+  const [disabled, setDisabled] = useState(false);
+  useEffect(() => { setDisabled(isAnalyticsDisabled()); }, []);
+  function toggle(checked: boolean) {
+    setAnalyticsDisabled(!checked);
+    setDisabled(!checked);
+  }
+  return (
+    <section>
+      <SectionH id="analytics" label={t('settings.analytics') || '사용 통계'} />
+      <Card>
+        <Row
+          label={t('settings.analytics_collect') || '익명 사용 통계 수집'}
+          sub={t('settings.analytics_desc') || '메뉴 사용 빈도만 익명으로 측정. 대화 내용·IP 미수집. Vercel Analytics 30일 자동 삭제.'}
+          right={
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!disabled}
+              aria-label="Analytics toggle"
+              onClick={() => toggle(disabled)}
+              className="relative h-5 w-9 rounded-full transition-colors"
+              style={{
+                background: disabled ? 'var(--d1-border-strong)' : 'var(--d1-accent)',
+              }}
+            >
+              <span
+                className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
+                style={{ transform: disabled ? 'translateX(2px)' : 'translateX(18px)' }}
+              />
+            </button>
+          }
+          noBorder
+        />
+      </Card>
+    </section>
   );
 }
 

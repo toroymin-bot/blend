@@ -21,6 +21,7 @@ import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
 import { AVAILABLE_MODELS, getFeaturedModels, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
+import { trackEvent } from '@/lib/analytics';
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
@@ -281,11 +282,17 @@ export default function D1ChatView({
     prevModelRef.current = currentModel;
     setIsModelChanging(true);
     const t = setTimeout(() => setIsModelChanging(false), 500);
+    // Phase 5.0 Analytics
+    if (currentModel && currentModel !== 'auto') {
+      const m = AVAILABLE_MODELS.find((x) => x.id === currentModel);
+      trackEvent('model_select', { provider: m?.provider ?? 'unknown', model: currentModel });
+    }
     return () => clearTimeout(t);
   }, [currentModel]);
 
   function handleSuggestionClick(s: (typeof SUGGESTIONS_WITH_MODEL)[number]) {
     const prompt = lang === 'ko' ? s.ko : s.en;
+    trackEvent('suggestion_clicked', { model: s.suggestedModel, label: s.ko });
     setCurrentModel(s.suggestedModel);
     setTimeout(() => {
       setValue(prompt);
@@ -459,6 +466,10 @@ export default function D1ChatView({
   function handleSend() {
     if (!canSend) return;
     const content = value.trim();
+    // Phase 5.0 Analytics — first message ever
+    if (messages.length === 0) {
+      trackEvent('first_message_sent', { lang });
+    }
 
     // ── Trial mode gate ──────────────────────────────────────────
     if (isTrialMode) {

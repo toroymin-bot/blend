@@ -67,7 +67,9 @@ const copy = {
     sub:           '하나로, 더 싸게, 더 스마트하게.',
     thisMonth:     '이번 달',
     spent:         '사용',
-    ifSubscribed:  '구독 시',
+    ifSubscribed:  ' 없이 구독했다면',  // 앞에 <accent>Blend</accent> prefix
+    ifSubscribedPrefix: '',
+    ifSubscribedHighlight: 'Blend',
     sumLabel:      '합계',
     diffLabel:     '차이',
     last30:        '최근 30일',
@@ -92,7 +94,9 @@ const copy = {
     sub:           'One AI app — cheaper and smarter.',
     thisMonth:     'This month',
     spent:         'spent',
-    ifSubscribed:  'If subscribed',
+    ifSubscribed:  '',
+    ifSubscribedPrefix: 'Without ',
+    ifSubscribedHighlight: 'Blend',
     sumLabel:      'Total',
     diffLabel:     'Difference',
     last30:        'Last 30 days',
@@ -301,8 +305,20 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
                   </span>
                 </div>
 
-                <div className="mt-10 mb-4 text-[13px]" style={{ color: tokens.textFaint }}>
-                  ── {t.ifSubscribed} ──
+                {/* 비교 라벨 — Blend accent 강조 + 시각 무게 증가 (Tori 명세) */}
+                <div className="mt-10 mb-5 flex items-center gap-3">
+                  <span className="h-px flex-1" style={{ background: tokens.border }} />
+                  <span
+                    className="text-[14px] whitespace-nowrap"
+                    style={{ color: tokens.textDim, fontWeight: 400 }}
+                  >
+                    {t.ifSubscribedPrefix}
+                    <span style={{ color: tokens.accent, fontWeight: 500 }}>
+                      {t.ifSubscribedHighlight}
+                    </span>
+                    {t.ifSubscribed}
+                  </span>
+                  <span className="h-px flex-1" style={{ background: tokens.border }} />
                 </div>
 
                 <ul className="space-y-2.5">
