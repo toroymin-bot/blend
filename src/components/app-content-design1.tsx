@@ -131,20 +131,11 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     return () => window.removeEventListener('d1:chat-retitle', handler as EventListener);
   }, []);
 
-  // Tori 사이드바 명세: 더보기 하위(prompts/plugins) 인라인 expand 상태
-  const [subExpanded, setSubExpanded] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('d1:sidebar-sub-expanded') === 'true';
-  });
+  // Tori 평면화 핫픽스 (2026-04-25): 이전 PR #6, #12의 "더보기" expand state 제거.
+  // 사용자 환경에 남은 localStorage 키 정리 (1회).
   useEffect(() => {
-    try { localStorage.setItem('d1:sidebar-sub-expanded', String(subExpanded)); } catch {}
-  }, [subExpanded]);
-  // 활성 뷰가 더보기 자식이면 자동 펼침
-  useEffect(() => {
-    if (activeView === 'prompts' || activeView === 'plugins') {
-      setSubExpanded(true);
-    }
-  }, [activeView]);
+    try { localStorage.removeItem('d1:sidebar-sub-expanded'); } catch {}
+  }, []);
 
   // Tori 통합 RAG — 활성 소스 칩 본체 클릭 시 Documents로 이동
   useEffect(() => {
@@ -204,20 +195,17 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   }
 
   // ── Popover items (hidden + About)
-  // Tori 사이드바 명세 (2026-04-25): prompts/plugins는 popover 내 "더보기" 하위 그룹으로 분리
+  // Tori 평면화 핫픽스 (2026-04-25): "더보기" 컨테이너 제거, prompts/plugins 평면 배치 (agents 바로 아래)
   const moreItems: [ViewId, string, React.ReactNode][] = [
     ['datasources', t.datasources, <DataSourcesIcon key="ds" />],
     ['models',      t.models,      <ModelsIcon      key="mo" />],
     ['agents',      t.agents,      <AgentsIcon      key="ag" />],
-    // ↓ 여기에 "더보기" expandable 그룹 인라인 삽입 (prompts/plugins)
+    ['prompts',     t.prompts,     <PromptsIcon     key="pr" />],
+    ['plugins',     t.plugins,     <PluginsIcon     key="pl" />],
     ['savings',     t.savings,     <SavingsIcon     key="sa" />],
     ['dashboard',   t.dashboard,   <DashboardIcon   key="da" />],
     ['security',    t.security,    <SecurityIcon    key="se" />],
     ['settings',    t.settings,    <SettingsIcon    key="st" />],
-  ];
-  const subItems: [ViewId, string, React.ReactNode][] = [
-    ['prompts', t.prompts, <PromptsIcon key="pr" />],
-    ['plugins', t.plugins, <PluginsIcon key="pl" />],
   ];
 
   // 온보딩 화면
@@ -305,57 +293,14 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                   animation: 'popoverRise 180ms cubic-bezier(0.16,1,0.3,1) both',
                 }}
               >
-                {moreItems.map(([id, label, icon], idx) => (
-                  <span key={id}>
-                    <button onClick={() => nav(id)}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-black/5"
-                      style={{ color: activeView === id ? tokens.accent : tokens.text }}
-                    >
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: activeView === id ? tokens.accent : tokens.textDim }}>{icon}</span>
-                      {label}
-                    </button>
-                    {/* agents 다음 위치에 "더보기" 인라인 expand 그룹 (prompts/plugins) */}
-                    {id === 'agents' && (
-                      <>
-                        <button
-                          onClick={() => setSubExpanded((v) => !v)}
-                          className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-black/5"
-                          style={{ color: tokens.text }}
-                          aria-expanded={subExpanded}
-                        >
-                          <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: tokens.textDim }}><MoreIcon /></span>
-                          <span className="flex-1 text-left">{lang === 'ko' ? '더보기' : 'More'}</span>
-                          <span
-                            className="ml-auto inline-block transition-transform duration-200"
-                            style={{ transform: subExpanded ? 'rotate(90deg)' : 'rotate(0deg)', color: tokens.textDim }}
-                          >
-                            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                              <path d="m9 6 6 6-6 6" />
-                            </svg>
-                          </span>
-                        </button>
-                        {/* Tori v2 — 부드러운 max-height + opacity transition */}
-                        <div
-                          style={{
-                            maxHeight: subExpanded ? subItems.length * 36 + 4 : 0,
-                            opacity:   subExpanded ? 1 : 0,
-                            overflow: 'hidden',
-                            transition: 'max-height 220ms ease-out, opacity 160ms ease-out',
-                          }}
-                        >
-                          {subItems.map(([sid, slabel, sicon]) => (
-                            <button key={sid} onClick={() => nav(sid)}
-                              className="flex w-full items-center gap-2.5 py-2 pr-3 text-[13px] transition-colors hover:bg-black/5"
-                              style={{ paddingLeft: 32, color: activeView === sid ? tokens.accent : tokens.text }}
-                            >
-                              <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: activeView === sid ? tokens.accent : tokens.textDim }}>{sicon}</span>
-                              {slabel}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </span>
+                {moreItems.map(([id, label, icon]) => (
+                  <button key={id} onClick={() => nav(id)}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-black/5"
+                    style={{ color: activeView === id ? tokens.accent : tokens.text }}
+                  >
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: activeView === id ? tokens.accent : tokens.textDim }}>{icon}</span>
+                    {label}
+                  </button>
                 ))}
                 <div className="mx-3 my-1" style={{ height: 1, background: tokens.border }} />
                 <button onClick={() => nav('about')}
