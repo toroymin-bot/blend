@@ -2,6 +2,21 @@
   "name": "blend",
   "version": "1.0.0",
   "private": true,
+  "blend": {
+    "extractable_modules": [
+      { "path": "src/modules/onboarding",   "future_npm": "@ai4min/byok-onboarding",  "tier": "S" },
+      { "path": "src/stores/api-key-store", "future_npm": "@ai4min/api-key-store",    "tier": "S" },
+      { "path": "src/scripts/update-models","future_npm": "@ai4min/model-registry",   "tier": "S" },
+      { "path": "src/design",               "future_npm": "@ai4min/d1-tokens",        "tier": "S" },
+      { "path": "src/modules/chat",         "future_npm": "@ai4min/chat-view",        "tier": "A" },
+      { "path": "src/modules/compare",      "future_npm": "@ai4min/compare-view",     "tier": "A" },
+      { "path": "src/modules/billing",      "future_npm": "@ai4min/billing-view",     "tier": "A" },
+      { "path": "src/modules/dashboard",    "future_npm": "@ai4min/dashboard-view",   "tier": "A" },
+      { "path": "src/modules/cost-savings", "future_npm": "@ai4min/cost-savings-view","tier": "A" },
+      { "path": "src/modules/documents",    "future_npm": "@ai4min/rag-documents",    "tier": "A" },
+      { "path": "src/lib/analytics.ts",     "future_npm": "@ai4min/anonymous-analytics","tier": "A" }
+    ]
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
