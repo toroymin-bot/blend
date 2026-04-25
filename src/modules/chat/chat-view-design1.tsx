@@ -50,7 +50,7 @@ const copy = {
     emptyTitle: '',
     emptyTitleAccent: '무엇을',
     emptyTitleEnd: '도와드릴까요?',
-    emptySubtitle: '모든 AI가 하나의 대화 안에 있습니다.',
+    emptySubtitle: '하나로, 더 싸게, 더 스마트하게.',
     placeholder: '질문을 입력하세요',
     placeholderActive: 'Blend에게 계속 질문하세요',
     suggestions: ['이메일 초안 써줘', '이 이미지 분석해줘', '코드 리뷰 해줘', '긴 글 요약해줘'],
@@ -66,12 +66,14 @@ const copy = {
     attachFile: '파일 첨부',
     voiceInput: '음성 입력',
     send: '보내기',
+    tryAnother: '다른 AI로',
+    comingSoon: '곧 지원됩니다',
   },
   en: {
     emptyTitle: 'How can I',
     emptyTitleAccent: 'help',
     emptyTitleEnd: 'today?',
-    emptySubtitle: 'Every AI, inside one conversation.',
+    emptySubtitle: 'One AI app — cheaper and smarter.',
     placeholder: 'Ask anything',
     placeholderActive: 'Ask Blend anything',
     suggestions: ['Draft an email', 'Analyze this image', 'Review my code', 'Summarize a long text'],
@@ -87,10 +89,39 @@ const copy = {
     attachFile: 'Attach file',
     voiceInput: 'Voice input',
     send: 'Send',
+    tryAnother: 'Try another AI',
+    comingSoon: 'Coming soon',
   },
 } as const;
 
 type Lang = keyof typeof copy;
+
+// ============================================================
+// Suggestions with recommended models
+// ============================================================
+const SUGGESTIONS_WITH_MODEL = [
+  { ko: '이메일 초안 써줘',    en: 'Draft an email',          suggestedModel: 'gpt-4o-mini' },
+  { ko: '이 이미지 분석해줘',  en: 'Analyze this image',      suggestedModel: 'gemini-2.5-pro' },
+  { ko: '코드 리뷰 해줘',      en: 'Review my code',          suggestedModel: 'claude-sonnet-4-6' },
+  { ko: '긴 글 요약해줘',      en: 'Summarize a long text',   suggestedModel: 'claude-sonnet-4-6' },
+] as const;
+
+// ============================================================
+// Formatting utilities
+// ============================================================
+function formatKRW(usd: number | undefined, lang: 'ko' | 'en'): string {
+  if (usd === undefined || usd === 0) return '';
+  if (lang === 'en') return usd < 0.01 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(3)}`;
+  const krw = Math.round(usd * 1370);
+  if (krw < 1) return '<₩1';
+  return `₩${krw}`;
+}
+
+function formatTokens(count: number | undefined, lang: 'ko' | 'en'): string {
+  if (count === undefined || count === 0) return '';
+  if (count >= 1000) return lang === 'ko' ? `${(count / 1000).toFixed(1)}K토큰` : `${(count / 1000).toFixed(1)}K tokens`;
+  return lang === 'ko' ? `${count}토큰` : `${count} tokens`;
+}
 
 // ============================================================
 // Model registry — built from live available-models.generated.json
@@ -147,6 +178,8 @@ type Message = {
   role: 'user' | 'assistant';
   content: string;
   modelUsed?: string;
+  totalTokens?: number;
+  cost?: number;
 };
 
 // ============================================================
@@ -189,9 +222,38 @@ export default function D1ChatView({
   const [value, setValue] = useState('');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isModelChanging, setIsModelChanging] = useState(false);
+  const [inputGlowing, setInputGlowing] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const modelChipRef = useRef<HTMLButtonElement>(null);
+  const prevModelRef = useRef(currentModel);
+
+  // Model chip pulse animation on change
+  useEffect(() => {
+    if (prevModelRef.current === currentModel) return;
+    prevModelRef.current = currentModel;
+    setIsModelChanging(true);
+    const t = setTimeout(() => setIsModelChanging(false), 500);
+    return () => clearTimeout(t);
+  }, [currentModel]);
+
+  function handleSuggestionClick(s: (typeof SUGGESTIONS_WITH_MODEL)[number]) {
+    const prompt = lang === 'ko' ? s.ko : s.en;
+    setCurrentModel(s.suggestedModel);
+    setTimeout(() => {
+      setValue(prompt);
+      textareaRef.current?.focus();
+    }, 200);
+    setInputGlowing(true);
+    setTimeout(() => setInputGlowing(false), 800);
+  }
+
+  function showToast(msg: string) {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 2000);
+  }
 
   // ── Persistence / history ─────────────────────────────────────
   const d1Chats        = useD1ChatStore((s) => s.chats);
@@ -535,10 +597,21 @@ export default function D1ChatView({
           <button
             ref={modelChipRef}
             onClick={() => setShowModelDropdown((s) => !s)}
-            className="inline-flex items-center gap-2 rounded-full border bg-transparent px-3 py-1.5 pl-2.5 text-[13px] transition-colors hover:bg-white"
-            style={{ borderColor: tokens.borderStrong, color: tokens.text, fontFamily: fontStack }}
+            className="inline-flex items-center gap-2 rounded-full border bg-transparent px-3 py-1.5 pl-2.5 text-[13px] transition-all duration-300 hover:bg-white"
+            style={{
+              borderColor: tokens.borderStrong,
+              color: tokens.text,
+              fontFamily: fontStack,
+              transform: isModelChanging ? 'scale(1.05)' : 'scale(1)',
+              boxShadow: isModelChanging
+                ? `0 0 0 3px ${BRAND_COLORS[MODELS.find(m => m.id === currentModel)?.brand ?? 'blend'] ?? tokens.accent}26`
+                : 'none',
+            }}
           >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: tokens.accent }} />
+            <span
+              className="h-1.5 w-1.5 rounded-full transition-colors duration-300"
+              style={{ background: BRAND_COLORS[MODELS.find(m => m.id === currentModel)?.brand ?? 'blend'] ?? tokens.accent }}
+            />
             {MODELS.find((m) => m.id === currentModel)?.name ?? t.modelAuto}
             <ChevronIcon />
           </button>
@@ -609,7 +682,7 @@ export default function D1ChatView({
         >
           <div className="mx-auto w-full max-w-[760px] px-8 py-8 pb-[180px]">
             {messages.map((msg) => (
-              <D1MessageRow key={msg.id} message={msg} lang={lang} t={t} />
+              <D1MessageRow key={msg.id} message={msg} lang={lang} t={t} onTryAnother={() => showToast(t.comingSoon)} />
             ))}
             {isStreaming && streamingContent && (
               <D1AssistantMessage content={streamingContent} streaming lang={lang} t={t} />
@@ -658,25 +731,29 @@ export default function D1ChatView({
             attachLabel={t.attachFile}
             sendLabel={t.send}
             floating={false}
+            glowing={inputGlowing}
           />
 
           <div
             className="mt-8 flex flex-wrap justify-center gap-2"
             style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) 240ms both' }}
           >
-            {t.suggestions.map((s) => (
-              <button
-                key={s}
-                onClick={() => {
-                  setValue(s);
-                  textareaRef.current?.focus();
-                }}
-                className="rounded-full border bg-transparent px-4 py-2 text-[13.5px] transition-all duration-200 hover:bg-white"
-                style={{ borderColor: tokens.borderStrong, color: tokens.textDim, fontFamily: fontStack }}
-              >
-                {s}
-              </button>
-            ))}
+            {SUGGESTIONS_WITH_MODEL.map((s) => {
+              const label = lang === 'ko' ? s.ko : s.en;
+              const modelEntry = MODELS.find(m => m.id === s.suggestedModel);
+              const dotColor = BRAND_COLORS[modelEntry?.brand ?? 'blend'] ?? tokens.accent;
+              return (
+                <button
+                  key={label}
+                  onClick={() => handleSuggestionClick(s)}
+                  className="inline-flex items-center gap-2 rounded-full border bg-transparent px-4 py-2 text-[13.5px] transition-all duration-200 hover:bg-white"
+                  style={{ borderColor: tokens.borderStrong, color: tokens.textDim, fontFamily: fontStack }}
+                >
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: dotColor }} />
+                  {label}
+                </button>
+              );
+            })}
           </div>
 
           <div
@@ -721,8 +798,19 @@ export default function D1ChatView({
               attachLabel={t.attachFile}
               sendLabel={t.send}
               floating
+              glowing={inputGlowing}
             />
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toastMsg && (
+        <div
+          className="pointer-events-none fixed bottom-24 left-1/2 -translate-x-1/2 rounded-full px-4 py-2 text-[13px] shadow-lg z-50"
+          style={{ background: tokens.text, color: tokens.bg, fontFamily: fontStack }}
+        >
+          {toastMsg}
         </div>
       )}
 
@@ -766,6 +854,11 @@ export default function D1ChatView({
           from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes d1-glow-pulse {
+          0%, 100% { box-shadow: 0 8px 32px rgba(0,0,0,0.06), 0 0 0 0 rgba(198, 90, 60, 0); }
+          50%      { box-shadow: 0 8px 32px rgba(0,0,0,0.06), 0 0 0 4px rgba(198, 90, 60, 0.15); }
+        }
+        .d1-input-glow { animation: d1-glow-pulse 800ms cubic-bezier(0.4, 0, 0.6, 1); }
         @keyframes d1-cursor {
           0%, 49%   { opacity: 1; }
           50%, 100% { opacity: 0; }
@@ -814,13 +907,24 @@ type CopyObj = {
   modelAuto: string; modelAutoDesc: string; footer: string;
   copy: string; copied: string; regenerate: string; noApiKey: string;
   history: string; share: string; attachFile: string; voiceInput: string; send: string;
+  tryAnother: string; comingSoon: string;
 };
 
-function D1MessageRow({ message, lang, t }: { message: Message; lang: Lang; t: CopyObj }) {
+function D1MessageRow({ message, lang, t, onTryAnother }: { message: Message; lang: Lang; t: CopyObj; onTryAnother: () => void }) {
   if (message.role === 'user') {
     return <D1UserMessage content={message.content} lang={lang} />;
   }
-  return <D1AssistantMessage content={message.content} modelUsed={message.modelUsed} lang={lang} t={t} />;
+  return (
+    <D1AssistantMessage
+      content={message.content}
+      modelUsed={message.modelUsed}
+      totalTokens={message.totalTokens}
+      cost={message.cost}
+      lang={lang}
+      t={t}
+      onTryAnother={onTryAnother}
+    />
+  );
 }
 
 function D1UserMessage({ content, lang }: { content: string; lang: Lang }) {
@@ -849,17 +953,25 @@ function D1AssistantMessage({
   content,
   streaming = false,
   modelUsed,
+  totalTokens,
+  cost,
   lang,
   t,
+  onTryAnother,
 }: {
   content: string;
   streaming?: boolean;
   modelUsed?: string;
+  totalTokens?: number;
+  cost?: number;
   lang: Lang;
   t: CopyObj;
+  onTryAnother?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const modelInfo = MODELS.find((m) => m.id === modelUsed || m.apiModel === modelUsed);
+  const tokensStr = formatTokens(totalTokens, lang);
+  const costStr   = formatKRW(cost, lang);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -915,10 +1027,29 @@ function D1AssistantMessage({
               <RefreshIcon />
               {t.regenerate}
             </button>
+
+            {/* Message meta footer */}
             {modelInfo && (
-              <span className="ml-2 text-[11px]" style={{ color: tokens.textFaint }}>
+              <span className="ml-2 flex items-center gap-1.5 text-[11px]" style={{ color: tokens.textFaint }}>
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ background: BRAND_COLORS[modelInfo.brand] ?? tokens.accent }}
+                />
                 {modelInfo.name}
+                {tokensStr && <><span>·</span><span>{tokensStr}</span></>}
+                {costStr   && <><span>·</span><span>{costStr}</span></>}
               </span>
+            )}
+
+            {onTryAnother && (
+              <button
+                onClick={onTryAnother}
+                className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[12px] opacity-0 transition-opacity duration-150 hover:!opacity-100 group-hover:opacity-60"
+                style={{ color: tokens.textDim }}
+                title={t.tryAnother}
+              >
+                ↻ {t.tryAnother}
+              </button>
             )}
           </div>
         )}
@@ -1009,6 +1140,7 @@ function D1InputBar({
   attachLabel,
   sendLabel,
   floating,
+  glowing = false,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -1022,6 +1154,7 @@ function D1InputBar({
   attachLabel: string;
   sendLabel: string;
   floating: boolean;
+  glowing?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1039,7 +1172,7 @@ function D1InputBar({
 
   return (
     <div
-      className="w-full max-w-[720px] rounded-[20px] border bg-white px-[18px] pt-4 pb-3 transition-[border-color,box-shadow] duration-200 focus-within:shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
+      className={`w-full max-w-[720px] rounded-[20px] border bg-white px-[18px] pt-4 pb-3 transition-[border-color,box-shadow] duration-200 focus-within:shadow-[0_12px_40px_rgba(0,0,0,0.08)]${glowing ? ' d1-input-glow' : ''}`}
       style={{
         borderColor: tokens.borderStrong,
         boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
