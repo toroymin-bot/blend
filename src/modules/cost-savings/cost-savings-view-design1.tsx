@@ -110,7 +110,12 @@ function fmtDateShort(ts: number, lang: 'ko' | 'en'): string {
 }
 
 function modelDisplayName(id: string): string {
-  return AVAILABLE_MODELS.find((m) => m.id === id)?.displayName ?? id;
+  const found = AVAILABLE_MODELS.find((m) => m.id === id)?.displayName;
+  if (found) return found;
+  return id
+    .split('-')
+    .map((part) => /^\d/.test(part) ? part : part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function modelProvider(id: string): string {
@@ -201,6 +206,9 @@ export default function D1CostSavingsView({ lang }: { lang: 'ko' | 'en' }) {
   }, [records, baseline]);
 
   if (!stats || stats.days < MIN_DAYS_FOR_DATA) {
+    const currentDays = stats?.days ?? 0;
+    const remaining = Math.max(0, MIN_DAYS_FOR_DATA - currentDays);
+    const progress = Math.min(100, (currentDays / MIN_DAYS_FOR_DATA) * 100);
     return (
       <div
         className="h-full overflow-y-auto"
@@ -218,6 +226,20 @@ export default function D1CostSavingsView({ lang }: { lang: 'ko' | 'en' }) {
           >
             <div className="text-[16px]" style={{ color: tokens.text }}>{t.empty}</div>
             <div className="mt-2 text-[13px]" style={{ color: tokens.textDim }}>{t.emptyHint}</div>
+
+            {currentDays > 0 && (
+              <div className="mx-auto mt-8 max-w-xs">
+                <div className="flex items-baseline justify-between text-[12px] mb-2" style={{ color: tokens.textDim }}>
+                  <span>{lang === 'ko' ? `현재 ${currentDays}일` : `${currentDays} days so far`}</span>
+                  <span style={{ color: tokens.textFaint }}>
+                    {lang === 'ko' ? `${remaining}일 남음` : `${remaining} days to go`}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full" style={{ background: tokens.surfaceAlt }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: tokens.accent }} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

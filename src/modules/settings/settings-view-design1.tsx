@@ -334,6 +334,13 @@ export function D1SettingsView() {
                         setTestResult((s) => ({ ...s, [provider.id]: null }));
                       }}
                       placeholder={provider.placeholder}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      data-1p-ignore
+                      data-lpignore="true"
+                      aria-label={`${provider.name} API key`}
                       className="flex-1 rounded-xl border px-3 py-2 font-mono text-[13px] outline-none transition-[border-color]"
                       style={{ borderColor: tokens.borderMid, background: 'transparent', color: tokens.text }}
                       onFocus={(e) => { e.currentTarget.style.borderColor = tokens.accent; }}

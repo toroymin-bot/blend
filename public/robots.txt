@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /design1/
+Disallow: /api/
+Disallow: /payment/
+Disallow: /qatest/
+
+Sitemap: https://blend.ai4min.com/sitemap.xml

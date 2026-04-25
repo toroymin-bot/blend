@@ -55,7 +55,7 @@ export default function PricingPage() {
 
       <div className="text-center mt-12 text-sm text-gray-500">
         <p>All plans include a 30-day money-back guarantee. Payments processed by <a href="https://paddle.com" className="text-gray-400 underline">Paddle</a>.</p>
-        <p className="mt-2">Questions? <a href="mailto:toroymin@gmail.com" className="text-gray-400 underline">toroymin@gmail.com</a></p>
+        <p className="mt-2">Questions? <a href="mailto:blend@ai4min.com" className="text-gray-400 underline">blend@ai4min.com</a></p>
       </div>
     </div>
   );

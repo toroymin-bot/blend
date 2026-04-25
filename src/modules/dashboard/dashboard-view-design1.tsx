@@ -102,7 +102,13 @@ function periodCutoff(p: Period): number {
 }
 
 function modelDisplayName(id: string): string {
-  return AVAILABLE_MODELS.find((m) => m.id === id)?.displayName ?? id;
+  const found = AVAILABLE_MODELS.find((m) => m.id === id)?.displayName;
+  if (found) return found;
+  // Fallback: humanize raw id (e.g. "deepseek-chat" → "Deepseek Chat")
+  return id
+    .split('-')
+    .map((part) => /^\d/.test(part) ? part : part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function modelProvider(id: string): string {

@@ -205,9 +205,20 @@ export default function D1DocumentsView({ lang }: { lang: 'ko' | 'en' }) {
             {t.subtitle}
           </p>
           {!embeddingProvider && (
-            <p className="mt-2 text-[12px]" style={{ color: tokens.textFaint }}>
-              {t.noEmbedKey}
-            </p>
+            <div
+              className="mt-4 flex flex-wrap items-center gap-2 rounded-lg px-4 py-2.5 text-[12.5px]"
+              style={{ background: tokens.accentSoft, color: tokens.accent }}
+            >
+              <span>{t.noEmbedKey}</span>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))}
+                className="rounded-md px-2 py-1 text-[12px] font-medium transition-opacity hover:opacity-80"
+                style={{ background: tokens.accent, color: '#fff' }}
+              >
+                {lang === 'ko' ? '키 설정하기' : 'Set up key'}
+              </button>
+            </div>
           )}
         </header>
 

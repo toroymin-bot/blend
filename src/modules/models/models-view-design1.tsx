@@ -13,6 +13,7 @@ import {
   FEATURED_PROVIDER_ORDER,
   PROVIDER_LABELS,
   REGISTRY_GENERATED_AT,
+  getFeaturedModels,
   isTrialModel,
   type AvailableModel,
   type ProviderId,
@@ -145,8 +146,13 @@ export default function D1ModelsView({
 
   const { hasKey } = useAPIKeyStore();
 
+  // IMP-030: Featured 17개 화이트리스트만 노출 (Roy 결정 2026-04-25)
+  const featuredIds = useMemo(() => new Set(getFeaturedModels().map((m) => m.id)), []);
+
   const grouped = useMemo(() => {
-    const filtered = AVAILABLE_MODELS.filter((m) => !m.deprecated && modelMatchesFilter(m, filter));
+    const filtered = AVAILABLE_MODELS.filter(
+      (m) => !m.deprecated && featuredIds.has(m.id) && modelMatchesFilter(m, filter),
+    );
     const map = new Map<ProviderId, AvailableModel[]>();
     for (const p of FEATURED_PROVIDER_ORDER) map.set(p, []);
     for (const m of filtered) {
@@ -171,10 +177,7 @@ export default function D1ModelsView({
     [grouped],
   );
 
-  const totalAll = useMemo(
-    () => AVAILABLE_MODELS.filter((m) => !m.deprecated).length,
-    [],
-  );
+  const totalAll = featuredIds.size;
 
   return (
     <div

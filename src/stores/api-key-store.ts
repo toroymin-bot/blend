@@ -1,30 +1,13 @@
 // Blend - API Key Store (BYOK - Bring Your Own Key)
+// IMP-011 (2026-04-25): NEXT_PUBLIC_*_API_KEY env fallback 제거.
+// NEXT_PUBLIC_ prefix는 client bundle에 노출되어 Vercel 환경변수 실수 설정 시
+// 모든 사용자에게 키가 유출되는 anti-pattern. BYOK 정책 명확화 — 사용자가 직접 입력만.
+// (Trial Gemini는 별도 NEXT_PUBLIC_BLEND_TRIAL_GEMINI_KEY로 trial-gemini-client에서 사용)
 
 import { create } from 'zustand';
 import { APIKeyConfig, AIProvider } from '@/types';
 
-// QA 테스트용 환경변수 fallback
-// /qatest 경로에서만 활성화됨 — 일반 사용자에게는 노출되지 않음
-// Vercel 환경변수에 NEXT_PUBLIC_*_API_KEY 설정 필요
-const isQAPath = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const p = window.location.pathname;
-  // /qatest, /ko/qatest, /en/qatest 모두 QA 경로로 인식
-  return p.startsWith('/qatest') || p.includes('/qatest');
-};
-
-const getEnvKey = (provider: AIProvider): string => {
-  if (!isQAPath()) return '';
-  const envMap: Partial<Record<AIProvider, string | undefined>> = {
-    openai: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-    anthropic: process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY,
-    google: process.env.NEXT_PUBLIC_GOOGLE_API_KEY,
-    deepseek: process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY,
-    groq: process.env.NEXT_PUBLIC_GROQ_API_KEY,
-    custom: process.env.NEXT_PUBLIC_CUSTOM_API_KEY,
-  };
-  return envMap[provider] || '';
-};
+const getEnvKey = (_provider: AIProvider): string => '';
 
 interface APIKeyState {
   keys: Record<AIProvider, string>;

@@ -494,13 +494,21 @@ function LimitRow({
   const [draft, setDraft] = useState(draftFromValue(valueUsd));
 
   function commit() {
+    // Reject inputs containing minus sign (preserve user intent: negative = invalid)
+    if (/-/.test(draft.trim())) {
+      onSave(0);
+      setEditing(false);
+      return;
+    }
     const cleaned = draft.replace(/[^\d.]/g, '');
     const n = parseFloat(cleaned);
     if (!Number.isFinite(n) || n <= 0) {
       onSave(0);
     } else {
       const usd = lang === 'ko' ? n / KRW_PER_USD : n;
-      onSave(usd);
+      // Sanity cap: $10,000/day (≈ ₩13.7M/day) — clearly above any realistic limit
+      const capped = Math.min(usd, 10000);
+      onSave(capped);
     }
     setEditing(false);
   }
@@ -588,7 +596,9 @@ function ToggleRow({
         onClick={() => onChange(!checked)}
         className="relative h-5 w-9 rounded-full transition-colors"
         style={{ background: checked ? tokens.accent : tokens.borderStrong }}
-        aria-pressed={checked}
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
       >
         <span
           className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
