@@ -47,15 +47,15 @@ const SUB_TOTAL_USD = SUBSCRIPTIONS.reduce((s, x) => s + x.usd, 0); // 60
 const LIMIT_STORAGE_KEY = 'd1:billing-limit';
 
 type SpendingLimit = {
-  dailyKrw: number;       // 0 = disabled
-  monthlyKrw: number;     // 0 = disabled
+  dailyUsd: number;     // 0 = disabled. Internal storage in USD.
+  monthlyUsd: number;   // 0 = disabled
   notify80: boolean;
   autoStop: boolean;
 };
 
 const DEFAULT_LIMIT: SpendingLimit = {
-  dailyKrw: 0,
-  monthlyKrw: 0,
+  dailyUsd: 2,          // $2/day 기본값 (KO: ≈ ₩2,740)
+  monthlyUsd: 0,
   notify80: true,
   autoStop: false,
 };
@@ -427,16 +427,16 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
 
             <LimitRow
               label={t.dailyLimit}
-              valueKrw={limit.dailyKrw}
+              valueUsd={limit.dailyUsd}
               lang={lang}
-              onSave={(v) => saveLimit({ ...limit, dailyKrw: v })}
+              onSave={(v) => saveLimit({ ...limit, dailyUsd: v })}
               t={t}
             />
             <LimitRow
               label={t.monthlyLimit}
-              valueKrw={limit.monthlyKrw}
+              valueUsd={limit.monthlyUsd}
               lang={lang}
-              onSave={(v) => saveLimit({ ...limit, monthlyKrw: v })}
+              onSave={(v) => saveLimit({ ...limit, monthlyUsd: v })}
               t={t}
             />
 
@@ -476,22 +476,45 @@ function EmptyState({ lang }: { lang: 'ko' | 'en' }) {
 }
 
 function LimitRow({
-  label, valueKrw, lang, onSave, t,
+  label, valueUsd, lang, onSave, t,
 }: {
   label: string;
-  valueKrw: number;
+  valueUsd: number;
   lang: 'ko' | 'en';
-  onSave: (v: number) => void;
+  onSave: (usd: number) => void;
   t: typeof copy[keyof typeof copy];
 }) {
+  // Display draft in user-facing currency (KO: KRW, EN: USD)
+  const draftFromValue = (usd: number): string => {
+    if (usd <= 0) return '';
+    return lang === 'ko' ? String(Math.round(usd * KRW_PER_USD)) : String(usd);
+  };
+
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(valueKrw > 0 ? String(valueKrw) : '');
+  const [draft, setDraft] = useState(draftFromValue(valueUsd));
 
   function commit() {
-    const n = parseInt(draft.replace(/[^\d]/g, ''), 10);
-    onSave(Number.isFinite(n) && n > 0 ? n : 0);
+    const cleaned = draft.replace(/[^\d.]/g, '');
+    const n = parseFloat(cleaned);
+    if (!Number.isFinite(n) || n <= 0) {
+      onSave(0);
+    } else {
+      const usd = lang === 'ko' ? n / KRW_PER_USD : n;
+      onSave(usd);
+    }
     setEditing(false);
   }
+
+  function cancel() {
+    setEditing(false);
+    setDraft(draftFromValue(valueUsd));
+  }
+
+  const displayLabel = valueUsd > 0
+    ? (lang === 'ko'
+        ? `₩${Math.round(valueUsd * KRW_PER_USD).toLocaleString('ko-KR')}`
+        : `$${valueUsd.toFixed(2).replace(/\.00$/, '')}`)
+    : t.notSet;
 
   return (
     <div
@@ -506,12 +529,12 @@ function LimitRow({
           </span>
           <input
             type="text"
-            inputMode="numeric"
+            inputMode={lang === 'ko' ? 'numeric' : 'decimal'}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') commit();
-              if (e.key === 'Escape') { setEditing(false); setDraft(valueKrw > 0 ? String(valueKrw) : ''); }
+              if (e.key === 'Escape') cancel();
             }}
             autoFocus
             className="w-28 rounded-md border px-2 py-1 text-[13px] text-right outline-none focus:border-current"
@@ -525,7 +548,7 @@ function LimitRow({
             {t.save}
           </button>
           <button
-            onClick={() => { setEditing(false); setDraft(valueKrw > 0 ? String(valueKrw) : ''); }}
+            onClick={cancel}
             className="text-[12px] transition-colors"
             style={{ color: tokens.textDim }}
           >
@@ -534,13 +557,11 @@ function LimitRow({
         </div>
       ) : (
         <div className="flex items-center gap-3">
-          <span className="text-[14px]" style={{ color: valueKrw > 0 ? tokens.text : tokens.textFaint }}>
-            {valueKrw > 0
-              ? (lang === 'ko' ? `₩${valueKrw.toLocaleString('ko-KR')}` : `$${valueKrw.toLocaleString('en-US')}`)
-              : t.notSet}
+          <span className="text-[14px]" style={{ color: valueUsd > 0 ? tokens.text : tokens.textFaint }}>
+            {displayLabel}
           </span>
           <button
-            onClick={() => { setDraft(valueKrw > 0 ? String(valueKrw) : ''); setEditing(true); }}
+            onClick={() => { setDraft(draftFromValue(valueUsd)); setEditing(true); }}
             className="text-[12px] transition-colors hover:underline"
             style={{ color: tokens.accent }}
           >
