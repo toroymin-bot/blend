@@ -20,7 +20,7 @@ import type { AIProvider } from '@/types';
 import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
-import { getFeaturedModels, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
+import { AVAILABLE_MODELS, getFeaturedModels, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
@@ -99,11 +99,45 @@ type Lang = keyof typeof copy;
 // ============================================================
 // Suggestions with recommended models
 // ============================================================
+// IMP-025: SUGGESTIONS suggestedModel을 카탈로그 기반으로 동적 선택.
+// cron 갱신 시 신규 모델이 자동 매핑되도록.
+function pickSuggestedModel(category: 'small' | 'vision' | 'coding' | 'long'): string {
+  const candidates = AVAILABLE_MODELS.filter((m) => !m.deprecated);
+  const score = (m: typeof candidates[number]): number => {
+    const id = m.id.toLowerCase();
+    let s = 0;
+    switch (category) {
+      case 'small':
+        if (m.tier === 'fast') s += 10;
+        if (/mini|haiku|flash|lite/.test(id)) s += 8;
+        break;
+      case 'vision':
+        if (!m.supportsVision) return -1;
+        if (m.provider === 'google') s += 5;
+        if (id.includes('pro')) s += 3;
+        break;
+      case 'coding':
+        if (m.provider === 'anthropic' && id.includes('sonnet')) s += 10;
+        if (id.includes('opus') || id.includes('gpt-4')) s += 6;
+        if (m.tier === 'flagship' || m.tier === 'balanced') s += 2;
+        break;
+      case 'long':
+        if ((m.contextWindow ?? 0) >= 200_000) s += 5;
+        if (m.provider === 'anthropic' && id.includes('sonnet')) s += 4;
+        if (m.provider === 'google' && id.includes('pro')) s += 3;
+        break;
+    }
+    return s;
+  };
+  const ranked = candidates.map((m) => ({ m, s: score(m) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
+  return ranked[0]?.m.id ?? 'gpt-4o-mini';
+}
+
 const SUGGESTIONS_WITH_MODEL = [
-  { ko: '이메일 초안 써줘',    en: 'Draft an email',          suggestedModel: 'gpt-4o-mini' },
-  { ko: '이 이미지 분석해줘',  en: 'Analyze this image',      suggestedModel: 'gemini-2.5-pro' },
-  { ko: '코드 리뷰 해줘',      en: 'Review my code',          suggestedModel: 'claude-sonnet-4-6' },
-  { ko: '긴 글 요약해줘',      en: 'Summarize a long text',   suggestedModel: 'claude-sonnet-4-6' },
+  { ko: '이메일 초안 써줘',    en: 'Draft an email',          suggestedModel: pickSuggestedModel('small') },
+  { ko: '이 이미지 분석해줘',  en: 'Analyze this image',      suggestedModel: pickSuggestedModel('vision') },
+  { ko: '코드 리뷰 해줘',      en: 'Review my code',          suggestedModel: pickSuggestedModel('coding') },
+  { ko: '긴 글 요약해줘',      en: 'Summarize a long text',   suggestedModel: pickSuggestedModel('long') },
 ] as const;
 
 // ============================================================

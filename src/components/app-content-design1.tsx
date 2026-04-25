@@ -13,19 +13,21 @@
  * D1ChatView만 새 디자인 커스텀.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+// IMP-020: Chat은 default landing이라 eager. 나머지 D1 뷰는 lazy chunk.
 import D1ChatView from '@/modules/chat/chat-view-design1';
-import D1CompareView from '@/modules/compare/compare-view-design1';
-import D1BillingView from '@/modules/billing/billing-view-design1';
-import D1DocumentsView from '@/modules/documents/documents-view-design1';
-import D1ModelsView from '@/modules/models/models-view-design1';
-import D1DashboardView from '@/modules/dashboard/dashboard-view-design1';
-import D1AgentsView from '@/modules/agents/agents-view-design1';
-import D1MeetingView from '@/modules/meeting/meeting-view-design1';
-import D1DataSourcesView from '@/modules/datasources/datasources-view-design1';
-import D1CostSavingsView from '@/modules/cost-savings/cost-savings-view-design1';
-import D1SecurityView from '@/modules/security/security-view-design1';
-import D1AboutView from '@/modules/about/about-view-design1';
+
+const D1CompareView      = lazy(() => import('@/modules/compare/compare-view-design1'));
+const D1BillingView      = lazy(() => import('@/modules/billing/billing-view-design1'));
+const D1DocumentsView    = lazy(() => import('@/modules/documents/documents-view-design1'));
+const D1ModelsView       = lazy(() => import('@/modules/models/models-view-design1'));
+const D1DashboardView    = lazy(() => import('@/modules/dashboard/dashboard-view-design1'));
+const D1AgentsView       = lazy(() => import('@/modules/agents/agents-view-design1'));
+const D1MeetingView      = lazy(() => import('@/modules/meeting/meeting-view-design1'));
+const D1DataSourcesView  = lazy(() => import('@/modules/datasources/datasources-view-design1'));
+const D1CostSavingsView  = lazy(() => import('@/modules/cost-savings/cost-savings-view-design1'));
+const D1SecurityView     = lazy(() => import('@/modules/security/security-view-design1'));
+const D1AboutView        = lazy(() => import('@/modules/about/about-view-design1'));
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
 import { ModelCompareView }     from '@/modules/models/model-compare-view';
@@ -130,7 +132,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     }
     const map: Partial<Record<ViewId, React.ReactNode>> = {
       compare:     <D1CompareView lang={lang} onContinueInChat={handleContinueInChat} />,
-      documents:   <D1DocumentsView lang={lang} />,
+      documents:   <D1DocumentsView lang={lang} onAskAboutDocs={() => { setActiveView('chat'); setConvKey((k) => k + 1); }} />,
       meeting:     <D1MeetingView lang={lang} />,
       billing:     <D1BillingView lang={lang} />,
       datasources: <D1DataSourcesView lang={lang} />,
@@ -142,7 +144,13 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       security:    <D1SecurityView lang={lang} />,
       about:       <D1AboutView lang={lang} onNavigate={(tab) => nav(tab as ViewId)} />,
     };
-    return <div className="h-full overflow-y-auto bg-surface">{map[activeView]}</div>;
+    return (
+      <div className="h-full overflow-y-auto bg-surface">
+        <Suspense fallback={<div className="flex h-full items-center justify-center text-[13px]" style={{ color: tokens.textFaint }}>···</div>}>
+          {map[activeView]}
+        </Suspense>
+      </div>
+    );
   }
 
   // ── Popover items (hidden 8개 + About)

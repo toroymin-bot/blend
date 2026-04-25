@@ -57,6 +57,8 @@ const copy = {
     chunks:       '청크',
     chars:        '자',
     counter:      '파일',
+    askCta:       '활성 문서에 대해 질문하기 →',
+    activeCount:  (n: number) => `${n}개 문서 활성`,
   },
   en: {
     title:        'Documents',
@@ -80,6 +82,8 @@ const copy = {
     chunks:       'chunks',
     chars:        'chars',
     counter:      'files',
+    askCta:       'Ask about active documents →',
+    activeCount:  (n: number) => `${n} active`,
   },
 } as const;
 
@@ -103,7 +107,13 @@ function fileSizeFromDoc(doc: ParsedDocument): number {
 type EmbedStatus = 'idle' | 'embedding' | 'done' | 'error';
 
 // ── Main view ────────────────────────────────────────────────────
-export default function D1DocumentsView({ lang }: { lang: 'ko' | 'en' }) {
+export default function D1DocumentsView({
+  lang,
+  onAskAboutDocs,
+}: {
+  lang: 'ko' | 'en';
+  onAskAboutDocs?: () => void;
+}) {
   const t = copy[lang];
 
   const documents     = useDocumentStore((s) => s.documents);
@@ -286,6 +296,31 @@ export default function D1DocumentsView({ lang }: { lang: 'ko' | 'en' }) {
         )}
 
       </div>
+
+      {/* IMP-029: 활성 문서 있을 때 sticky CTA — 채팅에서 질문하기 */}
+      {activeDocIds.size > 0 && onAskAboutDocs && (
+        <div
+          className="sticky bottom-0 left-0 right-0 z-10 px-4 py-3 backdrop-blur-md"
+          style={{
+            background: 'color-mix(in srgb, var(--d1-bg) 85%, transparent)',
+            borderTop: `1px solid ${tokens.border}`,
+          }}
+        >
+          <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
+            <span className="text-[13px]" style={{ color: tokens.textDim }}>
+              {t.activeCount(activeDocIds.size)}
+            </span>
+            <button
+              type="button"
+              onClick={onAskAboutDocs}
+              className="rounded-lg px-4 py-2 text-[13px] font-medium transition-opacity hover:opacity-80"
+              style={{ background: tokens.accent, color: '#fff' }}
+            >
+              {t.askCta}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ══ Delete confirmation modal ══ */}
       {confirmDelId && (
