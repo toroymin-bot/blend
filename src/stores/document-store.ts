@@ -14,6 +14,8 @@ interface DocumentState {
   documents: ParsedDocument[];
   activeDocIds: Set<string>;
   isLoaded: boolean;
+  // Tori 명세 — race-safe 로딩 보장: 진행 중인 promise를 보존
+  loadPromise: Promise<void> | null;
 
   addDocument: (doc: ParsedDocument) => void;
   updateDocument: (doc: ParsedDocument) => void;
@@ -22,28 +24,45 @@ interface DocumentState {
   getActiveDocs: () => ParsedDocument[];
   clearAll: () => void;
   loadFromDB: (opts?: { force?: boolean }) => Promise<void>;
+  /** 호출 시 isLoaded면 즉시 resolve, 아니면 진행 중 promise 또는 새 로딩 시작 */
+  ensureLoaded: () => Promise<void>;
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
   activeDocIds: new Set(),
   isLoaded: false,
+  loadPromise: null,
 
   loadFromDB: async (opts) => {
     // [2026-04-20] BUG-FIX: force=true allows reload after datasource sync / meeting analysis
     // Without this, isLoaded guard prevented refreshing newly-indexed documents.
     if (get().isLoaded && !opts?.force) return;
-    try {
-      const [docs, activeIds] = await Promise.all([getAllDocuments(), getActiveDocIds()]);
-      set({
-        documents: docs,
-        activeDocIds: new Set(activeIds),
-        isLoaded: true,
-      });
-    } catch {
-      // IndexedDB unavailable (SSR or private browsing) — stay in-memory
-      set({ isLoaded: true });
-    }
+    // race 방지: 이미 진행 중이면 같은 promise 반환
+    if (get().loadPromise && !opts?.force) return get().loadPromise!;
+
+    const promise = (async () => {
+      try {
+        const [docs, activeIds] = await Promise.all([getAllDocuments(), getActiveDocIds()]);
+        set({
+          documents: docs,
+          activeDocIds: new Set(activeIds),
+          isLoaded: true,
+          loadPromise: null,
+        });
+      } catch {
+        set({ isLoaded: true, loadPromise: null });
+      }
+    })();
+    set({ loadPromise: promise });
+    return promise;
+  },
+
+  ensureLoaded: () => {
+    const s = get();
+    if (s.isLoaded) return Promise.resolve();
+    if (s.loadPromise) return s.loadPromise;
+    return get().loadFromDB();
   },
 
   addDocument: (doc) => {

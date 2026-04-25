@@ -34,6 +34,8 @@ import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } fr
 // P3.3 — RAG (활성 문서 컨텍스트) + CitationBlock
 import { useDocumentStore } from '@/stores/document-store';
 import { buildContext } from '@/modules/plugins/document-plugin';
+// Tori 통합 RAG — 활성 소스 칩 바
+import { ActiveSourcesBar } from '@/modules/chat/active-sources-bar';
 
 // ============================================================
 // Design tokens (same as Phase 1)
@@ -301,10 +303,10 @@ export default function D1ChatView({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   // v3 회귀 복구 (P0.4 비전): 첨부 이미지 base64 data URL 배열
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
-  // P3.3 — RAG 활성 문서 (CitationBlock용)
+  // P3.3 + Tori 통합 RAG — race-safe 활성 문서 로딩 보장
   const getActiveDocs = useDocumentStore((s) => s.getActiveDocs);
-  const docsLoadFromDB = useDocumentStore((s) => s.loadFromDB);
-  useEffect(() => { docsLoadFromDB(); }, [docsLoadFromDB]);
+  const docsEnsureLoaded = useDocumentStore((s) => s.ensureLoaded);
+  useEffect(() => { docsEnsureLoaded(); }, [docsEnsureLoaded]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const modelChipRef = useRef<HTMLButtonElement>(null);
@@ -777,6 +779,8 @@ export default function D1ChatView({
     let docContext = '';
     let docSources: string[] = [];
     try {
+      // Tori 명세: store 로딩 완료 대기 (race 방지)
+      await docsEnsureLoaded();
       const activeDocs = getActiveDocs();
       if (activeDocs.length > 0) {
         const embeddingApiKey = getKey('openai') || getKey('google') || undefined;
@@ -1101,6 +1105,13 @@ export default function D1ChatView({
             className="pb-[max(1.5rem,env(safe-area-inset-bottom))] md:pb-12"
             style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) both' }}
           >
+            {/* Tori 통합 RAG — 활성 소스 칩 바 (입력창 위) */}
+            <div className="mx-auto w-full max-w-[720px]">
+              <ActiveSourcesBar
+                lang={lang}
+                onNavigate={() => window.dispatchEvent(new CustomEvent('d1:nav-documents'))}
+              />
+            </div>
             <D1InputBar
               value={value}
               onChange={setValue}
@@ -1176,6 +1187,10 @@ export default function D1ChatView({
           background: `linear-gradient(to bottom, transparent, ${tokens.bg} 40%)`,
         }}>
           <div className="mx-auto w-full max-w-[760px] px-8">
+            <ActiveSourcesBar
+              lang={lang}
+              onNavigate={() => window.dispatchEvent(new CustomEvent('d1:nav-documents'))}
+            />
             <D1InputBar
               value={value}
               onChange={setValue}
