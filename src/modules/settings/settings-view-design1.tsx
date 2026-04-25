@@ -39,13 +39,13 @@ const tokens = {
 } as const;
 
 // ── Nav sections ──────────────────────────────────────────────────
+// Roy 결정 2026-04-25: Theme 섹션 제거 (라이트 모드 only). 'theme' SectionId는 호환 유지.
 type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'analytics' | 'language' | 'data' | 'info';
 
 const SECTIONS: { id: SectionId; labelKey: string }[] = [
   { id: 'api',      labelKey: 'settings.api_keys' },
   { id: 'models',   labelKey: 'settings.custom_models' },
   { id: 'prompt',   labelKey: 'settings.system_prompt' },
-  { id: 'theme',    labelKey: 'settings.theme' },
   { id: 'language', labelKey: 'settings.language' },
   { id: 'data',     labelKey: 'settings.data_storage' },
   { id: 'info',     labelKey: 'settings.info' },
@@ -131,6 +131,10 @@ export function D1SettingsView() {
   const { t, lang, setLang } = useTranslation();
 
   const [activeSection, setActiveSection] = useState<SectionId>('api');
+  // Roy 결정 2026-04-25: theme 섹션 제거. 활성 섹션이 'theme'이면 'api'로 redirect.
+  useEffect(() => {
+    if (activeSection === 'theme') setActiveSection('api');
+  }, [activeSection]);
   const [showKeys,    setShowKeys]    = useState<Record<string, boolean>>({});
   const [testingKey,  setTestingKey]  = useState<Record<string, boolean>>({});
   const [testResult,  setTestResult]  = useState<Record<string, 'ok' | 'fail' | null>>({});
