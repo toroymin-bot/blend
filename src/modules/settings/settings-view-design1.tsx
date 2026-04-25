@@ -18,7 +18,6 @@ import { usePromptStore }   from '@/stores/prompt-store';
 import { useAgentStore }    from '@/stores/agent-store';
 import { useUsageStore }    from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
-import { useThemeStore, type ThemeMode } from '@/design/theme-store';
 import { isAnalyticsDisabled, setAnalyticsDisabled } from '@/lib/analytics';
 import { AIProvider }       from '@/types';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
@@ -579,8 +578,7 @@ export function D1SettingsView() {
             </Card>
           </section>
 
-          {/* ── 4. Theme — Tori 명세 (D1ThemeStore 사용) ────────── */}
-          <ThemeSection t={t} />
+          {/* 4. Theme 섹션 폐기 (Roy 결정 2026-04-25) — 라이트 모드 only */}
 
           {/* ── 4b. Usage Analytics — Tori 명세 (Vercel Analytics 옵트아웃) ── */}
           <AnalyticsSection t={t} />
@@ -777,48 +775,5 @@ function AnalyticsSection({ t }: { t: (k: string) => string }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════
-// ThemeSection — Tori 명세 (D1ThemeStore 사용)
-// ════════════════════════════════════════════════════════════════
-function ThemeSection({ t }: { t: (k: string) => string }) {
-  const mode = useThemeStore((s) => s.mode);
-  const setMode = useThemeStore((s) => s.setMode);
-
-  const options: { value: ThemeMode; labelKey: string; icon: React.ReactNode }[] = [
-    { value: 'light',  labelKey: 'settings.light',  icon: <SunIcon /> },
-    { value: 'dark',   labelKey: 'settings.dark',   icon: <MoonIcon /> },
-    { value: 'system', labelKey: 'settings.system', icon: null },
-  ];
-
-  return (
-    <section>
-      <SectionH id="theme" label={t('settings.theme')} />
-      <Card>
-        <Row
-          label={t('settings.color_theme')}
-          sub={mode === 'system' ? t('settings.theme_system') : mode === 'light' ? t('settings.theme_light') : t('settings.theme_dark')}
-          right={
-            <div className="flex gap-1">
-              {options.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setMode(opt.value)}
-                  className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
-                  style={{
-                    background: mode === opt.value ? 'var(--d1-text)' : 'var(--d1-surface-alt)',
-                    color:      mode === opt.value ? 'var(--d1-bg)'   : 'var(--d1-text-dim)',
-                  }}
-                  aria-pressed={mode === opt.value}
-                >
-                  {opt.icon}
-                  {t(opt.labelKey)}
-                </button>
-              ))}
-            </div>
-          }
-          noBorder
-        />
-      </Card>
-    </section>
-  );
-}
+// ThemeSection 폐기 (Roy 결정 2026-04-25) — 라이트 모드 only.
+// useThemeStore는 호환을 위해 보존되어 있으나 mode='light' 고정.

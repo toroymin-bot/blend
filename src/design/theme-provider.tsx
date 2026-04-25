@@ -1,16 +1,20 @@
 'use client';
 
+// Roy 결정 (2026-04-25): 테마 폐기, 라이트 모드 only.
+// CSS 변수 패턴은 유지 (var(--d1-*)) — 향후 재도입 시 대비.
+
 import { useEffect } from 'react';
-import { useTheme } from './use-theme';
+import { D1_TOKENS } from './d1-tokens';
 
 export function D1ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { theme, tokens } = useTheme();
-
   useEffect(() => {
+    const tokens = D1_TOKENS.light;
     const root = document.documentElement;
-    root.classList.remove('d1-light', 'd1-dark');
-    root.classList.add(`d1-${theme}`);
-    root.dataset.theme = theme;
+    root.classList.remove('d1-dark');
+    root.classList.add('d1-light');
+    root.dataset.theme = 'light';
+    // 시스템 다크 모드를 무시하고 라이트 강제
+    root.style.colorScheme = 'light';
 
     root.style.setProperty('--d1-bg',           tokens.bg);
     root.style.setProperty('--d1-surface',      tokens.surface);
@@ -31,9 +35,8 @@ export function D1ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty('--d1-shadow-dropdown', tokens.shadowDropdown);
     root.style.setProperty('--d1-shadow-modal', tokens.shadowModal);
     root.style.setProperty('--d1-overlay-modal',tokens.overlayModal);
-    // Compatibility — old success/blue alias still referenced by some components
-    root.style.setProperty('--d1-success',      theme === 'dark' ? '#2dd4a8' : '#10a37f');
-  }, [theme, tokens]);
+    root.style.setProperty('--d1-success',      '#10a37f');
+  }, []);
 
   return <>{children}</>;
 }
