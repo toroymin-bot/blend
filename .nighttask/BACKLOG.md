@@ -18,8 +18,9 @@
 
 - [x] **BUG-003** React hydration error #418 — text content mismatch on `/ko/qatest` load ✅ 2026-04-25
   - **픽스 1** (ed07b7a): layout.tsx suppressHydrationWarning on `<html>`; dashboard-view + cost-savings-dashboard useState<Date|null>(null) + null guard; meeting-view.tsx suppressHydrationWarning on locale date spans
-  - **픽스 2** (b543886): splash-screen.tsx h1 suppressHydrationWarning (서버=Korean, /en/ 클라이언트=English 불일치); chat-view-design1.tsx trial badge span suppressHydrationWarning (Zustand persist localStorage mismatch) — 배포 완료 (blend.ai4min.com)
-  - **🔵 Pending Re-test**: 꼬미가 /ko/qatest, /en/qatest, /design1/ko/qatest DevTools Console에서 #418 에러 사라짐 확인 필요
+  - **픽스 2** (b543886): splash-screen.tsx h1 suppressHydrationWarning; chat-view-design1.tsx trial badge span suppressHydrationWarning
+  - **픽스 3 — 완전 수정** (68f1a7a): i18n.ts useTranslation()에서 getLangFromPath()(window.location 기반, SSR에서 null 반환) → useParams()(next/navigation, SSR+클라이언트 모두 올바른 lang 반환)로 교체. /en/ 라우트 서버='ko' 클라이언트='en' 전면 미스매치 해결. chat-view-design1.tsx trial badge 내부 span에 suppressHydrationWarning 추가.
+  - **✅ Re-test Pass** (2026-04-25): /ko/qatest + /en/qatest + /design1/ko/qatest 모두 #418 에러 없음 확인. 영어 UI 정상 렌더링 확인.
 
 ## 🔴 미완료 (오늘 밤 반드시 실행)
 
