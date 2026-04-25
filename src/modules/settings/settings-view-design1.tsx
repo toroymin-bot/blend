@@ -18,6 +18,7 @@ import { usePromptStore }   from '@/stores/prompt-store';
 import { useAgentStore }    from '@/stores/agent-store';
 import { useUsageStore }    from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { useThemeStore, type ThemeMode } from '@/design/theme-store';
 import { AIProvider }       from '@/types';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 import { useTranslation }   from '@/lib/i18n';
@@ -577,36 +578,8 @@ export function D1SettingsView() {
             </Card>
           </section>
 
-          {/* ── 4. Theme ──────────────────────────────────────── */}
-          <section>
-            <SectionH id="theme" label={t('settings.theme')} />
-            <Card>
-              <Row
-                label={t('settings.color_theme')}
-                sub={settings.theme === 'system' ? t('settings.theme_system') : settings.theme === 'light' ? t('settings.theme_light') : t('settings.theme_dark')}
-                right={
-                  <div className="flex gap-1">
-                    {(['light', 'dark', 'system'] as const).map((theme) => (
-                      <button
-                        key={theme}
-                        onClick={() => updateSettings({ theme })}
-                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
-                        style={{
-                          background: settings.theme === theme ? tokens.text : tokens.navActive,
-                          color:      settings.theme === theme ? tokens.bg  : tokens.textDim,
-                        }}
-                      >
-                        {theme === 'light' && <SunIcon />}
-                        {theme === 'dark'  && <MoonIcon />}
-                        {theme === 'light' ? t('settings.light') : theme === 'dark' ? t('settings.dark') : t('settings.system')}
-                      </button>
-                    ))}
-                  </div>
-                }
-                noBorder
-              />
-            </Card>
-          </section>
+          {/* ── 4. Theme — Tori 명세 (D1ThemeStore 사용) ────────── */}
+          <ThemeSection t={t} />
 
           {/* ── 5. Language ───────────────────────────────────── */}
           <section>
@@ -755,5 +728,51 @@ export function D1SettingsView() {
         </div>
       )}
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// ThemeSection — Tori 명세 (D1ThemeStore 사용)
+// ════════════════════════════════════════════════════════════════
+function ThemeSection({ t }: { t: (k: string) => string }) {
+  const mode = useThemeStore((s) => s.mode);
+  const setMode = useThemeStore((s) => s.setMode);
+
+  const options: { value: ThemeMode; labelKey: string; icon: React.ReactNode }[] = [
+    { value: 'light',  labelKey: 'settings.light',  icon: <SunIcon /> },
+    { value: 'dark',   labelKey: 'settings.dark',   icon: <MoonIcon /> },
+    { value: 'system', labelKey: 'settings.system', icon: null },
+  ];
+
+  return (
+    <section>
+      <SectionH id="theme" label={t('settings.theme')} />
+      <Card>
+        <Row
+          label={t('settings.color_theme')}
+          sub={mode === 'system' ? t('settings.theme_system') : mode === 'light' ? t('settings.theme_light') : t('settings.theme_dark')}
+          right={
+            <div className="flex gap-1">
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setMode(opt.value)}
+                  className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+                  style={{
+                    background: mode === opt.value ? 'var(--d1-text)' : 'var(--d1-surface-alt)',
+                    color:      mode === opt.value ? 'var(--d1-bg)'   : 'var(--d1-text-dim)',
+                  }}
+                  aria-pressed={mode === opt.value}
+                >
+                  {opt.icon}
+                  {t(opt.labelKey)}
+                </button>
+              ))}
+            </div>
+          }
+          noBorder
+        />
+      </Card>
+    </section>
   );
 }
