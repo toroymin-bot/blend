@@ -546,6 +546,7 @@ export default function D1ChatView({
             <span
               className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium"
               style={{ background: tokens.accentSoft, color: tokens.accent, fontFamily: fontStack }}
+              suppressHydrationWarning
             >
               {lang === 'ko' ? `무료 체험중 · ${trialRemaining}/10` : `Free trial · ${trialRemaining}/10`}
             </span>

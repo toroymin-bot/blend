@@ -77,6 +77,7 @@ export function SplashScreen() {
             letterSpacing: '-0.5px',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           }}
+          suppressHydrationWarning
         >
           {t('app.tagline')}
         </h1>
