@@ -109,7 +109,8 @@ for (const m of MODELS) {
   MODELS_BY_PROVIDER[m.provider]!.push(m);
 }
 
-// Rough input price per 1M tokens (USD) for cost estimation
+// IMP-026: 정적 PRICE 테이블은 fallback. provider/tier 기반 휴리스틱으로 신규 모델 자동 추정.
+// 향후 AVAILABLE_MODELS에 priceInput/priceOutput 필드 추가 시 그 값 우선 사용.
 const PRICE_PER_1M: Record<string, number> = {
   'gpt-5.4':                 2.5,
   'gpt-5.4-mini':            0.15,
@@ -125,9 +126,42 @@ const PRICE_PER_1M: Record<string, number> = {
   'llama-3.3-70b-versatile': 0.59,
 };
 
+function inferPricePer1M(modelId: string): number {
+  // Hit table first
+  if (PRICE_PER_1M[modelId] !== undefined) return PRICE_PER_1M[modelId];
+
+  const id = modelId.toLowerCase();
+  // Anthropic
+  if (id.startsWith('claude')) {
+    if (id.includes('opus'))   return 15.0;
+    if (id.includes('sonnet')) return 3.0;
+    if (id.includes('haiku'))  return 0.25;
+    return 3.0;
+  }
+  // OpenAI
+  if (id.startsWith('gpt') || id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4')) {
+    if (id.includes('mini') || id.includes('nano')) return 0.15;
+    if (id.startsWith('o1') || id.startsWith('o3')) return 15.0; // reasoning class
+    return 2.5;
+  }
+  // Google
+  if (id.startsWith('gemini') || id.startsWith('gemma')) {
+    if (id.includes('flash') || id.includes('lite')) return 0.0;
+    if (id.includes('pro'))                          return 1.25;
+    return 0.5;
+  }
+  // DeepSeek
+  if (id.startsWith('deepseek')) {
+    if (id.includes('reasoner')) return 0.55;
+    return 0.27;
+  }
+  // Groq (Llama, Mixtral) — typically very low
+  if (id.includes('llama') || id.includes('mixtral')) return 0.59;
+  return 1.0;
+}
+
 function estimateCost(modelId: string, totalTokens: number): number {
-  const price = PRICE_PER_1M[modelId] ?? 1.0;
-  return (price / 1_000_000) * totalTokens;
+  return (inferPricePer1M(modelId) / 1_000_000) * totalTokens;
 }
 
 function formatKRW(usd: number | undefined, lang: 'ko' | 'en'): string {
