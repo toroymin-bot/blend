@@ -30,6 +30,9 @@ const D1DataSourcesView  = lazy(() => import('@/modules/datasources/datasources-
 const D1CostSavingsView  = lazy(() => import('@/modules/cost-savings/cost-savings-view-design1'));
 const D1SecurityView     = lazy(() => import('@/modules/security/security-view-design1'));
 const D1AboutView        = lazy(() => import('@/modules/about/about-view-design1'));
+// Tori P1.1/P1.2 회귀 복구 — 프롬프트 라이브러리 + 플러그인 메뉴 복원
+const PromptsView        = lazy(() => import('@/modules/prompts/prompts-view').then(m => ({ default: m.PromptsView })));
+const PluginsView        = lazy(() => import('@/modules/plugins/plugins-view').then(m => ({ default: m.PluginsView })));
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
 import { ModelCompareView }     from '@/modules/models/model-compare-view';
@@ -54,13 +57,14 @@ const tokens = {
 type ViewId =
   | 'chat' | 'compare' | 'documents' | 'meeting' | 'billing'
   | 'datasources' | 'models' | 'agents' | 'savings' | 'dashboard'
-  | 'settings' | 'security' | 'about';
+  | 'settings' | 'security' | 'about'
+  | 'prompts' | 'plugins'; // Tori P1.1/P1.2 회귀 복구
 
 type ConvSummary = { id: number; title: string };
 
 const labels = {
-  ko: { logo: 'Blend', newChat: '새 채팅', search: '검색', chat: '채팅', compare: '모델 비교', documents: '문서', meeting: '회의', billing: '요금제', more: '더보기', settings: '설정', datasources: '데이터 소스', models: '모델', agents: '에이전트', savings: '비용 절감', dashboard: '대시보드', security: '보안', about: '소개', recent: '최근', noConvs: '아직 대화가 없습니다' },
-  en: { logo: 'Blend', newChat: 'New chat', search: 'Search', chat: 'Chat', compare: 'Compare', documents: 'Documents', meeting: 'Meeting', billing: 'Billing', more: 'More', settings: 'Settings', datasources: 'Data Sources', models: 'Models', agents: 'Agents', savings: 'Cost Savings', dashboard: 'Dashboard', security: 'Security', about: 'About', recent: 'Recent', noConvs: 'No conversations yet' },
+  ko: { logo: 'Blend', newChat: '새 채팅', search: '검색', chat: '채팅', compare: '모델 비교', documents: '문서', meeting: '회의', billing: '요금제', more: '더보기', settings: '설정', datasources: '데이터 소스', models: '모델', agents: '에이전트', savings: '비용 절감', dashboard: '대시보드', security: '보안', about: '소개', prompts: '프롬프트', plugins: '플러그인', recent: '최근', noConvs: '아직 대화가 없습니다' },
+  en: { logo: 'Blend', newChat: 'New chat', search: 'Search', chat: 'Chat', compare: 'Compare', documents: 'Documents', meeting: 'Meeting', billing: 'Billing', more: 'More', settings: 'Settings', datasources: 'Data Sources', models: 'Models', agents: 'Agents', savings: 'Cost Savings', dashboard: 'Dashboard', security: 'Security', about: 'About', prompts: 'Prompts', plugins: 'Plugins', recent: 'Recent', noConvs: 'No conversations yet' },
 } as const;
 
 export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' }) {
@@ -148,6 +152,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       settings:    <D1SettingsView />,
       security:    <D1SecurityView lang={lang} />,
       about:       <D1AboutView lang={lang} onNavigate={(tab) => nav(tab as ViewId)} />,
+      // Tori P1.1/P1.2 회귀 복구
+      prompts:     <PromptsView onUsePrompt={(content) => { setActiveView('chat'); setConvKey((k) => k + 1); window.dispatchEvent(new CustomEvent('d1:prompt-content', { detail: content })); }} />,
+      plugins:     <PluginsView />,
     };
     return (
       <div className="h-full overflow-y-auto bg-surface">
@@ -158,8 +165,10 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     );
   }
 
-  // ── Popover items (hidden 8개 + About)
+  // ── Popover items (hidden + About) — Tori P1.1/P1.2 회귀 복구로 prompts/plugins 추가
   const moreItems: [ViewId, string, React.ReactNode][] = [
+    ['prompts',     t.prompts,     <PromptsIcon     key="pr" />],
+    ['plugins',     t.plugins,     <PluginsIcon     key="pl" />],
     ['datasources', t.datasources, <DataSourcesIcon key="ds" />],
     ['models',      t.models,      <ModelsIcon      key="mo" />],
     ['agents',      t.agents,      <AgentsIcon      key="ag" />],
@@ -427,5 +436,8 @@ function SavingsIcon()     { return <svg {...ic2}><path d="M12 2v20M17 5H9.5a3.5
 function DashboardIcon()   { return <svg {...ic2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>; }
 function SecurityIcon()    { return <svg {...ic2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>; }
 function AboutIcon()       { return <svg {...ic2}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>; }
+// Tori P1.1/P1.2 회귀 복구 — 프롬프트 / 플러그인 아이콘
+function PromptsIcon()     { return <svg {...ic2}><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 13h5"/></svg>; }
+function PluginsIcon()     { return <svg {...ic2}><path d="M9 2v6M15 2v6"/><rect x="6" y="8" width="12" height="8" rx="2"/><path d="M9 16v6M15 16v6"/></svg>; }
 
 void ic2;

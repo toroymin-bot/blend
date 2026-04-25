@@ -26,6 +26,11 @@ import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-st
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
 import { exportD1Chat, type D1ExportFormat } from '@/modules/chat/export-utils-design1';
+// v3 회귀 복구 (Tori P0.2-0.5): 음성 / 이미지 / 비전 / 웹검색
+import { VoiceButton } from '@/modules/chat/voice-button';
+import { sttOpenAI } from '@/lib/voice-chat';
+import { generateImage, extractImagePrompt } from '@/modules/plugins/image-gen';
+import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } from '@/modules/plugins/web-search';
 
 // ============================================================
 // Design tokens (same as Phase 1)
@@ -205,6 +210,30 @@ const BRAND_COLORS: Record<string, string> = {
   groq:      '#f55036',
 };
 
+// v3 P0.4 — 큰 이미지 base64를 캔버스로 리사이즈/JPEG 변환 (1MB 이상이면 전송량 ↓)
+async function compressDataUrl(dataUrl: string, maxSide: number, quality: number): Promise<string> {
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('image decode failed'));
+      i.src = dataUrl;
+    });
+    const ratio = Math.min(1, maxSide / Math.max(img.width, img.height));
+    const w = Math.round(img.width * ratio);
+    const h = Math.round(img.height * ratio);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch {
+    return dataUrl;
+  }
+}
+
 // ============================================================
 // Message shape (local — design1 isolated from main chat-store)
 // ============================================================
@@ -215,6 +244,8 @@ type Message = {
   modelUsed?: string;
   totalTokens?: number;
   cost?: number;
+  // v3 회귀 복구 (Tori P0.4): 비전 첨부 이미지 (base64 data URL 배열)
+  images?: string[];
 };
 
 // ============================================================
@@ -263,6 +294,8 @@ export default function D1ChatView({
   const [isModelChanging, setIsModelChanging] = useState(false);
   const [inputGlowing, setInputGlowing] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  // v3 회귀 복구 (P0.4 비전): 첨부 이미지 base64 data URL 배열
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const modelChipRef = useRef<HTMLButtonElement>(null);
@@ -274,6 +307,19 @@ export default function D1ChatView({
     check();
     window.addEventListener('resize', check, { passive: true });
     return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // Tori P1.1: PromptsView에서 "사용" 클릭 시 d1:prompt-content 이벤트로 input 채우기
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === 'string' && detail) {
+        setValue(detail);
+        textareaRef.current?.focus();
+      }
+    };
+    window.addEventListener('d1:prompt-content', handler as EventListener);
+    return () => window.removeEventListener('d1:prompt-content', handler as EventListener);
   }, []);
 
   // Model chip pulse animation on change
@@ -461,11 +507,124 @@ export default function D1ChatView({
     };
   }, [showModelDropdown]);
 
-  const canSend = value.trim().length > 0 && !isStreaming;
+  const canSend = (value.trim().length > 0 || attachedImages.length > 0) && !isStreaming;
+
+  // v3 P0.4: 이미지 → base64 + 압축 (1MB 이상이면 JPEG 80% 리사이즈)
+  async function handleImagesAttached(files: File[]) {
+    const next: string[] = [];
+    for (const f of files) {
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('read failed'));
+          reader.readAsDataURL(f);
+        });
+        // 큰 파일은 캔버스로 리사이즈 (max 1600px, JPEG 80%)
+        if (f.size > 800_000) {
+          const compressed = await compressDataUrl(dataUrl, 1600, 0.8);
+          next.push(compressed);
+        } else {
+          next.push(dataUrl);
+        }
+      } catch {
+        // 무시 — 다른 파일은 계속
+      }
+    }
+    if (next.length) setAttachedImages((prev) => [...prev, ...next].slice(0, 6));
+  }
+
+  function handleRemoveImage(idx: number) {
+    setAttachedImages((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  // v3 P0.2: Web Speech 미지원 브라우저 fallback — Whisper STT
+  async function handleVoiceFallbackRecorded(blob: Blob) {
+    const openaiKey = getKey('openai') || '';
+    if (!openaiKey) {
+      setToastMsg(t.noApiKey);
+      return;
+    }
+    try {
+      const sttLang = lang === 'ko' ? 'ko-KR' : 'en-US';
+      const text = await sttOpenAI(blob, openaiKey, sttLang);
+      if (text.trim()) setValue((v) => (v ? v + ' ' + text : text));
+    } catch {
+      setToastMsg('STT failed');
+    }
+  }
 
   function handleSend() {
     if (!canSend) return;
     const content = value.trim();
+    const images  = attachedImages;
+
+    // v3 P0.3 — /image 명령: DALL-E 3로 이미지 생성, 응답에 markdown 이미지 인라인
+    const imgPrompt = extractImagePrompt(content);
+    if (imgPrompt) {
+      const openaiKey = getKey('openai') || '';
+      if (!openaiKey) {
+        setToastMsg(t.noApiKey);
+        return;
+      }
+      setValue('');
+      setAttachedImages([]);
+      const userMsg: Message = { id: Date.now().toString(), role: 'user', content };
+      setMessages((prev) => [...prev, userMsg]);
+      setIsStreaming(true);
+      generateImage(imgPrompt, openaiKey)
+        .then((res) => {
+          setMessages((prev) => [...prev, {
+            id: Date.now().toString() + '_img',
+            role: 'assistant',
+            content: `![${imgPrompt}](${res.url})`,
+            modelUsed: 'dall-e-3',
+          }]);
+        })
+        .catch((err) => {
+          setMessages((prev) => [...prev, {
+            id: Date.now().toString() + '_err',
+            role: 'assistant',
+            content: `Error: ${err.message ?? err}`,
+          }]);
+        })
+        .finally(() => {
+          setIsStreaming(false);
+          setStreamingContent('');
+        });
+      return;
+    }
+
+    // v3 P0.5 — 웹검색 명령(`!search ...` 또는 `?...`): 검색 결과를 사용자 메시지에 컨텍스트로 prepend
+    const searchQuery = extractSearchQuery(content);
+    if (searchQuery) {
+      setIsStreaming(true);
+      setValue('');
+      setAttachedImages([]);
+      performWebSearch(searchQuery)
+        .then((searchRes) => {
+          let augmented = content;
+          const results = searchRes.results ?? [];
+          if (searchRes.available && results.length > 0) {
+            const ctx = formatSearchResultsAsContext(searchQuery, results);
+            augmented = `${ctx}\n\n${content}`;
+          } else {
+            augmented = `${content}\n\n[Web search unavailable: ${searchRes.error || 'no results'}]`;
+          }
+          setIsStreaming(false);
+          performSend(augmented, images);
+        })
+        .catch(() => {
+          setIsStreaming(false);
+        });
+      return;
+    }
+
+    performSend(content, images);
+  }
+
+  // ── 핵심 LLM 송신 헬퍼: /image, /search 분기 후 또는 일반 입력에서 호출 ──
+  function performSend(content: string, images: string[]) {
     // Phase 5.0 Analytics — first message ever
     if (messages.length === 0) {
       trackEvent('first_message_sent', { lang });
@@ -496,7 +655,8 @@ export default function D1ChatView({
     }
 
     setValue('');
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content };
+    setAttachedImages([]);
+    const userMsg: Message = { id: Date.now().toString(), role: 'user', content, images: images.length ? images : undefined };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     if (messages.length === 0 && onConversationStart) {
@@ -508,6 +668,17 @@ export default function D1ChatView({
     const controller = new AbortController();
     abortRef.current = controller;
     let accumulated = '';
+
+    // 비전(이미지 첨부) 시 user 메시지 content를 multimodal parts로 변환 (chat-api.ts MultimodalPart)
+    const toApiContent = (m: Message): import('@/modules/chat/chat-api').MessageContent => {
+      if (m.role === 'user' && m.images && m.images.length > 0) {
+        return [
+          { type: 'text' as const, text: m.content },
+          ...m.images.map((url) => ({ type: 'image_url' as const, url })),
+        ];
+      }
+      return m.content;
+    };
 
     // ── Trial path (Gemini 2.5 Flash, no user key) ───────────────
     if (isTrialMode) {
@@ -586,7 +757,7 @@ export default function D1ChatView({
     }
 
     sendChatRequest({
-      messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+      messages: updatedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
       model: resolvedApiModel,
       provider: resolvedProvider,
       apiKey: getKey(resolvedProvider),
@@ -800,6 +971,12 @@ export default function D1ChatView({
               sendLabel={t.send}
               floating={false}
               glowing={inputGlowing}
+              lang={lang}
+              attachedImages={attachedImages}
+              onImagesAttached={handleImagesAttached}
+              onRemoveImage={handleRemoveImage}
+              voiceEnabled
+              onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
             />
 
             {/* Suggestions — desktop only */}
@@ -869,6 +1046,12 @@ export default function D1ChatView({
               sendLabel={t.send}
               floating
               glowing={inputGlowing}
+              lang={lang}
+              attachedImages={attachedImages}
+              onImagesAttached={handleImagesAttached}
+              onRemoveImage={handleRemoveImage}
+              voiceEnabled
+              onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
             />
           </div>
         </div>
@@ -1211,6 +1394,12 @@ function D1InputBar({
   sendLabel,
   floating,
   glowing = false,
+  lang,
+  onImagesAttached,
+  attachedImages = [],
+  onRemoveImage,
+  voiceEnabled = true,
+  onVoiceFallbackRecorded,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -1225,11 +1414,22 @@ function D1InputBar({
   sendLabel: string;
   floating: boolean;
   glowing?: boolean;
+  lang?: Lang;
+  onImagesAttached?: (files: File[]) => void;
+  attachedImages?: string[];
+  onRemoveImage?: (idx: number) => void;
+  voiceEnabled?: boolean;
+  onVoiceFallbackRecorded?: (blob: Blob) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  // 음성 인식 누적 — 발화 종료 시점까지 interim 결과를 합쳐 input에 반영
+  const voiceBaseRef = useRef<string>('');
 
   function handleAttachClick() {
-    fileInputRef.current?.click();
+    // 이미지 우선 (v3 회귀 복구 — 비전 첨부)
+    if (onImagesAttached) imageInputRef.current?.click();
+    else fileInputRef.current?.click();
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1237,6 +1437,23 @@ function D1InputBar({
     if (file) {
       onChange(value ? `${value}\n[첨부: ${file.name}]` : `[첨부: ${file.name}]`);
       e.target.value = '';
+    }
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length && onImagesAttached) onImagesAttached(files);
+    e.target.value = '';
+  }
+
+  function handleVoiceTranscript(text: string, isFinal: boolean) {
+    // 발화 누적: 처음에는 현재 input을 base로 보존, interim마다 base + interim 텍스트로 갱신
+    if (!voiceBaseRef.current) voiceBaseRef.current = value ? value + ' ' : '';
+    const next = voiceBaseRef.current + text;
+    onChange(next);
+    if (isFinal) {
+      // 최종 결과를 base에 누적, 다음 interim의 base로 사용
+      voiceBaseRef.current = next + ' ';
     }
   }
 
@@ -1250,18 +1467,55 @@ function D1InputBar({
         margin: floating ? '0 auto' : undefined,
       }}
     >
-      {/* Hidden file input */}
+      {/* Hidden file input — generic */}
       <input
         ref={fileInputRef}
         type="file"
         className="hidden"
         onChange={handleFileChange}
-        accept="image/*,.pdf,.txt,.md,.csv,.json,.docx,.xlsx"
+        accept=".pdf,.txt,.md,.csv,.json,.docx,.xlsx"
       />
+      {/* Hidden image input (v3 비전 첨부) */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        onChange={handleImageChange}
+        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+      />
+
+      {/* 첨부 이미지 미리보기 */}
+      {attachedImages.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {attachedImages.map((src, i) => (
+            <div key={i} className="relative">
+              <img
+                src={src}
+                alt=""
+                className="h-14 w-14 rounded-md border object-cover"
+                style={{ borderColor: tokens.border }}
+              />
+              {onRemoveImage && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveImage(i)}
+                  className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] text-white"
+                  style={{ background: tokens.text }}
+                  aria-label="remove"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       <textarea
         ref={textareaRef}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => { voiceBaseRef.current = ''; onChange(e.target.value); }}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         rows={3}
@@ -1273,6 +1527,14 @@ function D1InputBar({
           <D1IconButton title={attachLabel} onClick={handleAttachClick}>
             <AttachIcon />
           </D1IconButton>
+          {voiceEnabled && (
+            <VoiceButton
+              onTranscript={handleVoiceTranscript}
+              onFallbackRecorded={onVoiceFallbackRecorded}
+              disabled={isStreaming}
+              lang={lang}
+            />
+          )}
         </div>
         <button
           onClick={isStreaming ? onStop : onSend}
