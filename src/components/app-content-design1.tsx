@@ -19,6 +19,7 @@ import D1CompareView from '@/modules/compare/compare-view-design1';
 import D1BillingView from '@/modules/billing/billing-view-design1';
 import D1DocumentsView from '@/modules/documents/documents-view-design1';
 import D1ModelsView from '@/modules/models/models-view-design1';
+import D1DashboardView from '@/modules/dashboard/dashboard-view-design1';
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
 import { ModelCompareView }     from '@/modules/models/model-compare-view';
@@ -26,7 +27,6 @@ import { MeetingView }          from '@/modules/meeting/meeting-view';
 import { DataSourceView }       from '@/modules/datasources/datasource-view';
 import { AgentsView }           from '@/modules/agents/agents-view';
 import { CostSavingsDashboard } from '@/modules/ui/cost-savings-dashboard';
-import { DashboardView }        from '@/modules/ui/dashboard-view';
 import { D1SettingsView }       from '@/modules/settings/settings-view-design1';
 import { SecurityView }         from '@/modules/ui/security-view';
 import { AboutView }            from '@/modules/ui/about-view';
@@ -137,7 +137,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       models:      <D1ModelsView lang={lang} onSelectModel={handleContinueInChat} onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))} />,
       agents:      <AgentsView />,
       savings:     <CostSavingsDashboard />,
-      dashboard:   <DashboardView />,
+      dashboard:   <D1DashboardView lang={lang} />,
       settings:    <D1SettingsView />,
       security:    <SecurityView />,
       about:       <AboutView onNavigate={(tab) => nav(tab as ViewId)} />,
