@@ -17,10 +17,10 @@ import { useState, useEffect, useRef } from 'react';
 import D1ChatView from '@/modules/chat/chat-view-design1';
 import D1CompareView from '@/modules/compare/compare-view-design1';
 import D1BillingView from '@/modules/billing/billing-view-design1';
+import D1DocumentsView from '@/modules/documents/documents-view-design1';
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
 import { ModelCompareView }     from '@/modules/models/model-compare-view';
-import { DocumentPluginView }   from '@/modules/plugins/document-plugin-view';
 import { MeetingView }          from '@/modules/meeting/meeting-view';
 import { DataSourceView }       from '@/modules/datasources/datasource-view';
 import { ModelsView }           from '@/modules/models/models-view';
@@ -130,7 +130,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     }
     const map: Partial<Record<ViewId, React.ReactNode>> = {
       compare:     <D1CompareView lang={lang} onContinueInChat={handleContinueInChat} />,
-      documents:   <DocumentPluginView />,
+      documents:   <D1DocumentsView lang={lang} />,
       meeting:     <MeetingView />,
       billing:     <D1BillingView lang={lang} />,
       datasources: <DataSourceView />,
