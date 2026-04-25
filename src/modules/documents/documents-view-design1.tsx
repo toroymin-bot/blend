@@ -59,6 +59,14 @@ const copy = {
     counter:      '파일',
     askCta:       '활성 문서에 대해 질문하기 →',
     activeCount:  (n: number) => `${n}개 문서 활성`,
+    // P2.1 하이브리드 탭 (Tori 명세)
+    tabLibrary:   '📁 라이브러리',
+    tabChat:      '💬 문서로 채팅',
+    chatEmpty:    '활성화된 문서가 없어요',
+    chatEmptyHint:'라이브러리에서 "채팅에 사용" 토글을 켜주세요',
+    activeDocs:   '활성 문서',
+    openInChat:   '메인 채팅에서 시작',
+    chatPlaceholder: (n: number) => `활성 문서 ${n}개에 대해 물어보세요`,
   },
   en: {
     title:        'Documents',
@@ -84,6 +92,14 @@ const copy = {
     counter:      'files',
     askCta:       'Ask about active documents →',
     activeCount:  (n: number) => `${n} active`,
+    // P2.1 hybrid tabs (Tori spec)
+    tabLibrary:   '📁 Library',
+    tabChat:      '💬 Chat with docs',
+    chatEmpty:    'No active documents',
+    chatEmptyHint:'Toggle "Used in chat" in Library',
+    activeDocs:   'Active documents',
+    openInChat:   'Open in main chat',
+    chatPlaceholder: (n: number) => `Ask about ${n} active doc${n === 1 ? '' : 's'}`,
   },
 } as const;
 
@@ -136,6 +152,14 @@ export default function D1DocumentsView({
   const [embedStatus, setEmbedStatus]     = useState<Record<string, EmbedStatus>>({});
   const [embedProgress, setEmbedProgress] = useState<Record<string, number>>({});
   const [confirmDelId, setConfirmDelId]   = useState<string | null>(null);
+  // P2.1 — 하이브리드 탭 상태 (localStorage 영속화)
+  const [tab, setTab] = useState<'library' | 'chat'>(() => {
+    if (typeof window === 'undefined') return 'library';
+    return localStorage.getItem('d1:docs-tab') === 'chat' ? 'chat' : 'library';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('d1:docs-tab', tab); } catch {}
+  }, [tab]);
 
   const embeddingKey = getKey('openai') || getKey('google') || '';
   const embeddingProvider: 'openai' | 'google' | null = getKey('openai')
@@ -232,6 +256,47 @@ export default function D1DocumentsView({
           )}
         </header>
 
+        {/* P2.1 — 하이브리드 탭 segmented control */}
+        <div
+          className="mb-8 inline-flex rounded-xl p-1 text-[13px]"
+          style={{ background: tokens.surfaceAlt }}
+          role="tablist"
+        >
+          {(['library', 'chat'] as const).map((id) => {
+            const active = tab === id;
+            const label = id === 'library' ? t.tabLibrary : t.tabChat;
+            return (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(id)}
+                className="rounded-lg px-4 py-1.5 transition-colors"
+                style={{
+                  background: active ? tokens.surface : 'transparent',
+                  color:      active ? tokens.text    : tokens.textDim,
+                  fontWeight: active ? 500 : 400,
+                  boxShadow:  active ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {tab === 'chat' ? (
+          <ChatTab
+            t={t}
+            lang={lang}
+            documents={documents}
+            activeDocIds={activeDocIds}
+            onToggle={toggleActive}
+            onAskAboutDocs={onAskAboutDocs}
+          />
+        ) : (
+        <div>
+
         {/* ══ Dropzone ══ */}
         <Dropzone
           isDragging={isDragging}
@@ -295,6 +360,9 @@ export default function D1DocumentsView({
           </section>
         )}
 
+        </div>
+        )}
+
       </div>
 
       {/* IMP-029: 활성 문서 있을 때 sticky CTA — 채팅에서 질문하기 */}
@@ -340,6 +408,111 @@ export default function D1DocumentsView({
 }
 
 // ── Subcomponents ────────────────────────────────────────────────
+
+// P2.1 — 채팅 탭: 분할 레이아웃 (좌측 활성 문서 + 우측 채팅 안내)
+function ChatTab({
+  t, lang, documents, activeDocIds, onToggle, onAskAboutDocs,
+}: {
+  t: typeof copy[keyof typeof copy];
+  lang: 'ko' | 'en';
+  documents: ParsedDocument[];
+  activeDocIds: Set<string>;
+  onToggle: (id: string) => void;
+  onAskAboutDocs?: () => void;
+}) {
+  const activeDocs = documents.filter((d) => activeDocIds.has(d.id));
+  const inactiveDocs = documents.filter((d) => !activeDocIds.has(d.id));
+  const activeCount = activeDocs.length;
+
+  return (
+    <div className="grid gap-6 md:grid-cols-[minmax(220px,30%)_1fr]">
+      {/* 좌측 — 활성 문서 사이드바 */}
+      <aside className="flex flex-col gap-3">
+        <h3 className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+          {t.activeDocs}
+        </h3>
+        {activeDocs.length === 0 ? (
+          <div
+            className="rounded-xl border p-4 text-[13px]"
+            style={{ background: tokens.surface, borderColor: tokens.border, color: tokens.textDim }}
+          >
+            {t.chatEmpty}
+            <div className="mt-1 text-[11.5px]" style={{ color: tokens.textFaint }}>{t.chatEmptyHint}</div>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {activeDocs.map((doc) => (
+              <li key={doc.id}>
+                <button
+                  type="button"
+                  onClick={() => onToggle(doc.id)}
+                  className="flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-[13px] transition-colors hover:opacity-90"
+                  style={{ background: tokens.surface, borderColor: tokens.border, color: tokens.text }}
+                  title={lang === 'ko' ? '비활성으로 전환' : 'Toggle off'}
+                >
+                  <span className="truncate">{doc.name}</span>
+                  <span className="shrink-0 text-[11px]" style={{ color: tokens.accent }}>✓</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* 비활성 문서 — 빠른 토글 */}
+        {inactiveDocs.length > 0 && (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-[12px]" style={{ color: tokens.textDim }}>
+              + {inactiveDocs.length} {lang === 'ko' ? '추가 가능' : 'available'}
+            </summary>
+            <ul className="mt-2 space-y-1.5">
+              {inactiveDocs.map((doc) => (
+                <li key={doc.id}>
+                  <button
+                    type="button"
+                    onClick={() => onToggle(doc.id)}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg border-dashed px-3 py-1.5 text-left text-[12.5px] transition-colors hover:bg-black/5"
+                    style={{ borderColor: tokens.border, color: tokens.textDim }}
+                  >
+                    <span className="truncate">{doc.name}</span>
+                    <span className="shrink-0 text-[11px]">+</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </aside>
+
+      {/* 우측 — 채팅 안내 패널 */}
+      <section
+        className="flex min-h-[280px] flex-col rounded-2xl border p-6 md:p-8"
+        style={{ background: tokens.surface, borderColor: tokens.border }}
+      >
+        <div className="flex-1">
+          <p className="text-[14px]" style={{ color: tokens.text }}>
+            {activeCount > 0 ? t.chatPlaceholder(activeCount) : t.chatEmpty}
+          </p>
+          {activeCount === 0 && (
+            <p className="mt-2 text-[12.5px]" style={{ color: tokens.textDim }}>
+              {t.chatEmptyHint}
+            </p>
+          )}
+        </div>
+        <div className="mt-6">
+          <button
+            type="button"
+            disabled={activeCount === 0 || !onAskAboutDocs}
+            onClick={onAskAboutDocs}
+            className="rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-40"
+            style={{ background: tokens.accent, color: '#fff' }}
+          >
+            {t.openInChat} →
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function Dropzone({
   isDragging, onDragEnter, onDragLeave, onDrop, onClick, isCompact, t,
