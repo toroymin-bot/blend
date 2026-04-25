@@ -391,7 +391,20 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
 // ── Input phase ──────────────────────────────────────────────────
 function InputPhase({
   t, text, setText, ytUrl, setYtUrl, analyzing, errorMsg, history, onAnalyze, onOpen, onAskDelete, lang,
-}: any) {
+}: {
+  t: typeof copy[keyof typeof copy];
+  text: string;
+  setText: (v: string) => void;
+  ytUrl: string;
+  setYtUrl: (v: string) => void;
+  analyzing: boolean;
+  errorMsg: string | null;
+  history: MeetingResult[];
+  onAnalyze: () => void;
+  onOpen: (r: MeetingResult) => void;
+  onAskDelete: (id: string) => void;
+  lang: 'ko' | 'en';
+}) {
   return (
     <>
       <header className="mb-8">
