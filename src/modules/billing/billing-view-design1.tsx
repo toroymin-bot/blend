@@ -67,11 +67,17 @@ const copy = {
     sub:           '하나로, 더 싸게, 더 스마트하게.',
     thisMonth:     '이번 달',
     spent:         '사용',
-    ifSubscribed:  ' 없이 구독했다면',  // 앞에 <accent>Blend</accent> prefix
-    ifSubscribedPrefix: '',
+    // v3 비교 라벨: "만약, Blend 없이 매달 ₩82,200"
+    ifSubscribedPrefix:    '만약, ',
     ifSubscribedHighlight: 'Blend',
+    ifSubscribed:          ' 없이 매달 ',  // highlight와 amount 사이 텍스트
+    ifSubscribedTrailing:  '',             // amount 뒤에 붙는 꼬리 (KO: 없음)
+    // v3 절약 영역 (top + savings number + bottom)
+    savingsTopPrefix:  (n: number) => `${n}일간 `,
+    savingsHighlight:  'Blend',
+    savingsTopSuffix:  (_n: number) => ' 덕분에',
+    savedLabel:        (_n: number) => '절약',
     sumLabel:      '합계',
-    diffLabel:     '차이',
     last30:        '최근 30일',
     breakdown:     '모델별 사용',
     dailyAvg:      '일평균',
@@ -94,11 +100,17 @@ const copy = {
     sub:           'One AI app — cheaper and smarter.',
     thisMonth:     'This month',
     spent:         'spent',
-    ifSubscribed:  '',
-    ifSubscribedPrefix: 'Without ',
-    ifSubscribedHighlight: 'Blend',
+    // v3 비교 라벨: "If you paid for each — $60.00/month"
+    ifSubscribedPrefix:    'If you paid for each — ',
+    ifSubscribedHighlight: '',
+    ifSubscribed:          '',           // 비교 라벨 highlight와 amount 사이 텍스트 없음
+    ifSubscribedTrailing:  '/month',     // amount 뒤에 붙는 꼬리
+    // v3 절약 영역 (영어는 "Saved with Blend" / "$60.00" / "in N days")
+    savingsTopPrefix:  (_n: number) => 'Saved with ',
+    savingsHighlight:  'Blend',
+    savingsTopSuffix:  (_n: number) => '',
+    savedLabel:        (n: number) => `in ${n} day${n === 1 ? '' : 's'}`,
     sumLabel:      'Total',
-    diffLabel:     'Difference',
     last30:        'Last 30 days',
     breakdown:     'By model',
     dailyAvg:      'Daily average',
@@ -235,10 +247,21 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
     return { items: arr.slice(0, 5), total };
   }, [byModel]);
 
-  const subTotalDisplay = lang === 'ko' ? SUB_TOTAL_USD * KRW_PER_USD : SUB_TOTAL_USD;
-  const monthDisplay    = lang === 'ko' ? monthCostUsd * KRW_PER_USD : monthCostUsd;
-  const diffUsd         = SUB_TOTAL_USD - monthCostUsd;
-  const hasUsage        = records.length > 0 && monthCostUsd > 0;
+  const hasUsage = records.length > 0 && monthCostUsd > 0;
+
+  // v3 — 사용 일수 + 절약액 계산 (Tori 명세)
+  const daysSince = useMemo(() => {
+    if (records.length === 0) return 0;
+    const earliest = records.reduce((min, r) => Math.min(min, r.timestamp), records[0].timestamp);
+    const diffMs = Date.now() - earliest;
+    return Math.max(1, Math.floor(diffMs / 86400000));
+  }, [records]);
+
+  // 구독 시 일할 환산 — actualSpent 차감 = 절약액
+  const wouldHavePaidUsd = (SUB_TOTAL_USD / 30) * daysSince;
+  const savingsUsd       = Math.max(0, wouldHavePaidUsd - monthCostUsd);
+  // 절약 영역 표시 조건: 사용 기록 존재 + 사용액이 구독료 이하 + 절약액이 의미 있는 수준
+  const showSavings      = hasUsage && monthCostUsd <= SUB_TOTAL_USD && savingsUsd > 0 && daysSince >= 1;
 
   // ── Spending limit (localStorage) ────────────────────────────
   const [limit, setLimit] = useState<SpendingLimit>(DEFAULT_LIMIT);
@@ -305,7 +328,32 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
                   </span>
                 </div>
 
-                {/* 비교 라벨 — Blend accent 강조 + 시각 무게 증가 (Tori 명세) */}
+                {/* v3 — 절약 영역: 잡스식 데이터 강조 (큰 숫자, accent) */}
+                {showSavings && (
+                  <>
+                    <div className="mt-8 h-px" style={{ background: tokens.border }} />
+                    <div className="mt-8">
+                      <div className="text-[14px]" style={{ color: tokens.textDim }}>
+                        {t.savingsTopPrefix(daysSince)}
+                        <span style={{ color: tokens.accent, fontWeight: 500 }}>
+                          {t.savingsHighlight}
+                        </span>
+                        {t.savingsTopSuffix(daysSince)}
+                      </div>
+                      <div
+                        className="mt-2 text-[36px] md:text-[48px] font-medium leading-none tracking-tight"
+                        style={{ color: tokens.accent }}
+                      >
+                        {fmtMoney(savingsUsd, lang)}
+                      </div>
+                      <div className="mt-2 text-[14px]" style={{ color: tokens.textDim }}>
+                        {t.savedLabel(daysSince)}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* v3 비교 라벨 — "만약, Blend 없이 매달 ₩82,200" / "If you paid for each — $60.00/month" */}
                 <div className="mt-10 mb-5 flex items-center gap-3">
                   <span className="h-px flex-1" style={{ background: tokens.border }} />
                   <span
@@ -313,10 +361,16 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
                     style={{ color: tokens.textDim, fontWeight: 400 }}
                   >
                     {t.ifSubscribedPrefix}
-                    <span style={{ color: tokens.accent, fontWeight: 500 }}>
-                      {t.ifSubscribedHighlight}
-                    </span>
+                    {t.ifSubscribedHighlight && (
+                      <span style={{ color: tokens.accent, fontWeight: 500 }}>
+                        {t.ifSubscribedHighlight}
+                      </span>
+                    )}
                     {t.ifSubscribed}
+                    <span style={{ color: tokens.text, fontWeight: 500 }}>
+                      {fmtMoney(SUB_TOTAL_USD, lang)}
+                    </span>
+                    {t.ifSubscribedTrailing}
                   </span>
                   <span className="h-px flex-1" style={{ background: tokens.border }} />
                 </div>
@@ -339,18 +393,7 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
                   <span style={{ color: tokens.textDim }}>{t.sumLabel}</span>
                   <span style={{ color: tokens.text }}>{fmtMoney(SUB_TOTAL_USD, lang)}</span>
                 </div>
-
-                <div className="mt-6 flex items-center justify-between">
-                  <span className="text-[13px]" style={{ color: tokens.textDim }}>
-                    {t.diffLabel}
-                  </span>
-                  <span
-                    className="text-[18px] font-medium"
-                    style={{ color: tokens.accent }}
-                  >
-                    {fmtMoney(Math.max(diffUsd, 0), lang)}
-                  </span>
-                </div>
+                {/* v3 — '차이' 행 제거: 절약액(₩82,135)은 메인 영역에서 강조됨, 중복 정보 제거 */}
               </div>
             </section>
 
