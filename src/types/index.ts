@@ -152,6 +152,8 @@ export interface DataSource {
   indexedCount?: number;
   lastSync?: number;
   error?: string;
+  // Tori 핫픽스 (2026-04-25): 채팅에서 RAG 활성화 여부 (연결 시 자동 true)
+  isActive?: boolean;
 }
 
 // ── Meeting Analysis ──────────────────────────────────────────────────────────

@@ -775,7 +775,7 @@ export default function D1ChatView({
     abortRef.current = controller;
     let accumulated = '';
 
-    // P3.3 — 활성 문서 RAG 컨텍스트 빌드 (실패해도 일반 채팅 진행)
+    // P3.3 + Tori 핫픽스 — 활성 문서 RAG + 활성 데이터 소스 메타 주입
     let docContext = '';
     let docSources: string[] = [];
     try {
@@ -787,7 +787,6 @@ export default function D1ChatView({
         const embeddingProvider: 'openai' | 'google' | undefined = getKey('openai') ? 'openai' : getKey('google') ? 'google' : undefined;
         docContext = await buildContext(content, activeDocs, embeddingApiKey, embeddingProvider);
         if (docContext) {
-          // [source: filename] 마커에서 unique 출처 추출
           const matches = docContext.match(/\[source:\s*([^\]]+)\]/g) ?? [];
           const set = new Set<string>();
           matches.forEach((m) => {
@@ -796,6 +795,32 @@ export default function D1ChatView({
           });
           docSources = Array.from(set).slice(0, 8);
         }
+      }
+
+      // Tori 핫픽스 (2026-04-25) — 활성 데이터 소스 메타 주입
+      // 청크 임베딩 인프라는 후속 작업이라 일단 LLM에게 활성 폴더 컨텍스트만 알림.
+      const { useDataSourceStore } = await import('@/stores/datasource-store');
+      const dsList = useDataSourceStore.getState().sources.filter((s) => s.isActive !== false);
+      if (dsList.length > 0) {
+        const dsLines = dsList.map((s) => {
+          const svc = s.type === 'google-drive' ? 'Google Drive'
+                    : s.type === 'onedrive'     ? 'OneDrive'
+                    : s.type === 'webdav'       ? 'WebDAV' : s.type;
+          const folder = s.name && s.name !== svc ? ` · ${s.name}` : '';
+          const fileCount = typeof s.fileCount === 'number' ? ` (${s.fileCount} files)` : '';
+          return `- ${svc}${folder}${fileCount}`;
+        }).join('\n');
+        const dsHeader =
+`[Active data sources connected to this user's account]
+The user has activated these external data sources. The actual file contents are NOT yet indexed (file embedding is a separate feature). When the user asks about the data inside these sources, acknowledge the connection and tell them you can see the folder is connected but the file content search will be available after embeddings are processed. Don't fabricate file contents.
+
+${dsLines}`;
+        docContext = docContext ? `${dsHeader}\n\n---\n\n${docContext}` : dsHeader;
+        // 출처 칩에도 표시
+        dsList.forEach((s) => {
+          const svc = s.type === 'google-drive' ? 'Google Drive' : s.type === 'onedrive' ? 'OneDrive' : s.type;
+          docSources.push(s.name && s.name !== svc ? `${svc} · ${s.name}` : svc);
+        });
       }
     } catch { /* RAG 실패 시 무시 */ }
 
