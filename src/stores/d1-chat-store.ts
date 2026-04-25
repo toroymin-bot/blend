@@ -26,6 +26,12 @@ export interface D1Chat {
   model: string;           // currently selected model at save time
   createdAt: number;
   updatedAt: number;
+  // P3.1 — 조직화: 고정 / 태그 / 폴더
+  pinned?: boolean;
+  tags?: string[];
+  folder?: string | null;
+  // P3.1 — 포크: 분기 원본 chatId
+  forkedFrom?: string;
 }
 
 const STORAGE_KEY = 'd1:chats';
@@ -44,6 +50,12 @@ interface D1ChatStoreState {
 
   /** Generate a short title from the first user message. */
   deriveTitle: (messages: D1Message[]) => string;
+
+  // P3.1 — 조직화 + 포크 액션
+  togglePin: (id: string) => void;
+  setChatTags: (id: string, tags: string[]) => void;
+  setChatFolder: (id: string, folder: string | null) => void;
+  forkChatAt: (chatId: string, atMessageId: string) => string | null;
 }
 
 export const useD1ChatStore = create<D1ChatStoreState>((set, get) => ({
@@ -116,5 +128,57 @@ export const useD1ChatStore = create<D1ChatStoreState>((set, get) => ({
     const text = firstUser.content.replace(/\s+/g, ' ').trim();
     if (text.length <= 40) return text;
     return text.slice(0, 40) + '…';
+  },
+
+  // P3.1 — 조직화 액션
+  togglePin: (id) => {
+    set((state) => ({
+      chats: state.chats.map((c) =>
+        c.id === id ? { ...c, pinned: !c.pinned, updatedAt: Date.now() } : c
+      ),
+    }));
+    get().saveToStorage();
+  },
+
+  setChatTags: (id, tags) => {
+    set((state) => ({
+      chats: state.chats.map((c) =>
+        c.id === id ? { ...c, tags: tags.filter(Boolean), updatedAt: Date.now() } : c
+      ),
+    }));
+    get().saveToStorage();
+  },
+
+  setChatFolder: (id, folder) => {
+    set((state) => ({
+      chats: state.chats.map((c) =>
+        c.id === id ? { ...c, folder: folder ?? null, updatedAt: Date.now() } : c
+      ),
+    }));
+    get().saveToStorage();
+  },
+
+  // P3.1 — 메시지 시점에서 분기: 해당 메시지까지의 history를 새 chatId로 복제
+  forkChatAt: (chatId, atMessageId) => {
+    const src = get().chats.find((c) => c.id === chatId);
+    if (!src) return null;
+    const idx = src.messages.findIndex((m) => m.id === atMessageId);
+    if (idx < 0) return null;
+    const newId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const truncated = src.messages.slice(0, idx + 1);
+    const newChat: D1Chat = {
+      id: newId,
+      title: src.title + ' (fork)',
+      messages: truncated,
+      model: src.model,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      forkedFrom: src.id,
+    };
+    set((state) => ({ chats: [newChat, ...state.chats] }));
+    get().saveToStorage();
+    return newId;
   },
 }));

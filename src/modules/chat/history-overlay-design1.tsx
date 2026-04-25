@@ -22,6 +22,9 @@ export interface ChatSummary {
   model: string;
   preview?: string;
   allText?: string;
+  // P3.1 — 조직화 메타
+  pinned?: boolean;
+  tags?: string[];
 }
 
 interface D1HistoryOverlayProps {
@@ -29,6 +32,8 @@ interface D1HistoryOverlayProps {
   onClose: () => void;
   onSelect: (chatId: string) => void;
   onDelete?: (chatId: string) => void;
+  // P3.1 — 핀 토글
+  onTogglePin?: (chatId: string) => void;
   chats: ChatSummary[];
   lang: 'ko' | 'en';
 }
@@ -36,7 +41,7 @@ interface D1HistoryOverlayProps {
 type FilterRange = 'today' | 'week' | 'month' | 'all';
 
 export function D1HistoryOverlay({
-  open, onClose, onSelect, onDelete, chats, lang,
+  open, onClose, onSelect, onDelete, onTogglePin, chats, lang,
 }: D1HistoryOverlayProps) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterRange>('all');
@@ -87,7 +92,13 @@ export function D1HistoryOverlay({
     return chats
       .filter(inRange)
       .filter(matches)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
+      // P3.1 — 핀 우선 정렬, 그 다음 최신순
+      .sort((a, b) => {
+        const ap = a.pinned ? 1 : 0;
+        const bp = b.pinned ? 1 : 0;
+        if (ap !== bp) return bp - ap;
+        return b.updatedAt - a.updatedAt;
+      });
   }, [chats, filter, query, startOfToday, startOfWeek, startOfMonth]);
 
   // Keyboard nav + ESC
@@ -204,8 +215,13 @@ export function D1HistoryOverlay({
                 onClick={() => { onSelect(c.id); onClose(); }}
                 className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
               >
-                <div className="truncate text-[14px] font-medium" style={{ color: tokens.text }}>
-                  {c.title || L.untitled}
+                <div className="flex items-center gap-1.5 truncate text-[14px] font-medium" style={{ color: tokens.text }}>
+                  {c.pinned && (
+                    <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor" style={{ color: tokens.textFaint }}>
+                      <path d="M12 2L9 9 2 9.75l5.5 5.25L6 22l6-3 6 3-1.5-7L22 9.75 15 9z" />
+                    </svg>
+                  )}
+                  <span className="truncate">{c.title || L.untitled}</span>
                 </div>
                 <div className="flex items-center gap-2 text-[11.5px]" style={{ color: tokens.textFaint }}>
                   <span>{formatRelative(c.updatedAt)}</span>
@@ -215,6 +231,20 @@ export function D1HistoryOverlay({
                   <span>{L.msgs(c.messageCount)}</span>
                 </div>
               </button>
+              {/* P3.1 — 핀 토글 */}
+              {onTogglePin && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onTogglePin(c.id); }}
+                  className="shrink-0 rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/5"
+                  title={c.pinned ? (lang === 'ko' ? '고정 해제' : 'Unpin') : (lang === 'ko' ? '고정' : 'Pin')}
+                  aria-label={c.pinned ? 'unpin' : 'pin'}
+                  style={{ color: c.pinned ? tokens.accent : tokens.textFaint }}
+                >
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill={c.pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2L9 9 2 9.75l5.5 5.25L6 22l6-3 6 3-1.5-7L22 9.75 15 9z" />
+                  </svg>
+                </button>
+              )}
               {onDelete && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}

@@ -67,6 +67,10 @@ const copy = {
     activeDocs:   '활성 문서',
     openInChat:   '메인 채팅에서 시작',
     chatPlaceholder: (n: number) => `활성 문서 ${n}개에 대해 물어보세요`,
+    // P3.4 미리보기
+    preview:       '미리보기',
+    previewClose:  '닫기',
+    previewMore:   (n: number) => `... 그 외 ${n}개 청크 더 있음`,
   },
   en: {
     title:        'Documents',
@@ -100,6 +104,10 @@ const copy = {
     activeDocs:   'Active documents',
     openInChat:   'Open in main chat',
     chatPlaceholder: (n: number) => `Ask about ${n} active doc${n === 1 ? '' : 's'}`,
+    // P3.4 preview
+    preview:       'Preview',
+    previewClose:  'Close',
+    previewMore:   (n: number) => `... and ${n} more chunks`,
   },
 } as const;
 
@@ -152,6 +160,8 @@ export default function D1DocumentsView({
   const [embedStatus, setEmbedStatus]     = useState<Record<string, EmbedStatus>>({});
   const [embedProgress, setEmbedProgress] = useState<Record<string, number>>({});
   const [confirmDelId, setConfirmDelId]   = useState<string | null>(null);
+  // P3.4 — 파일 인라인 미리보기 모달
+  const [previewDocId, setPreviewDocId]   = useState<string | null>(null);
   // P2.1 — 하이브리드 탭 상태 (localStorage 영속화)
   const [tab, setTab] = useState<'library' | 'chat'>(() => {
     if (typeof window === 'undefined') return 'library';
@@ -352,6 +362,7 @@ export default function D1DocumentsView({
                       t={t}
                       onToggle={() => toggleActive(doc.id)}
                       onDelete={() => setConfirmDelId(doc.id)}
+                      onPreview={() => setPreviewDocId(doc.id)}
                     />
                   </li>
                 );
@@ -389,6 +400,20 @@ export default function D1DocumentsView({
           </div>
         </div>
       )}
+
+      {/* P3.4 — 파일 인라인 미리보기 모달 */}
+      {previewDocId && (() => {
+        const doc = documents.find((d) => d.id === previewDocId);
+        if (!doc) return null;
+        return (
+          <PreviewModal
+            doc={doc}
+            t={t}
+            lang={lang}
+            onClose={() => setPreviewDocId(null)}
+          />
+        );
+      })()}
 
       {/* ══ Delete confirmation modal ══ */}
       {confirmDelId && (
@@ -561,7 +586,7 @@ function Dropzone({
 }
 
 function FileCard({
-  doc, isActive, status, progress, lang, t, onToggle, onDelete,
+  doc, isActive, status, progress, lang, t, onToggle, onDelete, onPreview,
 }: {
   doc: ParsedDocument;
   isActive: boolean;
@@ -571,6 +596,7 @@ function FileCard({
   t: typeof copy[keyof typeof copy];
   onToggle: () => void;
   onDelete: () => void;
+  onPreview: () => void;
 }) {
   const ext = extOf(doc.name);
   const chunkCount = doc.chunks.length;
@@ -604,6 +630,20 @@ function FileCard({
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={onPreview}
+            title={t.preview}
+            className="rounded-md p-1.5 transition-colors hover:bg-black/5"
+            style={{ color: tokens.textFaint }}
+            aria-label={t.preview}
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
             onClick={onToggle}
             title={isActive ? t.activeOn : t.activeOff}
             className="rounded-md px-2.5 py-1 text-[12px] transition-colors"
@@ -625,6 +665,84 @@ function FileCard({
           >
             <TrashIcon size={14} />
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// P3.4 — 파일 인라인 미리보기 모달 (첫 N개 청크 텍스트)
+function PreviewModal({
+  doc, t, lang, onClose,
+}: {
+  doc: ParsedDocument;
+  t: typeof copy[keyof typeof copy];
+  lang: 'ko' | 'en';
+  onClose: () => void;
+}) {
+  const PREVIEW_CHUNKS = 8;
+  const visible = doc.chunks.slice(0, PREVIEW_CHUNKS);
+  const remaining = Math.max(0, doc.chunks.length - PREVIEW_CHUNKS);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-start justify-center px-4 py-12"
+      style={{ background: 'rgba(0,0,0,0.32)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl overflow-hidden rounded-2xl"
+        style={{ background: tokens.surface, color: tokens.text, boxShadow: '0 24px 60px rgba(0,0,0,0.18)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between gap-3 border-b px-6 py-4"
+          style={{ borderColor: tokens.border }}
+        >
+          <div className="min-w-0">
+            <div className="text-[15px] font-medium truncate" style={{ color: tokens.text }}>
+              {doc.name}
+            </div>
+            <div className="text-[12px]" style={{ color: tokens.textFaint }}>
+              {doc.totalChars.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US')} {t.chars} · {doc.chunks.length} {t.chunks}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1.5 transition-opacity hover:opacity-70"
+            style={{ color: tokens.textFaint }}
+            aria-label={t.previewClose}
+          >
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto px-6 py-5 space-y-4">
+          {visible.length === 0 ? (
+            <p className="text-[13px]" style={{ color: tokens.textDim }}>
+              {lang === 'ko' ? '미리보기할 내용이 없어요.' : 'No content to preview.'}
+            </p>
+          ) : visible.map((chunk, i) => (
+            <div key={i}>
+              <div className="mb-1 text-[11px] uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+                {(lang === 'ko' ? '청크 ' : 'Chunk ') + (i + 1)}
+              </div>
+              <p
+                className="whitespace-pre-wrap text-[13.5px] leading-[1.65]"
+                style={{ color: tokens.text }}
+              >
+                {chunk.text.slice(0, 800)}{chunk.text.length > 800 ? '…' : ''}
+              </p>
+            </div>
+          ))}
+          {remaining > 0 && (
+            <p className="text-[12px]" style={{ color: tokens.textFaint }}>
+              {t.previewMore(remaining)}
+            </p>
+          )}
         </div>
       </div>
     </div>
