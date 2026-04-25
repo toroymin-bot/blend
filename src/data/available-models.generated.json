@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-24T19:01:53.443Z",
+  "generatedAt": "2026-04-25T07:26:37.234Z",
   "providers": [
     "anthropic",
     "openai",
@@ -212,18 +212,6 @@
       "supportsStreaming": true
     },
     {
-      "id": "gemma-3-4b-it",
-      "provider": "google",
-      "displayName": "Gemma 3 4b It",
-      "description_ko": "google 모델",
-      "description_en": "google model",
-      "tier": "balanced",
-      "contextWindow": 32768,
-      "deprecated": false,
-      "supportsVision": true,
-      "supportsStreaming": true
-    },
-    {
       "id": "gemma-4-26b-a4b-it",
       "provider": "google",
       "displayName": "Gemma 4 26B IT",
@@ -351,6 +339,18 @@
       "description_en": "Fastest and lightest",
       "tier": "fast",
       "contextWindow": 1048576,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "gemma-3-4b-it",
+      "provider": "google",
+      "displayName": "Gemma 3 4B IT",
+      "description_ko": "가볍고 빨라요",
+      "description_en": "Lightweight and fast",
+      "tier": "fast",
+      "contextWindow": 32768,
       "deprecated": false,
       "supportsVision": true,
       "supportsStreaming": true

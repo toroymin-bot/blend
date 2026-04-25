@@ -226,6 +226,13 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },
 
   // ===== AUTO-APPEND BELOW (do not delete this line) =====
+  'gemma-3-4b-it': {
+    displayName: "Gemma 3 4B IT",
+    description_ko: "가볍고 빨라요",
+    description_en: "Lightweight and fast",
+    tier: "fast",
+  },  // auto-generated 2026-04-25
+
   'gpt-5.5': {
     displayName: "GPT-5.5",
     description_ko: "최신 모델로 더 똑똑해요",
