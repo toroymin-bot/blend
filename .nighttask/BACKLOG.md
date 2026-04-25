@@ -323,12 +323,14 @@
   - 커밋 브랜치: `design1/compare-view-redesign`
   - **Roy OK 받은 후 다음 페이지 진행**
 
-- [ ] **D1-Page-02 — Billing 뷰 리디자인** (디자인 문서: `files (5)/Billing_2026-04-25_v1.md`)
+- [x] **D1-Page-02 — Billing 뷰 리디자인** (디자인 문서: `files (5)/Billing_2026-04-25_v1.md`) ✅ 2026-04-25 (commits: 47f5c45 + 4e9e820 typefix + 4224fee USD-default-$2)
   - 역할: "얼마 썼나?" — 이번 달 사용량 + 구독 비교 + 한도 설정 (이성적·관리적)
   - 누적 절약 포함 안 함 (CostSavings 별도 페이지)
-  - 신규: billing-view-design1.tsx, usage-summary-card, usage-chart, spending-limit 컴포넌트
+  - 신규: billing-view-design1.tsx (단일 파일, 섹션1~3 + SVGLineChart + LimitRow + ToggleRow)
+  - app-content-design1.tsx: BillingView → D1BillingView 교체
+  - 한도 저장: USD 정규화(localStorage `d1:billing-limit`), KO에서 ₩ 입력 → /1370 = USD, 기본 일일 한도 $2
   - 커밋 브랜치: `design1/billing-view-redesign`
-  - **D1-Page-01 Roy OK 후 진행**
+  - **Roy OK 받은 후 D1-Page-03 진행**
 
 - [ ] **D1-Page-03 — Documents 뷰 리디자인** (디자인 문서: `Documents_2026-04-25_v1.md`)
   - 신규: documents-view-design1.tsx, file-dropzone, file-list, citation-block, d1-documents-store
