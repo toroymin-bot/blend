@@ -30,8 +30,7 @@ const D1DataSourcesView  = lazy(() => import('@/modules/datasources/datasources-
 const D1CostSavingsView  = lazy(() => import('@/modules/cost-savings/cost-savings-view-design1'));
 const D1SecurityView     = lazy(() => import('@/modules/security/security-view-design1'));
 const D1AboutView        = lazy(() => import('@/modules/about/about-view-design1'));
-// Tori P1.1/P1.2 회귀 복구 — 프롬프트 라이브러리 + 플러그인 메뉴 복원
-const PromptsView        = lazy(() => import('@/modules/prompts/prompts-view').then(m => ({ default: m.PromptsView })));
+// Roy 결정 2026-04-25: Prompts 메뉴 제거 (PromptsView 컴포넌트 자체는 보존 — '/' 슬래시 명령에 사용 가능)
 const PluginsView        = lazy(() => import('@/modules/plugins/plugins-view').then(m => ({ default: m.PluginsView })));
 
 // ── 원본 뷰 컴포넌트 재사용 (feature parity)
@@ -58,7 +57,7 @@ type ViewId =
   | 'chat' | 'compare' | 'documents' | 'meeting' | 'billing'
   | 'datasources' | 'models' | 'agents' | 'savings' | 'dashboard'
   | 'settings' | 'security' | 'about'
-  | 'prompts' | 'plugins'; // Tori P1.1/P1.2 회귀 복구
+  | 'plugins'; // Roy 결정 2026-04-25: prompts 메뉴 제거
 
 type ConvSummary = { id: number; title: string };
 
@@ -181,8 +180,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       settings:    <D1SettingsView />,
       security:    <D1SecurityView lang={lang} />,
       about:       <D1AboutView lang={lang} onNavigate={(tab) => nav(tab as ViewId)} />,
-      // Tori P1.1/P1.2 회귀 복구
-      prompts:     <PromptsView onUsePrompt={(content) => { setActiveView('chat'); setConvKey((k) => k + 1); window.dispatchEvent(new CustomEvent('d1:prompt-content', { detail: content })); }} />,
+      // Roy 결정 2026-04-25: prompts 라우트 제거 (메뉴도 없음). plugins 유지.
       plugins:     <PluginsView />,
     };
     return (
@@ -195,12 +193,11 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   }
 
   // ── Popover items (hidden + About)
-  // Tori 평면화 핫픽스 (2026-04-25): "더보기" 컨테이너 제거, prompts/plugins 평면 배치 (agents 바로 아래)
+  // Roy 결정 2026-04-25: Prompts 메뉴 제거 (PromptsView 컴포넌트는 보존). Plugins만 유지.
   const moreItems: [ViewId, string, React.ReactNode][] = [
     ['datasources', t.datasources, <DataSourcesIcon key="ds" />],
     ['models',      t.models,      <ModelsIcon      key="mo" />],
     ['agents',      t.agents,      <AgentsIcon      key="ag" />],
-    ['prompts',     t.prompts,     <PromptsIcon     key="pr" />],
     ['plugins',     t.plugins,     <PluginsIcon     key="pl" />],
     ['savings',     t.savings,     <SavingsIcon     key="sa" />],
     ['dashboard',   t.dashboard,   <DashboardIcon   key="da" />],
@@ -466,8 +463,7 @@ function SavingsIcon()     { return <svg {...ic2}><path d="M12 2v20M17 5H9.5a3.5
 function DashboardIcon()   { return <svg {...ic2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>; }
 function SecurityIcon()    { return <svg {...ic2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>; }
 function AboutIcon()       { return <svg {...ic2}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>; }
-// Tori P1.1/P1.2 회귀 복구 — 프롬프트 / 플러그인 아이콘
-function PromptsIcon()     { return <svg {...ic2}><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 13h5"/></svg>; }
+// Roy 결정 2026-04-25: PromptsIcon 제거 (Prompts 메뉴 폐기). Plugins만 유지.
 function PluginsIcon()     { return <svg {...ic2}><path d="M9 2v6M15 2v6"/><rect x="6" y="8" width="12" height="8" rx="2"/><path d="M9 16v6M15 16v6"/></svg>; }
 
 void ic2;
