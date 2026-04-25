@@ -10,6 +10,9 @@
 import { useEffect, useState } from 'react';
 import { useDataSourceStore } from '@/stores/datasource-store';
 import type { DataSource, DataSourceType } from '@/types';
+// P2.2 OAuth 직접 흐름 (Tori 명세 — LegacyHandoff 제거)
+import { requestGoogleAccessToken } from '@/lib/connectors/google-drive-connector';
+import { requestOneDriveAccessToken } from '@/lib/connectors/onedrive-connector';
 
 // ── Tokens ───────────────────────────────────────────────────────
 const tokens = {
@@ -53,6 +56,18 @@ const copy = {
     dayAgo:       (n: number) => `${n}일 전`,
     syncing:      '동기화 중',
     error:        '오류',
+    // P2.2 ConnectMiniModal 카피
+    connectGdrive: 'Google Drive 연결',
+    connectOnedrive: 'OneDrive 연결',
+    permsHeading: 'Blend가 다음 권한을 요청합니다',
+    permRead:    '선택한 폴더의 파일 읽기',
+    permModify:  '파일 수정/삭제 (절대 X)',
+    privacyNote: '데이터는 Blend 서버를 거치지 않고 당신의 브라우저에만 저장됩니다.',
+    continueOauth: '계속',
+    connectErrPopupBlocked: '팝업이 차단되었습니다. 팝업을 허용하고 다시 시도하세요.',
+    connectErrCancelled: '인증이 취소되었습니다.',
+    connectErrMissingId: 'OAuth 클라이언트 ID가 설정되지 않았습니다. 잠시 후 다시 시도하세요.',
+    connecting:   '연결 중...',
   },
   en: {
     title:        'Data Sources',
@@ -78,6 +93,18 @@ const copy = {
     dayAgo:       (n: number) => `${n} d ago`,
     syncing:      'Syncing',
     error:        'Error',
+    // P2.2 ConnectMiniModal copy
+    connectGdrive: 'Connect Google Drive',
+    connectOnedrive: 'Connect OneDrive',
+    permsHeading: 'Blend is requesting the following permissions',
+    permRead:    'Read files in the selected folder',
+    permModify:  'Modify or delete files (never)',
+    privacyNote: 'Data goes only to your browser, never through Blend servers.',
+    continueOauth: 'Continue',
+    connectErrPopupBlocked: 'Popup blocked. Please allow popups and retry.',
+    connectErrCancelled: 'Authentication cancelled.',
+    connectErrMissingId: 'OAuth client ID is not configured. Try again later.',
+    connecting:   'Connecting...',
   },
 } as const;
 
@@ -122,6 +149,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const t = copy[lang];
 
   const sources         = useDataSourceStore((s) => s.sources);
+  const addSource       = useDataSourceStore((s) => s.addSource);
   const removeSource    = useDataSourceStore((s) => s.removeSource);
   const loadFromStorage = useDataSourceStore((s) => s.loadFromStorage);
 
@@ -130,7 +158,42 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   }, [loadFromStorage]);
 
   const [confirmDelId, setConfirmDel] = useState<string | null>(null);
-  const [legacyOpen, setLegacyOpen]   = useState(false);
+  // P2.2 — 연결 미니 모달 상태 (LegacyHandoff 제거)
+  const [connectTarget, setConnectTarget] = useState<DataSourceType | null>(null);
+  const [connecting, setConnecting]       = useState(false);
+  const [connectErr, setConnectErr]       = useState<string | null>(null);
+
+  async function runConnect(type: DataSourceType) {
+    setConnecting(true);
+    setConnectErr(null);
+    try {
+      if (type === 'google-drive') {
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID;
+        if (!clientId) { setConnectErr(t.connectErrMissingId); return; }
+        const token = await requestGoogleAccessToken(clientId);
+        addSource(
+          { type: 'google-drive', clientId, accessToken: token, tokenExpiry: Date.now() + 3600_000 },
+          'Google Drive',
+        );
+      } else if (type === 'onedrive') {
+        const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID;
+        if (!clientId) { setConnectErr(t.connectErrMissingId); return; }
+        const token = await requestOneDriveAccessToken(clientId);
+        addSource(
+          { type: 'onedrive', clientId, accessToken: token, tokenExpiry: Date.now() + 3600_000 },
+          'OneDrive',
+        );
+      }
+      setConnectTarget(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Connection failed';
+      if (/popup/i.test(msg))      setConnectErr(t.connectErrPopupBlocked);
+      else if (/closed|cancel/i.test(msg)) setConnectErr(t.connectErrCancelled);
+      else setConnectErr(msg);
+    } finally {
+      setConnecting(false);
+    }
+  }
 
   return (
     <div
@@ -169,7 +232,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
                     source={s}
                     t={t}
                     onDisconnect={() => setConfirmDel(s.id)}
-                    onSync={() => setLegacyOpen(true)}
+                    onSync={() => { /* TODO: 실제 동기화 — 다음 nighttask로 분리 */ }}
                   />
                 </li>
               ))}
@@ -182,13 +245,13 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
             {t.available}
           </h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {AVAILABLE.map((a) => (
               <AvailableCard
                 key={a.type}
                 source={a}
                 t={t}
-                onConnect={() => setLegacyOpen(true)}
+                onConnect={() => { setConnectErr(null); setConnectTarget(a.type); }}
               />
             ))}
           </div>
@@ -210,8 +273,15 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
         />
       )}
 
-      {legacyOpen && (
-        <LegacyHandoff t={t} lang={lang} onClose={() => setLegacyOpen(false)} />
+      {connectTarget && (
+        <ConnectMiniModal
+          t={t}
+          target={connectTarget}
+          connecting={connecting}
+          errorMsg={connectErr}
+          onCancel={() => { if (!connecting) setConnectTarget(null); }}
+          onConfirm={() => runConnect(connectTarget)}
+        />
       )}
     </div>
   );
@@ -358,31 +428,80 @@ function ConfirmModal({
   );
 }
 
-function LegacyHandoff({
-  t, lang, onClose,
+// P2.2 — design1 톤 OAuth 권한 공개 모달 (Tori 명세, LegacyHandoff 대체)
+function ConnectMiniModal({
+  t, target, connecting, errorMsg, onCancel, onConfirm,
 }: {
   t: typeof copy[keyof typeof copy];
-  lang: 'ko' | 'en';
-  onClose: () => void;
+  target: DataSourceType;
+  connecting: boolean;
+  errorMsg: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
 }) {
-  const msg = lang === 'ko'
-    ? '연결 흐름은 곧 새 디자인으로 통합됩니다. 지금은 기존 화면에서 진행해주세요.'
-    : 'The connect flow will be integrated into the new design soon. Please use the legacy screen for now.';
+  const headingTitle = target === 'google-drive' ? t.connectGdrive : t.connectOnedrive;
+  const icon = target === 'google-drive' ? '☁️' : '📁';
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center"
+      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
       style={{ background: 'rgba(0,0,0,0.32)' }}
-      onClick={onClose}
+      onClick={onCancel}
     >
       <div
-        className="w-full max-w-sm rounded-2xl p-6"
-        style={{ background: tokens.surface, color: tokens.text }}
+        className="w-full max-w-md rounded-2xl p-7"
+        style={{ background: tokens.surface, color: tokens.text, boxShadow: '0 24px 60px rgba(0,0,0,0.16)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-[14px]" style={{ color: tokens.text }}>{msg}</p>
-        <div className="mt-5 flex justify-end">
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-[13px]" style={{ background: tokens.text, color: tokens.bg }}>
-            {lang === 'ko' ? '확인' : 'OK'}
+        <div className="flex items-center gap-2 text-[18px] font-medium">
+          <span>{icon}</span>
+          <span>{headingTitle}</span>
+        </div>
+
+        <p className="mt-5 text-[13px]" style={{ color: tokens.textDim }}>
+          {t.permsHeading}
+        </p>
+        <ul className="mt-3 space-y-1.5 text-[13.5px]">
+          <li className="flex items-baseline gap-2" style={{ color: tokens.text }}>
+            <span style={{ color: tokens.success }}>✓</span>
+            <span>{t.permRead}</span>
+          </li>
+          <li className="flex items-baseline gap-2" style={{ color: tokens.textDim }}>
+            <span style={{ color: tokens.danger }}>✗</span>
+            <span style={{ textDecoration: 'line-through' }}>{t.permModify}</span>
+          </li>
+        </ul>
+
+        <p className="mt-5 text-[12px]" style={{ color: tokens.textFaint }}>
+          {t.privacyNote}
+        </p>
+
+        {errorMsg && (
+          <div
+            className="mt-4 rounded-lg px-3 py-2.5 text-[12.5px]"
+            style={{ background: 'rgba(204,68,68,0.08)', color: tokens.danger }}
+          >
+            {errorMsg}
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={connecting}
+            className="rounded-lg px-4 py-2.5 text-[13px] disabled:opacity-40"
+            style={{ color: tokens.textDim }}
+          >
+            {t.cancel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={connecting}
+            className="rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity disabled:opacity-50"
+            style={{ background: tokens.accent, color: '#fff' }}
+          >
+            {connecting ? t.connecting : t.continueOauth}
           </button>
         </div>
       </div>
