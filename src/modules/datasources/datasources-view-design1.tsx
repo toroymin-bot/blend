@@ -11,8 +11,8 @@ import { useEffect, useState } from 'react';
 import { useDataSourceStore } from '@/stores/datasource-store';
 import type { DataSource, DataSourceType } from '@/types';
 // P2.2 OAuth 직접 흐름 (Tori 명세 — LegacyHandoff 제거)
-import { requestGoogleAccessToken } from '@/lib/connectors/google-drive-connector';
-import { requestOneDriveAccessToken } from '@/lib/connectors/onedrive-connector';
+import { requestGoogleAccessToken, scanDriveFolder } from '@/lib/connectors/google-drive-connector';
+import { requestOneDriveAccessToken, scanOneDriveFolder } from '@/lib/connectors/onedrive-connector';
 
 // ── Tokens ───────────────────────────────────────────────────────
 const tokens = {
@@ -151,6 +151,8 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const sources         = useDataSourceStore((s) => s.sources);
   const addSource       = useDataSourceStore((s) => s.addSource);
   const removeSource    = useDataSourceStore((s) => s.removeSource);
+  const updateSource    = useDataSourceStore((s) => s.updateSource);
+  const setStatus       = useDataSourceStore((s) => s.setStatus);
   const loadFromStorage = useDataSourceStore((s) => s.loadFromStorage);
 
   useEffect(() => {
@@ -162,6 +164,29 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const [connectTarget, setConnectTarget] = useState<DataSourceType | null>(null);
   const [connecting, setConnecting]       = useState(false);
   const [connectErr, setConnectErr]       = useState<string | null>(null);
+
+  // P2.2 보강 — 동기화: 루트 폴더 스캔 → fileCount 업데이트
+  async function runSync(source: DataSource) {
+    setStatus(source.id, 'syncing');
+    try {
+      if (source.config.type === 'google-drive') {
+        const token = source.config.accessToken;
+        if (!token) throw new Error('No access token');
+        const files = await scanDriveFolder(token, source.config.folderId);
+        updateSource(source.id, { fileCount: files.length, lastSync: Date.now() });
+        setStatus(source.id, 'connected');
+      } else if (source.config.type === 'onedrive') {
+        const token = source.config.accessToken;
+        if (!token) throw new Error('No access token');
+        const items = await scanOneDriveFolder(token, source.config.folderId);
+        updateSource(source.id, { fileCount: items.length, lastSync: Date.now() });
+        setStatus(source.id, 'connected');
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Sync failed';
+      setStatus(source.id, 'error', msg);
+    }
+  }
 
   async function runConnect(type: DataSourceType) {
     setConnecting(true);
@@ -232,7 +257,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
                     source={s}
                     t={t}
                     onDisconnect={() => setConfirmDel(s.id)}
-                    onSync={() => { /* TODO: 실제 동기화 — 다음 nighttask로 분리 */ }}
+                    onSync={() => runSync(s)}
                   />
                 </li>
               ))}

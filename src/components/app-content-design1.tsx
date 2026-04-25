@@ -146,6 +146,13 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     }
   }, [activeView]);
 
+  // Tori 통합 RAG — 활성 소스 칩 본체 클릭 시 Documents로 이동
+  useEffect(() => {
+    const handler = () => setActiveView('documents');
+    window.addEventListener('d1:nav-documents', handler);
+    return () => window.removeEventListener('d1:nav-documents', handler);
+  }, []);
+
   function nav(id: ViewId) {
     trackEvent('menu_click', { menu: id });
     setActiveView(id);

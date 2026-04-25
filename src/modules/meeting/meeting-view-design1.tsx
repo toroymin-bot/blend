@@ -63,9 +63,19 @@ const copy = {
     youtubeHint:  '예: https://youtube.com/watch?v=...',
     audioUpload:  '음성 파일 업로드',
     audioHint:    'mp3, wav, m4a, webm, ogg, mp4',
+    audioDrop:    '여기에 드롭하거나 파일 선택',
     transcribing: '음성을 텍스트로 변환 중...',
     diarizing:    '화자 분리 중...',
     transcript:   '대화 기록',
+    // Tori 명세 — 단계별 에러 카피
+    errFileSize:  '파일이 25MB를 초과해요. 더 짧은 녹음을 사용해주세요.',
+    errFileFormat:'지원하지 않는 파일 형식이에요. (mp3, m4a, wav, webm 등)',
+    errSttKey:    '음성 변환에는 OpenAI 키가 필요해요. 설정에서 등록해주세요.',
+    errSttInvalid:'OpenAI 키가 유효하지 않아요. 키를 확인해주세요.',
+    errSttRate:   'OpenAI 사용 한도를 초과했어요. 잠시 후 다시 시도해주세요.',
+    errSttTimeout:'변환에 시간이 너무 걸렸어요. 더 짧은 녹음을 사용해주세요.',
+    errSttFail:   '음성 변환에 실패했어요. 파일이 손상됐을 수 있어요.',
+    errAnalyze:   '분석에 실패했어요. 다시 시도해주세요.',
     analyze:      '분석 시작',
     analyzing:    '분석 중...',
     fetchingYT:   'YouTube 자막을 가져오는 중...',
@@ -97,9 +107,18 @@ const copy = {
     youtubeHint:  'e.g. https://youtube.com/watch?v=...',
     audioUpload:  'Upload audio file',
     audioHint:    'mp3, wav, m4a, webm, ogg, mp4',
+    audioDrop:    'Drop here or choose a file',
     transcribing: 'Transcribing audio...',
     diarizing:    'Identifying speakers...',
     transcript:   'Transcript',
+    errFileSize:  'File exceeds 25MB. Please use a shorter recording.',
+    errFileFormat:'Unsupported format. Try mp3, m4a, wav, or webm.',
+    errSttKey:    'OpenAI key required for transcription. Add it in Settings.',
+    errSttInvalid:'Invalid OpenAI key. Please check your key.',
+    errSttRate:   'OpenAI rate limit exceeded. Try again in a moment.',
+    errSttTimeout:'Transcription took too long. Try a shorter recording.',
+    errSttFail:   'Transcription failed. The file may be corrupted.',
+    errAnalyze:   'Analysis failed. Please try again.',
     analyze:      'Analyze',
     analyzing:    'Analyzing...',
     fetchingYT:   'Fetching YouTube transcript...',
@@ -245,45 +264,65 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
 
     let inputText = text.trim();
 
-    // 1) 음성 파일 STT (Tori 명세 P0.1)
+    // 1) 음성 파일 STT (Tori 명세 단계별 에러 분기)
     if (!inputText && audioFile) {
+      // 1-1. 검증
+      const SUPPORTED = ['mp3','wav','m4a','webm','ogg','mp4','flac','aac'];
+      const ext = (audioFile.name.split('.').pop() || '').toLowerCase();
+      if (audioFile.size > 25 * 1024 * 1024) {
+        setErrorMsg(t.errFileSize);
+        return;
+      }
+      if (ext && !SUPPORTED.includes(ext)) {
+        setErrorMsg(t.errFileFormat);
+        return;
+      }
+
       const openaiKey = getKey('openai') || '';
       const googleKey = getKey('google') || '';
       if (!openaiKey && !googleKey) {
-        setErrorMsg(t.needKey);
+        setErrorMsg(t.errSttKey);
         return;
       }
+
+      // 1-2. STT
+      let transcribed = '';
       try {
         setTranscribing(true);
         const sttLang = lang === 'ko' ? 'ko-KR' : 'en-US';
-        // OpenAI Whisper 우선 (Korean 성능 좋음), 없으면 Google
-        const transcribed = openaiKey
+        transcribed = openaiKey
           ? await sttOpenAI(audioFile, openaiKey, sttLang)
           : await sttGoogle(audioFile, googleKey, sttLang);
-        if (!transcribed.trim()) throw new Error('empty transcript');
-
-        // 화자 분리 (LLM 기반, 실패해도 단일 화자 fallback)
         setTranscribing(false);
-        setDiarizing(true);
-        const diarizeProvider = openaiKey ? 'openai' : 'anthropic';
-        const diarizeKey      = openaiKey || (getKey('anthropic') || '');
-        if (diarizeKey) {
-          try {
-            const segments = await diarizeSpeakers(transcribed, diarizeKey, diarizeProvider);
-            inputText = segments.map((s) => `${s.speaker}: ${s.text}`).join('\n');
-          } catch {
-            inputText = transcribed; // 화자 분리 실패 → 원본 사용
-          }
-        } else {
-          inputText = transcribed;
+        if (!transcribed.trim()) {
+          setErrorMsg(t.errSttFail);
+          return;
         }
-        setDiarizing(false);
-      } catch {
+      } catch (e) {
         setTranscribing(false);
-        setDiarizing(false);
-        setErrorMsg(t.error);
+        const err = e as Error & { status?: number; name?: string };
+        if (err.status === 401)              setErrorMsg(t.errSttInvalid);
+        else if (err.status === 429)         setErrorMsg(t.errSttRate);
+        else if (err.name === 'AbortError')  setErrorMsg(t.errSttTimeout);
+        else                                  setErrorMsg(t.errSttFail);
         return;
       }
+
+      // 1-3. 화자 분리 (실패 시 fallback — 사용자에게 안 알림)
+      setDiarizing(true);
+      const diarizeProvider = openaiKey ? 'openai' : 'anthropic';
+      const diarizeKey      = openaiKey || (getKey('anthropic') || '');
+      if (diarizeKey) {
+        try {
+          const segments = await diarizeSpeakers(transcribed, diarizeKey, diarizeProvider);
+          inputText = segments.map((s) => `${s.speaker}: ${s.text}`).join('\n');
+        } catch {
+          inputText = transcribed;
+        }
+      } else {
+        inputText = transcribed;
+      }
+      setDiarizing(false);
     }
 
     // 2) YouTube 자막 (기존)
@@ -521,19 +560,11 @@ function InputPhase({
             aria-label={t.audioUpload}
           />
           {!audioFile ? (
-            <button
-              type="button"
+            <AudioDropzone
+              t={t}
               onClick={() => audioInputRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-4 text-[13px] transition-colors hover:opacity-80"
-              style={{ borderColor: tokens.borderStrong, color: tokens.textDim, background: tokens.bg }}
-            >
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
-              </svg>
-              <span>{t.audioUpload}</span>
-              <span className="text-[11.5px]" style={{ color: tokens.textFaint }}>· {t.audioHint}</span>
-            </button>
+              onFile={(f) => setAudioFile(f)}
+            />
           ) : (
             <div
               className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-[13px]"
@@ -758,6 +789,50 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       </h2>
       {children}
     </section>
+  );
+}
+
+// Tori 명세 — 음성 파일 drag&drop dropzone
+function AudioDropzone({
+  t, onClick, onFile,
+}: {
+  t: typeof copy[keyof typeof copy];
+  onClick: () => void;
+  onFile: (f: File) => void;
+}) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) onFile(f);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+      onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+      className="flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 py-6 text-[13px] transition-colors"
+      style={{
+        borderColor: isDragging ? tokens.accent : tokens.borderStrong,
+        background:  isDragging ? tokens.accentSoft : tokens.bg,
+        color:       tokens.textDim,
+        cursor:      'pointer',
+      }}
+    >
+      <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+      </svg>
+      <span style={{ color: tokens.text, fontWeight: 500 }}>{t.audioUpload}</span>
+      <span className="text-[11.5px]" style={{ color: tokens.textFaint }}>{t.audioDrop}</span>
+      <span className="text-[11px]" style={{ color: tokens.textFaint }}>{t.audioHint}</span>
+    </button>
   );
 }
 

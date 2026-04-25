@@ -37,23 +37,52 @@ export function getVoiceProviderConfig(
  * Compatible with static export (browser-side only).
  */
 export async function sttOpenAI(audioBlob: Blob, apiKey: string, language: string): Promise<string> {
-  const ext = audioBlob.type.includes('webm') ? 'webm' : 'wav';
+  // Tori 명세: 파일명을 원본 그대로 보존해야 Whisper가 m4a/mp4를 정상 인식
+  // - File 객체 (Documents/회의 업로드)면 .name 보존
+  // - 익명 Blob (마이크 녹음)이면 MIME → ext 매핑
+  const isFile = (audioBlob as File).name !== undefined;
+  const filename = isFile
+    ? (audioBlob as File).name
+    : `recording.${guessAudioExt(audioBlob.type)}`;
   const formData = new FormData();
-  formData.append('file', audioBlob, `recording.${ext}`);
+  formData.append('file', audioBlob, filename);
   formData.append('model', 'whisper-1');
   formData.append('language', language === 'ko' ? 'ko' : 'en');
 
-  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: formData,
-  });
+  // 2분 timeout (대용량 파일 대비)
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 120_000);
+  let res: Response;
+  try {
+    res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData,
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: { message?: string } })?.error?.message || `OpenAI STT error: ${res.status}`);
+    const message = (err as { error?: { message?: string } })?.error?.message || `OpenAI STT error: ${res.status}`;
+    // status 보존하여 호출자가 분기 가능하도록
+    const e = new Error(message) as Error & { status?: number };
+    e.status = res.status;
+    throw e;
   }
   const data = await res.json();
   return (data as { text?: string }).text ?? '';
+}
+
+function guessAudioExt(mime: string): string {
+  if (mime.includes('webm'))   return 'webm';
+  if (mime.includes('m4a') || mime.includes('mp4') || mime.includes('aac')) return 'm4a';
+  if (mime.includes('mpeg') || mime.includes('mp3')) return 'mp3';
+  if (mime.includes('ogg'))    return 'ogg';
+  if (mime.includes('flac'))   return 'flac';
+  return 'wav';
 }
 
 /**
