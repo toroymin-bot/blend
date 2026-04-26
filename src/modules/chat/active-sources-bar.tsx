@@ -126,6 +126,16 @@ export function ActiveSourcesBar({
   );
 }
 
+function statusColor(status?: string): string {
+  switch (status) {
+    case 'ready':   return '#16a34a';
+    case 'syncing': return '#d97706';
+    case 'error':   return '#dc2626';
+    case 'idle':
+    default:        return '#9ca3af';
+  }
+}
+
 function ActiveSourceChip({
   source, onClick, onDeactivate,
 }: {
@@ -133,9 +143,18 @@ function ActiveSourceChip({
   onClick: () => void;
   onDeactivate: () => void;
 }) {
-  const displayText = source.subtitle
+  const baseTitle = source.subtitle
     ? `${source.title} · ${source.subtitle}`
     : source.title;
+  const progressLabel = source.progress && source.progress.total > 0
+    ? `${source.progress.current}/${source.progress.total}`
+    : '';
+  const displayText = progressLabel ? `${baseTitle} · ${progressLabel}` : baseTitle;
+  const dotColor = statusColor(source.status);
+  const isPulse = source.status === 'syncing';
+  const tooltip = source.errorMessage
+    ? `${baseTitle} — ${source.errorMessage}`
+    : displayText;
 
   return (
     <div
@@ -151,8 +170,18 @@ function ActiveSourceChip({
         cursor: 'pointer',
         maxWidth: 240,
       }}
-      title={displayText}
+      title={tooltip}
     >
+      <span
+        aria-hidden
+        className="inline-block shrink-0 rounded-full"
+        style={{
+          width: 7,
+          height: 7,
+          background: dotColor,
+          animation: isPulse ? 'd1-chip-pulse 1.4s ease-in-out infinite' : 'none',
+        }}
+      />
       <span className="shrink-0">{source.icon}</span>
       <span className="truncate" style={{ maxWidth: 180 }}>{displayText}</span>
       <button
@@ -166,6 +195,12 @@ function ActiveSourceChip({
           <path d="M18 6L6 18M6 6l12 12" />
         </svg>
       </button>
+      <style jsx>{`
+        @keyframes d1-chip-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%      { opacity: 0.45; transform: scale(0.8); }
+        }
+      `}</style>
     </div>
   );
 }
