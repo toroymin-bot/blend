@@ -33,6 +33,9 @@ const D1CostSavingsView  = lazy(() =>
     default: (props: { lang: 'ko' | 'en' }) => <m.default {...props} mode="savings" />,
   }))
 );
+
+// [2026-04-26] Sprint 1 (16384367) — Welcome Demo
+import { WelcomeDemo, hasSeenWelcome } from '@/components/welcome-demo';
 const D1SecurityView     = lazy(() => import('@/modules/security/security-view-design1'));
 const D1AboutView        = lazy(() => import('@/modules/about/about-view-design1'));
 // Roy 결정 2026-04-25: Prompts 메뉴 제거 (PromptsView 컴포넌트 자체는 보존 — '/' 슬래시 명령에 사용 가능)
@@ -157,6 +160,24 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     const handler = () => setActiveView('settings');
     window.addEventListener('blend:open-settings', handler as EventListener);
     return () => window.removeEventListener('blend:open-settings', handler as EventListener);
+  }, []);
+
+  // [2026-04-26] Sprint 1 (16384367) — Welcome Demo
+  // 신규 사용자 첫 진입 시 자동 노출 + 사이드바 도움말에서 재진입.
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!hasSeenWelcome()) {
+      // showOnboarding이 다른 흐름과 충돌하지 않도록 약간 지연
+      const t = setTimeout(() => setWelcomeOpen(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, []);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => setWelcomeOpen(true);
+    window.addEventListener('blend:replay-welcome', handler as EventListener);
+    return () => window.removeEventListener('blend:replay-welcome', handler as EventListener);
   }, []);
 
   function nav(id: ViewId) {
@@ -319,6 +340,15 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                   </button>
                 ))}
                 <div className="mx-3 my-1" style={{ height: 1, background: tokens.border }} />
+                {/* [2026-04-26] Sprint 1 (16384367) — Welcome Demo 재진입 */}
+                <button onClick={() => { setShowMore(false); window.dispatchEvent(new CustomEvent('blend:replay-welcome')); }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-black/5"
+                  style={{ color: tokens.text }}
+                >
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: tokens.textDim }}>🎬</span>
+                  {lang === 'ko' ? '60초 둘러보기' : '60-second tour'}
+                </button>
+                <div className="mx-3 my-1" style={{ height: 1, background: tokens.border }} />
                 <button onClick={() => nav('about')}
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-black/5"
                   style={{ color: activeView === 'about' ? tokens.accent : tokens.text }}
@@ -430,6 +460,15 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
 
       {/* Phase 5.0 — Vercel Analytics (옵트아웃은 trackEvent 내부) */}
       <Analytics />
+
+      {/* [2026-04-26] Sprint 1 (16384367) — Welcome Demo 60s */}
+      <WelcomeDemo
+        lang={lang}
+        open={welcomeOpen}
+        onClose={() => setWelcomeOpen(false)}
+        onStart={() => { setWelcomeOpen(false); setActiveView('chat'); }}
+        onGuide={() => { setWelcomeOpen(false); setActiveView('settings'); }}
+      />
     </div>
   );
 }
