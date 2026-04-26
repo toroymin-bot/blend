@@ -471,6 +471,19 @@ export default function D1ChatView({
     }));
   }, [d1Chats]);
 
+  // [2026-04-26] BUG-FIX (16417011) — 사이드바 '최근' 클릭 시 외부 dispatch listener
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id;
+      if (id) loadChat(id);
+    };
+    window.addEventListener('d1:load-chat', handler as EventListener);
+    return () => window.removeEventListener('d1:load-chat', handler as EventListener);
+    // loadChat은 이 컴포넌트 안에서 정의된 함수 — deps 비움
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Load a chat from history
   const loadChat = (chatId: string) => {
     const chat = useD1ChatStore.getState().getChat(chatId);
