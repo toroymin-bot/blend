@@ -248,6 +248,8 @@
     "delete_preset": "Delete preset '{{name}}'",
     "api_guide_title": "How to get an API key",
     "go_to_site": "Go to Site",
+    "cost_free": "Free tier available",
+    "cost_paid": "Payment required",
     "import_success": "Import complete!",
     "import_error": "Invalid file format.",
     "guide_visit_site": "Visit Site",
