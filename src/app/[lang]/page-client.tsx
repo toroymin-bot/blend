@@ -2,11 +2,13 @@
 
 // [lang]/page-client.tsx — Client component for localized routes
 // Sets language from URL segment, then renders the main app.
+//
+// [2026-04-26 Tori 16220538 §2] design1 트랙으로 client-side redirect.
+// next.config 'output: export' 모드라 middleware 작동 X. useEffect로 처리.
 
 import { useEffect } from 'react';
-import { useSettingsStore } from '@/stores/settings-store';
+import { useRouter } from 'next/navigation';
 import { Language } from '@/lib/i18n';
-import AppContent from '@/components/app-content';
 
 const SUPPORTED_LANGS: Language[] = ['ko', 'en'];
 
@@ -15,26 +17,14 @@ interface Props {
 }
 
 export default function LangPageClient({ lang }: Props) {
-  const { settings, updateSettings, loadFromStorage } = useSettingsStore();
-
+  const router = useRouter();
   const typedLang = SUPPORTED_LANGS.includes(lang as Language) ? (lang as Language) : 'ko';
 
   useEffect(() => {
-    // Ensure settings are loaded from localStorage first
-    loadFromStorage();
-  }, []);
+    // 옛날 URL → design1 URL로 즉시 redirect (히스토리 대체)
+    router.replace(`/design1/${typedLang}`);
+  }, [router, typedLang]);
 
-  useEffect(() => {
-    if (settings.language !== typedLang) {
-      updateSettings({ language: typedLang });
-    }
-  }, [lang, settings.language]);
-
-  // [2026-04-14] body가 flex flex-col이므로 h-dvh AppContent가 flex item이 됨.
-  // flex-1과 min-h-0을 추가해 전체 높이를 올바르게 채우도록 함.
-  return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <AppContent />
-    </div>
-  );
+  // redirect 직전 깜빡임 방지를 위한 빈 화면
+  return null;
 }

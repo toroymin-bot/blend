@@ -73,7 +73,7 @@ export default function SharePageClient() {
             )}
           </div>
           <a
-            href={`/${lang}`}
+            href={`/design1/${lang}`}
             className="rounded-full px-3 py-1.5 text-[12px] font-medium"
             style={{ background: tokens.accent, color: '#fff' }}
           >
@@ -94,7 +94,7 @@ export default function SharePageClient() {
             </div>
             <div className="mt-12 border-t pt-8 text-center" style={{ borderColor: tokens.border }}>
               <a
-                href={`/${lang}`}
+                href={`/design1/${lang}`}
                 className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[14px] font-medium transition-opacity hover:opacity-90"
                 style={{ background: tokens.accent, color: '#fff' }}
               >
@@ -148,7 +148,7 @@ function ErrorPanel({ title, lang }: { title: string; lang: 'ko' | 'en' }) {
         {lang === 'ko' ? '새 대화를 만들어 친구에게 다시 공유해보세요.' : 'Create a new conversation and share it again.'}
       </div>
       <a
-        href={`/${lang}`}
+        href={`/design1/${lang}`}
         className="mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-medium"
         style={{ background: tokens.accent, color: '#fff' }}
       >

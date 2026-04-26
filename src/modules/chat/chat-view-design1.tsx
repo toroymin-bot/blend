@@ -610,19 +610,34 @@ export default function D1ChatView({
   }
 
   // v3 P0.2: Web Speech 미지원 브라우저 fallback — Whisper STT
+  // [2026-04-26 Tori 16220538 §1] STT 성공 시 즉시 자동 전송 + input 리셋.
+  // - 빈 input + 음성: 음성만 단독 전송
+  // - 텍스트 있는 input + 음성: "기존 + 음성" 결합 후 전송
+  // - STT 실패/빈 결과: input 그대로, 토스트만
   async function handleVoiceFallbackRecorded(blob: Blob) {
     const openaiKey = getKey('openai') || '';
     if (!openaiKey) {
       setToastMsg(t.noApiKey);
       return;
     }
+    let text = '';
     try {
       const sttLang = lang === 'ko' ? 'ko-KR' : 'en-US';
-      const text = await sttOpenAI(blob, openaiKey, sttLang);
-      if (text.trim()) setValue((v) => (v ? v + ' ' + text : text));
+      text = await sttOpenAI(blob, openaiKey, sttLang);
     } catch {
-      setToastMsg('STT failed');
+      setToastMsg(lang === 'ko' ? '음성 변환 실패' : 'Voice transcription failed');
+      return;
     }
+    if (!text.trim()) {
+      setToastMsg(lang === 'ko' ? '음성을 인식하지 못했어요' : "Couldn't recognize speech");
+      return;
+    }
+    const existing = value.trim();
+    const combined = existing ? `${existing} ${text.trim()}` : text.trim();
+    // input 리셋 — 다음 음성 시 누적 방지 (이슈 2)
+    setValue('');
+    // 자동 전송 — handleSend는 다음 render에서 value=''를 봄. override로 직접 전달.
+    handleSend(combined);
   }
 
   // P3.2 — 자동 제목 생성: 첫 응답 후 LLM에 짧은 제목 1회 요청 → window 이벤트로 부모에 전달
@@ -722,9 +737,11 @@ export default function D1ChatView({
     }, 0);
   }
 
-  function handleSend() {
-    if (!canSend) return;
-    const content = value.trim();
+  // [2026-04-26 Tori 16220538 §1] override — 음성 자동 전송용
+  function handleSend(override?: string) {
+    const content = (override !== undefined ? override : value).trim();
+    if (!override && !canSend) return;
+    if (!content && (!attachedImages || attachedImages.length === 0)) return;
     const images  = attachedImages;
 
     // v3 P0.3 — /image 명령: DALL-E 3로 이미지 생성, 응답에 markdown 이미지 인라인
