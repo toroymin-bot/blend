@@ -78,6 +78,10 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     loadFromStorage();
     // Phase 6 — 방문 추적 (옵트아웃 + 일별 dedupe 처리됨)
     trackVisit();
+    // TASK 4 Sprint 1 — IndexedDB 마이그레이션 (사용자 0명이라 즉시 종료)
+    import('@/lib/db/migration').then(({ runMigrations }) => {
+      runMigrations().catch((e) => console.error('[app] migration failed', e));
+    });
   }, []);
 
   // d1:open-onboarding 이벤트 → 온보딩 열기
