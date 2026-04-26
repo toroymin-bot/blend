@@ -10,6 +10,7 @@ import {
   type SharePolicy,
   type ShareMessage,
 } from '@/lib/share-encoder';
+import { useFocusTrap } from '@/lib/use-focus-trap';
 
 const tokens = {
   bg:           'var(--d1-bg, #fafaf9)',
@@ -112,6 +113,9 @@ export function ShareModal({ lang, open, onClose, messages }: ShareModalProps) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // [2026-04-26] Sprint 4 — focus trap
+  useFocusTrap(dialogRef, open);
 
   async function copy() {
     if (tooLong || !url) return;
