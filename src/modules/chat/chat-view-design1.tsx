@@ -860,6 +860,24 @@ ${dsLines}`;
       }
     } catch { /* RAG 실패 시 무시 */ }
 
+    // [2026-04-26] 답변 가드 — 활성 소스가 있으면 LLM이 추측 답변하지 않도록 명시
+    if (docContext) {
+      const guardKo =
+`[Answer Guard]
+다음 [Active...] 섹션을 1차 지식원으로 사용하세요.
+- 제공된 소스에 없는 사실은 "제공된 소스에서 찾을 수 없어요"라고 명확히 답하고 추측하지 마세요.
+- 출처를 인라인으로 표기하세요. 예: [source: 파일명], [meeting: 제목]
+- 파일 내용·숫자·날짜를 임의로 만들어내지 마세요.`;
+      const guardEn =
+`[Answer Guard]
+Use the [Active...] sections below as your primary knowledge source.
+- If a fact isn't in the provided sources, reply "Not found in the provided sources" — do not guess.
+- Cite sources inline, e.g. [source: filename], [meeting: title].
+- Don't fabricate file contents, numbers, or dates.`;
+      const guard = lang === 'ko' ? guardKo : guardEn;
+      docContext = `${guard}\n\n---\n\n${docContext}`;
+    }
+
     // 비전(이미지 첨부) 시 user 메시지 content를 multimodal parts로 변환 (chat-api.ts MultimodalPart)
     const toApiContent = (m: Message): import('@/modules/chat/chat-api').MessageContent => {
       if (m.role === 'user' && m.images && m.images.length > 0) {

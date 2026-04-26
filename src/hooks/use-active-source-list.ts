@@ -78,6 +78,9 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
     documents
       .filter((d) => activeDocIds.has(d.id))
       .forEach((d) => {
+        // [2026-04-26] 상태: 첫 chunk에 embedding 있으면 ready, 없으면 idle (키워드 fallback)
+        const hasEmbedding = d.chunks.some((c) => Array.isArray(c.embedding) && c.embedding.length > 0);
+        const status: 'ready' | 'idle' = hasEmbedding ? 'ready' : 'idle';
         result.push({
           id: `doc:${d.id}`,
           type: 'document',
@@ -86,6 +89,7 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
           navigateTo: `/design1/${lang}`,
           chunkCount: d.chunks.length,
           documentId: d.id,
+          status,
         });
       });
 
@@ -95,6 +99,11 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
       .forEach((ds) => {
         const serviceName = dsServiceLabel(ds.type);
         const folderPath  = ds.name; // datasource-view-design1에서 'Google Drive' / 'OneDrive' 같은 라벨로 저장
+        // [2026-04-26] 데이터소스는 임베딩 인프라 없음 — 연결됨/동기화중/오류만 매핑
+        const status =
+          ds.status === 'error' ? 'error' :
+          ds.status === 'syncing' ? 'syncing' :
+          ds.status === 'connected' ? 'ready' : 'idle';
         result.push({
           id: `ds:${ds.id}`,
           type: 'datasource-folder',
@@ -106,6 +115,8 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
           dataSourceId: ds.id,
           serviceName: ds.type === 'onedrive' ? 'onedrive' : 'google-drive',
           folderPath,
+          status,
+          errorMessage: ds.error,
         });
       });
 
@@ -124,6 +135,7 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         navigateTo: `/design1/${lang}`,
         chunkCount,
         meetingId: m.id,
+        status: 'ready' as const,
       });
     });
 
