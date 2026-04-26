@@ -6,6 +6,7 @@
 // 모바일 < 768px → full-screen. desktop → 480x560 모달.
 
 import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '@/lib/use-focus-trap';
 
 const STORAGE_KEY = 'blend:welcome-shown';
 
@@ -129,6 +130,9 @@ export function WelcomeDemo({ lang, open, onClose, onStart, onGuide }: WelcomeDe
       setTimeout(() => dialogRef.current?.focus(), 100);
     }
   }, [open]);
+
+  // [2026-04-26] Sprint 4 — focus trap (Tab 순환을 dialog 안으로 한정)
+  useFocusTrap(dialogRef, open);
 
   if (!open) return null;
 
