@@ -39,6 +39,7 @@ const tokens = {
 // ── Types ────────────────────────────────────────────────────────
 type ActionItem = { owner?: string; task: string; dueDate?: string; done?: boolean };
 
+// Phase 3b (Tori 명세) — 활성 소스 칩 표시용 isActive 필드 추가
 type MeetingResult = {
   id: string;
   createdAt: number;
@@ -50,6 +51,8 @@ type MeetingResult = {
   decisions: string[];
   topics: string[];
   fullSummary: string;
+  // Phase 3b — 활성 소스 칩 표시 (채팅 RAG)
+  isActive?: boolean;
 };
 
 const STORAGE_KEY = 'd1:meetings';
@@ -176,7 +179,13 @@ function loadResults(): MeetingResult[] {
 }
 
 function saveResults(rs: MeetingResult[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rs)); } catch {}
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rs));
+    // Phase 3b — useActiveSourceList 즉시 갱신용 이벤트
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('d1:meetings-changed'));
+    }
+  } catch {}
 }
 
 function buildSystemPrompt(lang: 'ko' | 'en'): string {
@@ -419,6 +428,8 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
         decisions:    Array.isArray(parsed.decisions)    ? parsed.decisions    : [],
         topics:       Array.isArray(parsed.topics)       ? parsed.topics       : [],
         fullSummary:  String(parsed.fullSummary || ''),
+        // Phase 3b — 분석 완료 시 자동 활성화 (채팅에서 즉시 활용)
+        isActive: true,
       };
 
       const next = [result, ...history].slice(0, 30);

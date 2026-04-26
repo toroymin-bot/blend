@@ -806,6 +806,33 @@ export default function D1ChatView({
         }
       }
 
+      // Phase 3b — 활성 회의록 메타 + 본문 주입
+      try {
+        const raw = localStorage.getItem('d1:meetings');
+        if (raw) {
+          const meetings = JSON.parse(raw) as Array<{
+            id: string; title: string; isActive?: boolean;
+            summary?: string[]; actionItems?: { task: string; owner?: string; dueDate?: string }[];
+            decisions?: string[]; topics?: string[]; fullSummary?: string;
+          }>;
+          const activeMeetings = meetings.filter((m) => m.isActive !== false).slice(0, 3);
+          if (activeMeetings.length > 0) {
+            const meetingBlocks = activeMeetings.map((m) => {
+              const lines: string[] = [`[meeting: ${m.title}]`];
+              if (m.summary?.length)     lines.push('Summary:\n' + m.summary.map((s) => `- ${s}`).join('\n'));
+              if (m.actionItems?.length) lines.push('Action items:\n' + m.actionItems.slice(0, 10).map((a) => `- ${a.owner ? '[' + a.owner + '] ' : ''}${a.task}${a.dueDate ? ' (due ' + a.dueDate + ')' : ''}`).join('\n'));
+              if (m.decisions?.length)   lines.push('Decisions:\n' + m.decisions.map((d) => `- ${d}`).join('\n'));
+              if (m.topics?.length)      lines.push('Topics: ' + m.topics.join(', '));
+              if (m.fullSummary)         lines.push('Full summary:\n' + m.fullSummary.slice(0, 1500));
+              return lines.join('\n\n');
+            }).join('\n\n---\n\n');
+            const meetingHeader = `[Active meeting transcripts]\nThe user has activated these meeting analyses. Use them as primary context when relevant.\n\n${meetingBlocks}`;
+            docContext = docContext ? `${meetingHeader}\n\n---\n\n${docContext}` : meetingHeader;
+            activeMeetings.forEach((m) => docSources.push(`🎙️ ${m.title}`));
+          }
+        }
+      } catch { /* ignore */ }
+
       // Tori 핫픽스 (2026-04-25) — 활성 데이터 소스 메타 주입
       // 청크 임베딩 인프라는 후속 작업이라 일단 LLM에게 활성 폴더 컨텍스트만 알림.
       const { useDataSourceStore } = await import('@/stores/datasource-store');
