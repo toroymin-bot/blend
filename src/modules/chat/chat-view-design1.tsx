@@ -58,9 +58,9 @@ const tokens = {
 // ============================================================
 const copy = {
   ko: {
-    emptyTitle: '모든',
-    emptyTitleAccent: 'AI를',
-    emptyTitleEnd: '하나로',
+    emptyTitle: '',
+    emptyTitleAccent: '무엇을',
+    emptyTitleEnd: '도와드릴까요?',
     emptySubtitle: '하나로, 더 싸게, 더 스마트하게.',
     placeholder: '질문을 입력하세요',
     placeholderActive: 'Blend에게 계속 질문하세요',
@@ -81,9 +81,9 @@ const copy = {
     comingSoon: '곧 지원됩니다',
   },
   en: {
-    emptyTitle: 'Every',
-    emptyTitleAccent: 'AI',
-    emptyTitleEnd: 'in one place.',
+    emptyTitle: 'How can I',
+    emptyTitleAccent: 'help',
+    emptyTitleEnd: 'today?',
     emptySubtitle: 'One AI app — cheaper and smarter.',
     placeholder: 'Ask anything',
     placeholderActive: 'Ask Blend anything',
