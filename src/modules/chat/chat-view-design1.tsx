@@ -25,6 +25,9 @@ import { trackEvent } from '@/lib/analytics';
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
+// [2026-04-26] Sprint 3 (16384367) — Share Links
+import { ShareModal } from '@/components/share-modal';
+import type { ShareMessage } from '@/lib/share-encoder';
 import { exportD1Chat, type D1ExportFormat } from '@/modules/chat/export-utils-design1';
 // v3 회귀 복구 (Tori P0.2-0.5): 음성 / 이미지 / 비전 / 웹검색
 import { VoiceButton } from '@/modules/chat/voice-button';
@@ -407,6 +410,11 @@ export default function D1ChatView({
   const [chatCreatedAt, setChatCreatedAt] = useState<number>(() => Date.now());
   const [historyOpen, setHistoryOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // [2026-04-26] Sprint 3 (16384367) — Share modal
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareMessages: ShareMessage[] = useMemo(() =>
+    messages.map((m) => ({ role: m.role, content: m.content, model: m.modelUsed })),
+    [messages]);
 
   useEffect(() => { d1Load(); }, [d1Load]);
 
@@ -1196,6 +1204,7 @@ Use the [Active...] sections below as your primary knowledge source.
                 t={t}
                 onTryAnother={(newModel?: string) => regenerateAssistantMessage(msg.id, newModel)}
                 onFork={msg.role === 'assistant' ? () => forkChatAtMessage(msg.id) : undefined}
+                onShare={msg.role === 'assistant' ? () => setShareOpen(true) : undefined}
               />
             ))}
             {isStreaming && streamingContent && (
@@ -1399,6 +1408,14 @@ Use the [Active...] sections below as your primary knowledge source.
         />
       )}
 
+      {/* [2026-04-26] Sprint 3 (16384367) — Share modal */}
+      <ShareModal
+        lang={lang}
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        messages={shareMessages}
+      />
+
       {/* History overlay (Cmd/Ctrl+K or History icon) */}
       <D1HistoryOverlay
         open={historyOpen}
@@ -1478,7 +1495,7 @@ type CopyObj = {
   tryAnother: string; comingSoon: string;
 };
 
-function D1MessageRow({ message, lang, t, onTryAnother, onFork }: { message: Message; lang: Lang; t: CopyObj; onTryAnother: (newModel?: string) => void; onFork?: () => void }) {
+function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: { message: Message; lang: Lang; t: CopyObj; onTryAnother: (newModel?: string) => void; onFork?: () => void; onShare?: () => void }) {
   if (message.role === 'user') {
     return <D1UserMessage content={message.content} lang={lang} />;
   }
@@ -1493,6 +1510,7 @@ function D1MessageRow({ message, lang, t, onTryAnother, onFork }: { message: Mes
       t={t}
       onTryAnother={onTryAnother}
       onFork={onFork}
+      onShare={onShare}
     />
   );
 }
@@ -1530,6 +1548,7 @@ function D1AssistantMessage({
   t,
   onTryAnother,
   onFork,
+  onShare,
 }: {
   content: string;
   streaming?: boolean;
@@ -1541,6 +1560,7 @@ function D1AssistantMessage({
   t: CopyObj;
   onTryAnother?: (newModel?: string) => void;
   onFork?: () => void;
+  onShare?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -1614,6 +1634,25 @@ function D1AssistantMessage({
               <RefreshIcon />
               {t.regenerate}
             </button>
+
+            {/* [2026-04-26] Sprint 3 (16384367) — Share button */}
+            {onShare && (
+              <button
+                onClick={onShare}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
+                style={{ color: tokens.textDim }}
+                title={lang === 'ko' ? '공유' : 'Share'}
+              >
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx={18} cy={5} r={3} />
+                  <circle cx={6} cy={12} r={3} />
+                  <circle cx={18} cy={19} r={3} />
+                  <line x1={8.59} y1={13.51} x2={15.42} y2={17.49} />
+                  <line x1={15.41} y1={6.51} x2={8.59} y2={10.49} />
+                </svg>
+                {lang === 'ko' ? '공유' : 'Share'}
+              </button>
+            )}
 
             {/* Message meta footer */}
             {modelInfo && (
