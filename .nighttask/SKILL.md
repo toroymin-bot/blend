@@ -1306,3 +1306,63 @@ gx.append_dev_row({
 - Confluence 페이지 ID는 설정에서 확인하거나 기존 페이지 검색
 
 **이 3가지는 매 커밋마다 반드시 실행. QA 테스트 후 결과 기록과 동일하게 절대 빠뜨리면 안됨.**
+
+---
+
+## STEP 11 — Telegram 일일 개발 일지 요약 푸시 (Tori 명세 v3, 페이지 16416965)
+
+nighttask 마지막 단계. 어제 작업 결과를 JSON으로 빌드해서 `blend-daily-report` 워커에 push.
+워커는 KST 08:35 cron에서 KV에 저장된 데이터를 읽어 텔레그램으로 자동 전송.
+
+### 11.1 환경 변수
+
+```bash
+# Roy가 nighttask 환경에 등록한 값
+KOMI_PUSH_TOKEN=<openssl rand -hex 32 결과>      # 워커 secret과 동일
+WORKER_URL=https://blend-daily-report.<account>.workers.dev
+```
+
+### 11.2 summary.json 빌드
+
+날짜는 어제 (KST 기준 `YYYY-MM-DD`). 필드는 `Blend/workers-daily-report/sample-summary.json` 참고:
+
+| 필드 | 출처 |
+|---|---|
+| `date` | 어제 날짜 (KST) |
+| `tasks[]` | 오늘 처리한 작업 — Confluence 일지 / 커밋 메시지 / Roy 지시에서 추출. status: success / failed / in_progress / skipped |
+| `bugs[]` | `Blend_QA_Task.xlsx` Bug Report 시트에서 어제 status 변경된 행. status: resolved / found / fix_requested / re_test_pending |
+| `improvements[]` | `Blend_QA_Task.xlsx` Improvement Requests 시트에서 어제 status 변경된 행. status: applied / pending_approval / approved / declined |
+| `stats` | `git log --since=yesterday --shortstat` → filesChanged / additions / deletions / commitCount |
+| `links.qaTask` | OneDrive Blend_QA_Task.xlsx URL |
+| `links.devLogPage` | 오늘 작성/업데이트한 Confluence 개발일지 URL |
+| `links.repo` | `https://github.com/toroymin-bot/blend` |
+
+각 항목 `commitShas`는 7자 또는 full SHA 모두 OK (워커가 7자로 줄여 표기 + 링크).
+
+### 11.3 POST 요청
+
+```bash
+curl -X POST "$WORKER_URL/push-summary" \
+  -H "Authorization: Bearer $KOMI_PUSH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d @summary.json
+```
+
+### 11.4 응답 확인
+
+| 상태 | 의미 | 처리 |
+|---|---|---|
+| 200 | 성공 | KV 저장 OK. 8:35에 자동 전송됨 |
+| 400 | 페이로드 검증 실패 | date 형식 / 배열 타입 검증. 로그 후 재빌드 |
+| 401 | 토큰 불일치 | KOMI_PUSH_TOKEN 확인 |
+| 5xx | 워커/네트워크 | 3회 재시도. 그래도 실패면 다음 nighttask에서 재시도 |
+
+### 11.5 검증
+
+```bash
+# 워커 측 데이터 확인 (telegram 전송은 안 함)
+curl -s "$WORKER_URL/preview?date=$(TZ=Asia/Seoul date -v-1d +%F)"
+```
+
+KOMI_PUSH_TOKEN은 안전 채널로 받은 hex 32자. 노출되면 즉시 회전 (Roy가 워커 + nighttask 둘 다 갱신).
+
