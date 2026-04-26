@@ -1,0 +1,22 @@
+{
+  "date": "2026-04-25",
+  "tasks": [
+    { "title": "회의 PDF/Word 빈 파일 수정", "status": "success",     "commitShas": ["a1b2c3d"] },
+    { "title": "원본 transcript 표시",       "status": "in_progress", "commitShas": ["e5f6g7h"] },
+    { "title": "Pricing v2 명세",            "status": "failed",      "commitShas": ["i9j0k1l"] }
+  ],
+  "bugs": [
+    { "id": "BUG-003", "title": "hydration error",     "status": "resolved",        "commitShas": ["k2l3m4n"] },
+    { "id": "BUG-005", "title": "RAG race condition",  "status": "re_test_pending", "commitShas": ["o5p6q7r"] }
+  ],
+  "improvements": [
+    { "id": "IMP-007", "title": "사이드바 Data Sources 승격", "status": "applied",          "commitShas": ["s8t9u0v"] },
+    { "id": "IMP-008", "title": "Active Sources Bar",        "status": "pending_approval", "commitShas": [] }
+  ],
+  "stats": { "filesChanged": 12, "additions": 890, "deletions": 340, "commitCount": 5 },
+  "links": {
+    "qaTask":     "https://1drv.ms/x/PLACEHOLDER",
+    "devLogPage": "https://ai4min.atlassian.net/wiki/spaces/Blend/pages/PLACEHOLDER",
+    "repo":       "https://github.com/toroymin-bot/blend"
+  }
+}
