@@ -9,7 +9,14 @@
 
 import { useEffect, useState } from 'react';
 import { useDataSourceStore } from '@/stores/datasource-store';
-import type { DataSource, DataSourceType } from '@/types';
+import type { DataSource, DataSourceType, DataSourceSelection } from '@/types';
+// [2026-04-26 Tori 16384118 §3] Picker + Cost preview + Subscribe
+import { openGoogleDrivePicker } from '@/modules/datasources/pickers/google-drive-picker';
+import { openOneDrivePicker } from '@/modules/datasources/pickers/onedrive-picker';
+import { validateSelections, describeValidationError, MAX_FILES_PER_FOLDER } from '@/modules/datasources/pickers/picker-shared';
+import { CostPreviewModal } from '@/modules/datasources/cost-preview-modal';
+import { subscribeGoogleDriveChanges } from '@/lib/sync/google-drive-subscribe';
+import { subscribeOneDriveChanges } from '@/lib/sync/onedrive-subscribe';
 // P2.2 OAuth 직접 흐름 (Tori 명세 — LegacyHandoff 제거)
 import { requestGoogleAccessToken, scanDriveFolder } from '@/lib/connectors/google-drive-connector';
 import { requestOneDriveAccessToken, scanOneDriveFolder } from '@/lib/connectors/onedrive-connector';
@@ -165,6 +172,13 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const [connecting, setConnecting]       = useState(false);
   const [connectErr, setConnectErr]       = useState<string | null>(null);
 
+  // [2026-04-26 Tori 16384118 §3] Picker → 비용 미리보기 → Subscribe 흐름
+  const [pendingPicker, setPendingPicker] = useState<{
+    type: DataSourceType;
+    accessToken: string;
+    selections: DataSourceSelection[];
+  } | null>(null);
+
   // P2.2 보강 — 동기화: 루트 폴더 스캔 → fileCount 업데이트
   async function runSync(source: DataSource) {
     setStatus(source.id, 'syncing');
@@ -188,27 +202,47 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     }
   }
 
+  // [2026-04-26 Tori 16384118 §3] OAuth → Picker → 비용 모달 → Subscribe → addSource
   async function runConnect(type: DataSourceType) {
     setConnecting(true);
     setConnectErr(null);
     try {
+      let accessToken: string;
+      let selections: DataSourceSelection[] | null = null;
+
       if (type === 'google-drive') {
         const clientId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID;
-        if (!clientId) { setConnectErr(t.connectErrMissingId); return; }
-        const token = await requestGoogleAccessToken(clientId);
-        addSource(
-          { type: 'google-drive', clientId, accessToken: token, tokenExpiry: Date.now() + 3600_000 },
-          'Google Drive',
-        );
+        const pickerKey = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY;
+        if (!clientId)  { setConnectErr(t.connectErrMissingId); return; }
+        if (!pickerKey) { setConnectErr('Picker API key missing (NEXT_PUBLIC_GOOGLE_PICKER_API_KEY)'); return; }
+        accessToken = await requestGoogleAccessToken(clientId);
+        selections  = await openGoogleDrivePicker({ accessToken, apiKey: pickerKey });
       } else if (type === 'onedrive') {
         const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID;
         if (!clientId) { setConnectErr(t.connectErrMissingId); return; }
-        const token = await requestOneDriveAccessToken(clientId);
-        addSource(
-          { type: 'onedrive', clientId, accessToken: token, tokenExpiry: Date.now() + 3600_000 },
-          'OneDrive',
-        );
+        accessToken = await requestOneDriveAccessToken(clientId);
+        const tenant = (process.env.NEXT_PUBLIC_ONEDRIVE_TENANT as 'common' | 'consumers' | 'organizations' | undefined) ?? 'common';
+        selections  = await openOneDrivePicker({ accessToken, tenant, locale: lang });
+      } else {
+        setConnectTarget(null);
+        return;
       }
+
+      // 사용자가 Picker 취소
+      if (!selections || selections.length === 0) {
+        setConnectErr(t.connectErrCancelled);
+        return;
+      }
+
+      // 검증 (max 20 / per-folder cap / 화이트리스트)
+      const validation = validateSelections(selections);
+      if (!validation.ok) {
+        setConnectErr(describeValidationError(validation.reason, lang));
+        return;
+      }
+
+      // 비용 미리보기 모달로 진입
+      setPendingPicker({ type, accessToken, selections });
       setConnectTarget(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Connection failed';
@@ -218,6 +252,50 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     } finally {
       setConnecting(false);
     }
+  }
+
+  // [2026-04-26] 비용 모달 [동기화 시작] 클릭 시 — addSource + Subscribe.
+  async function confirmAndStartSync(opts?: { capTop200?: boolean }) {
+    if (!pendingPicker) return;
+    const { type, accessToken, selections } = pendingPicker;
+    const finalSelections = opts?.capTop200
+      ? selections.map((s) => s.kind === 'folder'
+          ? { ...s, fileCountCap: MAX_FILES_PER_FOLDER, totalFileCount: Math.min(s.totalFileCount, MAX_FILES_PER_FOLDER) }
+          : s)
+      : selections;
+
+    const tokenExpiry = Date.now() + 3600_000;
+    let created;
+    if (type === 'google-drive') {
+      const clientId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID!;
+      created = addSource(
+        { type: 'google-drive', clientId, accessToken, tokenExpiry },
+        'Google Drive',
+      );
+    } else {
+      const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID!;
+      created = addSource(
+        { type: 'onedrive', clientId, accessToken, tokenExpiry },
+        'OneDrive',
+      );
+    }
+    // selections 패치
+    updateSource(created.id, { selections: finalSelections, syncProgress: 0, syncedCount: 0, totalCount: finalSelections.reduce((s, x) => s + x.totalFileCount, 0) });
+
+    // Worker subscription (best-effort — 실패해도 source는 남음)
+    try {
+      if (type === 'google-drive') {
+        const sub = await subscribeGoogleDriveChanges(created.id, accessToken);
+        updateSource(created.id, { webhookSubscriptionId: sub.channelId, webhookExpiresAt: sub.expiresAt });
+      } else {
+        const sub = await subscribeOneDriveChanges(created.id, accessToken);
+        updateSource(created.id, { webhookSubscriptionId: sub.subscriptionId, webhookExpiresAt: sub.expiresAt });
+      }
+    } catch (e) {
+      console.warn('[datasources] subscribe failed (Webhook 비활성, polling 사용):', (e as Error).message);
+    }
+
+    setPendingPicker(null);
   }
 
   return (
@@ -306,6 +384,18 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           errorMsg={connectErr}
           onCancel={() => { if (!connecting) setConnectTarget(null); }}
           onConfirm={() => runConnect(connectTarget)}
+        />
+      )}
+
+      {/* [2026-04-26 Tori 16384118 §3.5] 비용 미리보기 모달 */}
+      {pendingPicker && (
+        <CostPreviewModal
+          lang={lang}
+          open={!!pendingPicker}
+          selections={pendingPicker.selections}
+          onClose={() => setPendingPicker(null)}
+          onConfirm={() => { void confirmAndStartSync(); }}
+          onCapTop200={() => { void confirmAndStartSync({ capTop200: true }); }}
         />
       )}
     </div>
