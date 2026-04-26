@@ -674,16 +674,16 @@ export function D1SettingsView() {
         </div>
       </main>
 
-      {/* ══ API Key Guide Modal ══ */}
+      {/* ══ API Key Guide Modal — [2026-04-26] 5개 프로바이더 디자인 통일 ══ */}
       {guideProvider && guideData && guideInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setGuideProvider(null)} />
           <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl"
                style={{ background: tokens.surface, border: `1px solid ${tokens.borderMid}`, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             {/* Header */}
-            <div className="flex items-center justify-between border-b px-5 py-4"
+            <div className="flex items-start justify-between border-b px-5 py-4"
                  style={{ borderColor: tokens.border }}>
-              <div>
+              <div className="flex-1">
                 <p className="text-[11px] uppercase tracking-wide" style={{ color: tokens.textFaint }}>
                   {t('settings.api_guide_title')}
                 </p>
@@ -691,29 +691,34 @@ export function D1SettingsView() {
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: guideInfo.color }} />
                   {guideInfo.name}
                 </h2>
+                <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                     style={{
+                       background: guideInfo.cost === 'free' ? '#dcfce7' : '#fee2e2',
+                       color:      guideInfo.cost === 'free' ? '#166534' : '#991b1b',
+                     }}>
+                  <span>{guideInfo.cost === 'free' ? '🟢' : '🔴'}</span>
+                  <span>{guideInfo.cost === 'free' ? t('settings.cost_free') : t('settings.cost_paid')}</span>
+                </div>
               </div>
               <button onClick={() => setGuideProvider(null)} className="p-1" style={{ color: tokens.textFaint }}>
                 <XIcon />
               </button>
             </div>
-            {/* Steps */}
-            <div className="space-y-4 px-5 py-4">
+            {/* Steps — 단계 원형(burnt sienna) + 텍스트만, emoji 제거 */}
+            <div className="space-y-3.5 px-5 py-5">
               {guideData.map((step, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
                        style={{ background: tokens.accent, color: '#fff' }}>
                     {i + 1}
                   </div>
-                  <div className="flex items-start gap-2.5 pt-0.5">
-                    <span className="text-lg leading-none">{step.emoji}</span>
-                    <div>
-                      <p className="text-[13px] font-medium leading-tight" style={{ color: tokens.text }}>
-                        {t(step.titleKey)}
-                      </p>
-                      <p className="mt-0.5 text-[12px]" style={{ color: tokens.textDim }}>
-                        {t(step.descKey)}
-                      </p>
-                    </div>
+                  <div className="flex-1 pt-0.5">
+                    <p className="text-[13px] font-medium leading-tight" style={{ color: tokens.text }}>
+                      {t(step.titleKey)}
+                    </p>
+                    <p className="mt-0.5 text-[12px] leading-[1.5]" style={{ color: tokens.textDim }}>
+                      {t(step.descKey)}
+                    </p>
                   </div>
                 </div>
               ))}

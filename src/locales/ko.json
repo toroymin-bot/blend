@@ -248,6 +248,8 @@
     "delete_preset": "프리셋 '{{name}}' 삭제",
     "api_guide_title": "API 키 받는 방법",
     "go_to_site": "사이트 바로 가기",
+    "cost_free": "무료 사용 가능",
+    "cost_paid": "결제 필요",
     "import_success": "가져오기 완료!",
     "import_error": "잘못된 파일 형식입니다.",
     "guide_visit_site": "사이트 접속",
