@@ -8,8 +8,9 @@ import { getCurrentLanguage } from '@/lib/i18n';
 
 export default function Home() {
   useEffect(() => {
+    // [2026-04-26 Tori 16220538 §2] design1 트랙으로 통일.
     const lang = getCurrentLanguage();
-    window.location.replace(`/${lang}/`);
+    window.location.replace(`/design1/${lang}/`);
   }, []);
 
   // Render nothing while redirect happens

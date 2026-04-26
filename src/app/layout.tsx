@@ -23,11 +23,12 @@ export const metadata: Metadata = {
   title: SITE_TITLE,
   description: SITE_DESC_EN,
   manifest: "/manifest.json",
+  // [2026-04-26 Tori 16220538 §2.7] design1 트랙으로 canonical 통일
   alternates: {
-    canonical: SITE_URL,
+    canonical: `${SITE_URL}/design1/ko`,
     languages: {
-      "ko-KR": `${SITE_URL}/ko`,
-      "en-US": `${SITE_URL}/en`,
+      "ko-KR": `${SITE_URL}/design1/ko`,
+      "en-US": `${SITE_URL}/design1/en`,
     },
   },
   openGraph: {
