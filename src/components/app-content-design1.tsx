@@ -129,11 +129,17 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   const [activeChatIdInSidebar, setActiveChatIdInSidebar] = useState<string | null>(null);
 
   // chat-view에 d1:load-chat 이벤트 전송 + chat 메뉴 활성
+  // [2026-04-26 QA-BUG #3] 다른 view에 있을 때는 D1ChatView가 unmount 상태라
+  // 즉시 dispatch는 listener가 없어 lost. 이를 위해 두 번 발화:
+  //   ① 즉시 (이미 mount된 경우)
+  //   ② 50ms 후 (chat-view mount + useEffect listener 등록될 시간 확보)
   function loadRecentChat(chatId: string) {
     setActiveView('chat');
     setActiveChatIdInSidebar(chatId);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('d1:load-chat', { detail: { id: chatId } }));
+      const fire = () => window.dispatchEvent(new CustomEvent('d1:load-chat', { detail: { id: chatId } }));
+      fire();
+      setTimeout(fire, 50);
     }
   }
 
