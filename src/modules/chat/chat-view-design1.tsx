@@ -144,11 +144,21 @@ function pickSuggestedModel(category: 'small' | 'vision' | 'coding' | 'long'): s
   return ranked[0]?.m.id ?? 'gpt-4o-mini';
 }
 
+// [2026-04-26] Sprint 2 (16384367 §3.2) — 6 카드로 확장 + 툴팁 + routeOverride
 const SUGGESTIONS_WITH_MODEL = [
-  { ko: '이메일 초안 써줘',    en: 'Draft an email',          suggestedModel: pickSuggestedModel('small') },
-  { ko: '이 이미지 분석해줘',  en: 'Analyze this image',      suggestedModel: pickSuggestedModel('vision') },
-  { ko: '코드 리뷰 해줘',      en: 'Review my code',          suggestedModel: pickSuggestedModel('coding') },
-  { ko: '긴 글 요약해줘',      en: 'Summarize a long text',   suggestedModel: pickSuggestedModel('long') },
+  { id: 'email',   ko: '이메일 초안 써줘',    en: 'Draft an email',          suggestedModel: pickSuggestedModel('small'),
+    icon: '✉️', tooltipKo: 'GPT-4o mini가 가장 빠르고 저렴해요',  tooltipEn: 'GPT-4o mini is fastest and cheapest' },
+  { id: 'image',   ko: '이 이미지 분석해줘',  en: 'Analyze this image',      suggestedModel: pickSuggestedModel('vision'),
+    icon: '🖼️', tooltipKo: 'Gemini가 이미지 이해를 가장 잘해요',   tooltipEn: 'Gemini understands images best' },
+  { id: 'code',    ko: '코드 리뷰 해줘',      en: 'Review my code',          suggestedModel: pickSuggestedModel('coding'),
+    icon: '💻', tooltipKo: 'Claude가 코드 분석에 강해요',          tooltipEn: 'Claude excels at code analysis' },
+  { id: 'summary', ko: '긴 글 요약해줘',      en: 'Summarize a long text',   suggestedModel: pickSuggestedModel('long'),
+    icon: '📝', tooltipKo: 'Claude가 긴 문맥을 잘 다뤄요',         tooltipEn: 'Claude handles long context well' },
+  { id: 'youtube', ko: 'YouTube 영상 분석',   en: 'Analyze YouTube video',   suggestedModel: pickSuggestedModel('vision'),
+    icon: '🎥', tooltipKo: 'Gemini가 영상 이해 가능해요',          tooltipEn: 'Gemini can understand videos' },
+  { id: 'meeting', ko: '회의 녹음 정리',      en: 'Summarize a meeting',     suggestedModel: '',
+    icon: '🎙️', routeOverride: 'meeting',
+    tooltipKo: '전용 회의 분석 페이지로 이동',                     tooltipEn: 'Goes to dedicated meeting page' },
 ] as const;
 
 // ============================================================
@@ -348,16 +358,36 @@ export default function D1ChatView({
     return () => clearTimeout(t);
   }, [currentModel]);
 
+  // [2026-04-26] Sprint 2 — 첫 클릭 hint 1회 표시 (localStorage)
+  const [firstClickHintShown, setFirstClickHintShown] = useState(false);
+
   function handleSuggestionClick(s: (typeof SUGGESTIONS_WITH_MODEL)[number]) {
-    const prompt = lang === 'ko' ? s.ko : s.en;
     trackEvent('suggestion_clicked', { model: s.suggestedModel, label: s.ko });
-    setCurrentModel(s.suggestedModel);
+
+    // [2026-04-26] 카드 6 (회의 녹음): 채팅 대신 Meeting 페이지로 이동
+    const route = (s as { routeOverride?: string }).routeOverride;
+    if (route === 'meeting') {
+      window.dispatchEvent(new CustomEvent('d1:nav-to', { detail: { view: 'meeting' } }));
+      return;
+    }
+
+    const prompt = lang === 'ko' ? s.ko : s.en;
+    if (s.suggestedModel) setCurrentModel(s.suggestedModel);
     setTimeout(() => {
       setValue(prompt);
       textareaRef.current?.focus();
     }, 200);
     setInputGlowing(true);
     setTimeout(() => setInputGlowing(false), 800);
+
+    // [2026-04-26] 첫 클릭 hint (1회만)
+    try {
+      if (typeof window !== 'undefined' && !localStorage.getItem('blend:first-click-shown')) {
+        setFirstClickHintShown(true);
+        localStorage.setItem('blend:first-click-shown', 'true');
+        setTimeout(() => setFirstClickHintShown(false), 3000);
+      }
+    } catch {}
   }
 
   function showToast(msg: string) {
@@ -1077,19 +1107,30 @@ Use the [Active...] sections below as your primary knowledge source.
             {MODELS.find((m) => m.id === currentModel)?.name ?? t.modelAuto}
             <ChevronIcon />
           </button>
-          {isTrialMode && (
+          {/* [2026-04-26] Sprint 2 — 트라이얼 단계화 (🟢7-/🟡8-9/🔴10) */}
+          {isTrialMode && (() => {
+            const used = trialMaxPerDay - trialRemaining;
+            const tone = trialRemaining === 0 ? 'red' : used >= 8 ? 'amber' : 'green';
+            const bg = tone === 'red' ? '#fee2e2' : tone === 'amber' ? '#fef3c7' : tokens.accentSoft;
+            const fg = tone === 'red' ? '#991b1b' : tone === 'amber' ? '#92400e' : tokens.accent;
+            const trailKo = trialRemaining === 0 ? '' : (used >= 8 ? ' · 곧 종료' : '');
+            const trailEn = trialRemaining === 0 ? '' : (used >= 8 ? ' · almost done' : '');
+            return (
             <span
               className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium"
-              style={{ background: tokens.accentSoft, color: tokens.accent, fontFamily: fontStack }}
+              style={{ background: bg, color: fg, fontFamily: fontStack }}
               suppressHydrationWarning
             >
               <span style={{ whiteSpace: 'nowrap' }} suppressHydrationWarning>
-                {lang === 'ko'
-                  ? (isMobile ? `무료 · ${trialRemaining}/10` : `무료 체험중 · ${trialRemaining}/10`)
-                  : (isMobile ? `Trial · ${trialRemaining}/10` : `Free trial · ${trialRemaining}/10`)}
+                {trialRemaining === 0
+                  ? (lang === 'ko' ? '무료 체험 종료' : 'Free trial ended')
+                  : lang === 'ko'
+                  ? (isMobile ? `무료 · ${trialRemaining}/10${trailKo}` : `무료 체험중 · ${trialRemaining}/10${trailKo}`)
+                  : (isMobile ? `Trial · ${trialRemaining}/10${trailEn}` : `Free trial · ${trialRemaining}/10${trailEn}`)}
               </span>
             </span>
-          )}
+            );
+          })()}
         </div>
         <div className="flex items-center gap-1">
           <D1IconButton
@@ -1228,28 +1269,48 @@ Use the [Active...] sections below as your primary knowledge source.
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
             />
 
-            {/* Suggestions — desktop only */}
+            {/* Suggestions — desktop only. Sprint 2 (16384367): 6 카드 + icon + ⓘ 툴팁 */}
             <div
               className="mt-4 hidden flex-wrap justify-center gap-2 md:flex"
               style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) 240ms both' }}
             >
               {SUGGESTIONS_WITH_MODEL.map((s) => {
                 const label = lang === 'ko' ? s.ko : s.en;
+                const tooltip = lang === 'ko' ? s.tooltipKo : s.tooltipEn;
                 const modelEntry = MODELS.find(m => m.id === s.suggestedModel);
-                const dotColor = BRAND_COLORS[modelEntry?.brand ?? 'blend'] ?? tokens.accent;
+                const dotColor = (s as { routeOverride?: string }).routeOverride
+                  ? tokens.accent
+                  : (BRAND_COLORS[modelEntry?.brand ?? 'blend'] ?? tokens.accent);
                 return (
                   <button
-                    key={label}
+                    key={s.id}
                     onClick={() => handleSuggestionClick(s)}
-                    className="inline-flex items-center gap-2 rounded-full border bg-transparent px-4 py-2 text-[13.5px] transition-all duration-200 hover:bg-white"
+                    className="group/card inline-flex items-center gap-2 rounded-full border bg-transparent px-3 py-2 text-[13.5px] transition-all duration-200 hover:bg-white"
                     style={{ borderColor: tokens.borderStrong, color: tokens.textDim, fontFamily: fontStack }}
+                    title={tooltip}
                   >
+                    <span aria-hidden className="text-[14px] leading-none">{s.icon}</span>
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: dotColor }} />
                     {label}
                   </button>
                 );
               })}
             </div>
+
+            {/* [2026-04-26] Sprint 2 — 첫 클릭 hint (1회만) */}
+            {firstClickHintShown && (
+              <div
+                className="mx-auto mt-3 inline-flex items-center justify-center rounded-full px-3 py-1 text-[12px]"
+                style={{
+                  background: tokens.accent,
+                  color: '#fff',
+                  animation: 'd1-rise 240ms cubic-bezier(0.16,1,0.3,1) both',
+                }}
+                role="status"
+              >
+                {lang === 'ko' ? '엔터를 눌러 보내세요' : 'Press Enter to send'}
+              </div>
+            )}
 
             <p
               className="mt-3 text-center text-[11.5px]"

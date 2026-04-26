@@ -155,6 +155,16 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     return () => window.removeEventListener('d1:nav-documents', handler);
   }, []);
 
+  // [2026-04-26] Sprint 2 (16384367) — 카드 routeOverride: d1:nav-to 이벤트
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ view?: string }>).detail;
+      if (detail?.view === 'meeting') setActiveView('meeting');
+    };
+    window.addEventListener('d1:nav-to', handler as EventListener);
+    return () => window.removeEventListener('d1:nav-to', handler as EventListener);
+  }, []);
+
   // [2026-04-26] D-3 — 임베딩 키 안내 배너 → Settings 이동
   useEffect(() => {
     const handler = () => setActiveView('settings');
