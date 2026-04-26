@@ -791,6 +791,21 @@ export default function D1ChatView({
       // Tori 명세: store 로딩 완료 대기 (race 방지)
       await docsEnsureLoaded();
       const activeDocs = getActiveDocs();
+      // [2026-04-26] D-4 — 활성 문서가 아직 임베딩 중이면 분석 중 안내 후 LLM 호출 skip
+      const docStoreState = (await import('@/stores/document-store')).useDocumentStore.getState();
+      const syncingActive = activeDocs.some((d) => docStoreState.embedProgress[d.id]?.status === 'embedding');
+      if (syncingActive) {
+        const guideMsg = lang === 'ko'
+          ? '활성 문서를 분석 중이에요. 임베딩이 끝나면 다시 질문해주세요.'
+          : 'Active documents are still being analyzed. Please ask again once embedding finishes.';
+        setMessages((prev) => [...prev, {
+          id: Date.now().toString() + '_pending',
+          role: 'assistant',
+          content: guideMsg,
+        }]);
+        setIsStreaming(false);
+        return;
+      }
       if (activeDocs.length > 0) {
         const embeddingApiKey = getKey('openai') || getKey('google') || undefined;
         const embeddingProvider: 'openai' | 'google' | undefined = getKey('openai') ? 'openai' : getKey('google') ? 'google' : undefined;

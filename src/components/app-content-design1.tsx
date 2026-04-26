@@ -147,6 +147,13 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     return () => window.removeEventListener('d1:nav-documents', handler);
   }, []);
 
+  // [2026-04-26] D-3 — 임베딩 키 안내 배너 → Settings 이동
+  useEffect(() => {
+    const handler = () => setActiveView('settings');
+    window.addEventListener('blend:open-settings', handler as EventListener);
+    return () => window.removeEventListener('blend:open-settings', handler as EventListener);
+  }, []);
+
   function nav(id: ViewId) {
     trackEvent('menu_click', { menu: id });
     setActiveView(id);
