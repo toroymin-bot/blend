@@ -693,11 +693,19 @@ export function D1SettingsView() {
                 </h2>
                 <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
                      style={{
-                       background: guideInfo.cost === 'free' ? '#dcfce7' : '#fee2e2',
-                       color:      guideInfo.cost === 'free' ? '#166534' : '#991b1b',
+                       background:
+                         guideInfo.cost === 'free'  ? '#dcfce7' :
+                         guideInfo.cost === 'trial' ? '#fef3c7' : '#fee2e2',
+                       color:
+                         guideInfo.cost === 'free'  ? '#166534' :
+                         guideInfo.cost === 'trial' ? '#92400e' : '#991b1b',
                      }}>
-                  <span>{guideInfo.cost === 'free' ? '🟢' : '🔴'}</span>
-                  <span>{guideInfo.cost === 'free' ? t('settings.cost_free') : t('settings.cost_paid')}</span>
+                  <span>{guideInfo.cost === 'free' ? '🟢' : guideInfo.cost === 'trial' ? '🟡' : '🔴'}</span>
+                  <span>
+                    {guideInfo.cost === 'free'  ? t('settings.cost_free')  :
+                     guideInfo.cost === 'trial' ? t('settings.cost_trial') :
+                                                  t('settings.cost_paid')}
+                  </span>
                 </div>
               </div>
               <button onClick={() => setGuideProvider(null)} className="p-1" style={{ color: tokens.textFaint }}>
