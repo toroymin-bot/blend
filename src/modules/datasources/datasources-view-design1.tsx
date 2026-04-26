@@ -218,11 +218,13 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
         accessToken = await requestGoogleAccessToken(clientId);
         selections  = await openGoogleDrivePicker({ accessToken, apiKey: pickerKey });
       } else if (type === 'onedrive') {
-        const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID;
-        if (!clientId) { setConnectErr(t.connectErrMissingId); return; }
-        accessToken = await requestOneDriveAccessToken(clientId);
-        const tenant = (process.env.NEXT_PUBLIC_ONEDRIVE_TENANT as 'common' | 'consumers' | 'organizations' | undefined) ?? 'common';
-        selections  = await openOneDrivePicker({ accessToken, tenant, locale: lang });
+        // [2026-04-26 QA-BUG-L/M] OneDrive Picker SDK v8 통신 형식이 검증되지 않아 popup이 깨진 URL/handshake로
+        // 작동 X. Microsoft Graph 직접 사용한 자체 picker UI 도입 전까진 임시 비활성.
+        // OAuth 토큰 발급은 가능하지만 폴더 선택 UI가 없어 사용자에게 명확히 안내.
+        setConnectErr(lang === 'ko'
+          ? 'OneDrive 폴더 선택은 곧 지원돼요. 지금은 Google Drive를 사용해주세요.'
+          : 'OneDrive folder picker is coming soon. Use Google Drive for now.');
+        return;
       } else {
         setConnectTarget(null);
         return;

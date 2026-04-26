@@ -127,7 +127,16 @@ export const useCostStore = create<CostStoreState>((set, get) => ({
 
   setDailyLimit: (n: number) => {
     const s = get();
-    const next: CostStateData = { ...s, dailyLimit: Math.max(0.1, n) };
+    const newLimit = Math.max(0.1, n);
+    // [2026-04-26 QA-BUG-E] limit 늘려서 todayUsed가 새 한도 미만이면 limit_exceeded 자동 재개.
+    // user_paused는 유지 (사용자가 명시적으로 정지한 거라 자동 재개 X).
+    const shouldResume = s.paused && s.pauseReason === 'limit_exceeded' && s.todayUsed < newLimit;
+    const next: CostStateData = {
+      ...s,
+      dailyLimit: newLimit,
+      paused: shouldResume ? false : s.paused,
+      pauseReason: shouldResume ? null : s.pauseReason,
+    };
     set(next);
     persist(next);
   },

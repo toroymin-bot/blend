@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { decodeShare, isExpired, relativeTime, type SharePayload } from '@/lib/share-encoder';
 
 const tokens = {
@@ -38,15 +38,25 @@ const COPY = {
 
 export default function SharePageClient() {
   const params = useParams<{ lang?: string }>();
+  const router = useRouter();
   const lang: 'ko' | 'en' = params?.lang === 'en' ? 'en' : 'ko';
   const t = COPY[lang];
 
   const [token, setToken] = useState<string>('');
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // [2026-04-26 QA-BUG-U] 옛 공유 URL `/{lang}/share?t=...` 접근 시 design1 트랙으로 redirect.
+    // 단 이 컴포넌트는 design1/[lang]/share에서도 재사용되므로 path 검사로 분기.
+    if (window.location.pathname.startsWith('/design1/')) {
+      // design1 트랙 — 정상 렌더
+    } else {
+      const search = window.location.search;
+      router.replace(`/design1/${lang}/share${search}`);
+      return;
+    }
     const sp = new URLSearchParams(window.location.search);
     setToken(sp.get('t') ?? '');
-  }, []);
+  }, [router, lang]);
 
   const decoded: { payload: SharePayload | null; expired: boolean } = useMemo(() => {
     if (!token) return { payload: null, expired: false };
