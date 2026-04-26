@@ -74,6 +74,7 @@
     "@ai-sdk/google": "^3.0.58",
     "@ai-sdk/openai": "^3.0.50",
     "@distube/ytdl-core": "^4.16.12",
+    "@tosspayments/payment-sdk": "^1.9.2",
     "@tosspayments/tosspayments-sdk": "^2.6.0",
     "@types/file-saver": "^2.0.7",
     "@vercel/analytics": "^2.0.1",

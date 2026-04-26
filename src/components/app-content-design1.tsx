@@ -27,7 +27,12 @@ const D1DashboardView    = lazy(() => import('@/modules/dashboard/dashboard-view
 const D1AgentsView       = lazy(() => import('@/modules/agents/agents-view-design1'));
 const D1MeetingView      = lazy(() => import('@/modules/meeting/meeting-view-design1'));
 const D1DataSourcesView  = lazy(() => import('@/modules/datasources/datasources-view-design1'));
-const D1CostSavingsView  = lazy(() => import('@/modules/cost-savings/cost-savings-view-design1'));
+// [2026-04-26] F-3 — cost-savings 메뉴는 D1BillingView mode='savings'를 사용 (사용량/한도/SVG/모델별)
+const D1CostSavingsView  = lazy(() =>
+  import('@/modules/billing/billing-view-design1').then((m) => ({
+    default: (props: { lang: 'ko' | 'en' }) => <m.default {...props} mode="savings" />,
+  }))
+);
 const D1SecurityView     = lazy(() => import('@/modules/security/security-view-design1'));
 const D1AboutView        = lazy(() => import('@/modules/about/about-view-design1'));
 // Roy 결정 2026-04-25: Prompts 메뉴 제거 (PromptsView 컴포넌트 자체는 보존 — '/' 슬래시 명령에 사용 가능)
