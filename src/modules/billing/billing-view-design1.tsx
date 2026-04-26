@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useUsageStore } from '@/stores/usage-store';
+import { useLicenseStore } from '@/stores/license-store';
 
 // ── Design tokens (same as chat-view-design1) ───────────────────
 const tokens = {
@@ -304,7 +305,14 @@ function SVGLineChart({
 }
 
 // ── Main view ────────────────────────────────────────────────────
-export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
+// [2026-04-26] F-3 — mode='pricing' (Billing 메뉴) / 'savings' (Cost Savings 메뉴)
+export default function D1BillingView({
+  lang,
+  mode = 'pricing',
+}: {
+  lang: 'ko' | 'en';
+  mode?: 'pricing' | 'savings';
+}) {
   const t = copy[lang];
 
   // ── Usage data ────────────────────────────────────────────────
@@ -378,6 +386,12 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [payPlan, setPayPlan] = useState<PlanId | null>(null);
 
+  // [2026-04-26] F-2 — 라이센스 store에서 현재 활성 플랜 조회
+  const loadLicense  = useLicenseStore((s) => s.loadFromStorage);
+  const getActivePlan = useLicenseStore((s) => s.getActivePlan);
+  useEffect(() => { loadLicense(); }, [loadLicense]);
+  const activePlan = getActivePlan();
+
   return (
     <div
       className="h-full overflow-y-auto"
@@ -402,17 +416,21 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
         </header>
 
         {/* ══ [2026-04-26] Pricing v2 — Free / Pro / Lifetime ══ */}
-        <PricingSection
-          lang={lang}
-          t={t}
-          billingCycle={billingCycle}
-          setBillingCycle={setBillingCycle}
-          onChoose={(p) => setPayPlan(p)}
-        />
+        {mode === 'pricing' && (
+          <PricingSection
+            lang={lang}
+            t={t}
+            billingCycle={billingCycle}
+            setBillingCycle={setBillingCycle}
+            activePlan={activePlan}
+            onChoose={(p) => setPayPlan(p)}
+          />
+        )}
 
-        {!hasUsage ? (
+        {mode === 'savings' && !hasUsage && (
           <EmptyState lang={lang} />
-        ) : (
+        )}
+        {mode === 'savings' && hasUsage && (
           <>
             {/* ══ Section 1 — Usage summary ══ */}
             <section className="mb-12">
@@ -582,7 +600,8 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
           </>
         )}
 
-        {/* ══ Section 3 — Spending limit (always visible) ══ */}
+        {/* ══ Section 3 — Spending limit (savings 모드에서만) ══ */}
+        {mode === 'savings' && (
         <section>
           <div
             className="rounded-2xl border p-6 md:p-8"
@@ -621,6 +640,7 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
             </div>
           </div>
         </section>
+        )}
 
       </div>
 
@@ -640,12 +660,13 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
 
 // ── [2026-04-26] PricingSection ──────────────────────────────────
 function PricingSection({
-  lang, t, billingCycle, setBillingCycle, onChoose,
+  lang, t, billingCycle, setBillingCycle, activePlan, onChoose,
 }: {
   lang: 'ko' | 'en';
   t: typeof copy[keyof typeof copy];
   billingCycle: BillingCycle;
   setBillingCycle: (c: BillingCycle) => void;
+  activePlan: PlanId;
   onChoose: (plan: PlanId) => void;
 }) {
   const fmtKrwInline = (n: number) => `₩${n.toLocaleString('ko-KR')}`;
@@ -654,6 +675,16 @@ function PricingSection({
 
   const proPriceKrw = billingCycle === 'monthly' ? PRICING.pro.monthlyKrw : PRICING.pro.yearlyKrw;
   const proSuffix   = billingCycle === 'monthly' ? t.perMonth : t.perYear;
+
+  // [2026-04-26] F-2 — 현재 플랜 vs 카드 플랜 매칭 시 "현재 플랜" 표시
+  const ctaFor = (plan: PlanId, defaultLabel: string): { label: string; disabled: boolean } => {
+    if (activePlan === plan) return { label: t.cta_current, disabled: true };
+    // lifetime 보유자는 다른 카드 모두 "현재 플랜" (downgrade 의미 없음)
+    if (activePlan === 'lifetime') return { label: t.cta_current, disabled: true };
+    return { label: defaultLabel, disabled: false };
+  };
+  const proCta      = ctaFor('pro', t.cta_upgrade);
+  const lifetimeCta = ctaFor('lifetime', t.cta_lifetime);
 
   return (
     <section className="mb-12 md:mb-14">
@@ -688,7 +719,8 @@ function PricingSection({
           priceLabel={money(proPriceKrw)}
           priceSuffix={proSuffix}
           features={t.plan_pro_features}
-          cta={t.cta_upgrade}
+          cta={proCta.label}
+          ctaDisabled={proCta.disabled}
           highlight
           onChoose={onChoose}
         />
@@ -699,7 +731,8 @@ function PricingSection({
           priceLabel={money(PRICING.lifetime.onceKrw)}
           priceSuffix={` · ${t.once}`}
           features={t.plan_lifetime_features}
-          cta={t.cta_lifetime}
+          cta={lifetimeCta.label}
+          ctaDisabled={lifetimeCta.disabled}
           onChoose={onChoose}
         />
       </div>
@@ -822,6 +855,9 @@ function PaymentStubModal({
   t: typeof copy[keyof typeof copy];
   onClose: () => void;
 }) {
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
   const planName = plan === 'pro' ? t.plan_pro : plan === 'lifetime' ? t.plan_lifetime : t.plan_free;
   const priceKrw = plan === 'lifetime'
     ? PRICING.lifetime.onceKrw
@@ -830,6 +866,33 @@ function PaymentStubModal({
     ? `₩${priceKrw.toLocaleString('ko-KR')}`
     : `$${(priceKrw / KRW_PER_USD).toFixed(0)}`;
   const suffix = plan === 'lifetime' ? t.once : (billingCycle === 'monthly' ? t.perMonth : t.perYear);
+
+  // [2026-04-26] F-1 — Toss Payments 결제 활성 여부 (ENV로 제어)
+  const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? '';
+  const tossEnabled = tossClientKey.length > 0;
+
+  async function handleTossPay() {
+    setPayError(null);
+    setPaying(true);
+    try {
+      const { loadTossPayments } = await import('@tosspayments/payment-sdk');
+      const tossPayments = await loadTossPayments(tossClientKey);
+      const orderId = `blend-${plan}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const orderName = `Blend ${planName} (${plan === 'lifetime' ? 'Lifetime' : billingCycle === 'monthly' ? 'Monthly' : 'Yearly'})`;
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      await tossPayments.requestPayment('카드', {
+        amount: priceKrw,
+        orderId,
+        orderName,
+        successUrl: `${origin}/${lang}/payment/success`,
+        failUrl: `${origin}/${lang}/payment/fail`,
+      });
+      // requestPayment는 redirect되므로 보통 여기까지 도달하지 않음
+    } catch (e) {
+      setPayError((e as Error)?.message ?? 'Toss payment failed');
+      setPaying(false);
+    }
+  }
 
   return (
     <div
@@ -850,32 +913,72 @@ function PaymentStubModal({
             {priceLabel}
             <span className="ml-1 text-[13px]" style={{ color: tokens.textFaint }}>{suffix}</span>
           </h3>
-          <h4 className="mt-4 text-[14px] font-medium" style={{ color: tokens.text }}>
-            {t.payTitle}
-          </h4>
-          <p className="mt-2 text-[13px] leading-[1.55]" style={{ color: tokens.textDim }}>
-            {t.payDesc}
-          </p>
-          <div className="mt-5 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                window.location.href = `mailto:hello@blend.ai?subject=${encodeURIComponent('Blend ' + planName + ' launch')}`;
-              }}
-              className="flex-1 rounded-xl px-3 py-2.5 text-[13px] font-medium"
-              style={{ background: tokens.accent, color: '#fff' }}
-            >
-              {t.payNotify}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl px-3 py-2.5 text-[13px] font-medium"
-              style={{ background: tokens.surfaceAlt, color: tokens.text }}
-            >
-              {t.payClose}
-            </button>
-          </div>
+          {tossEnabled ? (
+            <>
+              <h4 className="mt-4 text-[14px] font-medium" style={{ color: tokens.text }}>
+                {lang === 'ko' ? '카드로 결제' : 'Pay with card'}
+              </h4>
+              <p className="mt-2 text-[13px] leading-[1.55]" style={{ color: tokens.textDim }}>
+                {lang === 'ko'
+                  ? 'Toss Payments 안전 결제 페이지로 이동해요. 카드 정보는 Blend 서버에 저장되지 않아요.'
+                  : 'You will be redirected to the secure Toss Payments page. Your card details never touch our server.'}
+              </p>
+              {payError && (
+                <p className="mt-3 text-[12px]" style={{ color: '#dc2626' }}>{payError}</p>
+              )}
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  disabled={paying}
+                  onClick={handleTossPay}
+                  className="flex-1 rounded-xl px-3 py-2.5 text-[13px] font-medium disabled:opacity-50"
+                  style={{ background: tokens.accent, color: '#fff' }}
+                >
+                  {paying
+                    ? (lang === 'ko' ? '결제 페이지로 이동 중…' : 'Redirecting…')
+                    : `${priceLabel} ${lang === 'ko' ? '결제' : 'Pay'}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={paying}
+                  className="rounded-xl px-3 py-2.5 text-[13px] font-medium disabled:opacity-50"
+                  style={{ background: tokens.surfaceAlt, color: tokens.text }}
+                >
+                  {t.payClose}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h4 className="mt-4 text-[14px] font-medium" style={{ color: tokens.text }}>
+                {t.payTitle}
+              </h4>
+              <p className="mt-2 text-[13px] leading-[1.55]" style={{ color: tokens.textDim }}>
+                {t.payDesc}
+              </p>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = `mailto:hello@blend.ai?subject=${encodeURIComponent('Blend ' + planName + ' launch')}`;
+                  }}
+                  className="flex-1 rounded-xl px-3 py-2.5 text-[13px] font-medium"
+                  style={{ background: tokens.accent, color: '#fff' }}
+                >
+                  {t.payNotify}
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl px-3 py-2.5 text-[13px] font-medium"
+                  style={{ background: tokens.surfaceAlt, color: tokens.text }}
+                >
+                  {t.payClose}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
