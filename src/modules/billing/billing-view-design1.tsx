@@ -60,11 +60,66 @@ const DEFAULT_LIMIT: SpendingLimit = {
   autoStop: false,
 };
 
+// ── [2026-04-26] Pricing v2 plans (Tori 명세) ────────────────────
+type PlanId = 'free' | 'pro' | 'lifetime';
+type BillingCycle = 'monthly' | 'yearly';
+
+const PRICING = {
+  pro: {
+    monthlyKrw: 12420,
+    yearlyKrw:  124200, // 10x = 2개월 무료
+  },
+  lifetime: {
+    onceKrw: 40020,
+  },
+} as const;
+
 // ── Copy ─────────────────────────────────────────────────────────
 const copy = {
   ko: {
     head:          '모든 AI를 하나의 키로.',
     sub:           '하나로, 더 싸게, 더 스마트하게.',
+    // Pricing v2
+    plansHead:     '요금제',
+    plansSub:      '필요한 만큼만, 평생 한 번, 또는 매달 — 골라쓰세요.',
+    monthly:       '월간',
+    yearly:        '연간',
+    yearlyBadge:   '2개월 무료',
+    perMonth:      '/월',
+    perYear:       '/년',
+    once:          '1회 결제',
+    free:          '무료',
+    plan_free:     '무료',
+    plan_pro:      'Pro',
+    plan_lifetime: 'Lifetime',
+    plan_free_desc: 'API 키 BYOK · 핵심 기능 무제한.',
+    plan_pro_desc:  '체험 키 + 우선 신모델 + 고급 RAG.',
+    plan_lifetime_desc: 'Pro의 모든 기능을 평생.',
+    plan_free_features: [
+      '내 API 키로 모든 AI 무제한',
+      '회의 분석 · 문서 RAG',
+      '데이터 소스 연동',
+    ],
+    plan_pro_features: [
+      'Free의 모든 기능',
+      '키 없이도 일일 무료 체험',
+      '신모델 우선 적용',
+      '고급 RAG · 임베딩 검색',
+      '우선 응대',
+    ],
+    plan_lifetime_features: [
+      'Pro의 모든 기능',
+      '평생 라이센스 (1회 결제)',
+      '미래 신기능 자동 포함',
+    ],
+    cta_current:    '현재 플랜',
+    cta_choose:     '선택하기',
+    cta_upgrade:    '업그레이드',
+    cta_lifetime:   '평생 구매',
+    payTitle:       '결제 준비 중',
+    payDesc:        '결제 시스템(Toss / Xendit / 카드)을 곧 연결해요. 출시 알림을 받으시려면 아래 버튼을 눌러주세요.',
+    payNotify:      '출시 알림 받기',
+    payClose:       '닫기',
     thisMonth:     '이번 달',
     spent:         '사용',
     // v3 비교 라벨: "만약, Blend 없이 매달 ₩82,200"
@@ -98,6 +153,46 @@ const copy = {
   en: {
     head:          'Every AI, with one key.',
     sub:           'One AI app — cheaper and smarter.',
+    plansHead:     'Plans',
+    plansSub:      'Pay-as-you-go, once forever, or monthly — pick what fits.',
+    monthly:       'Monthly',
+    yearly:        'Yearly',
+    yearlyBadge:   '2 months free',
+    perMonth:      '/mo',
+    perYear:       '/yr',
+    once:          'One-time',
+    free:          'Free',
+    plan_free:     'Free',
+    plan_pro:      'Pro',
+    plan_lifetime: 'Lifetime',
+    plan_free_desc: 'BYOK · unlimited core features.',
+    plan_pro_desc:  'Trial key + priority new models + advanced RAG.',
+    plan_lifetime_desc: 'Everything in Pro, forever.',
+    plan_free_features: [
+      'Unlimited AI with your own keys',
+      'Meeting analysis · document RAG',
+      'Data source connectors',
+    ],
+    plan_pro_features: [
+      'All Free features',
+      'Daily free trial without a key',
+      'Priority access to new models',
+      'Advanced RAG · embedding search',
+      'Priority support',
+    ],
+    plan_lifetime_features: [
+      'All Pro features',
+      'Lifetime license (one-time)',
+      'Future features included',
+    ],
+    cta_current:    'Current plan',
+    cta_choose:     'Choose',
+    cta_upgrade:    'Upgrade',
+    cta_lifetime:   'Get Lifetime',
+    payTitle:       'Payment coming soon',
+    payDesc:        'Toss / Xendit / Card checkout will be wired up shortly. Tap below to get a launch notification.',
+    payNotify:      'Notify me at launch',
+    payClose:       'Close',
     thisMonth:     'This month',
     spent:         'spent',
     // v3 비교 라벨: "If you paid for each — $60.00/month"
@@ -279,6 +374,10 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
     try { localStorage.setItem(LIMIT_STORAGE_KEY, JSON.stringify(next)); } catch {}
   }
 
+  // [2026-04-26] Pricing v2 상태
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+  const [payPlan, setPayPlan] = useState<PlanId | null>(null);
+
   return (
     <div
       className="h-full overflow-y-auto"
@@ -287,7 +386,7 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
       <div className="mx-auto w-full max-w-3xl px-6 py-12 md:py-16">
 
         {/* ══ Hero ══ */}
-        <header className="mb-12 md:mb-16">
+        <header className="mb-10 md:mb-12">
           <h1
             className="text-[32px] md:text-[40px] font-medium leading-[1.15] tracking-tight"
             style={{ color: tokens.text }}
@@ -301,6 +400,15 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
             {t.sub}
           </p>
         </header>
+
+        {/* ══ [2026-04-26] Pricing v2 — Free / Pro / Lifetime ══ */}
+        <PricingSection
+          lang={lang}
+          t={t}
+          billingCycle={billingCycle}
+          setBillingCycle={setBillingCycle}
+          onChoose={(p) => setPayPlan(p)}
+        />
 
         {!hasUsage ? (
           <EmptyState lang={lang} />
@@ -514,6 +622,261 @@ export default function D1BillingView({ lang }: { lang: 'ko' | 'en' }) {
           </div>
         </section>
 
+      </div>
+
+      {/* [2026-04-26] Pricing v2 — 결제 stub 모달 */}
+      {payPlan && (
+        <PaymentStubModal
+          plan={payPlan}
+          billingCycle={billingCycle}
+          lang={lang}
+          t={t}
+          onClose={() => setPayPlan(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── [2026-04-26] PricingSection ──────────────────────────────────
+function PricingSection({
+  lang, t, billingCycle, setBillingCycle, onChoose,
+}: {
+  lang: 'ko' | 'en';
+  t: typeof copy[keyof typeof copy];
+  billingCycle: BillingCycle;
+  setBillingCycle: (c: BillingCycle) => void;
+  onChoose: (plan: PlanId) => void;
+}) {
+  const fmtKrwInline = (n: number) => `₩${n.toLocaleString('ko-KR')}`;
+  const fmtUsdInline = (krw: number) => `$${(krw / KRW_PER_USD).toFixed(0)}`;
+  const money = (krw: number) => (lang === 'ko' ? fmtKrwInline(krw) : fmtUsdInline(krw));
+
+  const proPriceKrw = billingCycle === 'monthly' ? PRICING.pro.monthlyKrw : PRICING.pro.yearlyKrw;
+  const proSuffix   = billingCycle === 'monthly' ? t.perMonth : t.perYear;
+
+  return (
+    <section className="mb-12 md:mb-14">
+      <div className="mb-5 flex items-end justify-between">
+        <div>
+          <h2 className="text-[22px] md:text-[24px] font-medium tracking-tight" style={{ color: tokens.text }}>
+            {t.plansHead}
+          </h2>
+          <p className="mt-1 text-[13px]" style={{ color: tokens.textDim }}>
+            {t.plansSub}
+          </p>
+        </div>
+        <CycleToggle billingCycle={billingCycle} setBillingCycle={setBillingCycle} t={t} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <PlanCard
+          plan="free"
+          name={t.plan_free}
+          desc={t.plan_free_desc}
+          priceLabel={t.free}
+          priceSuffix=""
+          features={t.plan_free_features}
+          cta={t.cta_current}
+          ctaDisabled
+          onChoose={onChoose}
+        />
+        <PlanCard
+          plan="pro"
+          name={t.plan_pro}
+          desc={t.plan_pro_desc}
+          priceLabel={money(proPriceKrw)}
+          priceSuffix={proSuffix}
+          features={t.plan_pro_features}
+          cta={t.cta_upgrade}
+          highlight
+          onChoose={onChoose}
+        />
+        <PlanCard
+          plan="lifetime"
+          name={t.plan_lifetime}
+          desc={t.plan_lifetime_desc}
+          priceLabel={money(PRICING.lifetime.onceKrw)}
+          priceSuffix={` · ${t.once}`}
+          features={t.plan_lifetime_features}
+          cta={t.cta_lifetime}
+          onChoose={onChoose}
+        />
+      </div>
+    </section>
+  );
+}
+
+function CycleToggle({
+  billingCycle, setBillingCycle, t,
+}: {
+  billingCycle: BillingCycle;
+  setBillingCycle: (c: BillingCycle) => void;
+  t: typeof copy[keyof typeof copy];
+}) {
+  return (
+    <div
+      className="inline-flex items-center rounded-full border p-0.5 text-[12px]"
+      style={{ borderColor: tokens.border, background: tokens.surface }}
+    >
+      {(['monthly', 'yearly'] as const).map((c) => {
+        const active = billingCycle === c;
+        return (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setBillingCycle(c)}
+            className="relative rounded-full px-3 py-1.5 transition-colors"
+            style={{
+              background: active ? tokens.accent : 'transparent',
+              color: active ? '#fff' : tokens.textDim,
+              fontWeight: active ? 600 : 400,
+            }}
+          >
+            {c === 'monthly' ? t.monthly : t.yearly}
+            {c === 'yearly' && !active && (
+              <span
+                className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]"
+                style={{ background: tokens.accentSoft, color: tokens.accent, fontWeight: 600 }}
+              >
+                {t.yearlyBadge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlanCard({
+  plan, name, desc, priceLabel, priceSuffix, features, cta, ctaDisabled, highlight, onChoose,
+}: {
+  plan: PlanId;
+  name: string;
+  desc: string;
+  priceLabel: string;
+  priceSuffix: string;
+  features: readonly string[];
+  cta: string;
+  ctaDisabled?: boolean;
+  highlight?: boolean;
+  onChoose: (plan: PlanId) => void;
+}) {
+  return (
+    <div
+      className="flex flex-col rounded-2xl border p-6"
+      style={{
+        background: highlight ? tokens.accentSoft : tokens.surface,
+        borderColor: highlight ? tokens.accent : tokens.border,
+        boxShadow: highlight ? '0 8px 24px rgba(0,0,0,0.06)' : 'none',
+      }}
+    >
+      <div className="mb-1 text-[14px] font-semibold" style={{ color: tokens.text }}>
+        {name}
+      </div>
+      <p className="mb-5 text-[12.5px]" style={{ color: tokens.textDim }}>
+        {desc}
+      </p>
+      <div className="mb-5 flex items-baseline gap-1.5">
+        <span className="text-[28px] font-medium tracking-tight" style={{ color: tokens.text }}>
+          {priceLabel}
+        </span>
+        {priceSuffix && (
+          <span className="text-[13px]" style={{ color: tokens.textFaint }}>
+            {priceSuffix}
+          </span>
+        )}
+      </div>
+      <ul className="mb-6 flex-1 space-y-2 text-[13px]" style={{ color: tokens.text }}>
+        {features.map((f, i) => (
+          <li key={i} className="flex items-start gap-2">
+            <span style={{ color: tokens.accent }}>•</span>
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        disabled={ctaDisabled}
+        onClick={() => !ctaDisabled && onChoose(plan)}
+        className="w-full rounded-xl px-3 py-2.5 text-[13px] font-medium transition-opacity disabled:opacity-50"
+        style={{
+          background: highlight ? tokens.accent : tokens.text,
+          color: highlight ? '#fff' : tokens.bg,
+          cursor: ctaDisabled ? 'default' : 'pointer',
+        }}
+      >
+        {cta}
+      </button>
+    </div>
+  );
+}
+
+function PaymentStubModal({
+  plan, billingCycle, lang, t, onClose,
+}: {
+  plan: PlanId;
+  billingCycle: BillingCycle;
+  lang: 'ko' | 'en';
+  t: typeof copy[keyof typeof copy];
+  onClose: () => void;
+}) {
+  const planName = plan === 'pro' ? t.plan_pro : plan === 'lifetime' ? t.plan_lifetime : t.plan_free;
+  const priceKrw = plan === 'lifetime'
+    ? PRICING.lifetime.onceKrw
+    : billingCycle === 'monthly' ? PRICING.pro.monthlyKrw : PRICING.pro.yearlyKrw;
+  const priceLabel = lang === 'ko'
+    ? `₩${priceKrw.toLocaleString('ko-KR')}`
+    : `$${(priceKrw / KRW_PER_USD).toFixed(0)}`;
+  const suffix = plan === 'lifetime' ? t.once : (billingCycle === 'monthly' ? t.perMonth : t.perYear);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+      style={{ background: 'rgba(0,0,0,0.32)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-2xl"
+        style={{ background: tokens.surface, color: tokens.text, boxShadow: '0 24px 60px rgba(0,0,0,0.18)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 py-5">
+          <div className="mb-1 text-[12px] uppercase tracking-[0.08em]" style={{ color: tokens.accent }}>
+            {planName}
+          </div>
+          <h3 className="text-[20px] font-semibold tracking-tight" style={{ color: tokens.text }}>
+            {priceLabel}
+            <span className="ml-1 text-[13px]" style={{ color: tokens.textFaint }}>{suffix}</span>
+          </h3>
+          <h4 className="mt-4 text-[14px] font-medium" style={{ color: tokens.text }}>
+            {t.payTitle}
+          </h4>
+          <p className="mt-2 text-[13px] leading-[1.55]" style={{ color: tokens.textDim }}>
+            {t.payDesc}
+          </p>
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = `mailto:hello@blend.ai?subject=${encodeURIComponent('Blend ' + planName + ' launch')}`;
+              }}
+              className="flex-1 rounded-xl px-3 py-2.5 text-[13px] font-medium"
+              style={{ background: tokens.accent, color: '#fff' }}
+            >
+              {t.payNotify}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl px-3 py-2.5 text-[13px] font-medium"
+              style={{ background: tokens.surfaceAlt, color: tokens.text }}
+            >
+              {t.payClose}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
