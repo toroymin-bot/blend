@@ -154,6 +154,36 @@ export interface DataSource {
   error?: string;
   // Tori 핫픽스 (2026-04-25): 채팅에서 RAG 활성화 여부 (연결 시 자동 true)
   isActive?: boolean;
+
+  // [2026-04-26 Tori 16384118 §3] Picker + 자동 동기화 + 비용
+  selections?: DataSourceSelection[];      // 사용자가 명시 선택한 폴더/파일 (max 20)
+  syncProgress?: number;                   // 0-100
+  syncedCount?: number;
+  totalCount?: number;
+  errorReason?: 'no_key' | 'oauth_expired' | 'limit_exceeded' | 'unknown';
+  webhookSubscriptionId?: string;          // Worker가 발급
+  webhookExpiresAt?: number;               // 갱신 필요 시점 (ms)
+  todayEmbeddingCost?: number;             // $ 단위 (자정 리셋)
+  totalEmbeddingCost?: number;
+}
+
+// [2026-04-26 Tori 16384118 §3.1] 폴더/파일 명시 선택
+export type SelectionKind = 'file' | 'folder';
+
+export interface DataSourceSelection {
+  id: string;                              // Drive/OneDrive file/folder ID
+  kind: SelectionKind;
+  name: string;
+  path: string;                            // 사용자 표시용 절대 경로
+
+  // 폴더 전용
+  includeSubfolders?: boolean;             // 기본 false
+  fileCountCap?: number;                   // 기본 200
+
+  // 인덱싱 상태 (현재 selection 단위)
+  indexedFileCount: number;
+  totalFileCount: number;
+  approxBytes?: number;                    // 비용 추정용
 }
 
 // ── Meeting Analysis ──────────────────────────────────────────────────────────
