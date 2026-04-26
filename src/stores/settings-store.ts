@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { AppSettings, AIModel } from '@/types';
+import { safeSetItem } from '@/lib/safe-storage';
 
 export interface SystemPromptPreset {
   id: string;
@@ -96,11 +97,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
     const { settings, systemPrompt, systemPromptPresets, customModels } = get();
-    // [2026-04-19 01:00] fixed — added try-catch for localStorage quota exceeded errors
-    try {
-      localStorage.setItem('blend:settings', JSON.stringify({ settings, systemPrompt, systemPromptPresets, customModels }));
-    } catch (e) {
-      console.warn('[settings-store] localStorage save failed (quota exceeded?):', e);
-    }
+    safeSetItem('blend:settings', JSON.stringify({ settings, systemPrompt, systemPromptPresets, customModels }), 'settings');
   },
 }));

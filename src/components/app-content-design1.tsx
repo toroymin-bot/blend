@@ -38,6 +38,8 @@ const D1CostSavingsView  = lazy(() =>
 
 // [2026-04-26] Sprint 1 (16384367) — Welcome Demo
 import { WelcomeDemo, hasSeenWelcome } from '@/components/welcome-demo';
+// [2026-04-27 BUG-005] localStorage quota exceeded surface
+import { StorageQuotaToast } from '@/components/storage-quota-toast';
 // [2026-04-26 Tori 16384118 §3.8~§3.10] 비용 한도 알림
 import { CostAlertModal } from '@/modules/datasources/cost-alert-modal';
 import { useCostStore } from '@/stores/d1-cost-store';
@@ -557,6 +559,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
         onStart={() => { setWelcomeOpen(false); setActiveView('chat'); }}
         onGuide={() => { setWelcomeOpen(false); setActiveView('settings'); }}
       />
+
+      {/* [2026-04-27 BUG-005] localStorage quota exceeded toast */}
+      <StorageQuotaToast onOpenSecurity={() => setActiveView('security')} />
 
       {/* [2026-04-26 Tori 16384118 §3.9] 비용 한도 알림 모달 */}
       <CostAlertModal

@@ -6,6 +6,7 @@
 
 import { create } from 'zustand';
 import { APIKeyConfig, AIProvider } from '@/types';
+import { safeSetItem } from '@/lib/safe-storage';
 
 const getEnvKey = (_provider: AIProvider): string => '';
 
@@ -73,10 +74,6 @@ export const useAPIKeyStore = create<APIKeyState>((set, get) => ({
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem('blend:api-keys', JSON.stringify(get().keys));
-    } catch (e) {
-      console.warn('[api-key-store] localStorage save failed (quota exceeded?):', e);
-    }
+    safeSetItem('blend:api-keys', JSON.stringify(get().keys), 'api-keys');
   },
 }));

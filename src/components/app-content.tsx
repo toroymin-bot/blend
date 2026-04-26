@@ -23,6 +23,7 @@ import { WelcomeView } from '@/modules/ui/welcome-view';
 import { BillingView } from '@/modules/ui/billing-view';
 import { AboutView } from '@/modules/ui/about-view';
 import { useKeyboardShortcuts, ShortcutHelpModal } from '@/modules/ui/keyboard-shortcuts';
+import { StorageQuotaToast } from '@/components/storage-quota-toast';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { usePromptStore } from '@/stores/prompt-store';
 import { useAgentStore } from '@/stores/agent-store';
@@ -220,6 +221,9 @@ export default function AppContent() {
 
       {/* Shortcut help modal */}
       {showShortcutHelp && <ShortcutHelpModal onClose={() => setShowShortcutHelp(false)} />}
+
+      {/* [2026-04-27 BUG-005] localStorage quota exceeded toast */}
+      <StorageQuotaToast onOpenSecurity={() => setActiveTab('security')} />
 
       {/* Global left-edge ">" button — visible on any screen when sidebar is closed */}
       {!mobileOpen && (

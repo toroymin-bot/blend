@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { Chat, ChatMessage, ChatFolder } from '@/types';
 import { getCurrentLanguage } from '@/lib/i18n';
+import { safeSetItem } from '@/lib/safe-storage';
 
 interface ChatState {
   chats: Chat[];
@@ -263,11 +264,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
     const { chats, folders, selectedModel, currentChatId } = get();
-    // [2026-04-19 01:00] fixed — added try-catch for localStorage quota exceeded errors
-    try {
-      localStorage.setItem('blend:chats', JSON.stringify({ chats, folders, selectedModel, currentChatId }));
-    } catch (e) {
-      console.warn('[chat-store] localStorage save failed (quota exceeded?):', e);
-    }
+    safeSetItem('blend:chats', JSON.stringify({ chats, folders, selectedModel, currentChatId }), 'chats');
   },
 }));

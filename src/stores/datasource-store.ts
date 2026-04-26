@@ -3,6 +3,7 @@
 
 import { create } from 'zustand';
 import { DataSource, DataSourceConfig, DataSourceStatus } from '@/types';
+import { safeSetItem } from '@/lib/safe-storage';
 
 const LS_KEY = 'blend:datasources';
 
@@ -19,11 +20,7 @@ function load(): DataSource[] {
 }
 
 function persist(sources: DataSource[]) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(sources));
-  } catch (e) {
-    console.warn('[datasource-store] localStorage save failed (quota exceeded?):', e);
-  }
+  safeSetItem(LS_KEY, JSON.stringify(sources), 'datasources');
   // Sprint 4 — IndexedDB 동기화 (비동기, 실패해도 localStorage는 유지)
   if (typeof window === 'undefined') return;
   (async () => {

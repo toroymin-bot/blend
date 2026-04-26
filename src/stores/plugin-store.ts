@@ -1,6 +1,7 @@
 // Blend - Plugin Store (Zustand + localStorage persistence)
 
 import { create } from 'zustand';
+import { safeSetItem } from '@/lib/safe-storage';
 
 interface PluginState {
   installedPlugins: string[]; // plugin IDs
@@ -49,10 +50,6 @@ export const usePluginStore = create<PluginState>((set, get) => ({
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
     const { installedPlugins } = get();
-    try {
-      localStorage.setItem('blend:plugins', JSON.stringify({ installedPlugins }));
-    } catch (e) {
-      console.warn('[plugin-store] localStorage save failed (quota exceeded?):', e);
-    }
+    safeSetItem('blend:plugins', JSON.stringify({ installedPlugins }), 'plugins');
   },
 }));

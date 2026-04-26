@@ -5,6 +5,7 @@
 // localStorage 'blend:license' = { plan, activatedAt, expiresAt?, paymentKey? }
 
 import { create } from 'zustand';
+import { safeSetItem } from '@/lib/safe-storage';
 
 export type Plan = 'free' | 'pro' | 'lifetime';
 
@@ -52,11 +53,9 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
 
   setLicense: (data) => {
     set({ license: data });
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      }
-    } catch { /* ignore quota */ }
+    if (typeof window !== 'undefined') {
+      safeSetItem(STORAGE_KEY, JSON.stringify(data), 'license');
+    }
   },
 
   isPaidActive: () => {

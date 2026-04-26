@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { Prompt } from '@/types';
 import { getCurrentLanguage } from '@/lib/i18n';
+import { safeSetItem } from '@/lib/safe-storage';
 
 interface PromptState {
   prompts: Prompt[];
@@ -308,10 +309,6 @@ export const usePromptStore = create<PromptState>((set, get) => ({
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem('blend:prompts', JSON.stringify(get().prompts));
-    } catch (e) {
-      console.warn('[prompt-store] localStorage save failed (quota exceeded?):', e);
-    }
+    safeSetItem('blend:prompts', JSON.stringify(get().prompts), 'prompts');
   },
 }));

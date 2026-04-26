@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { MeetingAnalysis } from '@/types';
+import { safeSetItem } from '@/lib/safe-storage';
 
 interface MeetingState {
   meetings: MeetingAnalysis[];
@@ -55,8 +56,6 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(get().meetings));
-    } catch {}
+    safeSetItem(STORAGE_KEY, JSON.stringify(get().meetings), 'meetings');
   },
 }));

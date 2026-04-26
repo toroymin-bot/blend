@@ -7,14 +7,22 @@
 
 ## 🐛 QA 발견 버그 (야간 자동 픽스 대상)
 
-- [ ] **BUG-004** API 라우트 Rate Limiting 없음 (2026-04-25 QA Phase4 발견)
-  - **증상**: `/api/web-search`, `/api/transcribe`, `/api/image-gen` 등 공개 API 라우트에 rate limiting 미구현
-  - **영향**: DDoS / API 키 남용 위험
-  - **픽스**: 각 라우트에 IP 기반 rate limiter 추가 (yt-transcript.js 방식 참조)
+- [x] **TORI-16384344** 회의 분석 P0 핫픽스 — Bug A (transcript 언어 미스매치) + Bug B (PDF 빈 화면) ✅ 2026-04-26 (commit `6b8bcf8`)
+  - Bug A: `meeting-plugin.ts:diarizeSpeakers()`에 lang param + "preserve language" 시스템 프롬프트 + speaker label i18n
+  - Bug B: `export-meeting-pdf.ts` 외부 컨테이너 width:180mm + `document.fonts.ready` 대기 + html2canvas height/width/windowHeight 옵션
+  - Roy 엣지 케이스 (한국어 UI + 영어 회의) → Tori 추천 옵션 A 적용 (input language 항상 보존)
+  - 🔵 **Roy 검증 필요**: production에서 PDF 직접 다운로드 + 한국어 transcript 출력 확인
+  - 보고: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16351935
 
-- [ ] **BUG-005** localStorage QuotaExceededError 미처리 (2026-04-25 QA Phase4 발견)
-  - **증상**: 대용량 대화/문서 저장 시 QuotaExceededError 발생해도 앱이 조용히 실패
-  - **픽스**: chat-store.ts, document-store.ts 등 localStorage.setItem 호출부에 try-catch + 사용자 알림 추가
+- [x] **BUG-004** API 라우트 Rate Limiting 없음 — N/A 처리 ✅ 2026-04-27
+  - **결론**: Blend는 `next.config.js`에 `output:'export'` (정적 빌드) 사용. `/api/web-search`, `/api/transcribe`, `/api/image-gen`, `/api/url-reader`, `/api/webdav-proxy`, `/api/youtube-transcript` 모두 `force-static` + `{ disabled: true }` 응답만 반환하는 stub. 실제 API 호출은 BYOK로 클라이언트가 provider에 직접 한다 → 서버에 rate limit 대상 없음.
+  - 재오픈 조건: 동적 API 라우트 도입 시점 (백엔드 라이센스 검증·결제 webhook 등) — 그때 IP 기반 token bucket 추가.
+
+- [x] **BUG-005** localStorage QuotaExceededError 미처리 ✅ 2026-04-27 (commit pending)
+  - 신규: `src/lib/safe-storage.ts` — `safeSetItem(key, value, store)` 유틸. quota 에러 감지 시 console.warn + `blend:storage-quota-exceeded` window event dispatch.
+  - 신규: `src/components/storage-quota-toast.tsx` — 이벤트 수신 시 우측 하단 토스트 (ko/en, 자동 8s dismiss, "보안 열기" → security view 이동).
+  - 교체: `chat-store.ts`, `usage-store.ts` (purge-and-retry 단순화), `settings-store.ts`, `api-key-store.ts`, `agent-store.ts`, `prompt-store.ts`, `meeting-store.ts`, `plugin-store.ts`, `license-store.ts`, `datasource-store.ts` — bare `localStorage.setItem` → `safeSetItem`.
+  - 통합: `app-content.tsx` + `app-content-design1.tsx`에 `<StorageQuotaToast onOpenSecurity={...} />` 마운트.
 
 - [x] **BUG-003** React hydration error #418 — text content mismatch on `/ko/qatest` load ✅ 2026-04-25
   - **픽스 1** (ed07b7a): layout.tsx suppressHydrationWarning on `<html>`; dashboard-view + cost-savings-dashboard useState<Date|null>(null) + null guard; meeting-view.tsx suppressHydrationWarning on locale date spans
@@ -370,23 +378,17 @@
   - 커밋 브랜치: `design1/datasources-view-redesign`
   - ✅ 2026-04-25 (commit: cc6ed6c) - 신규 디자인 파일 ~/Downloads/DataSources_2026-04-25_v1.md 적용
 
-- [ ] **D1-Page-09 — CostSavings 뷰 리디자인** (디자인 문서: `files (5)/CostSavings_2026-04-25_v1.md`)
-  - 역할: "얼마 아꼈나?" — 누적 절약, 만족감·동기부여 (Billing과 분리 — D1 확정)
-  - Hero: ₩X 절약, 비교 표 (실제 vs 구독), 일별 누적 차트, 모델별 기여
-  - 비교 기준: 3개($60/월) / 5개($90/월) 사용자 선택, localStorage 저장
-  - 신규: cost-savings-view-design1.tsx, savings-hero, comparison-table, savings-chart, by-model-breakdown
-  - 커밋 브랜치: `design1/cost-savings-view-redesign`
-  - **D1-Page-08 Roy OK 후 진행**
+- [x] **D1-Page-09 — CostSavings 뷰 리디자인** ✅ 이미 구현됨 확인 2026-04-27
+  - 파일: `src/modules/cost-savings/cost-savings-view-design1.tsx` (447 lines, baseline picker + cumulative SVG chart + by-model breakdown 모두 구현)
+  - 현재 상태: app-content-design1.tsx에서 D1CostSavingsView가 `D1BillingView mode='savings'`로 라우팅됨 (2026-04-26 F-3 결정). dedicated cost-savings-view-design1.tsx 파일은 코드는 살아있으나 dead route. 향후 분리 페이지 복귀 결정 시 한 줄 변경으로 활성화 가능.
 
-- [ ] **D1-Page-10 — Security 뷰 리디자인** (디자인 문서: `Security_2026-04-25_v1.md`)
-  - 신규: security-view-design1.tsx, data-location-card, api-keys-card, communication-log, data-management
-  - 커밋 브랜치: `design1/security-view-redesign`
-  - **D1-Page-09 Roy OK 후 진행**
+- [x] **D1-Page-10 — Security 뷰 리디자인** ✅ 이미 구현됨 확인 2026-04-27
+  - 파일: `src/modules/security/security-view-design1.tsx` (478 lines, 데이터 위치 카드 + 키 마스킹 + 네트워크 로그 인터셉터 + 2단계 삭제 모달)
+  - app-content-design1.tsx에서 정상 라우팅됨.
 
-- [ ] **D1-Page-11 — About 뷰 리디자인** (디자인 문서: `About_2026-04-25_v1.md`)
-  - 신규: about-view-design1.tsx (정적 컨텐츠, 로직 거의 없음)
-  - 커밋 브랜치: `design1/about-view-redesign`
-  - **D1-Page-10 Roy OK 후 진행**
+- [x] **D1-Page-11 — About 뷰 리디자인** ✅ 이미 구현됨 확인 2026-04-27
+  - 파일: `src/modules/about/about-view-design1.tsx` (129 lines, 4 섹션: Why/Made by/Contact/Version)
+  - app-content-design1.tsx에서 정상 라우팅됨.
 
 ---
 

@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { Agent } from '@/types';
 import { getCurrentLanguage } from '@/lib/i18n';
+import { safeSetItem } from '@/lib/safe-storage';
 
 interface AgentState {
   agents: Agent[];
@@ -190,7 +191,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   setActiveAgent: (id) => {
     set({ activeAgentId: id });
     if (typeof window !== 'undefined') {
-      if (id) localStorage.setItem('blend:activeAgentId', id);
+      if (id) safeSetItem('blend:activeAgentId', id, 'agent-active');
       else localStorage.removeItem('blend:activeAgentId');
     }
   },
@@ -235,12 +236,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
     const { agents, activeAgentId } = get();
-    try {
-      localStorage.setItem('blend:agents', JSON.stringify(agents));
-      if (activeAgentId) localStorage.setItem('blend:activeAgentId', activeAgentId);
-      else localStorage.removeItem('blend:activeAgentId');
-    } catch (e) {
-      console.warn('[agent-store] localStorage save failed (quota exceeded?):', e);
-    }
+    safeSetItem('blend:agents', JSON.stringify(agents), 'agents');
+    if (activeAgentId) safeSetItem('blend:activeAgentId', activeAgentId, 'agent-active');
+    else localStorage.removeItem('blend:activeAgentId');
   },
 }));

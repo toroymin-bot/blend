@@ -3,6 +3,7 @@
 
 import { create } from 'zustand';
 import { UsageStats } from '@/types';
+import { safeSetItem } from '@/lib/safe-storage';
 
 interface UsageRecord {
   id: string;
@@ -133,22 +134,15 @@ export const useUsageStore = create<UsageState>((set, get) => ({
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem('blend:usage', JSON.stringify(get().records));
-    } catch (err) {
-      // QuotaExceededError or similar — purge oldest 50% then retry once.
-      if ((err as Error)?.name === 'QuotaExceededError') {
-        const recs = get().records;
-        const half = Math.floor(recs.length / 2);
-        const trimmed = recs.slice(half);
-        set({ records: trimmed });
-        try {
-          localStorage.setItem('blend:usage', JSON.stringify(trimmed));
-        } catch {}
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('blend:storage-quota-exceeded', { detail: { store: 'usage', purged: half } }));
-        }
-      }
+    const records = get().records;
+    const ok = safeSetItem('blend:usage', JSON.stringify(records), 'usage');
+    if (!ok) {
+      // Quota hit — purge oldest 50% and retry once. safeSetItem already
+      // dispatched the global event, so the toast fires regardless.
+      const half = Math.floor(records.length / 2);
+      const trimmed = records.slice(half);
+      set({ records: trimmed });
+      safeSetItem('blend:usage', JSON.stringify(trimmed), 'usage');
     }
   },
 }));
