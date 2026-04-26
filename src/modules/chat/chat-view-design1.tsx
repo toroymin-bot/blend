@@ -115,8 +115,14 @@ type Lang = keyof typeof copy;
 // ============================================================
 // IMP-025: SUGGESTIONS suggestedModel을 카탈로그 기반으로 동적 선택.
 // cron 갱신 시 신규 모델이 자동 매핑되도록.
+//
+// [2026-04-26 QA-BUG #1] candidates를 featured만으로 한정.
+// 이전엔 AVAILABLE_MODELS 전체에서 골라 chat-view의 MODELS(=AUTO+featured)에
+// 없는 id가 반환되면 모델 chip이 'modelAuto' fallback으로 표시되던 회귀.
 function pickSuggestedModel(category: 'small' | 'vision' | 'coding' | 'long'): string {
-  const candidates = AVAILABLE_MODELS.filter((m) => !m.deprecated);
+  const featured = getFeaturedModels();
+  const featuredIds = new Set(featured.map((m) => m.id));
+  const candidates = AVAILABLE_MODELS.filter((m) => !m.deprecated && featuredIds.has(m.id));
   const score = (m: typeof candidates[number]): number => {
     const id = m.id.toLowerCase();
     let s = 0;

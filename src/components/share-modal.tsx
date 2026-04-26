@@ -98,7 +98,9 @@ export function ShareModal({ lang, open, onClose, messages }: ShareModalProps) {
     };
     const token = encodeShare(payload);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const u = `${origin}/${lang}/share/${token}`;
+    // [2026-04-26 QA-BUG #2] next.config 'output: export' 호환을 위해 path 동적 라우트 대신
+    // query string 사용. 라우트는 src/app/[lang]/share/page.tsx (?t=<token>).
+    const u = `${origin}/${lang}/share?t=${token}`;
     return { url: u, tooLong: u.length > URL_HARD_LIMIT };
   }, [open, messages, responseOnly, includeSystemInfo, policy, lang]);
 
