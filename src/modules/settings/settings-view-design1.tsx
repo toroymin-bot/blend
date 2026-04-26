@@ -21,6 +21,8 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { isAnalyticsDisabled, setAnalyticsDisabled } from '@/lib/analytics';
 import { AIProvider }       from '@/types';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
+// [2026-04-26] 16417054 — Full Backup IDB 통합 v2.0
+import { downloadBackup, importBackup, clearAllData, getCounts, type BackupMeta } from '@/lib/full-backup';
 import { useTranslation }   from '@/lib/i18n';
 import { D1_PROVIDERS, API_GUIDE_STEPS_KEYS } from '@/modules/shared/providers-design1';
 
@@ -37,6 +39,10 @@ const tokens = {
   surface:    '#ffffff',
   navActive:  'rgba(10, 10, 10, 0.06)',
 } as const;
+
+// [2026-04-26] 16417054 — Roy 결정: Settings에서 Analytics 섹션 노출 X.
+// Vercel Analytics 호출 코드 + 디폴트 ON은 그대로 유지. 향후 재활성화 시 true.
+const SHOW_ANALYTICS_SECTION = false;
 
 // ── Nav sections ──────────────────────────────────────────────────
 // Roy 결정 2026-04-25: Theme 섹션 제거 (라이트 모드 only). 'theme' SectionId는 호환 유지.
@@ -149,41 +155,54 @@ export function D1SettingsView() {
 
   useEffect(() => { loadFromStorage(); }, []);
 
-  // ── Handlers (원본 로직 그대로) ──────────────────────────────
-  const handleExport = () => {
-    const data = {
-      version: '1.0',
-      exportedAt: new Date().toISOString(),
-      chats: chatStore.chats,
-      prompts: promptStore.prompts,
-      agents: agentStore.agents,
-      usage: usageStore.records,
-      settings: { selectedModel: chatStore.selectedModel },
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `blend-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // ── Handlers ──────────────────────────────────────────────────
+  // [2026-04-26] 16417054 — Full Backup IDB 통합 v2.0 (PR #20/#21 회귀 수정)
+  const handleExport = async () => {
+    try {
+      const meta = await downloadBackup();
+      const summary = lang === 'ko'
+        ? `백업 완료 — 채팅 ${meta.totalChats}개 · 메시지 ${meta.totalMessages}개 · 회의 ${meta.totalMeetings}개 · 문서 ${meta.totalDocuments}개`
+        : `Backup complete — ${meta.totalChats} chats · ${meta.totalMessages} messages · ${meta.totalMeetings} meetings · ${meta.totalDocuments} docs`;
+      alert(summary);
+    } catch (e) {
+      alert(`${t('settings.import_error')}: ${(e as Error).message}`);
+    }
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target?.result as string);
-        if (data.chats)   useChatStore.setState({ chats: data.chats });
-        if (data.prompts) usePromptStore.setState({ prompts: data.prompts });
-        if (data.agents)  useAgentStore.setState({ agents: data.agents });
-        if (data.usage)   useUsageStore.setState({ records: data.usage });
-        alert(t('settings.import_success'));
-      } catch {
-        alert(t('settings.import_error'));
+    reader.onload = async (ev) => {
+      const text = (ev.target?.result as string) ?? '';
+      const result = await importBackup(text);
+      if (!result.ok) {
+        alert(`${t('settings.import_error')}: ${result.error}`);
+        return;
       }
+      if (result.version === '2.0') {
+        const meta = result.meta;
+        const summary = lang === 'ko'
+          ? `복원 완료 — 채팅 ${meta.totalChats}개 · 메시지 ${meta.totalMessages}개 · 회의 ${meta.totalMeetings}개 · 문서 ${meta.totalDocuments}개`
+          : `Restore complete — ${meta.totalChats} chats · ${meta.totalMessages} messages · ${meta.totalMeetings} meetings · ${meta.totalDocuments} docs`;
+        alert(summary);
+      } else {
+        // v1.0 legacy — localStorage만 복원
+        if (typeof ev.target?.result === 'string') {
+          try {
+            const data = JSON.parse(ev.target.result);
+            if (data.chats)   useChatStore.setState({ chats: data.chats });
+            if (data.prompts) usePromptStore.setState({ prompts: data.prompts });
+            if (data.agents)  useAgentStore.setState({ agents: data.agents });
+            if (data.usage)   useUsageStore.setState({ records: data.usage });
+          } catch { /* ignore — store 갱신은 best-effort */ }
+        }
+        alert(lang === 'ko'
+          ? '복원 완료 — v1.0 백업 (구 버전 호환). 새로고침하면 변경사항 반영돼요.'
+          : 'Restore complete — v1.0 backup (legacy). Refresh to see changes.');
+      }
+      // 새로고침으로 IDB-backed store들 다시 로드
+      setTimeout(() => window.location.reload(), 500);
     };
     reader.readAsText(file);
   };
@@ -222,18 +241,37 @@ export function D1SettingsView() {
     }
   };
 
-  const handleClearAll = () => {
-    if (confirm(t('settings.clear_all_confirm'))) {
-      const keysToDelete: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith('blend') || k.startsWith('blend:') || k.startsWith('blend-'))) {
-          keysToDelete.push(k);
-        }
-      }
-      keysToDelete.forEach((k) => localStorage.removeItem(k));
-      window.location.reload();
+  // [2026-04-26] 16417054 — IDB 11 테이블 + blend:* localStorage 모두 삭제. Vercel 등 외부 키 보존.
+  const handleClearAll = async () => {
+    let counts: BackupMeta;
+    try {
+      counts = await getCounts();
+    } catch {
+      counts = { totalChats: 0, totalMessages: 0, totalFiles: 0, totalImages: 0, totalDocuments: 0, totalMeetings: 0, totalDataSources: 0 };
     }
+    const detail = lang === 'ko'
+      ? `⚠️ 모든 데이터가 삭제됩니다.\n\n` +
+        `· 채팅 ${counts.totalChats}개\n` +
+        `· 메시지 ${counts.totalMessages}개\n` +
+        `· 회의 ${counts.totalMeetings}개\n` +
+        `· 문서 ${counts.totalDocuments}개\n` +
+        `· 데이터소스 ${counts.totalDataSources}개\n\n` +
+        `계속하시겠어요?`
+      : `⚠️ All your data will be deleted.\n\n` +
+        `· ${counts.totalChats} chats\n` +
+        `· ${counts.totalMessages} messages\n` +
+        `· ${counts.totalMeetings} meetings\n` +
+        `· ${counts.totalDocuments} documents\n` +
+        `· ${counts.totalDataSources} data sources\n\n` +
+        `Continue?`;
+    if (!confirm(detail)) return;
+    try {
+      await clearAllData();
+    } catch (e) {
+      alert(`Clear failed: ${(e as Error).message}`);
+      return;
+    }
+    window.location.reload();
   };
 
   // ── Language routing (Design1-aware) ─────────────────────────
@@ -584,8 +622,10 @@ export function D1SettingsView() {
 
           {/* 4. Theme 섹션 폐기 (Roy 결정 2026-04-25) — 라이트 모드 only */}
 
-          {/* ── 4b. Usage Analytics — Tori 명세 (Vercel Analytics 옵트아웃) ── */}
-          <AnalyticsSection t={t} />
+          {/* ── 4b. Usage Analytics — [2026-04-26] 16417054 — UI에서 숨김 (코드 유지)
+                Roy 결정: Vercel Analytics는 디폴트 ON, 사용자에게 옵트아웃 노출 X.
+                재활성화 시 한 줄 변경: SHOW_ANALYTICS_SECTION = true. */}
+          {SHOW_ANALYTICS_SECTION && <AnalyticsSection t={t} />}
 
           {/* ── 5. Language ───────────────────────────────────── */}
           <section>
