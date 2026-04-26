@@ -1,0 +1,20 @@
+name = "blend-datasource-webhook"
+main = "src/index.ts"
+compatibility_date = "2026-04-26"
+
+# Tori 명세 16384118 §3.7 — Webhook 받기 + KV 큐에 적기.
+# 클라이언트는 별도 GET /queue/:datasourceId 폴링으로 변경분 받아 처리.
+# 클라이언트 BYOK 유지: Worker는 사용자 OpenAI 키를 절대 보관 X.
+
+[triggers]
+crons = ["17 */12 * * *"]   # 12시간마다 만료 임박 subscription 갱신
+
+[[kv_namespaces]]
+binding = "DS_QUEUE"
+id = "PLACEHOLDER_KV_ID"
+preview_id = "PLACEHOLDER_PREVIEW_KV_ID"
+
+[vars]
+TIMEZONE = "Asia/Seoul"
+# 클라이언트가 등록하는 인증 토큰 — secret으로 관리 권장
+# wrangler secret put SHARED_CLIENT_TOKEN
