@@ -243,7 +243,7 @@ function PdfPreviewModal({ meeting, onClose }: { meeting: MeetingAnalysis; onClo
 }
 
 export function MeetingView() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const { meetings, currentMeetingId, addMeeting, deleteMeeting, setCurrentMeeting, loadFromStorage } = useMeetingStore();
   const { getKey } = useAPIKeyStore();
   const { addDocument, updateDocument } = useDocumentStore();
@@ -293,7 +293,7 @@ export function MeetingView() {
 
     try {
       setStep('diarizing');
-      const segments = await diarizeSpeakers(rawTranscript, apiKey, provider as 'openai' | 'anthropic');
+      const segments = await diarizeSpeakers(rawTranscript, apiKey, provider as 'openai' | 'anthropic', lang);
 
       setStep('analyzing');
       const [analysisResult, summaryResult] = await Promise.all([

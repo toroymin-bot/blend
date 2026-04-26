@@ -49,7 +49,19 @@ function renderMeetingHTML(meeting: MeetingExportData, lang: 'ko' | 'en'): HTMLE
   const dateStr = isKo ? fmtDateKo(meeting.createdAt) : fmtDateEn(meeting.createdAt);
 
   const div = document.createElement('div');
-  div.style.cssText = 'position:absolute;left:-99999px;top:0;';
+  // Off-screen positioning: must include explicit width on the OUTER element so
+  // html2canvas can measure it. Without width, position:absolute collapses the
+  // box to 0×0 and the rendered PDF is blank — even though the inner doc has
+  // its own `width:180mm`. (Tori 2026-04-26 P0 fix, Bug B.)
+  div.style.cssText = [
+    'position:absolute',
+    'left:-99999px',
+    'top:0',
+    'width:180mm',
+    'background:#ffffff',
+    // Help html2canvas pick up box dimensions consistently
+    'box-sizing:content-box',
+  ].join(';');
   div.innerHTML = `
     <div class="d1-meeting-export-doc" style="
       font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif;
@@ -133,13 +145,38 @@ export async function exportMeetingPDF(meeting: MeetingExportData, lang: 'ko' | 
   const element = renderMeetingHTML(meeting, lang);
   document.body.appendChild(element);
 
+  // Wait for fonts + DOM measurement before rasterizing (Tori 2026-04-26 P0).
+  // Without this, html2canvas fires while Pretendard is still loading and the
+  // canvas captures an unstyled (often empty) rectangle.
+  try {
+    await document.fonts.ready;
+  } catch { /* ignore — fall through to timeout */ }
+  await new Promise((resolve) => setTimeout(resolve, 200));
+
+  // Read the measured size of the rendered subtree. Use this so html2canvas
+  // captures the FULL height (long transcripts) rather than the viewport size.
+  const measuredHeight = Math.max(element.scrollHeight, element.offsetHeight, 1);
+  const measuredWidth  = Math.max(element.scrollWidth,  element.offsetWidth,  1);
+
   const filename = sanitizeFilename(`${meeting.title || 'meeting'}_${formatDateForFilename(meeting.createdAt)}.pdf`);
 
   const opt = {
     margin: [15, 15, 15, 15],
     filename,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      // Critical for long transcripts — without these, html2canvas defaults
+      // to window dimensions and clips/blanks tall content.
+      width:        measuredWidth,
+      height:       measuredHeight,
+      windowWidth:  measuredWidth,
+      windowHeight: measuredHeight,
+      // Don't log to console in production
+      logging: false,
+    },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const },
   };

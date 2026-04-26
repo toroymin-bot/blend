@@ -85,19 +85,47 @@ function safeParseJSON<T>(raw: string, fallback: T): T {
 
 // ── Speaker Diarization ───────────────────────────────────────────────────────
 
+/**
+ * Localized speaker label generator.
+ * Note: only affects the label string. The transcript text itself is
+ * NEVER translated — the AI is instructed to preserve the input language
+ * verbatim (Tori 2026-04-26 P0 fix, Bug A).
+ */
+function speakerLabel(lang: 'ko' | 'en', n: number): string {
+  return lang === 'ko' ? `화자 ${n}` : `Speaker ${n}`;
+}
+
 export async function diarizeSpeakers(
   transcript: string,
   apiKey: string,
-  provider: Provider
+  provider: Provider,
+  lang: 'ko' | 'en' = 'en'
 ): Promise<TranscriptSegment[]> {
-  const system = `You are a meeting transcript analysis expert. Return only valid JSON.`;
+  const labelExample1 = speakerLabel(lang, 1);
+  const labelExample2 = speakerLabel(lang, 2);
+
+  // CRITICAL: instruct the model to preserve the original language of the
+  // transcript content. Without this clause, an English system prompt causes
+  // gpt-4o-mini / claude-haiku to silently translate Korean speech to English.
+  const system = `You are a meeting transcript analysis expert. Return only valid JSON.
+
+LANGUAGE RULE — strictly enforced:
+- Preserve the ORIGINAL language of the input transcript verbatim in the "text" field.
+- Do NOT translate. Do NOT paraphrase. Do NOT summarize.
+- If the input is Korean, output Korean text. If English, output English text.
+- Only the "speaker" labels follow the requested label language.`;
+
   const user = `Analyze the following meeting transcript and separate it by speaker.
 
-Identify sections spoken by different people and label them as "Speaker 1", "Speaker 2", etc.
-Use natural conversational flow as the basis for separation.
+Identify sections spoken by different people. Use natural conversational flow as the basis for separation.
+
+Speaker labels MUST be in ${lang === 'ko' ? 'Korean' : 'English'} format:
+"${labelExample1}", "${labelExample2}", etc.
+
+Transcript text MUST stay in its original language. Never translate.
 
 Return format (JSON):
-{"segments": [{"speaker": "Speaker 1", "text": "...", "startTime": null}]}
+{"segments": [{"speaker": "${labelExample1}", "text": "<original language preserved>", "startTime": null}]}
 
 Meeting transcript:
 ${transcript}`;
@@ -112,9 +140,10 @@ ${transcript}`;
     // Fallback on diarization failure
   }
 
-  // Fallback: split by sentence as single speaker
+  // Fallback: split by sentence as single speaker (text is original — no translation)
   const sentences = transcript.split(/(?<=[.!?。])\s+/).filter((s) => s.trim());
-  return sentences.map((text) => ({ speaker: 'Speaker 1', text }));
+  const fallbackLabel = speakerLabel(lang, 1);
+  return sentences.map((text) => ({ speaker: fallbackLabel, text }));
 }
 
 // ── Meeting Analysis ──────────────────────────────────────────────────────────

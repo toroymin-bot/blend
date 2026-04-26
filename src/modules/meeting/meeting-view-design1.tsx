@@ -432,7 +432,7 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
       const diarizeKey      = openaiKey || (getKey('anthropic') || '');
       if (diarizeKey) {
         try {
-          const segments = await diarizeSpeakers(transcribed, diarizeKey, diarizeProvider);
+          const segments = await diarizeSpeakers(transcribed, diarizeKey, diarizeProvider, lang);
           inputText = segments.map((s) => `${s.speaker}: ${s.text}`).join('\n');
           transcriptSegments = segments.map((s) => ({ speaker: s.speaker, text: s.text }));
         } catch {
