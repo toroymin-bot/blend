@@ -1358,7 +1358,14 @@ Use the [Active...] sections below as your primary knowledge source.
             <div className="mx-auto w-full max-w-[720px]">
               <ActiveSourcesBar
                 lang={lang}
-                onNavigate={() => window.dispatchEvent(new CustomEvent('d1:nav-documents'))}
+                onNavigate={(source) => {
+                  // [2026-04-26 QA-BUG-A] chip type별 view 분기. 이전엔 모든 chip이 documents view로만 이동.
+                  const view =
+                    source.type === 'meeting' ? 'meeting'
+                    : source.type === 'datasource-folder' ? 'datasources'
+                    : 'documents';
+                  window.dispatchEvent(new CustomEvent('d1:nav-to', { detail: { view } }));
+                }}
               />
             </div>
             <D1InputBar

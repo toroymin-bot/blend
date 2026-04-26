@@ -191,10 +191,14 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   }, []);
 
   // [2026-04-26] Sprint 2 (16384367) — 카드 routeOverride: d1:nav-to 이벤트
+  // [2026-04-26 QA-BUG-A] chip onNavigate에서 documents/meeting/datasources 모두 dispatch 가능하게 확장
   useEffect(() => {
+    const ALLOWED: ViewId[] = ['meeting', 'documents', 'datasources', 'chat', 'compare', 'billing', 'settings'];
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ view?: string }>).detail;
-      if (detail?.view === 'meeting') setActiveView('meeting');
+      if (detail?.view && (ALLOWED as string[]).includes(detail.view)) {
+        setActiveView(detail.view as ViewId);
+      }
     };
     window.addEventListener('d1:nav-to', handler as EventListener);
     return () => window.removeEventListener('d1:nav-to', handler as EventListener);
