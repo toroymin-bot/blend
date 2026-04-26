@@ -13,11 +13,13 @@
  * D1ChatView만 새 디자인 커스텀.
  */
 
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { trackEvent, trackVisit } from '@/lib/analytics';
 // IMP-020: Chat은 default landing이라 eager. 나머지 D1 뷰는 lazy chunk.
 import D1ChatView from '@/modules/chat/chat-view-design1';
+// [2026-04-26] BUG-FIX (16417011) — 사이드바 '최근'을 d1-chat-store에서 직접 가져옴
+import { useD1ChatStore } from '@/stores/d1-chat-store';
 
 const D1CompareView      = lazy(() => import('@/modules/compare/compare-view-design1'));
 const D1BillingView      = lazy(() => import('@/modules/billing/billing-view-design1'));
@@ -74,6 +76,10 @@ const labels = {
   en: { logo: 'Blend', newChat: 'New chat', search: 'Search', chat: 'Chat', compare: 'Compare', documents: 'Documents', meeting: 'Meeting', billing: 'Billing', more: 'More', settings: 'Settings', datasources: 'Data Sources', models: 'Models', agents: 'Agents', savings: 'Cost Savings', dashboard: 'Dashboard', security: 'Security', about: 'About', prompts: 'Prompts', plugins: 'Plugins', recent: 'Recent', noConvs: 'No conversations yet' },
 } as const;
 
+// [2026-04-26] BUG-FIX (16417011) — Roy 결정: 검색 메뉴 UI에서 숨김 (코드 유지)
+// 향후 재활성화 시 한 줄 변경: SHOW_SEARCH_MENU = true
+const SHOW_SEARCH_MENU = false;
+
 export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' }) {
   const lang = urlLang;
   const t = labels[lang];
@@ -110,10 +116,33 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   const [drawerOpen, setDrawerOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
 
+  // [2026-04-26] BUG-FIX (16417011) — d1-chat-store에서 실제 채팅 가져옴
+  const d1Chats        = useD1ChatStore((s) => s.chats);
+  const d1LoadFromDB   = useD1ChatStore((s) => s.loadFromStorage);
+  useEffect(() => { d1LoadFromDB(); }, [d1LoadFromDB]);
+  const recentChats = useMemo(
+    () => [...d1Chats]
+      .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt)
+      .slice(0, 8),
+    [d1Chats],
+  );
+  const [activeChatIdInSidebar, setActiveChatIdInSidebar] = useState<string | null>(null);
+
+  // chat-view에 d1:load-chat 이벤트 전송 + chat 메뉴 활성
+  function loadRecentChat(chatId: string) {
+    setActiveView('chat');
+    setActiveChatIdInSidebar(chatId);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('d1:load-chat', { detail: { id: chatId } }));
+    }
+  }
+
   function handleNewChat() {
     setActiveView('chat');
     setConvKey((k) => k + 1);
     setChatInitialModel(undefined);
+    // [2026-04-26] BUG-FIX (16417011) — 사이드바 active 상태 해제
+    setActiveChatIdInSidebar(null);
   }
 
   function handleContinueInChat(modelId: string) {
@@ -282,7 +311,8 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
 
         {/* New chat + Search */}
         <SbBtn title={t.newChat} onClick={handleNewChat}><PlusIcon /></SbBtn>
-        <SbBtn title={t.search}><SearchIcon /></SbBtn>
+        {/* [2026-04-26] BUG-FIX (16417011) — 검색 메뉴 코드 유지, UI에서만 숨김 */}
+        {SHOW_SEARCH_MENU && <SbBtn title={t.search}><SearchIcon /></SbBtn>}
 
         {/* Divider */}
         <div className="mx-4 my-2.5 shrink-0" style={{ height: 1, background: tokens.borderMid }} />
@@ -297,17 +327,27 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
         <SbNavBtn active={activeView==='billing'}     title={t.billing}     onClick={() => nav('billing')}>     <BillingIcon />     </SbNavBtn>
 
         {/* Recent conversations (expanded only) */}
+        {/* [2026-04-26] BUG-FIX (16417011) — d1-chat-store 기반. 클릭 시 loadRecentChat → chat-view loadChat. */}
         <div className="pointer-events-none min-w-0 flex-1 overflow-y-auto px-3 pt-3 opacity-0 transition-opacity duration-150 delay-75 group-hover:pointer-events-auto group-hover:opacity-100">
           <p className="mb-1 px-2 text-[10.5px] font-medium uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>{t.recent}</p>
-          {history.length === 0
+          {recentChats.length === 0
             ? <p className="px-2 py-1.5 text-[12.5px]" style={{ color: tokens.textFaint }}>{t.noConvs}</p>
             : <div className="flex flex-col gap-px">
-                {history.map((c) => (
-                  <button key={c.id} onClick={() => { nav('chat'); setConvKey((k) => k + 1); }} title={c.title}
-                    className="w-full truncate rounded-lg px-2 py-1.5 text-left text-[12.5px] transition-colors hover:bg-black/5" style={{ color: tokens.textDim }}>
-                    {c.title}
-                  </button>
-                ))}
+                {recentChats.map((c) => {
+                  const isActive = c.id === activeChatIdInSidebar && activeView === 'chat';
+                  return (
+                    <button key={c.id} onClick={() => loadRecentChat(c.id)} title={c.title}
+                      className="w-full truncate rounded-lg px-2 py-1.5 text-left text-[12.5px] transition-colors hover:bg-black/5"
+                      style={{
+                        color: isActive ? tokens.text : tokens.textDim,
+                        background: isActive ? 'rgba(0,0,0,0.05)' : 'transparent',
+                        fontWeight: isActive ? 500 : 400,
+                      }}>
+                      {c.pinned && <span aria-hidden style={{ marginRight: 4, color: tokens.accent }}>📌</span>}
+                      {c.title || (lang === 'ko' ? '(제목 없음)' : '(Untitled)')}
+                    </button>
+                  );
+                })}
               </div>
           }
         </div>
