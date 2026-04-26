@@ -520,6 +520,16 @@ function searchHybrid(
  * - Falls back to improved keyword search otherwise.
  * - Injects an explicit "없음" instruction when nothing is found — prevents hallucination.
  */
+// [2026-04-26 Tori 명세] Fast Path — 작은 텍스트 파일은 임베딩 스킵, 전체 텍스트 즉시 LLM 컨텍스트로 주입
+const FAST_PATH_EXTENSIONS = ['md', 'txt', 'csv', 'json', 'log'];
+const FAST_PATH_CHAR_LIMIT = 50_000; // 약 100KB 텍스트
+
+function isFastPathDoc(doc: ParsedDocument): boolean {
+  const ext = (doc.name.split('.').pop() ?? '').toLowerCase();
+  if (!FAST_PATH_EXTENSIONS.includes(ext)) return false;
+  return doc.totalChars > 0 && doc.totalChars <= FAST_PATH_CHAR_LIMIT;
+}
+
 export async function buildContext(
   query: string,
   docs: ParsedDocument[],
@@ -528,9 +538,29 @@ export async function buildContext(
 ): Promise<string> {
   if (docs.length === 0) return '';
 
+  // Fast path 문서를 먼저 추출하여 우선 컨텍스트로 주입
+  const fastPathDocs = docs.filter(isFastPathDoc);
+  const remainingDocs = docs.filter((d) => !isFastPathDoc(d));
+
+  let fastPathBlock = '';
+  if (fastPathDocs.length > 0) {
+    const lines = fastPathDocs.map((d) => {
+      const fullText = d.chunks.map((c) => c.text).join('\n').slice(0, FAST_PATH_CHAR_LIMIT);
+      return `[source: ${d.name}]\n${fullText}`;
+    });
+    fastPathBlock =
+      `[Fast-path documents — full text injected without embedding search]\n` +
+      `These small text files are included in full so the assistant can reference exact content.\n\n` +
+      lines.join('\n\n---\n\n');
+  }
+
+  if (remainingDocs.length === 0) {
+    return fastPathBlock;
+  }
+
   // [2026-04-13] BUG-009: 청크 없는 문서(이미지 PDF 등) 방어 처리 — d.chunks.length > 0 추가
-  const embeddedDocs = docs.filter((d) => d.embeddingModel && d.chunks.length > 0 && d.chunks.some((c) => c.embedding));
-  const plainDocs = docs.filter((d) => !d.embeddingModel && d.chunks.length > 0);
+  const embeddedDocs = remainingDocs.filter((d) => d.embeddingModel && d.chunks.length > 0 && d.chunks.some((c) => c.embedding));
+  const plainDocs = remainingDocs.filter((d) => !d.embeddingModel && d.chunks.length > 0);
 
   let relevant: DocumentChunk[] = [];
   let usedSemantic = false;
