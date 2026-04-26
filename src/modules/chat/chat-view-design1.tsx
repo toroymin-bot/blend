@@ -844,25 +844,22 @@ export default function D1ChatView({
     // P3.3 + Tori 핫픽스 — 활성 문서 RAG + 활성 데이터 소스 메타 주입
     let docContext = '';
     let docSources: string[] = [];
+    // [2026-04-26 Tori 16384118 §2] syncing/error 헤더용 — try 밖에서 사용 가능하도록 선언
+    type SyncEntry = { name: string; percent: number };
+    type ErrEntry  = { name: string; error?: string };
+    let syncingDocs: SyncEntry[] = [];
+    let errorDocs:   ErrEntry[]  = [];
     try {
       // Tori 명세: store 로딩 완료 대기 (race 방지)
       await docsEnsureLoaded();
       const activeDocs = getActiveDocs();
-      // [2026-04-26] D-4 — 활성 문서가 아직 임베딩 중이면 분석 중 안내 후 LLM 호출 skip
       const docStoreState = (await import('@/stores/document-store')).useDocumentStore.getState();
-      const syncingActive = activeDocs.some((d) => docStoreState.embedProgress[d.id]?.status === 'embedding');
-      if (syncingActive) {
-        const guideMsg = lang === 'ko'
-          ? '활성 문서를 분석 중이에요. 임베딩이 끝나면 다시 질문해주세요.'
-          : 'Active documents are still being analyzed. Please ask again once embedding finishes.';
-        setMessages((prev) => [...prev, {
-          id: Date.now().toString() + '_pending',
-          role: 'assistant',
-          content: guideMsg,
-        }]);
-        setIsStreaming(false);
-        return;
-      }
+      syncingDocs = activeDocs
+        .filter((d) => docStoreState.embedProgress[d.id]?.status === 'embedding')
+        .map((d) => ({ name: d.name, percent: Math.round(docStoreState.embedProgress[d.id]?.percent ?? 0) }));
+      errorDocs = activeDocs
+        .filter((d) => docStoreState.embedProgress[d.id]?.status === 'error')
+        .map((d) => ({ name: d.name, error: docStoreState.embedProgress[d.id]?.error }));
       if (activeDocs.length > 0) {
         const embeddingApiKey = getKey('openai') || getKey('google') || undefined;
         const embeddingProvider: 'openai' | 'google' | undefined = getKey('openai') ? 'openai' : getKey('google') ? 'google' : undefined;
@@ -931,6 +928,78 @@ ${dsLines}`;
         });
       }
     } catch { /* RAG 실패 시 무시 */ }
+
+    // [2026-04-26 Tori 16384118 §2] syncing/error 헤더 — RAG context 비어있고 활성 소스에
+    // syncing/error가 있을 때만 주입. RAG hit이 있으면 정상 RAG 답변 우선.
+    if (!docContext && (syncingDocs.length > 0 || errorDocs.length > 0)) {
+      if (syncingDocs.length > 0) {
+        const list = syncingDocs.map((d) => `- 📄 ${d.name} · ${d.percent}%`).join('\n');
+        const headerKo =
+`[Active sources — currently syncing]
+사용자가 활성화한 자료가 현재 분석 중입니다:
+${list}
+
+사용자가 이 자료에 대해 질문하면, 다음 형식으로 답변하세요:
+
+"[자료 이름] 분석이 진행 중이에요 (XX%).
+잠시 후 완료됩니다.
+
+지금 할 수 있는 것:
+• [데이터 소스 페이지로 이동] — 진행 상태 자세히 보기
+• 또는 일반 답변을 받아도 됩니다 — 무엇을 도와드릴까요?"
+
+자료와 무관한 질문이면 위 안내 없이 일반 답변하세요.`;
+        const headerEn =
+`[Active sources — currently syncing]
+The user has activated these sources but they are still indexing:
+${list}
+
+When the user asks about content from these sources, reply in this format:
+
+"[source name] is still analyzing (XX%).
+It will finish shortly.
+
+Available actions:
+• [Open Data Sources page] — view detailed progress
+• Or get a general answer — what can I help with?"
+
+If the question is unrelated, answer normally without the notice.`;
+        docContext = lang === 'ko' ? headerKo : headerEn;
+      } else if (errorDocs.length > 0) {
+        const list = errorDocs.map((d) => `- 📄 ${d.name}${d.error ? ` — ${d.error}` : ''}`).join('\n');
+        const headerKo =
+`[Active sources — error]
+사용자가 활성화한 자료에 문제가 있어 검색할 수 없습니다:
+${list}
+
+사용자가 이 자료에 대해 질문하면, 다음 안내를 답변에 포함하세요:
+
+"[자료 이름] 검색에 문제가 있어요.
+[채팅 입력창 위 칩의 ⚠️ 클릭]하면 해결할 수 있어요.
+
+가능한 원인:
+• OpenAI/Google 임베딩 키 미설정 또는 만료
+• 일일 한도 초과 (내일 자동 재개)
+
+일반 답변을 받으시려면 그대로 진행하세요."`;
+        const headerEn =
+`[Active sources — error]
+The user's active sources have an issue and cannot be searched:
+${list}
+
+When the user asks about these sources, include this guidance:
+
+"[source name] search has an issue.
+Click the ⚠️ on the chip above the input to resolve.
+
+Possible causes:
+• OpenAI/Google embedding key missing or expired
+• Daily limit reached (auto-resumes tomorrow)
+
+To get a general answer, just continue."`;
+        docContext = lang === 'ko' ? headerKo : headerEn;
+      }
+    }
 
     // [2026-04-26] 답변 가드 — 활성 소스가 있으면 LLM이 추측 답변하지 않도록 명시
     if (docContext) {
