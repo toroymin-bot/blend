@@ -1,0 +1,25 @@
+name = "blend-daily-report"
+main = "src/index.ts"
+compatibility_date = "2026-04-26"
+
+# KOMI nighttask가 푸시한 요약을 KV에 저장하고
+# KST 08:35 cron에서 어제 요약을 텔레그램으로 전송한다.
+#
+# 배포 전 KV namespace id를 채워야 한다 (CF 대시보드에서 생성 또는 wrangler kv 사용):
+#   wrangler kv namespace create BLEND_STATS
+#   wrangler kv namespace create BLEND_STATS --preview
+#
+# 그 후 아래 PLACEHOLDER_KV_ID 두 개를 실제 id로 치환.
+
+[triggers]
+crons = ["35 23 * * *"]   # KST 08:35
+
+[[kv_namespaces]]
+binding = "BLEND_STATS"
+id = "PLACEHOLDER_KV_ID"
+preview_id = "PLACEHOLDER_PREVIEW_KV_ID"
+
+[vars]
+GITHUB_REPO_URL = "https://github.com/toroymin-bot/blend"
+TIMEZONE = "Asia/Seoul"
+TELEGRAM_CHAT_ID = ""    # Roy 본인 chat id로 설정 (wrangler secret put 권장)
