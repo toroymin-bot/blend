@@ -8,7 +8,7 @@
 
 import { AIProvider } from '@/types';
 
-export type ProviderCost = 'free' | 'paid';
+export type ProviderCost = 'free' | 'trial' | 'paid';
 
 export const API_GUIDE_STEPS_KEYS: Record<
   string,
@@ -73,7 +73,7 @@ export const D1_PROVIDERS: {
     placeholder: 'sk-...',
     models: 'GPT-4o, GPT-4.1, o3, o4-mini',
     keyUrl: 'https://platform.openai.com/api-keys',
-    cost: 'paid',
+    cost: 'trial',
   },
   {
     id: 'anthropic',
@@ -82,7 +82,7 @@ export const D1_PROVIDERS: {
     placeholder: 'sk-ant-...',
     models: 'Claude Opus 4, Sonnet 4, Haiku 4.5',
     keyUrl: 'https://console.anthropic.com/settings/keys',
-    cost: 'paid',
+    cost: 'trial',
   },
   {
     id: 'google',
