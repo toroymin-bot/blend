@@ -63,8 +63,18 @@ export function ActiveSourcesBar({
     } else if (source.type === 'datasource-folder') {
       // 비활성화만 — 연결 해제 X (사용자가 라이브러리에서 다시 활성화 가능)
       useDataSourceStore.getState().setActive(source.dataSourceId, false);
+    } else if (source.type === 'meeting') {
+      // Phase 3b — d1:meetings localStorage 직접 갱신
+      try {
+        const raw = localStorage.getItem('d1:meetings');
+        if (raw) {
+          const arr = JSON.parse(raw) as { id: string; isActive?: boolean }[];
+          const next = arr.map((m) => (m.id === source.meetingId ? { ...m, isActive: false } : m));
+          localStorage.setItem('d1:meetings', JSON.stringify(next));
+          window.dispatchEvent(new CustomEvent('d1:meetings-changed'));
+        }
+      } catch {}
     }
-    // meeting: 후속 PR
   }
 
   function handleClick(source: ActiveSource) {

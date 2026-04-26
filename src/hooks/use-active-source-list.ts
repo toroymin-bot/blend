@@ -1,10 +1,49 @@
 // Tori 명세 + 핫픽스 (2026-04-25) — 통합 활성 소스 셀렉터 훅
-// documents + datasource-folder 통합. meeting은 후속.
+// Phase 3b (2026-04-26) — meeting 추가. d1:meetings localStorage 직접 읽음 (design1 meeting view 자체 store).
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDocumentStore } from '@/stores/document-store';
 import { useDataSourceStore } from '@/stores/datasource-store';
 import type { ActiveSource } from '@/types/active-source';
+
+// Phase 3b — d1:meetings localStorage 폴링형 reactive
+type MeetingSnapshot = {
+  id: string;
+  title: string;
+  isActive?: boolean;
+  summary?: string[];
+  actionItems?: { task: string; done?: boolean }[];
+  decisions?: string[];
+  topics?: string[];
+  fullSummary?: string;
+  createdAt?: number;
+};
+
+function loadActiveMeetings(): MeetingSnapshot[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('d1:meetings');
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as MeetingSnapshot[];
+    return Array.isArray(arr) ? arr.filter((m) => m.isActive !== false) : [];
+  } catch { return []; }
+}
+
+function useActiveMeetings(): MeetingSnapshot[] {
+  const [list, setList] = useState<MeetingSnapshot[]>(() => loadActiveMeetings());
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const refresh = () => setList(loadActiveMeetings());
+    refresh();
+    window.addEventListener('storage', refresh);
+    window.addEventListener('d1:meetings-changed', refresh as EventListener);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('d1:meetings-changed', refresh as EventListener);
+    };
+  }, []);
+  return list;
+}
 
 function dsServiceLabel(type: string): string {
   switch (type) {
@@ -30,6 +69,7 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
   const documents    = useDocumentStore((s) => s.documents);
   const activeDocIds = useDocumentStore((s) => s.activeDocIds);
   const dataSources  = useDataSourceStore((s) => s.sources);
+  const meetings     = useActiveMeetings();
 
   return useMemo(() => {
     const result: ActiveSource[] = [];
@@ -69,6 +109,24 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         });
       });
 
+    // 3) 활성 회의록 (Phase 3b)
+    meetings.forEach((m) => {
+      const chunkCount =
+        (m.summary?.length ?? 0) +
+        (m.actionItems?.length ?? 0) +
+        (m.decisions?.length ?? 0) +
+        (m.topics?.length ?? 0);
+      result.push({
+        id: `meeting:${m.id}`,
+        type: 'meeting',
+        title: m.title || (lang === 'ko' ? '회의록' : 'Meeting'),
+        icon: '🎙️',
+        navigateTo: `/design1/${lang}`,
+        chunkCount,
+        meetingId: m.id,
+      });
+    });
+
     return result;
-  }, [documents, activeDocIds, dataSources, lang]);
+  }, [documents, activeDocIds, dataSources, meetings, lang]);
 }
