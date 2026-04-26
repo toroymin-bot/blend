@@ -124,6 +124,19 @@ export async function generateEmbeddings(
   provider: 'openai' | 'google',
   onProgress?: (percent: number) => void
 ): Promise<ParsedDocument> {
+  // [2026-04-26 Tori 16384118 §3.8] cost store 통합 — 임베딩 시작 전 paused 체크
+  if (typeof window !== 'undefined') {
+    const { useCostStore } = await import('@/stores/d1-cost-store');
+    const cost = useCostStore.getState();
+    if (cost.paused) {
+      throw new Error(
+        cost.pauseReason === 'limit_exceeded'
+          ? '일일 임베딩 한도 초과 — 자정에 자동 재개되거나 설정에서 한도 늘리기'
+          : '자동 동기화 일시정지 상태'
+      );
+    }
+  }
+
   const texts = doc.chunks.map((c) => c.text);
   const total = texts.length;
   const result: number[][] = [];
@@ -135,6 +148,29 @@ export async function generateEmbeddings(
     const vectors = await batchFn(batch, apiKey);
     result.push(...vectors);
     if (onProgress) onProgress(Math.round(((i + batch.length) / total) * 100));
+  }
+
+  // [2026-04-26 Tori 16384118 §3.8/§3.9] 비용 추정 + addCost + alert dispatch
+  if (typeof window !== 'undefined') {
+    try {
+      const { useCostStore } = await import('@/stores/d1-cost-store');
+      const { estimateInitialCost } = await import('@/lib/cost/estimate-embedding-cost');
+      const totalChars = doc.chunks.reduce((s, c) => s + c.text.length, 0);
+      // UTF-8 한국어 평균 3바이트/글자 가정 (영어는 1바이트). 보수적으로 4바이트로 추정.
+      const totalBytes = totalChars * 4;
+      const usd = estimateInitialCost(totalBytes);
+      const cost = useCostStore.getState();
+      const r = cost.addCost(usd);
+      // $1 도달 또는 새로 paused 시 알림 dispatch
+      if (r.triggeredAlert || r.nowPaused) {
+        const fresh = useCostStore.getState();
+        window.dispatchEvent(new CustomEvent('blend:cost-alert', {
+          detail: { used: fresh.todayUsed, limit: fresh.dailyLimit, paused: fresh.paused },
+        }));
+      }
+    } catch (e) {
+      console.warn('[document-plugin] cost tracking failed:', (e as Error).message);
+    }
   }
 
   return {

@@ -38,6 +38,12 @@ const D1CostSavingsView  = lazy(() =>
 
 // [2026-04-26] Sprint 1 (16384367) — Welcome Demo
 import { WelcomeDemo, hasSeenWelcome } from '@/components/welcome-demo';
+// [2026-04-26 Tori 16384118 §3.8~§3.10] 비용 한도 알림
+import { CostAlertModal } from '@/modules/datasources/cost-alert-modal';
+import { useCostStore } from '@/stores/d1-cost-store';
+import { setupDailyReset, cancelDailyReset } from '@/lib/cost/daily-reset';
+// [2026-04-26 Tori 16384118 §3.7] 큐 폴링 hook (Worker → 변경분 → 임베딩)
+import { useDataSourceQueuePolling } from '@/hooks/use-datasource-queue-polling';
 const D1SecurityView     = lazy(() => import('@/modules/security/security-view-design1'));
 const D1AboutView        = lazy(() => import('@/modules/about/about-view-design1'));
 // Roy 결정 2026-04-25: Prompts 메뉴 제거 (PromptsView 컴포넌트 자체는 보존 — '/' 슬래시 명령에 사용 가능)
@@ -96,6 +102,10 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     import('@/lib/db/migration').then(({ runMigrations }) => {
       runMigrations().catch((e) => console.error('[app] migration failed', e));
     });
+    // [2026-04-26 Tori 16384118 §3.10] 비용 store 로드 + 자정 자동 리셋 스케줄링
+    useCostStore.getState().loadFromStorage();
+    setupDailyReset();
+    return () => cancelDailyReset();
   }, []);
 
   // d1:open-onboarding 이벤트 → 온보딩 열기
@@ -209,6 +219,24 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
     const handler = () => setActiveView('settings');
     window.addEventListener('blend:open-settings', handler as EventListener);
     return () => window.removeEventListener('blend:open-settings', handler as EventListener);
+  }, []);
+
+  // [2026-04-26 Tori 16384118 §3.7] Worker 큐 폴링 활성화 (5분 + focus)
+  useDataSourceQueuePolling();
+
+  // [2026-04-26 Tori 16384118 §3.9] $1 도달 / 한도 초과 시 알림 모달
+  const [costAlertOpen, setCostAlertOpen] = useState(false);
+  const [costAlertData, setCostAlertData] = useState<{ used: number; limit: number }>({ used: 0, limit: 0 });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ used: number; limit: number; paused?: boolean }>).detail;
+      if (!detail) return;
+      setCostAlertData({ used: detail.used, limit: detail.limit });
+      setCostAlertOpen(true);
+    };
+    window.addEventListener('blend:cost-alert', handler as EventListener);
+    return () => window.removeEventListener('blend:cost-alert', handler as EventListener);
   }, []);
 
   // [2026-04-26] Sprint 1 (16384367) — Welcome Demo
@@ -528,6 +556,23 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
         onClose={() => setWelcomeOpen(false)}
         onStart={() => { setWelcomeOpen(false); setActiveView('chat'); }}
         onGuide={() => { setWelcomeOpen(false); setActiveView('settings'); }}
+      />
+
+      {/* [2026-04-26 Tori 16384118 §3.9] 비용 한도 알림 모달 */}
+      <CostAlertModal
+        lang={lang}
+        open={costAlertOpen}
+        used={costAlertData.used}
+        limit={costAlertData.limit}
+        onContinue={() => setCostAlertOpen(false)}
+        onPause={() => {
+          useCostStore.getState().pauseSync('user_paused');
+          setCostAlertOpen(false);
+        }}
+        onIncrease={() => {
+          setCostAlertOpen(false);
+          setActiveView('savings');
+        }}
       />
     </div>
   );
