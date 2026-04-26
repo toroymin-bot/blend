@@ -170,7 +170,43 @@ const copy = {
 } as const;
 
 // ── Helpers ──────────────────────────────────────────────────────
+// Sprint 3 — IndexedDB 백엔드 + localStorage 호환 (Phase 3b useActiveSourceList가 d1:meetings 직접 읽음)
+async function loadResultsFromIDB(): Promise<MeetingResult[]> {
+  if (typeof window === 'undefined') return [];
+  try {
+    const { getDB } = await import('@/lib/db/blend-db');
+    const db = getDB();
+    const metas = await db.meetings.orderBy('createdAt').reverse().toArray();
+    if (metas.length === 0) return [];
+    const results: MeetingResult[] = [];
+    for (const meta of metas) {
+      const a = await db.meetingAnalyses.get(meta.id);
+      results.push({
+        id: meta.id,
+        createdAt: meta.createdAt,
+        title: meta.title,
+        participants: meta.attendees,
+        summary: a?.summary?.points ?? [],
+        actionItems: (a?.actionItems ?? []).map((i) => ({
+          task: i.text,
+          owner: i.assignee,
+          dueDate: i.dueDate,
+          done: i.done,
+        })),
+        decisions: a?.decisions ?? [],
+        topics: a?.topics ?? [],
+        fullSummary: a?.fullSummary ?? '',
+        isActive: meta.isActive,
+      });
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 function loadResults(): MeetingResult[] {
+  // 동기 — localStorage 캐시 (IDB 백업본). useEffect 내에서 IDB 로드 후 갱신.
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -180,11 +216,48 @@ function loadResults(): MeetingResult[] {
 
 function saveResults(rs: MeetingResult[]) {
   try {
+    // localStorage — Phase 3b useActiveSourceList 호환
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rs));
-    // Phase 3b — useActiveSourceList 즉시 갱신용 이벤트
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('d1:meetings-changed'));
     }
+    // Sprint 3 — IndexedDB 동기화 (실패해도 localStorage는 유지)
+    (async () => {
+      try {
+        const { getDB } = await import('@/lib/db/blend-db');
+        const db = getDB();
+        await db.transaction('rw', db.meetings, db.meetingAnalyses, async () => {
+          // 단순 동기화 — 전체 교체. 30개 한도라 비용 작음.
+          await db.meetings.clear();
+          await db.meetingAnalyses.clear();
+          for (const r of rs) {
+            await db.meetings.put({
+              id: r.id,
+              title: r.title,
+              createdAt: r.createdAt,
+              updatedAt: r.createdAt,
+              status: 'completed',
+              attendees: r.participants,
+              isActive: r.isActive,
+            });
+            await db.meetingAnalyses.put({
+              meetingId: r.id,
+              summary: r.summary.length > 0 ? { points: r.summary } : undefined,
+              actionItems: r.actionItems.map((a) => ({
+                text: a.task,
+                assignee: a.owner,
+                dueDate: a.dueDate,
+                done: a.done,
+              })),
+              decisions: r.decisions,
+              topics: r.topics,
+              fullSummary: r.fullSummary,
+              createdAt: r.createdAt,
+            });
+          }
+        });
+      } catch { /* IDB 실패는 무시 — localStorage는 유지됨 */ }
+    })();
   } catch {}
 }
 
@@ -271,7 +344,11 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
   const trialRemaining  = Math.max(0, trialMaxPerDay - trialDailyCount);
 
   useEffect(() => {
+    // localStorage 캐시 즉시 + IDB에서 갱신 (Sprint 3)
     setHistory(loadResults());
+    loadResultsFromIDB().then((idbResults) => {
+      if (idbResults.length > 0) setHistory(idbResults);
+    });
   }, []);
 
   function pickModel(): { id: string; provider: AIProvider; usingTrial: boolean } {

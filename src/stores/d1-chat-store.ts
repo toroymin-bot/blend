@@ -62,42 +62,109 @@ export const useD1ChatStore = create<D1ChatStoreState>((set, get) => ({
   chats: [],
   loaded: false,
 
+  // Sprint 2 — IndexedDB(Dexie) 백엔드. localStorage fallback (마이그레이션 안 된 옛 환경).
   loadFromStorage: () => {
     if (typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
+    (async () => {
+      try {
+        const { getDB } = await import('@/lib/db/blend-db');
+        const db = getDB();
+        const dbChats = await db.chats.orderBy('updatedAt').reverse().toArray();
+        if (dbChats.length > 0) {
+          // IDB → D1Chat 형식으로 메시지 합쳐서 메모리 캐시
+          const chats: D1Chat[] = await Promise.all(
+            dbChats.map(async (c) => {
+              const msgs = await db.messages
+                .where('[chatId+createdAt]')
+                .between([c.id, 0], [c.id, Number.MAX_SAFE_INTEGER])
+                .toArray();
+              return {
+                id: c.id,
+                title: c.title,
+                model: c.model,
+                createdAt: c.createdAt,
+                updatedAt: c.updatedAt,
+                pinned: c.pinned,
+                tags: c.tags,
+                folder: c.folderId ?? null,
+                forkedFrom: c.forkedFrom,
+                messages: msgs.map((m) => ({
+                  id: m.id,
+                  role: m.role as D1Role,
+                  content: m.content,
+                  modelUsed: m.model,
+                  createdAt: m.createdAt,
+                })),
+              };
+            })
+          );
+          set({ chats, loaded: true });
+          return;
+        }
+        // IDB 비어있음 → localStorage fallback (옛 데이터 마이그레이션 후 첫 로드)
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const chats: D1Chat[] = Array.isArray(parsed?.chats) ? parsed.chats : [];
+          set({ chats, loaded: true });
+          return;
+        }
         set({ loaded: true });
-        return;
+      } catch {
+        set({ loaded: true });
       }
-      const parsed = JSON.parse(raw);
-      const chats: D1Chat[] = Array.isArray(parsed?.chats) ? parsed.chats : [];
-      set({ chats, loaded: true });
-    } catch {
-      set({ loaded: true });
-    }
+    })();
   },
 
   saveToStorage: () => {
     if (typeof window === 'undefined') return;
-    try {
-      const payload = { version: 1, chats: get().chats };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (err) {
-      if ((err as Error)?.name === 'QuotaExceededError') {
-        // Trim oldest 50% and retry once.
+    (async () => {
+      try {
+        const { getDB } = await import('@/lib/db/blend-db');
+        const db = getDB();
         const chats = get().chats;
-        const half = Math.floor(chats.length / 2);
-        const trimmed = chats.slice(0, chats.length - half);
-        set({ chats: trimmed });
+        await db.transaction('rw', db.chats, db.messages, async () => {
+          for (const c of chats) {
+            await db.chats.put({
+              id: c.id,
+              title: c.title,
+              model: c.model,
+              provider: 'unknown',
+              createdAt: c.createdAt,
+              updatedAt: c.updatedAt,
+              pinned: c.pinned,
+              tags: c.tags,
+              folderId: c.folder ?? undefined,
+              forkedFrom: c.forkedFrom,
+            });
+            // 기존 메시지 삭제 후 다시 bulkPut (단순 — 매번 동기화 보장)
+            await db.messages.where('chatId').equals(c.id).delete();
+            if (c.messages.length > 0) {
+              await db.messages.bulkPut(
+                c.messages.map((m) => ({
+                  id: m.id,
+                  chatId: c.id,
+                  role: m.role,
+                  content: m.content,
+                  createdAt: m.createdAt,
+                  model: m.modelUsed,
+                }))
+              );
+            }
+          }
+        });
+      } catch (err) {
+        // IDB 실패 시 localStorage fallback
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, chats: trimmed }));
-        } catch {}
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('blend:storage-quota-exceeded', { detail: { store: 'chats', purged: half } }));
+          const payload = { version: 1, chats: get().chats };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch {
+          if ((err as Error)?.name === 'QuotaExceededError') {
+            window.dispatchEvent(new CustomEvent('blend:storage-quota-exceeded', { detail: { store: 'chats' } }));
+          }
         }
       }
-    }
+    })();
   },
 
   upsertChat: (chat) => {

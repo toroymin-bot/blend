@@ -24,6 +24,34 @@ function persist(sources: DataSource[]) {
   } catch (e) {
     console.warn('[datasource-store] localStorage save failed (quota exceeded?):', e);
   }
+  // Sprint 4 — IndexedDB 동기화 (비동기, 실패해도 localStorage는 유지)
+  if (typeof window === 'undefined') return;
+  (async () => {
+    try {
+      const { getDB } = await import('@/lib/db/blend-db');
+      const db = getDB();
+      await db.transaction('rw', db.dataSources, async () => {
+        await db.dataSources.clear();
+        for (const s of sources) {
+          const cfg = s.config as { type: string; folderId?: string; folderName?: string; folderPath?: string; accessToken?: string; expiresAt?: number };
+          await db.dataSources.put({
+            id: s.id,
+            type: cfg.type as 'google-drive' | 'onedrive' | 'webdav' | 'local',
+            serviceName: s.name,
+            folderId: cfg.folderId,
+            folderName: cfg.folderName,
+            folderPath: cfg.folderPath,
+            accessToken: cfg.accessToken,
+            expiresAt: cfg.expiresAt,
+            connectedAt: s.lastSync ?? Date.now(),
+            lastSyncAt: s.lastSync,
+            fileCount: s.fileCount ?? 0,
+            isActive: s.isActive,
+          });
+        }
+      });
+    } catch { /* IDB 실패 무시 */ }
+  })();
 }
 
 interface DataSourceState {
