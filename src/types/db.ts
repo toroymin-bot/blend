@@ -90,6 +90,7 @@ export interface DBMeetingAnalysis {
   decisions?: string[];
   topics?: string[];
   fullSummary?: string;
+  transcript?: { speaker?: string; text: string }[];
   createdAt: number;
 }
 

@@ -13,6 +13,7 @@ type MeetingExportData = {
   decisions: string[];
   topics: string[];
   fullSummary: string;
+  transcript?: { speaker?: string; text: string }[];
 };
 
 function fmtDateKo(ts: number): string {
@@ -38,6 +39,7 @@ export async function exportMeetingDocx(meeting: MeetingExportData, lang: 'ko' |
     decisions:  isKo ? '결정사항' : 'Decisions',
     topics:     isKo ? '토픽' : 'Topics',
     full:       isKo ? '전체 요약' : 'Full Summary',
+    transcript: isKo ? '대화 기록' : 'Transcript',
     duration:   isKo ? '분석 시간' : 'Duration',
     participants: isKo ? '참석자' : 'Participants',
     suffix:     isKo ? '명' : '',
@@ -151,6 +153,28 @@ export async function exportMeetingDocx(meeting: MeetingExportData, lang: 'ko' |
       children.push(new Paragraph({
         children: [new TextRun({ text: para.replace(/\n/g, ' '), size: 22 })],
         spacing: { after: 120 },
+      }));
+    });
+  }
+
+  // 대화 기록 (원본 transcript)
+  if (meeting.transcript && meeting.transcript.length) {
+    children.push(new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      children: [new TextRun({ text: labels.transcript, bold: true, size: 28 })],
+      spacing: { before: 360, after: 120 },
+      pageBreakBefore: true,
+    }));
+    meeting.transcript.forEach((seg) => {
+      if (seg.speaker) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: seg.speaker, bold: true, color: 'A04000', size: 20 })],
+          spacing: { before: 120, after: 40 },
+        }));
+      }
+      children.push(new Paragraph({
+        children: [new TextRun({ text: seg.text, size: 22 })],
+        spacing: { after: 80 },
       }));
     });
   }

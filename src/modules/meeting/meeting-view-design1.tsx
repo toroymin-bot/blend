@@ -39,6 +39,8 @@ const tokens = {
 // ── Types ────────────────────────────────────────────────────────
 type ActionItem = { owner?: string; task: string; dueDate?: string; done?: boolean };
 
+type TranscriptSegment = { speaker?: string; text: string };
+
 // Phase 3b (Tori 명세) — 활성 소스 칩 표시용 isActive 필드 추가
 type MeetingResult = {
   id: string;
@@ -53,6 +55,8 @@ type MeetingResult = {
   fullSummary: string;
   // Phase 3b — 활성 소스 칩 표시 (채팅 RAG)
   isActive?: boolean;
+  // [2026-04-26] STT/diarization 원본 보존 — Result 화면 + PDF/Word export 용
+  transcript?: TranscriptSegment[];
 };
 
 const STORAGE_KEY = 'd1:meetings';
@@ -197,6 +201,7 @@ async function loadResultsFromIDB(): Promise<MeetingResult[]> {
         topics: a?.topics ?? [],
         fullSummary: a?.fullSummary ?? '',
         isActive: meta.isActive,
+        transcript: a?.transcript,
       });
     }
     return results;
@@ -252,6 +257,7 @@ function saveResults(rs: MeetingResult[]) {
               decisions: r.decisions,
               topics: r.topics,
               fullSummary: r.fullSummary,
+              transcript: r.transcript,
               createdAt: r.createdAt,
             });
           }
@@ -373,6 +379,8 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
     setErrorMsg(null);
 
     let inputText = text.trim();
+    // [2026-04-26] 원본 보존 — 화자 분리 결과가 있으면 segments, 없으면 단일 chunk
+    let transcriptSegments: TranscriptSegment[] | undefined;
 
     // 1) 음성 파일 STT (Tori 명세 단계별 에러 분기)
     if (!inputText && audioFile) {
@@ -426,11 +434,14 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
         try {
           const segments = await diarizeSpeakers(transcribed, diarizeKey, diarizeProvider);
           inputText = segments.map((s) => `${s.speaker}: ${s.text}`).join('\n');
+          transcriptSegments = segments.map((s) => ({ speaker: s.speaker, text: s.text }));
         } catch {
           inputText = transcribed;
+          transcriptSegments = [{ text: transcribed }];
         }
       } else {
         inputText = transcribed;
+        transcriptSegments = [{ text: transcribed }];
       }
       setDiarizing(false);
     }
@@ -440,11 +451,17 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
       try {
         setAnalyzing(true);
         inputText = await fetchYoutubeTranscript(ytUrl.trim());
+        if (inputText) transcriptSegments = [{ text: inputText }];
       } catch {
         setErrorMsg(t.error);
         setAnalyzing(false);
         return;
       }
+    }
+
+    // 3) 텍스트 paste — 화자 정보 없는 단일 chunk로 보존
+    if (!transcriptSegments && inputText) {
+      transcriptSegments = [{ text: inputText }];
     }
 
     if (!inputText) {
@@ -507,6 +524,7 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
         fullSummary:  String(parsed.fullSummary || ''),
         // Phase 3b — 분석 완료 시 자동 활성화 (채팅에서 즉시 활용)
         isActive: true,
+        transcript: transcriptSegments,
       };
 
       const next = [result, ...history].slice(0, 30);
@@ -912,6 +930,31 @@ function ResultPhase({
           <p className="whitespace-pre-wrap text-[14px] leading-[1.7]" style={{ color: tokens.text }}>
             {result.fullSummary}
           </p>
+        </Section>
+      )}
+
+      {result.transcript && result.transcript.length > 0 && (
+        <Section title={t.transcript}>
+          <div className="space-y-3">
+            {result.transcript.map((seg, i) => (
+              <div key={i}>
+                {seg.speaker && (
+                  <div
+                    className="mb-1 text-[11px] font-medium uppercase tracking-[0.06em]"
+                    style={{ color: tokens.accent }}
+                  >
+                    {seg.speaker}
+                  </div>
+                )}
+                <p
+                  className="whitespace-pre-wrap text-[14px] leading-[1.7]"
+                  style={{ color: tokens.text }}
+                >
+                  {seg.text}
+                </p>
+              </div>
+            ))}
+          </div>
         </Section>
       )}
     </>

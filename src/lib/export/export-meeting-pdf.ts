@@ -14,6 +14,7 @@ type MeetingExportData = {
   decisions: string[];
   topics: string[];
   fullSummary: string;
+  transcript?: { speaker?: string; text: string }[];
 };
 
 function escapeHtml(s: string): string {
@@ -39,6 +40,7 @@ function renderMeetingHTML(meeting: MeetingExportData, lang: 'ko' | 'en'): HTMLE
     decisions:  isKo ? '결정사항' : 'Decisions',
     topics:     isKo ? '토픽' : 'Topics',
     full:       isKo ? '전체 요약' : 'Full Summary',
+    transcript: isKo ? '대화 기록' : 'Transcript',
     duration:   isKo ? '분석 시간' : 'Duration',
     participants: isKo ? '참석자' : 'Participants',
     suffix:     isKo ? '명' : '',
@@ -100,6 +102,18 @@ function renderMeetingHTML(meeting: MeetingExportData, lang: 'ko' | 'en'): HTMLE
       ${meeting.fullSummary ? `
         <h2 style="font-size:13pt;margin:16pt 0 6pt 0;font-weight:600;">${labels.full}</h2>
         <p style="line-height:1.7;white-space:pre-wrap;">${escapeHtml(meeting.fullSummary)}</p>
+      ` : ''}
+
+      ${meeting.transcript && meeting.transcript.length ? `
+        <h2 style="font-size:13pt;margin:16pt 0 6pt 0;font-weight:600;page-break-before:always;">${labels.transcript}</h2>
+        <div style="line-height:1.7;">
+          ${meeting.transcript.map((seg) => `
+            <div style="margin:8pt 0;page-break-inside:avoid;">
+              ${seg.speaker ? `<div style="font-size:9pt;font-weight:600;color:#a04000;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2pt;">${escapeHtml(seg.speaker)}</div>` : ''}
+              <p style="margin:0;white-space:pre-wrap;">${escapeHtml(seg.text)}</p>
+            </div>
+          `).join('')}
+        </div>
       ` : ''}
 
       <div style="margin-top:24pt;padding-top:8pt;border-top:1px solid #e6e2dc;font-size:9pt;color:#a8a49b;text-align:center;font-style:italic;">
