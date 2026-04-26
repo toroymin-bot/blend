@@ -9,6 +9,7 @@ import { useActiveSourceList } from '@/hooks/use-active-source-list';
 import { useDocumentStore } from '@/stores/document-store';
 import { useDataSourceStore } from '@/stores/datasource-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
+import { StatusDot } from '@/modules/chat/status-dot';
 
 // [2026-04-26] D-2 — embedProgress + 현재시각으로 남은시간 추정
 function computeEtaSec(startedAt: number, percent: number): number | null {
@@ -200,6 +201,7 @@ export function ActiveSourcesBar({
               onClick={() => handleClick(s)}
               onDeactivate={() => handleDeactivate(s)}
               etaSeconds={eta}
+              lang={lang}
             />
           );
         })}
@@ -216,16 +218,6 @@ export function ActiveSourcesBar({
       `}</style>
     </div>
   );
-}
-
-function statusColor(status?: string): string {
-  switch (status) {
-    case 'ready':   return '#16a34a';
-    case 'syncing': return '#d97706';
-    case 'error':   return '#dc2626';
-    case 'idle':
-    default:        return '#9ca3af';
-  }
 }
 
 // [2026-04-26] D-2 — 초 → "Ns" / "Nm Ns" / "Nh Nm" 식으로 짧게
@@ -249,27 +241,53 @@ function progressLabel(p: ActiveSource['progress']): string {
   return `${p.current}/${p.total}`;
 }
 
+// [2026-04-26 Tori 16384118 §1.3] hover 툴팁 카피 — 상태별 풍부한 정보
+function buildTooltip(
+  source: ActiveSource,
+  etaSeconds: number | null | undefined,
+  lang: 'ko' | 'en',
+): string {
+  const ko = lang === 'ko';
+  const baseTitle = source.subtitle ? `${source.title} · ${source.subtitle}` : source.title;
+  const indexed = source.chunkCount;
+  const progress = source.progress;
+
+  if (source.status === 'error') {
+    if (source.errorMessage) return `${baseTitle} — ${source.errorMessage}`;
+    return ko
+      ? `${baseTitle} — 검색 문제. 칩의 ⚠️ 클릭으로 해결`
+      : `${baseTitle} — search issue. Click ⚠️ to resolve`;
+  }
+  if (source.status === 'syncing' && progress && progress.total > 0) {
+    const cur = progress.current;
+    const tot = progress.total;
+    const pct = tot === 100 ? Math.round(cur) : Math.round((cur / tot) * 100);
+    const etaSegment = etaSeconds != null && etaSeconds > 0 ? ` · ${ko ? '약' : '~'} ${formatEta(etaSeconds)}` : '';
+    return ko
+      ? `동기화 중 · ${cur}/${tot} (${pct}%)${etaSegment}`
+      : `Syncing · ${cur}/${tot} (${pct}%)${etaSegment}`;
+  }
+  // ready / idle — 검색 가능
+  return ko
+    ? `검색 가능 · ${indexed}개 인덱싱됨`
+    : `Searchable · ${indexed} indexed`;
+}
+
 function ActiveSourceChip({
-  source, onClick, onDeactivate, etaSeconds,
+  source, onClick, onDeactivate, etaSeconds, lang,
 }: {
   source: ActiveSource;
   onClick: () => void;
   onDeactivate: () => void;
   etaSeconds?: number | null;
+  lang: 'ko' | 'en';
 }) {
   const baseTitle = source.subtitle
     ? `${source.title} · ${source.subtitle}`
     : source.title;
   const pLabel = progressLabel(source.progress);
   const displayText = pLabel ? `${baseTitle} · ${pLabel}` : baseTitle;
-  const dotColor = statusColor(source.status);
-  const isPulse = source.status === 'syncing';
-  const etaLabel = etaSeconds != null && etaSeconds > 0
-    ? ` · ETA ${formatEta(etaSeconds)}`
-    : '';
-  const tooltip = source.errorMessage
-    ? `${baseTitle} — ${source.errorMessage}`
-    : `${displayText}${etaLabel}`;
+  const tooltip = buildTooltip(source, etaSeconds, lang);
 
   return (
     <div
@@ -277,7 +295,7 @@ function ActiveSourceChip({
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
-      className="group inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors"
+      className="group inline-flex shrink-0 items-center rounded-md px-2.5 py-1.5 text-[13px] transition-colors"
       style={{
         background: tokens.surface,
         border: `1px solid ${tokens.border}`,
@@ -286,36 +304,22 @@ function ActiveSourceChip({
         maxWidth: 240,
       }}
       title={tooltip}
+      aria-label={tooltip}
     >
-      <span
-        aria-hidden
-        className="inline-block shrink-0 rounded-full"
-        style={{
-          width: 7,
-          height: 7,
-          background: dotColor,
-          animation: isPulse ? 'd1-chip-pulse 1.4s ease-in-out infinite' : 'none',
-        }}
-      />
-      <span className="shrink-0">{source.icon}</span>
-      <span className="truncate" style={{ maxWidth: 180 }}>{displayText}</span>
+      <StatusDot status={source.status} />
+      <span className="shrink-0 mr-1.5">{source.icon}</span>
+      <span className="truncate mr-1.5" style={{ maxWidth: 180 }}>{displayText}</span>
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onDeactivate(); }}
         className="flex h-4 w-4 shrink-0 items-center justify-center rounded transition-colors"
         style={{ color: tokens.textFaint, background: 'transparent' }}
-        aria-label="deactivate"
+        aria-label={lang === 'ko' ? '비활성화' : 'deactivate'}
       >
         <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 6L6 18M6 6l12 12" />
         </svg>
       </button>
-      <style jsx>{`
-        @keyframes d1-chip-pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%      { opacity: 0.45; transform: scale(0.8); }
-        }
-      `}</style>
     </div>
   );
 }
