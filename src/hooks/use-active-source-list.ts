@@ -66,10 +66,11 @@ function dsServiceIcon(type: string): string {
 }
 
 export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
-  const documents    = useDocumentStore((s) => s.documents);
-  const activeDocIds = useDocumentStore((s) => s.activeDocIds);
-  const dataSources  = useDataSourceStore((s) => s.sources);
-  const meetings     = useActiveMeetings();
+  const documents     = useDocumentStore((s) => s.documents);
+  const activeDocIds  = useDocumentStore((s) => s.activeDocIds);
+  const embedProgress = useDocumentStore((s) => s.embedProgress);
+  const dataSources   = useDataSourceStore((s) => s.sources);
+  const meetings      = useActiveMeetings();
 
   return useMemo(() => {
     const result: ActiveSource[] = [];
@@ -78,9 +79,27 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
     documents
       .filter((d) => activeDocIds.has(d.id))
       .forEach((d) => {
-        // [2026-04-26] 상태: 첫 chunk에 embedding 있으면 ready, 없으면 idle (키워드 fallback)
+        // [2026-04-26] D-1 — 진행 상태 우선순위:
+        //   embedProgress.embedding → syncing (percent 표시)
+        //   embedProgress.error     → error
+        //   첫 chunk에 embedding    → ready
+        //   그 외                   → idle (키워드 fallback)
+        const prog = embedProgress[d.id];
         const hasEmbedding = d.chunks.some((c) => Array.isArray(c.embedding) && c.embedding.length > 0);
-        const status: 'ready' | 'idle' = hasEmbedding ? 'ready' : 'idle';
+        let status: 'syncing' | 'ready' | 'error' | 'idle';
+        let progress: { current: number; total: number } | undefined;
+        let errorMessage: string | undefined;
+        if (prog?.status === 'embedding') {
+          status = 'syncing';
+          progress = { current: prog.percent, total: 100 };
+        } else if (prog?.status === 'error') {
+          status = 'error';
+          errorMessage = prog.error;
+        } else if (hasEmbedding) {
+          status = 'ready';
+        } else {
+          status = 'idle';
+        }
         result.push({
           id: `doc:${d.id}`,
           type: 'document',
@@ -90,6 +109,8 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
           chunkCount: d.chunks.length,
           documentId: d.id,
           status,
+          progress,
+          errorMessage,
         });
       });
 
@@ -140,5 +161,5 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
     });
 
     return result;
-  }, [documents, activeDocIds, dataSources, meetings, lang]);
+  }, [documents, activeDocIds, embedProgress, dataSources, meetings, lang]);
 }

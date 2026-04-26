@@ -147,6 +147,10 @@ export default function D1DocumentsView({
   const removeDocument= useDocumentStore((s) => s.removeDocument);
   const toggleActive  = useDocumentStore((s) => s.toggleActive);
   const loadFromDB    = useDocumentStore((s) => s.loadFromDB);
+  // [2026-04-26] D-1 — store에 진행률 emit하여 채팅 칩에서 표시
+  const beginEmbedding   = useDocumentStore((s) => s.beginEmbedding);
+  const setEmbedPercent  = useDocumentStore((s) => s.setEmbedPercent);
+  const finishEmbedding  = useDocumentStore((s) => s.finishEmbedding);
 
   const { getKey } = useAPIKeyStore();
 
@@ -200,16 +204,20 @@ export default function D1DocumentsView({
         if (embeddingProvider) {
           setEmbedStatus((p) => ({ ...p, [doc.id]: 'embedding' }));
           setEmbedProgress((p) => ({ ...p, [doc.id]: 0 }));
+          beginEmbedding(doc.id);
           generateEmbeddings(doc, embeddingKey, embeddingProvider, (pct) => {
             setEmbedProgress((p) => ({ ...p, [doc.id]: pct }));
+            setEmbedPercent(doc.id, pct);
           })
             .then((embedded) => {
               updateDocument(embedded);
               setEmbedStatus((p) => ({ ...p, [doc.id]: 'done' }));
               setEmbedProgress((p) => ({ ...p, [doc.id]: 100 }));
+              finishEmbedding(doc.id, true);
             })
-            .catch(() => {
+            .catch((e) => {
               setEmbedStatus((p) => ({ ...p, [doc.id]: 'error' }));
+              finishEmbedding(doc.id, false, (e as Error)?.message);
             });
         }
       } catch (err: any) {
