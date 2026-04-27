@@ -61,7 +61,7 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en'; onNavigate?: 
           ) : (
             <>
               <P>We were spending $90 a month on AI subscriptions.</P>
-              <P>Now that same $90 lasts a year.</P>
+              <P>Now that same $9 a month.</P>
               <PStrong>That&apos;s Blend.</PStrong>
             </>
           )}
