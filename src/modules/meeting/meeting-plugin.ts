@@ -104,31 +104,55 @@ export async function diarizeSpeakers(
   const labelExample1 = speakerLabel(lang, 1);
   const labelExample2 = speakerLabel(lang, 2);
 
-  // CRITICAL: instruct the model to preserve the original language of the
-  // transcript content. Without this clause, an English system prompt causes
-  // gpt-4o-mini / claude-haiku to silently translate Korean speech to English.
-  const system = `You are a meeting transcript analysis expert. Return only valid JSON.
+  // CRITICAL (2026-04-27 v2): 영어 시스템 프롬프트로는 gpt-4o-mini/claude-haiku가
+  // 한국어 input도 영어로 번역해서 출력하는 경향을 못 막음. 시스템 프롬프트와
+  // user 프롬프트를 모델의 출력 기대 언어와 일치시켜 컨텍스트 일관성으로 강제.
+  let system: string;
+  let user: string;
 
-LANGUAGE RULE — strictly enforced:
-- Preserve the ORIGINAL language of the input transcript verbatim in the "text" field.
+  if (lang === 'ko') {
+    system = `당신은 회의록 분석 전문가입니다. JSON만 반환하세요.
+
+⚠️ 언어 규칙 (절대 위반 금지):
+- "text" 필드는 입력 텍스트의 원어를 그대로 유지합니다.
+- 번역하지 마세요. 의역하지 마세요. 요약하지 마세요.
+- 입력이 한국어면 → "text"도 한국어. 입력이 영어면 → "text"도 영어.
+- "speaker" 라벨만 한국어 형식 ("화자 1", "화자 2")으로 작성합니다.`;
+
+    user = `다음 회의록을 화자별로 분리해 주세요.
+
+자연스러운 대화 흐름을 기준으로 화자를 식별하고, 각 발언을 분리하세요.
+
+화자 라벨: "${labelExample1}", "${labelExample2}" 처럼 한국어로.
+대본(text)은 입력 원어 유지 — 한국어면 한국어, 영어면 영어. 번역 금지.
+
+응답 형식 (JSON만, 다른 설명 없이):
+{"segments": [{"speaker": "${labelExample1}", "text": "<원어 그대로>", "startTime": null}]}
+
+회의록:
+${transcript}`;
+  } else {
+    system = `You are a meeting transcript analysis expert. Return only valid JSON.
+
+⚠️ LANGUAGE RULE — strictly enforced:
+- The "text" field MUST preserve the ORIGINAL language of the input verbatim.
 - Do NOT translate. Do NOT paraphrase. Do NOT summarize.
-- If the input is Korean, output Korean text. If English, output English text.
-- Only the "speaker" labels follow the requested label language.`;
+- If input is Korean → "text" stays Korean. If English → "text" stays English.
+- Only the "speaker" labels use English format ("Speaker 1", "Speaker 2").`;
 
-  const user = `Analyze the following meeting transcript and separate it by speaker.
+    user = `Analyze the meeting transcript below and separate it by speaker.
 
-Identify sections spoken by different people. Use natural conversational flow as the basis for separation.
+Identify sections spoken by different people using natural conversational flow.
 
-Speaker labels MUST be in ${lang === 'ko' ? 'Korean' : 'English'} format:
-"${labelExample1}", "${labelExample2}", etc.
+Speaker labels in English: "${labelExample1}", "${labelExample2}", etc.
+Transcript text stays in its original language. Never translate.
 
-Transcript text MUST stay in its original language. Never translate.
-
-Return format (JSON):
+Return format (JSON only, no other text):
 {"segments": [{"speaker": "${labelExample1}", "text": "<original language preserved>", "startTime": null}]}
 
 Meeting transcript:
 ${transcript}`;
+  }
 
   try {
     const raw = await callLLM(system, user, apiKey, provider);

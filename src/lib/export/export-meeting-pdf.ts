@@ -53,16 +53,36 @@ function renderMeetingHTML(meeting: MeetingExportData, lang: 'ko' | 'en'): HTMLE
   // html2canvas can measure it. Without width, position:absolute collapses the
   // box to 0×0 and the rendered PDF is blank — even though the inner doc has
   // its own `width:180mm`. (Tori 2026-04-26 P0 fix, Bug B.)
+  // 2026-04-27 v3: 다크모드 cascade로 텍스트가 흰색으로 inherit되어 흰 배경에
+  // 흰 글씨가 되는 버그 차단. color-scheme + isolation으로 부모 다크 테마 차단.
   div.style.cssText = [
     'position:absolute',
     'left:-99999px',
     'top:0',
     'width:180mm',
     'background:#ffffff',
-    // Help html2canvas pick up box dimensions consistently
+    'color:#0a0a0a',
+    'color-scheme:light only',     // 다크모드 차단
+    'forced-color-adjust:none',    // 강제 색상 조정 차단
+    'isolation:isolate',           // stacking context 격리
     'box-sizing:content-box',
   ].join(';');
+  // 자식 요소들의 inherit 색상이 다크 테마에서 흰색으로 갈 수 있어
+  // injected <style> 태그로 모든 텍스트 요소에 명시적 색상 강제.
   div.innerHTML = `
+    <style>
+      .d1-meeting-export-doc, .d1-meeting-export-doc * {
+        color: #0a0a0a !important;
+        background-color: transparent !important;
+      }
+      .d1-meeting-export-doc { background: #ffffff !important; }
+      .d1-meeting-export-doc .d1-meta { color: #6b6862 !important; }
+      .d1-meeting-export-doc .d1-due  { color: #6b6862 !important; }
+      .d1-meeting-export-doc .d1-spk  { color: #a04000 !important; }
+      .d1-meeting-export-doc .d1-foot { color: #a8a49b !important; }
+      .d1-meeting-export-doc hr { border-top-color: #d4d0c8 !important; }
+    </style>
+  ` + `
     <div class="d1-meeting-export-doc" style="
       font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif;
       color: #0a0a0a; background: #ffffff; padding: 0;
@@ -71,7 +91,7 @@ function renderMeetingHTML(meeting: MeetingExportData, lang: 'ko' | 'en'): HTMLE
       <h1 style="font-size:20pt;margin:0 0 8pt 0;font-weight:600;letter-spacing:-0.02em;">
         ${escapeHtml(meeting.title || (isKo ? '회의록' : 'Meeting'))}
       </h1>
-      <div style="color:#6b6862;font-size:10pt;line-height:1.5;">
+      <div class="d1-meta" style="color:#6b6862;font-size:10pt;line-height:1.5;">
         <div>${dateStr}</div>
         ${meeting.duration ? `<div>${labels.duration}: ${escapeHtml(meeting.duration)}</div>` : ''}
         ${meeting.participants ? `<div>${labels.participants}: ${meeting.participants}${labels.suffix}</div>` : ''}
@@ -93,7 +113,7 @@ function renderMeetingHTML(meeting: MeetingExportData, lang: 'ko' | 'en'): HTMLE
               ${item.done ? '☑' : '☐'}
               ${item.owner ? `<strong>[${escapeHtml(item.owner)}]</strong>` : ''}
               ${escapeHtml(item.task)}
-              ${item.dueDate ? `<span style="color:#6b6862;"> · ${escapeHtml(item.dueDate)}</span>` : ''}
+              ${item.dueDate ? `<span class="d1-due" style="color:#6b6862;"> · ${escapeHtml(item.dueDate)}</span>` : ''}
             </li>
           `).join('')}
         </ul>
@@ -121,14 +141,14 @@ function renderMeetingHTML(meeting: MeetingExportData, lang: 'ko' | 'en'): HTMLE
         <div style="line-height:1.7;">
           ${meeting.transcript.map((seg) => `
             <div style="margin:8pt 0;page-break-inside:avoid;">
-              ${seg.speaker ? `<div style="font-size:9pt;font-weight:600;color:#a04000;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2pt;">${escapeHtml(seg.speaker)}</div>` : ''}
+              ${seg.speaker ? `<div class="d1-spk" style="font-size:9pt;font-weight:600;color:#a04000;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2pt;">${escapeHtml(seg.speaker)}</div>` : ''}
               <p style="margin:0;white-space:pre-wrap;">${escapeHtml(seg.text)}</p>
             </div>
           `).join('')}
         </div>
       ` : ''}
 
-      <div style="margin-top:24pt;padding-top:8pt;border-top:1px solid #e6e2dc;font-size:9pt;color:#a8a49b;text-align:center;font-style:italic;">
+      <div class="d1-foot" style="margin-top:24pt;padding-top:8pt;border-top:1px solid #e6e2dc;font-size:9pt;color:#a8a49b;text-align:center;font-style:italic;">
         ${labels.generated} · ${dateStr}
       </div>
     </div>

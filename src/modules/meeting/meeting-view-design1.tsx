@@ -407,7 +407,11 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
       let transcribed = '';
       try {
         setTranscribing(true);
-        const sttLang = lang === 'ko' ? 'ko-KR' : 'en-US';
+        // CRITICAL (2026-04-27 v3): Whisper API는 ISO-639-1 ('ko', 'en')만 받음.
+        // 'ko-KR'을 보내면 sttOpenAI 내부에서 ===' ko' 비교 실패 → 'en' fallback →
+        // 한국어 음성을 영어로 transcribe → 사용자가 영어 transcript 보게 됨.
+        // sttGoogle은 BCP-47('ko-KR')을 받지만 sttOpenAI 인터페이스에 맞춰 통일.
+        const sttLang = lang === 'ko' ? 'ko' : 'en';
         transcribed = openaiKey
           ? await sttOpenAI(audioFile, openaiKey, sttLang)
           : await sttGoogle(audioFile, googleKey, sttLang);
