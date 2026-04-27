@@ -392,10 +392,42 @@
 
 ---
 
-- [ ] **Phase 4.1 — "다른 AI로" 재생성** (2026-04-25 이월)
-  - Phase 4.0에서 toast 폴백으로 구현됨 ("곧 지원됩니다")
-  - 실제 구현: 인라인 미니 드롭다운 → 선택 시 해당 메시지 삭제 후 새 모델로 재생성
-  - 파일: `src/modules/chat/chat-view-design1.tsx` (`handleRegenerateWithDifferentModel`)
+- [x] **Phase 4.1 — "다른 AI로" 재생성** ✅ 2026-04-28 (이미 구현됨 + dead 카피 정리)
+  - 확인: `regenerateAssistantMessage(assistantMsgId, newModel?)` line 718 + 인라인 모델 픽커 (`MessageBubble` line 1816~1851, `MODELS.filter((m) => m.id !== 'auto').slice(0, 8)`) + `nextModelOverrideRef` closure-safe override 모두 구현 완료 상태
+  - 정리: dead 카피 `comingSoon: '곧 지원됩니다'` / `'Coming soon'` 3군데 (line 85, 108, 1630 type) 제거
+  - **재테스트**: production 채팅에서 assistant 메시지 → "↻ 다른 AI로" hover → 모델 선택 → 직전 user 메시지 기준 재생성 확인 필요
+
+### 🆕 2026-04-28 nighttask 발견 — 다음 nighttask 우선 처리
+
+- [ ] **REG-01** `model-registry.ts` — TC-FAIL-047 회귀: "최신/최강" 추상 표현 15건 재유입 (모델 sync로 신규 모델 추가 시 재발)
+  - 파일: `src/modules/models/model-registry.ts` line 137, 485, 617, 677, 749, 785, 972, 996, 1008, 1145, 1241, 1301, 1325, 1385, 1421
+  - 예: "GPT-5.4 — 더 빠르고 정확해진 최신 AI" / "어려운 코딩도 거뜬한 GPT-5.1 최강판" / "긴 문서·복잡 분석 최강" / "구글 최신 Gemma 4세대 AI"
+  - 원칙(Roy 신 카피 정책): 도발/형용사 제거, 사실 + use-case로만 표현
+  - 예시 변환:
+    - "최신 AI" → "코딩·번역·요약 범용형"
+    - "최강판" → "복잡한 코드 작업 강점"
+    - "긴 문서·복잡 분석 최강" → "긴 문서 분석·요약 강점"
+    - "구글 최신 Gemma 4세대 AI" → "구글 Gemma 4세대 — 멀티모달·경량형"
+  - 추가 영구 정책: `scripts/sync-models.*` 모델 sync 로직에 카피 검증 단계 추가 (auto-generated description은 별도 정책 함수에서 정규화)
+
+- [ ] **i18n-DELTA-01** ko/en locale 6키 차이 (ko 993 vs en 987)
+  - 파일: `src/locales/ko.json`, `src/locales/en.json`
+  - 누락 키 추출 + 양쪽 동기화 (i18n 감사)
+  - 명령:
+    ```bash
+    python3 -c "
+    import json
+    ko = json.load(open('src/locales/ko.json'))
+    en = json.load(open('src/locales/en.json'))
+    def flat(d, p=''):
+        for k,v in d.items():
+            if isinstance(v, dict): yield from flat(v, p+k+'.')
+            else: yield p+k
+    ks, es = set(flat(ko)), set(flat(en))
+    print('ko-only:', sorted(ks - es))
+    print('en-only:', sorted(es - ks))
+    "
+    ```
 
 - [ ] **GAS-AUTH** GAS Web App 재인증 필요 (2026-04-24에도 미해결 — Gmail scope 오류 지속)
   - 현상: sendDevReport 실행 시 Gmail 권한 오류 발생

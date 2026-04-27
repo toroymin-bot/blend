@@ -82,7 +82,6 @@ const copy = {
     voiceInput: '음성 입력',
     send: '보내기',
     tryAnother: '다른 AI로',
-    comingSoon: '곧 지원됩니다',
   },
   en: {
     emptyTitle: 'Ask',
@@ -105,7 +104,6 @@ const copy = {
     voiceInput: 'Voice input',
     send: 'Send',
     tryAnother: 'Try another AI',
-    comingSoon: 'Coming soon',
   },
 } as const;
 
@@ -1627,7 +1625,7 @@ type CopyObj = {
   modelAuto: string; modelAutoDesc: string; footer: string;
   copy: string; copied: string; regenerate: string; noApiKey: string;
   history: string; share: string; attachFile: string; voiceInput: string; send: string;
-  tryAnother: string; comingSoon: string;
+  tryAnother: string;
 };
 
 function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: { message: Message; lang: Lang; t: CopyObj; onTryAnother: (newModel?: string) => void; onFork?: () => void; onShare?: () => void }) {
