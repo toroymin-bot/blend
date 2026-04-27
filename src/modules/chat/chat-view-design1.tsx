@@ -33,6 +33,7 @@ import { exportD1Chat, type D1ExportFormat } from '@/modules/chat/export-utils-d
 import { VoiceButton } from '@/modules/chat/voice-button';
 import { sttOpenAI } from '@/lib/voice-chat';
 import { generateImage, extractImagePrompt } from '@/modules/plugins/image-gen';
+import { detectCategory } from '@/lib/model-router';
 import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } from '@/modules/plugins/web-search';
 // P3.3 — RAG (활성 문서 컨텍스트) + CitationBlock
 import { useDocumentStore } from '@/stores/document-store';
@@ -746,7 +747,21 @@ export default function D1ChatView({
 
     // v3 P0.3 — /image 명령: DALL-E 3로 이미지 생성, 응답에 markdown 이미지 인라인
     const imgPrompt = extractImagePrompt(content);
-    if (imgPrompt) {
+
+    // [2026-04-27 BUG-006 회귀 수정] 자연어 이미지 생성 자동 라우팅
+    // legacy chat-view.tsx에선 routeToModel + isDalleModel 분기로 동작했으나
+    // design1 이전 시 누락됨. detectCategory()의 image_gen 키워드("그려줘", "draw" 등)
+    // 매칭되면 currentModel이 auto/dall-e/gpt-image일 때 DALL-E로 자동 라우팅.
+    const isAutoModel    = currentModel === 'auto';
+    const isDalleModel   = currentModel === 'dall-e-3' || currentModel === 'gpt-image-1';
+    const noAttachedImg  = !images || images.length === 0;
+    const autoImagePrompt =
+      !imgPrompt && (isAutoModel || isDalleModel) && noAttachedImg && content
+        ? (detectCategory(content, false) === 'image_gen' ? content : null)
+        : null;
+
+    const finalImgPrompt = imgPrompt ?? autoImagePrompt;
+    if (finalImgPrompt) {
       const openaiKey = getKey('openai') || '';
       if (!openaiKey) {
         setToastMsg(t.noApiKey);
@@ -757,12 +772,20 @@ export default function D1ChatView({
       const userMsg: Message = { id: Date.now().toString(), role: 'user', content };
       setMessages((prev) => [...prev, userMsg]);
       setIsStreaming(true);
-      generateImage(imgPrompt, openaiKey)
+      generateImage(finalImgPrompt, openaiKey)
         .then((res) => {
+          if (res.error) {
+            setMessages((prev) => [...prev, {
+              id: Date.now().toString() + '_err',
+              role: 'assistant',
+              content: `🎨 ${res.error}`,
+            }]);
+            return;
+          }
           setMessages((prev) => [...prev, {
             id: Date.now().toString() + '_img',
             role: 'assistant',
-            content: `![${imgPrompt}](${res.url})`,
+            content: `![${finalImgPrompt.slice(0, 80)}](${res.url})`,
             modelUsed: 'dall-e-3',
           }]);
         })
