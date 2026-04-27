@@ -55,13 +55,13 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en'; onNavigate?: 
           {isKo ? (
             <>
               <P>매월 AI 구독료로 12만원을 쓰고 있었습니다.</P>
-              <P>같은 12만원을, 1년치로 줄였습니다.</P>
+              <P>이제는 월 12,000원이면 충분합니다.</P>
               <PStrong>이게 Blend입니다.</PStrong>
             </>
           ) : (
             <>
               <P>We were spending $90 a month on AI subscriptions.</P>
-              <P>Now that same $9 a month.</P>
+              <P>Now it&apos;s just $9 a month.</P>
               <PStrong>That&apos;s Blend.</PStrong>
             </>
           )}
