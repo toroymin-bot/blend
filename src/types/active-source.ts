@@ -5,7 +5,8 @@
 export type ActiveSourceType = 'document' | 'meeting' | 'datasource-folder';
 
 // [2026-04-26] RAG UX — 칩 색상 점 + 진행률 표시
-export type ActiveSourceStatus = 'idle' | 'syncing' | 'ready' | 'error';
+// [2026-04-28 Tori 17989643 PR #4] 'partial' 추가 — 이미지 PDF / 일부만 추출된 파일
+export type ActiveSourceStatus = 'idle' | 'syncing' | 'ready' | 'error' | 'partial';
 
 export interface ActiveSourceBase {
   id: string;                 // 통합 ID (타입 prefix, 예: "doc:abc123")

@@ -674,6 +674,36 @@ export async function buildContext(
   );
 }
 
+// ── Extraction Status (Tori 17989643 PR #4) ────────────────────────────────
+// PDF/문서가 정상 텍스트 추출됐는지, 이미지 PDF인지, 일부만 추출됐는지 판정.
+// 활성 칩 status-dot 색상 (노랑/빨강) 결정에 사용.
+
+export type ExtractionStatus =
+  | 'ok'           // 정상 추출
+  | 'partial'      // 일부만 추출 (페이지 제한 초과 / 일부 페이지 빈 텍스트)
+  | 'image_only'   // 텍스트 레이어 0 (이미지 PDF)
+  | 'empty';       // 청크 자체가 0 (파싱 실패)
+
+export function getExtractionStatus(doc: ParsedDocument): ExtractionStatus {
+  if (!doc.chunks || doc.chunks.length === 0) return 'empty';
+
+  const hasImageOnlyChunk = doc.chunks.some((c) =>
+    c.text.startsWith('[IMAGE-ONLY PDF]')
+  );
+  if (hasImageOnlyChunk && doc.chunks.length === 1) return 'image_only';
+
+  const hasWarningChunk = doc.chunks.some((c) =>
+    c.text.startsWith('[WARNING]')
+  );
+  // [WARNING] 청크가 있으면 페이지 제한 초과 (일부만 처리됨) → partial
+  if (hasWarningChunk) return 'partial';
+
+  // 추출된 텍스트가 너무 적으면 (예: 100자 미만) partial로 간주
+  if (doc.totalChars > 0 && doc.totalChars < 100) return 'partial';
+
+  return 'ok';
+}
+
 // ── Full Context Mode (Tori 17989643 PR #1) ────────────────────────────────
 // 번역/요약/재구성 같은 전체 처리 의도용. RAG 검색 우회하고 파일 전체 텍스트
 // 를 LLM 컨텍스트로 주입. 토큰 한도 초과 시 호출자가 chunked 처리 결정.

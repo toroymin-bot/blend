@@ -86,7 +86,15 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         //   그 외                   → idle (키워드 fallback)
         const prog = embedProgress[d.id];
         const hasEmbedding = d.chunks.some((c) => Array.isArray(c.embedding) && c.embedding.length > 0);
-        let status: 'syncing' | 'ready' | 'error' | 'idle';
+        // [Tori 17989643 PR #4] 추출 상태 검사 — 이미지 PDF / 부분 추출 → partial/error
+        const extraction = (() => {
+          if (!d.chunks || d.chunks.length === 0) return 'empty' as const;
+          if (d.chunks.length === 1 && d.chunks[0]?.text?.startsWith('[IMAGE-ONLY PDF]')) return 'image_only' as const;
+          if (d.chunks.some((c) => c.text?.startsWith('[WARNING]'))) return 'partial' as const;
+          if (d.totalChars > 0 && d.totalChars < 100) return 'partial' as const;
+          return 'ok' as const;
+        })();
+        let status: 'syncing' | 'ready' | 'error' | 'idle' | 'partial';
         let progress: { current: number; total: number } | undefined;
         let errorMessage: string | undefined;
         if (prog?.status === 'embedding') {
@@ -95,6 +103,16 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         } else if (prog?.status === 'error') {
           status = 'error';
           errorMessage = prog.error;
+        } else if (extraction === 'image_only' || extraction === 'empty') {
+          status = 'error';
+          errorMessage = lang === 'ko'
+            ? '텍스트 추출 실패 (이미지 PDF). OCR 처리된 파일을 업로드하세요.'
+            : 'Text extraction failed (image PDF). Upload an OCR-processed file.';
+        } else if (extraction === 'partial') {
+          status = 'partial';
+          errorMessage = lang === 'ko'
+            ? '일부 페이지만 텍스트 추출됐어요. 답변이 불완전할 수 있어요.'
+            : 'Only some pages were extracted. Answers may be incomplete.';
         } else if (hasEmbedding) {
           status = 'ready';
         } else {
