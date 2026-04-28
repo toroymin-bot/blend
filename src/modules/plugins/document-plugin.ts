@@ -632,14 +632,25 @@ export async function buildContext(
   }
 
   // [2026-04-10] 검색 결과 0개일 때 요약 요청 감지 → 첫 청크 반환
-  // 기존: 바로 "찾을 수 없습니다" 반환 → "문서 내용이 뭔데" 같은 질문에도 실패
-  // 수정: "내용/요약/뭔데/전체" 등 요약 요청이면 첫 4개 청크를 반환
+  // [2026-04-28] BUG-007 fix: 영어 트리거 누락 + 청크 수 부족 (4 → 12)
+  //   - 영어 사용자 "summarize / explain / what is" 입력 시 매칭 안 되어
+  //     docContext가 빈 문자열로 가서 AI가 "Not found" 응답.
+  //   - 4 청크만 주면 큰 PDF의 일부만 보이므로 AI가 요약 못 함 → 12로 증가.
   if (relevant.length === 0) {
-    const summaryTriggers = ['내용', '요약', '뭔데', '뭐야', '뭐가', '전체', '알려줘', '설명', '어떤', '있어'];
-    const isSummaryRequest = summaryTriggers.some((k) => query.includes(k)) || extractKeywords(query).length === 0;
+    const ql = query.toLowerCase();
+    const summaryTriggersKo = ['내용', '요약', '뭔데', '뭐야', '뭐가', '전체', '알려줘', '설명', '어떤', '있어', '첨부', '파일'];
+    const summaryTriggersEn = [
+      'summar', 'overview', 'tell me', 'what is', 'what\'s', 'whats',
+      'describe', 'explain', 'about', 'content', 'attach', 'this file',
+      'this pdf', 'this document', 'tldr', 'tl;dr',
+    ];
+    const isSummaryRequest =
+      summaryTriggersKo.some((k) => query.includes(k)) ||
+      summaryTriggersEn.some((k) => ql.includes(k)) ||
+      extractKeywords(query).length === 0;
     if (isSummaryRequest) {
       const allChunks = docs.flatMap((d) => d.chunks);
-      relevant = allChunks.slice(0, 4);
+      relevant = allChunks.slice(0, 12);
     }
   }
 

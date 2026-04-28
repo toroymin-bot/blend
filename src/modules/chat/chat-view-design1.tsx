@@ -1043,19 +1043,38 @@ To get a general answer, just continue."`;
     }
 
     // [2026-04-26] 답변 가드 — 활성 소스가 있으면 LLM이 추측 답변하지 않도록 명시
+    // [2026-04-28] BUG-007 fix: 가드가 너무 경직되어 "요약해줘" 같은 합리적 요청까지
+    // "Not found"로 거부하던 문제. 합성/요약은 명시적으로 허용 + 거부 조건을 좁힘.
     if (docContext) {
       const guardKo =
-`[Answer Guard]
-다음 [Active...] 섹션을 1차 지식원으로 사용하세요.
-- 제공된 소스에 없는 사실은 "제공된 소스에서 찾을 수 없어요"라고 명확히 답하고 추측하지 마세요.
-- 출처를 인라인으로 표기하세요. 예: [source: 파일명], [meeting: 제목]
-- 파일 내용·숫자·날짜를 임의로 만들어내지 마세요.`;
+`[답변 가이드]
+아래 [Active...] 섹션이 사용자의 활성 자료입니다. 질문에 답할 때 이 자료를 1차 지식원으로 사용하세요.
+
+✅ 적극적으로 하세요:
+- 자료를 합성·요약·설명·번역해서 답변
+- "요약해줘 / 뭐야 / 알려줘 / 설명해줘" 같은 메타 요청 — 자료 청크를 종합해서 자유롭게 응답
+- 출처를 인라인으로 표기: [source: 파일명], [meeting: 제목]
+
+⚠️ 하지 마세요:
+- 자료에 명시되지 않은 구체적 숫자·날짜·인용을 지어내기
+- 자료에 없는 사람 이름·고유명사를 추측하기
+
+🚫 정말 자료에 관련 정보가 0인 매우 구체적 사실 질문일 때만 "관련 정보 없음"을 명시하고, 그 다음 일반 지식으로 도움 시도.`;
+
       const guardEn =
-`[Answer Guard]
-Use the [Active...] sections below as your primary knowledge source.
-- If a fact isn't in the provided sources, reply "Not found in the provided sources" — do not guess.
-- Cite sources inline, e.g. [source: filename], [meeting: title].
-- Don't fabricate file contents, numbers, or dates.`;
+`[Answer Guidance]
+The [Active...] sections below are the user's activated sources. Use them as your primary knowledge source when answering.
+
+✅ Do these freely:
+- Synthesize, summarize, explain, or translate the source material
+- Meta requests like "summarize / what's this / tell me about / explain" — synthesize across the chunks and respond helpfully
+- Cite sources inline: [source: filename], [meeting: title]
+
+⚠️ Don't:
+- Fabricate specific numbers, dates, or quotes that aren't in the sources
+- Invent proper nouns or names not present in the sources
+
+🚫 Only refuse with "the sources don't contain that information" for narrowly factual questions where the sources truly have zero relevant content — then offer general-knowledge help as a follow-up.`;
       const guard = lang === 'ko' ? guardKo : guardEn;
       docContext = `${guard}\n\n---\n\n${docContext}`;
     }
