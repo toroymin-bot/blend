@@ -738,8 +738,11 @@ export default function D1ChatView({
 
   // [2026-04-26 Tori 16220538 §1] override — 음성 자동 전송용
   function handleSend(override?: string) {
-    const content = (override !== undefined ? override : value).trim();
-    if (!override && !canSend) return;
+    // [2026-04-28] 방어 코드: 호출자가 실수로 SyntheticEvent를 넘기면
+    // (event).trim() TypeError로 silent crash 났던 회귀 차단.
+    const overrideStr = typeof override === 'string' ? override : undefined;
+    const content = (overrideStr !== undefined ? overrideStr : value).trim();
+    if (!overrideStr && !canSend) return;
     if (!content && (!attachedImages || attachedImages.length === 0)) return;
     const images  = attachedImages;
 
@@ -2104,7 +2107,17 @@ function D1InputBar({
           )}
         </div>
         <button
-          onClick={isStreaming ? onStop : onSend}
+          onClick={(e) => {
+            // [2026-04-28] 버그 수정: onClick은 SyntheticEvent를 인자로 넘겨주는데
+            // onSend === handleSend(override?: string)라서 event 객체가 override 자리에
+            //들어가 (event).trim() TypeError로 silent fail. Enter 키는 handleSend()
+            // (인자 없이) 호출이라 정상 동작 → "엔터만 됨" 증상의 원인.
+            // 명시적으로 인자 없이 호출.
+            e.preventDefault();
+            if (isStreaming) onStop();
+            else onSend();
+          }}
+          type="button"
           disabled={!isStreaming && !canSend}
           className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-none transition-[transform,background] duration-150 hover:-translate-y-px disabled:cursor-not-allowed disabled:translate-y-0"
           style={{
