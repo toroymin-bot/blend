@@ -279,6 +279,9 @@ type Message = {
   images?: string[];
   // P3.3 — 인용 출처 (RAG 컨텍스트로 사용된 문서 파일명 배열)
   sources?: string[];
+  // [Tori 18644993 PR #5] Cross-Model Bridge — UI Badge 표시용
+  bridgeApplied?: boolean;
+  bridgeFromCache?: boolean;
 };
 
 // ============================================================
@@ -915,6 +918,8 @@ export default function D1ChatView({
               role: 'assistant',
               content: `![${finalImgPrompt.slice(0, 80)}](${res.url})`,
               modelUsed: 'dall-e-3',
+              bridgeApplied: adapt.bridgeApplied,
+              bridgeFromCache: adapt.fromCache,
             }]);
           })
         .catch((err) => {
@@ -1360,6 +1365,8 @@ The [Active...] sections below are the user's activated sources. Use them as you
             content: fullText,
             modelUsed: 'gemini-2.5-flash',
             sources: docSources.length ? docSources : undefined,
+            bridgeApplied,
+            bridgeFromCache,
           }]);
           setIsStreaming(false);
           setStreamingContent('');
@@ -1484,6 +1491,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           content: fullText,
           modelUsed: resolvedModelId,
           sources: docSources.length ? docSources : undefined,
+          bridgeApplied,
+          bridgeFromCache,
         }]);
         setIsStreaming(false);
         setStreamingContent('');
@@ -1960,6 +1969,8 @@ function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: { mes
       totalTokens={message.totalTokens}
       cost={message.cost}
       sources={message.sources}
+      bridgeApplied={message.bridgeApplied}
+      bridgeFromCache={message.bridgeFromCache}
       lang={lang}
       t={t}
       onTryAnother={onTryAnother}
@@ -1998,6 +2009,8 @@ function D1AssistantMessage({
   totalTokens,
   cost,
   sources,
+  bridgeApplied,
+  bridgeFromCache,
   lang,
   t,
   onTryAnother,
@@ -2010,6 +2023,8 @@ function D1AssistantMessage({
   totalTokens?: number;
   cost?: number;
   sources?: string[];
+  bridgeApplied?: boolean;
+  bridgeFromCache?: boolean;
   lang: Lang;
   t: CopyObj;
   onTryAnother?: (newModel?: string) => void;
@@ -2118,6 +2133,25 @@ function D1AssistantMessage({
                 {modelInfo.name}
                 {tokensStr && <><span>·</span><span>{tokensStr}</span></>}
                 {costStr   && <><span>·</span><span>{costStr}</span></>}
+              </span>
+            )}
+
+            {/* [Tori 18644993 PR #5] Cross-Model Bridge Badge — 이전 대화 참조 시 표시 */}
+            {bridgeApplied && (
+              <span
+                className="ml-1 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10.5px]"
+                style={{
+                  background: tokens.accentSoft,
+                  color: tokens.accent,
+                  fontWeight: 500,
+                }}
+                title={
+                  lang === 'ko'
+                    ? `이전 대화의 컨텍스트를 자동으로 참조해서 답변했어요${bridgeFromCache ? ' (캐시 hit)' : ''}`
+                    : `Previous conversation context was automatically used${bridgeFromCache ? ' (cache hit)' : ''}`
+                }
+              >
+                ✨ {lang === 'ko' ? '이전 대화 참조' : 'Previous context'}
               </span>
             )}
 
