@@ -1007,14 +1007,34 @@ export default function D1ChatView({
         }
 
         // Sources 추출 (모든 모드 공통)
+        // [Tori 17989643 PR #3] 파일 ID 단위 그루핑 — chunk source가
+        // "file.pdf (pages 1-3)", "file.pdf (chunk 2/6)" 등 청크 식별자를
+        // 포함해서 단순 Set dedupe로는 같은 파일이 N번 중복 표시되던 회귀.
+        // baseName 정규화 + count 추적으로 "file.pdf (3개 청크)" 형식 표시.
         if (docContext) {
           const matches = docContext.match(/\[source:\s*([^\]]+)\]/g) ?? [];
-          const set = new Set<string>();
+          const counts = new Map<string, number>();
           matches.forEach((m) => {
-            const v = m.replace(/^\[source:\s*/, '').replace(/\]$/, '').trim();
-            if (v) set.add(v);
+            const raw = m.replace(/^\[source:\s*/, '').replace(/\]$/, '').trim();
+            if (!raw) return;
+            // 청크 식별자 제거: " (pages 1-3)", " (rows 0-50)", " (chunk 2/6)" 등.
+            // 마지막 괄호 절을 제거 (파일 이름 자체에 () 있으면 보존)
+            const noChunkSuffix = raw.replace(/\s*\((?:pages|rows|chunk|warning|image)[^)]*\)\s*$/i, '');
+            // 시트/섹션 구분자 제거: "file.xlsx / Sheet1" → "file.xlsx"
+            const noSheetSuffix = noChunkSuffix.replace(/\s*\/\s*[^/]+$/, '');
+            // NFC 정규화 + 공백 통일
+            const norm = noSheetSuffix.normalize('NFC').replace(/\s+/g, ' ').trim();
+            if (!norm) return;
+            counts.set(norm, (counts.get(norm) ?? 0) + 1);
           });
-          docSources = Array.from(set).slice(0, 8);
+          docSources = Array.from(counts.entries())
+            .sort((a, b) => b[1] - a[1])  // 청크 많은 파일 먼저
+            .slice(0, 8)
+            .map(([name, count]) =>
+              count > 1
+                ? (lang === 'ko' ? `${name} · ${count}개 청크` : `${name} · ${count} chunks`)
+                : name
+            );
         }
       }
 
