@@ -111,30 +111,45 @@ export function getModePromptHeader(
 ): string {
   if (intent === 'full_context') {
     return lang === 'ko'
-      ? `[처리 모드: 전체 처리]
-사용자가 첨부 파일의 전체 내용에 대한 처리를 요청했어요 (번역/요약/재구성 등).
+      ? `[처리 모드: 전체 처리 — 직역/완역 의무]
+사용자가 첨부 파일의 전체 내용 처리를 요청했어요 (번역/요약/재구성 등).
 아래 [Active...] 섹션의 전체 텍스트를 1차 자료로 사용해서 요청을 완수하세요.
 
-✅ 의무:
-- 사용자가 한국어로 질문하면 한국어로 답하세요.
+⚠️ 번역 요청 시 절대 규칙:
+- 사용자가 "요약하지 말고", "전부", "전체"라고 명시했다면 **반드시 직역(verbatim translation)**.
+- 영어 문단 N개 → 한국어 문단 N개로 1:1 매핑. 문단 합치기/생략 금지.
+- 길이 절약 명목으로 문장을 줄이지 마세요. 출력이 길어도 OK.
+- 헤딩, 번호 매기기, 리스트, 강조 모두 보존.
+- 표/도표가 있으면 표 그대로 한국어로 옮기세요.
+
+✅ 모든 처리 의무:
+- 한국어 질문 → 한국어 답.
 - 자료의 전체 흐름을 따라 처리 (요약은 누락 없이, 번역은 빠짐 없이).
-- 출처를 [source: 파일명] 형식으로 인라인 표기.
+- 출처 [source: 파일명] 형식 인라인 표기.
 
 🚫 금지:
-- "찾을 수 없어요"로 거부 — 자료가 주어졌으니 처리해야 함.
-- 자료에 없는 사실을 임의로 추가.`
-      : `[Processing Mode: Full Context]
+- "찾을 수 없어요"로 거부 — 자료 주어졌으니 처리해야 함.
+- 자료에 없는 사실 임의 추가.
+- 사용자가 명시한 처리 방식(번역/요약 등)과 다르게 처리.`
+      : `[Processing Mode: Full Context — Verbatim Translation Required]
 The user asked for whole-file processing (translate / summarize / rewrite).
 Use the FULL TEXT in the [Active...] sections below as your primary source and complete the request.
 
-✅ Required:
+⚠️ Translation absolute rules:
+- If user specifies "don't summarize", "entire", "full", "verbatim" — produce **verbatim translation**.
+- Map English paragraph N to Korean paragraph N (1:1). Don't merge or omit paragraphs.
+- Don't shorten sentences for brevity. Long output is OK.
+- Preserve headings, numbering, lists, emphasis. Translate tables as tables.
+
+✅ All processing rules:
 - Respond in the user's language.
 - Cover the full flow of the source (no omissions in summary, no skips in translation).
 - Cite sources inline as [source: filename].
 
 🚫 Don't:
 - Refuse with "not found" — the material is provided, you must process it.
-- Add facts not present in the source.`;
+- Add facts not present in the source.
+- Substitute the requested processing (e.g., summarize when asked to translate).`;
   }
 
   if (intent === 'metadata_only') {

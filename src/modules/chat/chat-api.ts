@@ -194,7 +194,10 @@ async function handleAnthropic(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 4096,
+      // 2026-04-28: 4096 → 8192. 큰 첨부(번역/직역) 요청 시 4K 제한이 응답을
+      // 잘라 사용자가 "요약했다"고 인식하던 회귀 차단. Claude Sonnet 4.6은 8K+
+      // 출력 문제없이 처리.
+      max_tokens: 8192,
       system: systemMsg ? (typeof systemMsg.content === 'string' ? systemMsg.content : undefined) : undefined,
       messages: userMsgs.map((m) => ({ role: m.role, content: toAnthropicContent(m.content) })),
       stream,
