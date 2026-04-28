@@ -174,3 +174,28 @@ export function detectPdfDownloadIntent(message: string): boolean {
   if (/pdf.{0,10}(download|export|file)/i.test(low)) return true;
   return false;
 }
+
+/**
+ * 사용자 메시지에서 "PDF로 다운로드" 같은 지시 부분을 제거.
+ *
+ * AI(특히 GPT-4o-mini)는 "PDF" 단어를 보면 alignment 학습 때문에 "파일 생성
+ * 불가" 자동 거부에 빠지는 경향. 메시지를 수정해서 AI에게는 "번역해줘"
+ * 같은 순수 task만 전달하고, PDF 변환은 우리 코드가 처리.
+ */
+export function stripPdfDownloadIntent(message: string): string {
+  if (!message) return message;
+  let out = message;
+  // 한국어 "pdf로 다운로드해줘", "pdf로 받아줘", "pdf로 저장" 등
+  out = out.replace(/\s*(?:pdf|PDF)\s*(?:로|으로)?\s*(?:다운로드|받아|받|저장|내려|보내)\s*(?:해|줘|줄래|줄까|할래|돼|드려|받|좀)?\s*[?.!]?\s*/g, ' ');
+  // "다운로드 해줘 (pdf)" 같은 변형
+  out = out.replace(/\s*(?:다운로드|저장)\s*(?:로|으로|해|줘|줄래|드려)?\s*(?:[(\[]?(?:pdf|PDF)[)\]]?)?\s*/g, ' ');
+  // 영어
+  out = out.replace(/\s*(?:and\s+)?(?:download|export|save)\s+(?:it\s+)?(?:as|to|in)?\s*(?:pdf|PDF)\s*(?:file)?\s*/gi, ' ');
+  out = out.replace(/\s*(?:pdf|PDF)\s*(?:download|export|file)\s*/gi, ' ');
+  // 후처리 — 문장 끝 이상한 조사 정리
+  out = out.replace(/\s*해\s*서\s*$/g, '해줘');
+  out = out.replace(/\s+/g, ' ').trim();
+  // 거의 빈 결과면 원본 살려서 (안전장치 — fallback to original)
+  if (out.length < 3) return message;
+  return out;
+}

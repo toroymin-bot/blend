@@ -41,7 +41,7 @@ import { buildContext, buildFullContext, buildMetadataContext } from '@/modules/
 // Tori 17989643 PR #1 — 첨부 파일 처리 의도 분류
 import { classifyAttachmentIntent, getModePromptHeader, getLangEnforcementHeader } from '@/modules/chat/intent-classifier';
 // [2026-04-28 Roy 직접 요청] AI 응답을 PDF로 자동 다운로드
-import { exportResponseAsPDF, detectPdfDownloadIntent } from '@/lib/export/export-response-pdf';
+import { exportResponseAsPDF, detectPdfDownloadIntent, stripPdfDownloadIntent } from '@/lib/export/export-response-pdf';
 // Tori 통합 RAG — 활성 소스 칩 바
 import { ActiveSourcesBar } from '@/modules/chat/active-sources-bar';
 // [2026-04-28] 진행률 배너 — 칩의 작은 점만으로는 분석 중을 인지 못하던 UX 보강
@@ -1259,7 +1259,7 @@ The [Active...] sections below are the user's activated sources. Use them as you
     // ── Trial path (Gemini 2.5 Flash, no user key) ───────────────
     if (isTrialMode) {
       sendTrialMessage({
-        messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+        messages: sanitizedMessages.map(m => ({ role: m.role, content: m.content })),
         signal: controller.signal,
         onChunk: (text) => {
           accumulated += text;
@@ -1376,9 +1376,20 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
     const systemContent = [pdfDownloadHeader, langHeader, docContext]
       .filter(Boolean)
       .join('\n\n---\n\n');
+
+    // [2026-04-28 v2] AI 거부 차단 강화 — 시스템 프롬프트만으로는 부족(GPT-4o-mini
+    // 등이 "PDF" 단어 보면 거부 자동화). 사용자 마지막 메시지에서 PDF 다운로드
+    // 부분을 제거해서 AI에게는 "번역해줘" 같은 순수 task만 전달.
+    const sanitizedMessages = wantsPdfDownload
+      ? updatedMessages.map((m, i, arr) =>
+          i === arr.length - 1 && m.role === 'user'
+            ? { ...m, content: stripPdfDownloadIntent(typeof m.content === 'string' ? m.content : '') }
+            : m
+        )
+      : updatedMessages;
     const apiMessages = [
       { role: 'system' as const, content: systemContent } as { role: 'system'; content: import('@/modules/chat/chat-api').MessageContent },
-      ...updatedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
+      ...sanitizedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
     ];
 
     sendChatRequest({
