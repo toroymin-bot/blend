@@ -40,6 +40,8 @@ import { useDocumentStore } from '@/stores/document-store';
 import { buildContext } from '@/modules/plugins/document-plugin';
 // Tori 통합 RAG — 활성 소스 칩 바
 import { ActiveSourcesBar } from '@/modules/chat/active-sources-bar';
+// [2026-04-28] 진행률 배너 — 칩의 작은 점만으로는 분석 중을 인지 못하던 UX 보강
+import { D1RagProgressBanner } from '@/modules/chat/rag-progress-banner';
 
 // ============================================================
 // Design tokens (same as Phase 1)
@@ -736,6 +738,60 @@ export default function D1ChatView({
     }, 0);
   }
 
+  // [2026-04-28] AI 호출 실패 시 사용자 친화 메시지 변환.
+  // raw error 문자열을 그대로 보여주면 "Error: 401 Unauthorized" 같은
+  // 기술적 메시지가 노출되어 사용자 입장에서 무엇을 해야 할지 모름.
+  function friendlyError(err: unknown): string {
+    const raw = String(
+      err instanceof Error ? err.message :
+      typeof err === 'string' ? err :
+      ((err as { message?: string })?.message ?? err)
+    );
+    const lower = raw.toLowerCase();
+    const isKo = lang === 'ko';
+
+    // AbortError = 사용자가 중단한 경우 또는 timeout
+    if (/abort/.test(lower)) {
+      return isKo
+        ? '⏱ 응답이 중단되었어요. 다시 시도하시겠어요?'
+        : '⏱ The response was stopped. Try again?';
+    }
+    // 401 / invalid key / unauthorized
+    if (/401|invalid.*key|unauthorized|api key/i.test(raw)) {
+      return isKo
+        ? '🔑 API 키가 유효하지 않아요.\n설정 → API 키에서 다시 확인해주세요.'
+        : '🔑 Your API key is invalid.\nPlease check it in Settings → API Keys.';
+    }
+    // 403 / forbidden / quota / billing
+    if (/403|forbidden|insufficient.*quota|billing|payment/i.test(raw)) {
+      return isKo
+        ? '🚫 모델 사용 권한 또는 결제 한도 문제예요.\n프로바이더 콘솔에서 확인하시거나 다른 모델을 시도해주세요.'
+        : '🚫 Permission or billing issue with this model.\nCheck your provider console, or try a different model.';
+    }
+    // 429 / rate limit
+    if (/429|rate.*limit|too many|quota.*exceed/i.test(raw)) {
+      return isKo
+        ? '⏳ 요청 한도를 초과했어요.\n잠시 후 다시 시도하거나 다른 모델을 선택해주세요.'
+        : '⏳ Rate limit reached.\nWait a moment, or pick a different model.';
+    }
+    // 5xx / server error
+    if (/5\d{2}|server.*error|internal|service.*unavailable|bad gateway|timeout/i.test(raw)) {
+      return isKo
+        ? '🌐 AI 서비스에 일시적 문제가 있어요. 잠시 후 다시 시도해주세요.'
+        : '🌐 The AI service is having a hiccup. Try again in a moment.';
+    }
+    // network / fetch failed
+    if (/fetch|network|failed to fetch|enotfound|econnrefused/i.test(lower)) {
+      return isKo
+        ? '📡 네트워크 연결을 확인하고 다시 시도해주세요.'
+        : '📡 Check your internet connection and retry.';
+    }
+    // 정확한 원인 모름 — raw message는 보여주되 안내 추가
+    return isKo
+      ? `❌ 답변을 가져오지 못했어요.\n자세한 내용: ${raw.slice(0, 160)}\n문제가 계속되면 설정에서 API 키를 확인해주세요.`
+      : `❌ Couldn't get a response.\nDetails: ${raw.slice(0, 160)}\nIf this keeps happening, check your API key in Settings.`;
+  }
+
   // [2026-04-26 Tori 16220538 §1] override — 음성 자동 전송용
   function handleSend(override?: string) {
     // [2026-04-28] 방어 코드: 호출자가 실수로 SyntheticEvent를 넘기면
@@ -794,7 +850,7 @@ export default function D1ChatView({
           setMessages((prev) => [...prev, {
             id: Date.now().toString() + '_err',
             role: 'assistant',
-            content: `Error: ${err.message ?? err}`,
+            content: friendlyError(err),
           }]);
         })
         .finally(() => {
@@ -1117,7 +1173,7 @@ The [Active...] sections below are the user's activated sources. Use them as you
           setMessages(prev => [...prev, {
             id: Date.now().toString() + '_err',
             role: 'assistant',
-            content: `Error: ${err.message}`,
+            content: friendlyError(err),
           }]);
           setIsStreaming(false);
           setStreamingContent('');
@@ -1202,7 +1258,7 @@ The [Active...] sections below are the user's activated sources. Use them as you
         setMessages(prev => [...prev, {
           id: Date.now().toString() + '_err',
           role: 'assistant',
-          content: `Error: ${err}`,
+          content: friendlyError(err),
         }]);
         setIsStreaming(false);
         setStreamingContent('');
@@ -1399,6 +1455,7 @@ The [Active...] sections below are the user's activated sources. Use them as you
           >
             {/* Tori 통합 RAG — 활성 소스 칩 바 (입력창 위) */}
             <div className="mx-auto w-full max-w-[720px]">
+              <D1RagProgressBanner lang={lang} />
               <ActiveSourcesBar
                 lang={lang}
                 onNavigate={(source) => {
@@ -1506,6 +1563,7 @@ The [Active...] sections below are the user's activated sources. Use them as you
           background: `linear-gradient(to bottom, transparent, ${tokens.bg} 40%)`,
         }}>
           <div className="mx-auto w-full max-w-[760px] px-8">
+            <D1RagProgressBanner lang={lang} />
             <ActiveSourcesBar
               lang={lang}
               onNavigate={() => window.dispatchEvent(new CustomEvent('d1:nav-documents'))}
