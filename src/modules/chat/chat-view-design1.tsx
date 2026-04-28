@@ -40,6 +40,8 @@ import { useDocumentStore } from '@/stores/document-store';
 import { buildContext, buildFullContext, buildMetadataContext } from '@/modules/plugins/document-plugin';
 // Tori 17989643 PR #1 — 첨부 파일 처리 의도 분류
 import { classifyAttachmentIntent, getModePromptHeader, getLangEnforcementHeader } from '@/modules/chat/intent-classifier';
+// [2026-04-28 Roy 직접 요청] AI 응답을 PDF로 자동 다운로드
+import { exportResponseAsPDF, detectPdfDownloadIntent } from '@/lib/export/export-response-pdf';
 // Tori 통합 RAG — 활성 소스 칩 바
 import { ActiveSourcesBar } from '@/modules/chat/active-sources-bar';
 // [2026-04-28] 진행률 배너 — 칩의 작은 점만으로는 분석 중을 인지 못하던 UX 보강
@@ -740,6 +742,48 @@ export default function D1ChatView({
     }, 0);
   }
 
+  // [2026-04-28 Roy] AI 응답 완료 후 PDF 자동 다운로드.
+  // wantsPdfDownload이고 응답이 비어있지 않으면 호출자가 트리거.
+  function triggerPdfDownload(
+    userQuery: string,
+    aiResponse: string,
+    sources: string[],
+    currentLang: 'ko' | 'en'
+  ) {
+    // 사용자 입력에서 제목 추출 — "PDF로 다운로드해줘" 같은 동사 제거
+    const cleaned = userQuery
+      .replace(/[#`*_~]/g, '')
+      .replace(/pdf\s*(로|으로)?\s*(다운로드|받아|저장|내려)\s*(해|줘|줄래|줄까|할래|돼)?[?.!]?/gi, '')
+      .replace(/(다운로드|저장)[\s,]*(해|줘|받아)?[?.!]?/gi, '')
+      .replace(/(download|export|save).*pdf/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const sourceFile = sources[0]?.replace(/\s*·\s*\d+개\s*청크$/, '').replace(/\s*·\s*\d+\s*chunks?$/i, '').trim() ?? '';
+    const titleParts = [
+      sourceFile || (currentLang === 'ko' ? 'Blend 답변' : 'Blend Response'),
+      cleaned ? cleaned.slice(0, 60) : (currentLang === 'ko' ? '한국어 번역' : 'translation'),
+    ];
+    const title = titleParts.join(' — ');
+
+    // 비동기 호출 — onDone 동기 흐름 막지 않도록
+    void exportResponseAsPDF(
+      {
+        title,
+        body: aiResponse,
+        sourceFiles: sources.length ? sources : undefined,
+        createdAt: Date.now(),
+      },
+      currentLang
+    ).catch((err) => {
+      // PDF 실패 시에도 텍스트 응답은 살아있음 → 토스트로 안내만
+      setToastMsg(
+        currentLang === 'ko'
+          ? `PDF 생성 실패: ${(err as Error).message ?? '오류'}`
+          : `PDF export failed: ${(err as Error).message ?? 'error'}`
+      );
+    });
+  }
+
   // [2026-04-28] AI 호출 실패 시 사용자 친화 메시지 변환.
   // raw error 문자열을 그대로 보여주면 "Error: 401 Unauthorized" 같은
   // 기술적 메시지가 노출되어 사용자 입장에서 무엇을 해야 할지 모름.
@@ -1234,6 +1278,10 @@ The [Active...] sections below are the user's activated sources. Use them as you
           abortRef.current = null;
           // P3.2 자동 제목 — 첫 응답 직후만 트리거
           if (messages.length === 0) triggerAutoTitle(content, fullText);
+          // [2026-04-28 Roy] PDF 다운로드 자동화
+          if (wantsPdfDownload && fullText.trim()) {
+            triggerPdfDownload(content, fullText, docSources, lang);
+          }
         },
         onError: (err) => {
           setMessages(prev => [...prev, {
@@ -1291,14 +1339,43 @@ The [Active...] sections below are the user's activated sources. Use them as you
       }
     }
 
+    // [2026-04-28 Roy] PDF 다운로드 의도 감지 — 활성 문서 + "PDF로 다운로드"
+    // 요청이면 (a) AI가 "PDF 만들 수 없음" 거부 차단, (b) 응답 완료 후 자동 export.
+    const wantsPdfDownload = detectPdfDownloadIntent(content) && docSources.length > 0;
+    const pdfDownloadHeader = wantsPdfDownload
+      ? (lang === 'ko'
+          ? `[PDF 다운로드 자동화 안내]
+사용자가 답변을 PDF로 받기를 원합니다. **Blend 플랫폼이 응답 완료 후 자동으로 PDF를 생성·다운로드합니다.**
+
+✅ 너의 역할:
+- 요청된 처리(번역/요약/재구성)를 끝까지 완수해서 본문 형태로 작성.
+- "PDF를 만들 수 없습니다" 같은 거부 절대 금지 — 플랫폼이 처리함.
+- 너는 텍스트 본문만 제공하면 됨.
+
+❌ 금지:
+- "기술적 제약으로 PDF 다운로드 불가" 답변 (틀림 — 자동 export 됨).
+- "특정 부분만 도와줄 수 있어요" 식의 회피.`
+          : `[PDF Download Automation]
+The user wants this answer downloaded as PDF. **The Blend platform will automatically generate and download a PDF after your response.**
+
+✅ Your job:
+- Complete the requested processing (translation/summary/rewrite) end-to-end as the body.
+- Do NOT refuse with "I can't make PDFs" — the platform handles it.
+- You only provide the text body.
+
+❌ Don't:
+- "Technical limitation prevents PDF download" (false — auto-exported).
+- "I can only help with parts" workarounds.`)
+      : '';
+
     // [Tori 17989643 PR #2] 응답 언어 강제 — 모든 메시지에 lang 헤더 prepend.
     // docContext가 있으면 그 위에, 없으면 단독으로 system 메시지로 주입.
     // 한국어 사용자가 "Not found in the provided sources" 같은 영어 echo
     // 받는 회귀 차단.
     const langHeader = getLangEnforcementHeader(lang);
-    const systemContent = docContext
-      ? `${langHeader}\n\n---\n\n${docContext}`
-      : langHeader;
+    const systemContent = [pdfDownloadHeader, langHeader, docContext]
+      .filter(Boolean)
+      .join('\n\n---\n\n');
     const apiMessages = [
       { role: 'system' as const, content: systemContent } as { role: 'system'; content: import('@/modules/chat/chat-api').MessageContent },
       ...updatedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
@@ -1327,6 +1404,10 @@ The [Active...] sections below are the user's activated sources. Use them as you
         abortRef.current = null;
         // P3.2 자동 제목 — 첫 응답 직후만 트리거
         if (messages.length === 0) triggerAutoTitle(content, fullText);
+        // [2026-04-28 Roy] PDF 다운로드 자동화
+        if (wantsPdfDownload && fullText.trim()) {
+          triggerPdfDownload(content, fullText, docSources, lang);
+        }
       },
       onError: (err) => {
         setMessages(prev => [...prev, {
