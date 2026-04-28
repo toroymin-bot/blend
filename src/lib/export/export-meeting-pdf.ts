@@ -1,7 +1,16 @@
-// Meeting PDF 출력 — html2pdf.js (Tori P1.3 명세)
-// design1 톤 비즈니스 문서 (accent 색 미사용, 흰 배경)
+// Meeting PDF 출력 — window.print → OS-level 텍스트 PDF
+// (Tori 16384344 + Roy 2026-04-28 v3 결정)
+//
+// 이전: html2pdf.js + html2canvas — 빈 페이지 / 이미지 PDF / 다크모드 cascade
+// 같은 회귀 다발. 어제(2026-04-27) v2에서 width:180mm + fonts.ready + measured
+// dimensions로 패치했지만 일부 환경에서 여전히 빈 페이지.
+//
+// v3: window.open 새 창에 깔끔한 HTML 렌더 → 자동 print 다이얼로그.
+// 사용자가 "PDF로 저장" 선택. 텍스트 기반 PDF, 한글 글리프 안전, 다크모드
+// 무관. 회의 분석 PDF + AI 응답 PDF 양쪽 동일 패턴.
 
 import { sanitizeFilename, formatDateForFilename } from './sanitize-filename';
+import { printHtmlAsPDF } from './print-as-pdf';
 
 type MeetingExportData = {
   id: string;
@@ -32,7 +41,7 @@ function fmtDateEn(ts: number): string {
   return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
 }
 
-function renderMeetingHTML(meeting: MeetingExportData, lang: 'ko' | 'en'): HTMLElement {
+function buildMeetingBody(meeting: MeetingExportData, lang: 'ko' | 'en'): string {
   const isKo = lang === 'ko';
   const labels = {
     summary:    isKo ? '요약' : 'Summary',
@@ -48,167 +57,78 @@ function renderMeetingHTML(meeting: MeetingExportData, lang: 'ko' | 'en'): HTMLE
   };
   const dateStr = isKo ? fmtDateKo(meeting.createdAt) : fmtDateEn(meeting.createdAt);
 
-  const div = document.createElement('div');
-  // Off-screen positioning: must include explicit width on the OUTER element so
-  // html2canvas can measure it. Without width, position:absolute collapses the
-  // box to 0×0 and the rendered PDF is blank — even though the inner doc has
-  // its own `width:180mm`. (Tori 2026-04-26 P0 fix, Bug B.)
-  // 2026-04-27 v3: 다크모드 cascade로 텍스트가 흰색으로 inherit되어 흰 배경에
-  // 흰 글씨가 되는 버그 차단. color-scheme + isolation으로 부모 다크 테마 차단.
-  div.style.cssText = [
-    'position:absolute',
-    'left:-99999px',
-    'top:0',
-    'width:180mm',
-    'background:#ffffff',
-    'color:#0a0a0a',
-    'color-scheme:light only',     // 다크모드 차단
-    'forced-color-adjust:none',    // 강제 색상 조정 차단
-    'isolation:isolate',           // stacking context 격리
-    'box-sizing:content-box',
-  ].join(';');
-  // 자식 요소들의 inherit 색상이 다크 테마에서 흰색으로 갈 수 있어
-  // injected <style> 태그로 모든 텍스트 요소에 명시적 색상 강제.
-  div.innerHTML = `
-    <style>
-      .d1-meeting-export-doc, .d1-meeting-export-doc * {
-        color: #0a0a0a !important;
-        background-color: transparent !important;
-      }
-      .d1-meeting-export-doc { background: #ffffff !important; }
-      .d1-meeting-export-doc .d1-meta { color: #6b6862 !important; }
-      .d1-meeting-export-doc .d1-due  { color: #6b6862 !important; }
-      .d1-meeting-export-doc .d1-spk  { color: #a04000 !important; }
-      .d1-meeting-export-doc .d1-foot { color: #a8a49b !important; }
-      .d1-meeting-export-doc hr { border-top-color: #d4d0c8 !important; }
-    </style>
-  ` + `
-    <div class="d1-meeting-export-doc" style="
-      font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif;
-      color: #0a0a0a; background: #ffffff; padding: 0;
-      width: 180mm; line-height: 1.6;
-    ">
-      <h1 style="font-size:20pt;margin:0 0 8pt 0;font-weight:600;letter-spacing:-0.02em;">
-        ${escapeHtml(meeting.title || (isKo ? '회의록' : 'Meeting'))}
-      </h1>
-      <div class="d1-meta" style="color:#6b6862;font-size:10pt;line-height:1.5;">
-        <div>${dateStr}</div>
-        ${meeting.duration ? `<div>${labels.duration}: ${escapeHtml(meeting.duration)}</div>` : ''}
-        ${meeting.participants ? `<div>${labels.participants}: ${meeting.participants}${labels.suffix}</div>` : ''}
-      </div>
-      <hr style="border:none;border-top:1px solid #d4d0c8;margin:12pt 0;" />
+  const summaryBlock = meeting.summary.length
+    ? `<h2>${labels.summary}</h2><ul>${meeting.summary.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`
+    : '';
 
-      ${meeting.summary.length ? `
-        <h2 style="font-size:13pt;margin:16pt 0 6pt 0;font-weight:600;">${labels.summary}</h2>
-        <ul style="padding-left:16pt;line-height:1.6;margin:0;">
-          ${meeting.summary.map(s => `<li style="margin:4pt 0;">${escapeHtml(s)}</li>`).join('')}
-        </ul>
-      ` : ''}
+  const actionBlock = meeting.actionItems.length
+    ? `<h2>${labels.actions}</h2><ul style="list-style:none;padding-left:0;">${meeting.actionItems.map(item => `
+        <li style="margin:4pt 0;">
+          ${item.done ? '☑' : '☐'}
+          ${item.owner ? `<strong>[${escapeHtml(item.owner)}]</strong>` : ''}
+          ${escapeHtml(item.task)}
+          ${item.dueDate ? `<span class="meta"> · ${escapeHtml(item.dueDate)}</span>` : ''}
+        </li>`).join('')}</ul>`
+    : '';
 
-      ${meeting.actionItems.length ? `
-        <h2 style="font-size:13pt;margin:16pt 0 6pt 0;font-weight:600;page-break-after:avoid;">${labels.actions}</h2>
-        <ul style="padding-left:16pt;line-height:1.6;list-style:none;margin:0;">
-          ${meeting.actionItems.map(item => `
-            <li style="margin:4pt 0;page-break-inside:avoid;">
-              ${item.done ? '☑' : '☐'}
-              ${item.owner ? `<strong>[${escapeHtml(item.owner)}]</strong>` : ''}
-              ${escapeHtml(item.task)}
-              ${item.dueDate ? `<span class="d1-due" style="color:#6b6862;"> · ${escapeHtml(item.dueDate)}</span>` : ''}
-            </li>
-          `).join('')}
-        </ul>
-      ` : ''}
+  const decisionsBlock = meeting.decisions.length
+    ? `<h2>${labels.decisions}</h2><ul>${meeting.decisions.map(d => `<li>${escapeHtml(d)}</li>`).join('')}</ul>`
+    : '';
 
-      ${meeting.decisions.length ? `
-        <h2 style="font-size:13pt;margin:16pt 0 6pt 0;font-weight:600;">${labels.decisions}</h2>
-        <ul style="padding-left:16pt;line-height:1.6;margin:0;">
-          ${meeting.decisions.map(d => `<li style="margin:4pt 0;">${escapeHtml(d)}</li>`).join('')}
-        </ul>
-      ` : ''}
+  const topicsBlock = meeting.topics.length
+    ? `<h2>${labels.topics}</h2><p class="meta">${meeting.topics.map(escapeHtml).join(' · ')}</p>`
+    : '';
 
-      ${meeting.topics.length ? `
-        <h2 style="font-size:13pt;margin:16pt 0 6pt 0;font-weight:600;">${labels.topics}</h2>
-        <p style="line-height:1.6;color:#3a3a3a;">${meeting.topics.map(escapeHtml).join(' · ')}</p>
-      ` : ''}
+  const fullBlock = meeting.fullSummary
+    ? `<h2>${labels.full}</h2><p style="white-space:pre-wrap;">${escapeHtml(meeting.fullSummary)}</p>`
+    : '';
 
-      ${meeting.fullSummary ? `
-        <h2 style="font-size:13pt;margin:16pt 0 6pt 0;font-weight:600;">${labels.full}</h2>
-        <p style="line-height:1.7;white-space:pre-wrap;">${escapeHtml(meeting.fullSummary)}</p>
-      ` : ''}
+  const transcriptBlock = meeting.transcript && meeting.transcript.length
+    ? `<h2 style="page-break-before:always;">${labels.transcript}</h2>
+       <div>${meeting.transcript.map((seg) => `
+         <div style="margin:8pt 0;page-break-inside:avoid;">
+           ${seg.speaker ? `<div style="font-size:11px;font-weight:600;color:#a04000;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2pt;">${escapeHtml(seg.speaker)}</div>` : ''}
+           <p style="margin:0;white-space:pre-wrap;">${escapeHtml(seg.text)}</p>
+         </div>
+       `).join('')}</div>`
+    : '';
 
-      ${meeting.transcript && meeting.transcript.length ? `
-        <h2 style="font-size:13pt;margin:16pt 0 6pt 0;font-weight:600;page-break-before:always;">${labels.transcript}</h2>
-        <div style="line-height:1.7;">
-          ${meeting.transcript.map((seg) => `
-            <div style="margin:8pt 0;page-break-inside:avoid;">
-              ${seg.speaker ? `<div class="d1-spk" style="font-size:9pt;font-weight:600;color:#a04000;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2pt;">${escapeHtml(seg.speaker)}</div>` : ''}
-              <p style="margin:0;white-space:pre-wrap;">${escapeHtml(seg.text)}</p>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-
-      <div class="d1-foot" style="margin-top:24pt;padding-top:8pt;border-top:1px solid #e6e2dc;font-size:9pt;color:#a8a49b;text-align:center;font-style:italic;">
-        ${labels.generated} · ${dateStr}
-      </div>
+  return `
+    <h1>${escapeHtml(meeting.title || (isKo ? '회의록' : 'Meeting'))}</h1>
+    <div class="meta">
+      <div>${dateStr}</div>
+      ${meeting.duration ? `<div>${labels.duration}: ${escapeHtml(meeting.duration)}</div>` : ''}
+      ${meeting.participants ? `<div>${labels.participants}: ${meeting.participants}${labels.suffix}</div>` : ''}
     </div>
+    <hr>
+    ${summaryBlock}
+    ${actionBlock}
+    ${decisionsBlock}
+    ${topicsBlock}
+    ${fullBlock}
+    ${transcriptBlock}
+    <div class="footer">${labels.generated} · ${dateStr}</div>
   `;
-  return div;
 }
 
 export async function exportMeetingPDF(meeting: MeetingExportData, lang: 'ko' | 'en'): Promise<void> {
-  // html2pdf.js는 client-only — 동적 import (SSR/정적 빌드 호환)
-  const html2pdfModule = (await import('html2pdf.js')).default as (...args: unknown[]) => {
-    set: (opts: object) => { from: (el: HTMLElement) => { save: () => Promise<void> } };
-  };
-
-  const element = renderMeetingHTML(meeting, lang);
-  document.body.appendChild(element);
-
-  // Wait for fonts + DOM measurement before rasterizing (Tori 2026-04-26 P0).
-  // Without this, html2canvas fires while Pretendard is still loading and the
-  // canvas captures an unstyled (often empty) rectangle.
-  try {
-    await document.fonts.ready;
-  } catch { /* ignore — fall through to timeout */ }
-  await new Promise((resolve) => setTimeout(resolve, 200));
-
-  // Read the measured size of the rendered subtree. Use this so html2canvas
-  // captures the FULL height (long transcripts) rather than the viewport size.
-  const measuredHeight = Math.max(element.scrollHeight, element.offsetHeight, 1);
-  const measuredWidth  = Math.max(element.scrollWidth,  element.offsetWidth,  1);
-
-  const filename = sanitizeFilename(`${meeting.title || 'meeting'}_${formatDateForFilename(meeting.createdAt)}.pdf`);
-
-  const opt = {
-    margin: [15, 15, 15, 15],
-    filename,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      // Critical for long transcripts — without these, html2canvas defaults
-      // to window dimensions and clips/blanks tall content.
-      width:        measuredWidth,
-      height:       measuredHeight,
-      windowWidth:  measuredWidth,
-      windowHeight: measuredHeight,
-      // Don't log to console in production
-      logging: false,
-    },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const },
-  };
+  // sanitize/formatDate는 새 파일명 힌트용으로만 사용 — 실제 파일명은
+  // 사용자가 print 다이얼로그에서 결정. title을 그 힌트에 반영.
+  const baseFilename = sanitizeFilename(
+    `${meeting.title || 'meeting'}_${formatDateForFilename(meeting.createdAt)}`
+  );
+  const titleHint = baseFilename.replace(/_/g, ' ').slice(0, 60);
 
   try {
-    await html2pdfModule().set(opt).from(element).save();
+    printHtmlAsPDF({
+      title: titleHint,
+      bodyHtml: buildMeetingBody(meeting, lang),
+      lang,
+    });
   } catch (e) {
-    const err = e as Error;
+    const err = e as Error & { code?: string };
     const wrapped = new Error(err.message || 'PDF export failed') as Error & { code?: string };
-    wrapped.code = 'PDF_EXPORT_FAILED';
+    wrapped.code = err.code === 'POPUP_BLOCKED' ? 'POPUP_BLOCKED' : 'PDF_EXPORT_FAILED';
     throw wrapped;
-  } finally {
-    if (element.parentNode) element.parentNode.removeChild(element);
   }
 }
