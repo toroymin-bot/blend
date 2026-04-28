@@ -1342,6 +1342,17 @@ The [Active...] sections below are the user's activated sources. Use them as you
     // [2026-04-28 Roy] PDF 다운로드 의도 감지 — 활성 문서 + "PDF로 다운로드"
     // 요청이면 (a) AI가 "PDF 만들 수 없음" 거부 차단, (b) 응답 완료 후 자동 export.
     const wantsPdfDownload = detectPdfDownloadIntent(content) && docSources.length > 0;
+    // [2026-04-28 v4] AI 거부 차단 강화 — 시스템 프롬프트만으로는 부족
+    // (GPT-4o-mini 등이 "PDF" 단어 보면 alignment 자동 거부). 사용자 마지막
+    // 메시지에서 PDF 다운로드 부분을 제거해서 AI에게는 "번역해줘" 같은 순수
+    // task만 전달. trial + BYOK 양쪽에서 사용.
+    const sanitizedMessages = wantsPdfDownload
+      ? updatedMessages.map((m, i, arr) =>
+          i === arr.length - 1 && m.role === 'user'
+            ? { ...m, content: stripPdfDownloadIntent(typeof m.content === 'string' ? m.content : '') }
+            : m
+        )
+      : updatedMessages;
     const pdfDownloadHeader = wantsPdfDownload
       ? (lang === 'ko'
           ? `[PDF 다운로드 자동화 안내]
@@ -1377,16 +1388,6 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
       .filter(Boolean)
       .join('\n\n---\n\n');
 
-    // [2026-04-28 v2] AI 거부 차단 강화 — 시스템 프롬프트만으로는 부족(GPT-4o-mini
-    // 등이 "PDF" 단어 보면 거부 자동화). 사용자 마지막 메시지에서 PDF 다운로드
-    // 부분을 제거해서 AI에게는 "번역해줘" 같은 순수 task만 전달.
-    const sanitizedMessages = wantsPdfDownload
-      ? updatedMessages.map((m, i, arr) =>
-          i === arr.length - 1 && m.role === 'user'
-            ? { ...m, content: stripPdfDownloadIntent(typeof m.content === 'string' ? m.content : '') }
-            : m
-        )
-      : updatedMessages;
     const apiMessages = [
       { role: 'system' as const, content: systemContent } as { role: 'system'; content: import('@/modules/chat/chat-api').MessageContent },
       ...sanitizedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
