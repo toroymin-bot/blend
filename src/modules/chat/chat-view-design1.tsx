@@ -39,7 +39,7 @@ import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } fr
 import { useDocumentStore } from '@/stores/document-store';
 import { buildContext, buildFullContext, buildMetadataContext } from '@/modules/plugins/document-plugin';
 // Tori 17989643 PR #1 — 첨부 파일 처리 의도 분류
-import { classifyAttachmentIntent, getModePromptHeader } from '@/modules/chat/intent-classifier';
+import { classifyAttachmentIntent, getModePromptHeader, getLangEnforcementHeader } from '@/modules/chat/intent-classifier';
 // Tori 통합 RAG — 활성 소스 칩 바
 import { ActiveSourcesBar } from '@/modules/chat/active-sources-bar';
 // [2026-04-28] 진행률 배너 — 칩의 작은 점만으로는 분석 중을 인지 못하던 UX 보강
@@ -1271,10 +1271,18 @@ The [Active...] sections below are the user's activated sources. Use them as you
       }
     }
 
-    // RAG 컨텍스트 있으면 system 메시지로 prepend
-    const apiMessages = docContext
-      ? [{ role: 'system' as const, content: docContext } as { role: 'system'; content: import('@/modules/chat/chat-api').MessageContent }, ...updatedMessages.map(m => ({ role: m.role, content: toApiContent(m) }))]
-      : updatedMessages.map(m => ({ role: m.role, content: toApiContent(m) }));
+    // [Tori 17989643 PR #2] 응답 언어 강제 — 모든 메시지에 lang 헤더 prepend.
+    // docContext가 있으면 그 위에, 없으면 단독으로 system 메시지로 주입.
+    // 한국어 사용자가 "Not found in the provided sources" 같은 영어 echo
+    // 받는 회귀 차단.
+    const langHeader = getLangEnforcementHeader(lang);
+    const systemContent = docContext
+      ? `${langHeader}\n\n---\n\n${docContext}`
+      : langHeader;
+    const apiMessages = [
+      { role: 'system' as const, content: systemContent } as { role: 'system'; content: import('@/modules/chat/chat-api').MessageContent },
+      ...updatedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
+    ];
 
     sendChatRequest({
       messages: apiMessages,

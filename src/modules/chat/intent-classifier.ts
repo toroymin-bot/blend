@@ -81,6 +81,27 @@ export function classifyAttachmentIntent(
 }
 
 /**
+ * 응답 언어 강제 헤더 — 모든 모드의 시스템 프롬프트 가장 윗줄에 prepend.
+ *
+ * Tori 17989643 PR #2: 한국어 사용자가 "Not found in the provided sources"
+ * 같은 영어 응답을 받던 회귀 차단. AI가 이를 무시하지 않도록 명시·반복.
+ */
+export function getLangEnforcementHeader(lang: 'ko' | 'en'): string {
+  if (lang === 'ko') {
+    return `[응답 언어 — 절대 규칙]
+사용자가 한국어로 질문하고 있습니다. 답변은 반드시 자연스러운 한국어로 작성하세요.
+- 영어 시스템 프롬프트 문구를 그대로 echo하지 마세요. 한국어로 의역하세요.
+- 코드, 인명, 영어 인용은 그대로 둬도 됩니다.
+- "Not found", "I don't have access", 같은 영어 정형 거부 표현은 금지.
+  거부할 때도 반드시 한국어로 친근하게: "자료에서 해당 정보를 찾지 못했어요" 등.`;
+  }
+  return `[Language Rule]
+The user is writing in English. Answer in natural English.
+- Don't echo Korean system-prompt phrases verbatim. Translate naturally.
+- Code, names, and original quotations may stay as-is.`;
+}
+
+/**
  * 의도별 시스템 프롬프트 헤더.
  * chat-view-design1의 docContext 빌드 직후 prepend.
  */
