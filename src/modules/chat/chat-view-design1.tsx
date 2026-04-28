@@ -42,9 +42,8 @@ import { buildContext, buildFullContext, buildMetadataContext } from '@/modules/
 import { classifyAttachmentIntent, getModePromptHeader, getLangEnforcementHeader } from '@/modules/chat/intent-classifier';
 // [2026-04-28 Roy 직접 요청] AI 응답을 PDF로 자동 다운로드
 import { exportResponseAsPDF, detectPdfDownloadIntent, stripPdfDownloadIntent } from '@/lib/export/export-response-pdf';
-// [Tori 18644993 PR #1+#2] Cross-Model 컨텍스트 연속성
-import { checkContextBridge } from '@/lib/context/context-bridge';
-import { augmentForModelSwitch, type TargetModelType } from '@/lib/context/augmentation-layer';
+// [Tori 18644993 PR #1+#2+#3] Cross-Model 컨텍스트 연속성
+import { adaptForText, adaptForImage, adaptForVision, inferTargetModelType } from '@/lib/context/model-adapter';
 // Tori 통합 RAG — 활성 소스 칩 바
 import { ActiveSourcesBar } from '@/modules/chat/active-sources-bar';
 // [2026-04-28] 진행률 배너 — 칩의 작은 점만으로는 분석 중을 인지 못하던 UX 보강
@@ -878,23 +877,46 @@ export default function D1ChatView({
       const userMsg: Message = { id: Date.now().toString(), role: 'user', content };
       setMessages((prev) => [...prev, userMsg]);
       setIsStreaming(true);
-      generateImage(finalImgPrompt, openaiKey)
-        .then((res) => {
-          if (res.error) {
+
+      // [Tori 18644993 PR #3] image flow에 ModelAdapter 적용 — 직전 대화의
+      // 묘사(주황 고양이 등)를 DALL-E English prompt로 보강. Anthropic 키
+      // 있고 model switch일 때만. 없으면 원본 prompt 그대로 사용.
+      void (async () => {
+        const history = messages as unknown as Parameters<typeof adaptForImage>[0]['sessionMessages'];
+        const adapt = await adaptForImage({
+          sessionMessages: history,
+          currentUserMessage: finalImgPrompt,
+          targetModel: 'dall-e-3',
+          anthropicKey: getKey('anthropic') || undefined,
+          lang,
+        });
+        const promptToSend = adapt.finalPrompt;
+        if (typeof window !== 'undefined') {
+          console.info(
+            '[Bridge:image]',
+            adapt.reason,
+            adapt.bridgeApplied ? (adapt.fromCache ? '(cache hit)' : '(Haiku call)') : '',
+            '→ dall-e-3'
+          );
+        }
+
+        generateImage(promptToSend, openaiKey)
+          .then((res) => {
+            if (res.error) {
+              setMessages((prev) => [...prev, {
+                id: Date.now().toString() + '_err',
+                role: 'assistant',
+                content: `🎨 ${res.error}`,
+              }]);
+              return;
+            }
             setMessages((prev) => [...prev, {
-              id: Date.now().toString() + '_err',
+              id: Date.now().toString() + '_img',
               role: 'assistant',
-              content: `🎨 ${res.error}`,
+              content: `![${finalImgPrompt.slice(0, 80)}](${res.url})`,
+              modelUsed: 'dall-e-3',
             }]);
-            return;
-          }
-          setMessages((prev) => [...prev, {
-            id: Date.now().toString() + '_img',
-            role: 'assistant',
-            content: `![${finalImgPrompt.slice(0, 80)}](${res.url})`,
-            modelUsed: 'dall-e-3',
-          }]);
-        })
+          })
         .catch((err) => {
           setMessages((prev) => [...prev, {
             id: Date.now().toString() + '_err',
@@ -906,6 +928,7 @@ export default function D1ChatView({
           setIsStreaming(false);
           setStreamingContent('');
         });
+      })();  // close async IIFE — Bridge 전 prompt 결정 후 generateImage 호출
       return;
     }
 
@@ -1272,56 +1295,54 @@ The [Active...] sections below are the user's activated sources. Use them as you
         )
       : updatedMessages;
 
-    // [Tori 18644993 PR #2] Cross-Model 컨텍스트 보강
-    //  - 직전 assistant 모델 ≠ 현재 effectiveModel 이면 Haiku 호출로 보강.
-    //  - 사용자 Anthropic 키가 있어야 작동 (BYOK). 없으면 silent skip.
-    //  - 캐시 hit이면 비용 0. miss면 1 Haiku call.
-    //  - target type 추론: image 키워드 → 'image', 첨부 이미지 → 'vision', 그 외 → 'text'.
+    // [Tori 18644993 PR #3] Cross-Model 컨텍스트 보강 — ModelAdapter
+    //  - inferTargetModelType: 모델 ID + 첨부 이미지 수 기준
+    //  - text → adaptForText / vision → adaptForVision / image는 handleSend
+    //    autoImagePrompt 분기에서 별도 처리 (performSend 도달 X)
+    //  - Anthropic 키 없거나 같은 모델이면 silent skip (성능 영향 0)
     let bridgedMessages = sanitizedMessages;
-    let bridgeUsed = false;
+    let bridgeApplied = false;
     let bridgeFromCache = false;
-    try {
-      const bridge = checkContextBridge(
-        sanitizedMessages.slice(0, -1) as unknown as Parameters<typeof checkContextBridge>[0],
-        effectiveModel
-      );
-      const anthropicKey = getKey('anthropic') || '';
-      if (bridge.needsAugmentation && anthropicKey && content) {
-        const lastUser = sanitizedMessages[sanitizedMessages.length - 1];
-        const lastUserContent = typeof lastUser?.content === 'string' ? lastUser.content : content;
-        // target type 추론 (PR #3 ModelAdapter에서 정교화 예정)
-        const targetType: TargetModelType =
-          (effectiveModel === 'dall-e-3' || effectiveModel === 'gpt-image-1' || detectCategory(lastUserContent, false) === 'image_gen') ? 'image'
-          : (images && images.length > 0) ? 'vision'
-          : 'text';
-        const augResult = await augmentForModelSwitch({
-          sessionMessages: sanitizedMessages.slice(0, -1) as unknown as Parameters<typeof augmentForModelSwitch>[0]['sessionMessages'],
-          currentUserMessage: lastUserContent,
-          targetModel: effectiveModel,
-          targetModelType: targetType,
-          lang,
-          apiKey: anthropicKey,
-          signal: controller.signal,
-        });
-        if (augResult.augmentedPrompt) {
-          // 마지막 user 메시지를 보강된 prompt로 교체 (display는 원본 유지 — 화면엔 변화 없음)
-          bridgedMessages = sanitizedMessages.map((m, i, arr) =>
-            i === arr.length - 1 && m.role === 'user'
-              ? { ...m, content: augResult.augmentedPrompt }
-              : m
-          );
-          bridgeUsed = true;
-          bridgeFromCache = augResult.fromCache;
-        }
+    let bridgeSourceIds: string[] = [];
+    {
+      const lastUser = sanitizedMessages[sanitizedMessages.length - 1];
+      const lastUserContent = typeof lastUser?.content === 'string' ? lastUser.content : content;
+      const history = sanitizedMessages.slice(0, -1) as unknown as Parameters<typeof adaptForText>[0]['sessionMessages'];
+      const inferredType = inferTargetModelType(effectiveModel, images?.length ?? 0);
+      const adapter = inferredType === 'vision' ? adaptForVision : adaptForText;
+      const adapt = await adapter({
+        sessionMessages: history,
+        currentUserMessage: lastUserContent,
+        targetModel: effectiveModel,
+        attachedImageCount: images?.length ?? 0,
+        anthropicKey: getKey('anthropic') || undefined,
+        lang,
+        signal: controller.signal,
+      });
+      if (adapt.bridgeApplied) {
+        bridgedMessages = sanitizedMessages.map((m, i, arr) =>
+          i === arr.length - 1 && m.role === 'user'
+            ? { ...m, content: adapt.finalPrompt }
+            : m
+        );
+        bridgeApplied = true;
+        bridgeFromCache = adapt.fromCache;
+        bridgeSourceIds = history
+          .map((m) => (m as unknown as { id?: string }).id)
+          .filter((id): id is string => typeof id === 'string');
       }
-    } catch (err) {
-      // Haiku 호출 실패 — 보강 없이 원래 메시지 그대로 (silent fallback)
-      console.warn('[Bridge] augmentation skipped:', (err as Error)?.message);
+      if (typeof window !== 'undefined') {
+        console.info(
+          '[Bridge]',
+          adapt.reason,
+          adapt.bridgeApplied ? (adapt.fromCache ? '(cache hit)' : '(Haiku call)') : '',
+          '→',
+          effectiveModel,
+        );
+      }
     }
-    // bridgeUsed/fromCache는 추후 PR #5 UI Badge에서 활용 (지금은 디버그 로그만)
-    if (bridgeUsed && typeof window !== 'undefined') {
-      console.info('[Bridge]', bridgeFromCache ? 'cache hit' : 'Haiku call', '→', effectiveModel);
-    }
+    // bridgeApplied/fromCache/sourceIds는 PR #5 UI Badge에서 활용
+    void bridgeApplied; void bridgeFromCache; void bridgeSourceIds;
 
     // ── Trial path (Gemini 2.5 Flash, no user key) ───────────────
     if (isTrialMode) {
