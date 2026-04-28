@@ -373,10 +373,10 @@
   - Confluence: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/16351350
   - ⚠️ Roy 추가 디자인 문서 제공: `~/Downloads/Meeting_2026-04-25_v1.md` — 모든 페이지 끝나면 추가 적용
 
-- [ ] **D1-Page-08 — DataSources 뷰 리디자인** (디자인 문서: `DataSources_2026-04-25_v1.md`)
+- [x] **D1-Page-08 — DataSources 뷰 리디자인** (디자인 문서: `DataSources_2026-04-25_v1.md`) ✅ 2026-04-25 (commit: cc6ed6c)
   - 신규: datasources-view-design1.tsx, connected-source-card, available-source-card
   - 커밋 브랜치: `design1/datasources-view-redesign`
-  - ✅ 2026-04-25 (commit: cc6ed6c) - 신규 디자인 파일 ~/Downloads/DataSources_2026-04-25_v1.md 적용
+  - 신규 디자인 파일 ~/Downloads/DataSources_2026-04-25_v1.md 적용
 
 - [x] **D1-Page-09 — CostSavings 뷰 리디자인** ✅ 이미 구현됨 확인 2026-04-27
   - 파일: `src/modules/cost-savings/cost-savings-view-design1.tsx` (447 lines, baseline picker + cumulative SVG chart + by-model breakdown 모두 구현)
@@ -399,18 +399,13 @@
 
 ### 🆕 2026-04-28 nighttask 발견 — 다음 nighttask 우선 처리
 
-- [ ] **REG-01** `model-registry.ts` — TC-FAIL-047 회귀: "최신/최강" 추상 표현 15건 재유입 (모델 sync로 신규 모델 추가 시 재발)
-  - 파일: `src/modules/models/model-registry.ts` line 137, 485, 617, 677, 749, 785, 972, 996, 1008, 1145, 1241, 1301, 1325, 1385, 1421
-  - 예: "GPT-5.4 — 더 빠르고 정확해진 최신 AI" / "어려운 코딩도 거뜬한 GPT-5.1 최강판" / "긴 문서·복잡 분석 최강" / "구글 최신 Gemma 4세대 AI"
-  - 원칙(Roy 신 카피 정책): 도발/형용사 제거, 사실 + use-case로만 표현
-  - 예시 변환:
-    - "최신 AI" → "코딩·번역·요약 범용형"
-    - "최강판" → "복잡한 코드 작업 강점"
-    - "긴 문서·복잡 분석 최강" → "긴 문서 분석·요약 강점"
-    - "구글 최신 Gemma 4세대 AI" → "구글 Gemma 4세대 — 멀티모달·경량형"
-  - 추가 영구 정책: `scripts/sync-models.*` 모델 sync 로직에 카피 검증 단계 추가 (auto-generated description은 별도 정책 함수에서 정규화)
+- [x] **REG-01** `model-registry.ts` — TC-FAIL-047 회귀 정리: "최신/최강" 추상 표현 15건 → use-case 기반 카피로 전부 교체 ✅ 2026-04-29
+  - 수정 라인: 137, 485, 617, 677, 749, 785, 972, 996, 1008, 1145, 1241, 1301, 1325, 1385, 1421
+  - 양쪽(description / descriptionKo) 모두 변경, 중복 카피였던 Claude Opus 4.5/4.1/4·Gemini 2.5 Flash TTS/Lite·Gemini 3 Pro Image/Lyria 3 Pro도 모델별 차별 카피로 분리
+  - grep 검증: `grep -n "최신\|최강" src/modules/models/model-registry.ts` → 0 hit
+  - 잔여 영구 정책 작업(모델 sync 자동 정규화 함수)은 별도 항목으로 향후 처리
 
-- [ ] **i18n-DELTA-01** ko/en locale 6키 차이 (ko 993 vs en 987)
+- [x] **i18n-DELTA-01** ko/en locale 키 동기화 ✅ 2026-04-29 (검증 결과 차이 없음 — 양쪽 937키 완전 일치)
   - 파일: `src/locales/ko.json`, `src/locales/en.json`
   - 누락 키 추출 + 양쪽 동기화 (i18n 감사)
   - 명령:
