@@ -37,7 +37,9 @@ import { detectCategory } from '@/lib/model-router';
 import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } from '@/modules/plugins/web-search';
 // P3.3 — RAG (활성 문서 컨텍스트) + CitationBlock
 import { useDocumentStore } from '@/stores/document-store';
-import { buildContext } from '@/modules/plugins/document-plugin';
+import { buildContext, buildFullContext, buildMetadataContext } from '@/modules/plugins/document-plugin';
+// Tori 17989643 PR #1 — 첨부 파일 처리 의도 분류
+import { classifyAttachmentIntent, getModePromptHeader } from '@/modules/chat/intent-classifier';
 // Tori 통합 RAG — 활성 소스 칩 바
 import { ActiveSourcesBar } from '@/modules/chat/active-sources-bar';
 // [2026-04-28] 진행률 배너 — 칩의 작은 점만으로는 분석 중을 인지 못하던 UX 보강
@@ -958,9 +960,53 @@ export default function D1ChatView({
         .filter((d) => docStoreState.embedProgress[d.id]?.status === 'error')
         .map((d) => ({ name: d.name, error: docStoreState.embedProgress[d.id]?.error }));
       if (activeDocs.length > 0) {
-        const embeddingApiKey = getKey('openai') || getKey('google') || undefined;
-        const embeddingProvider: 'openai' | 'google' | undefined = getKey('openai') ? 'openai' : getKey('google') ? 'google' : undefined;
-        docContext = await buildContext(content, activeDocs, embeddingApiKey, embeddingProvider);
+        // Tori 17989643 PR #1 — 의도 분류 + 모드 분기
+        const intent = classifyAttachmentIntent(content, lang);
+
+        if (intent === 'full_context') {
+          // 번역/요약/재구성 — 파일 전체 텍스트 주입
+          const result = buildFullContext(activeDocs);
+          if (result.strategy === 'inline') {
+            docContext = result.context;
+          } else if (result.strategy === 'chunked') {
+            // 청크 단위 순차 처리는 후속 PR에서 다중 LLM 호출 구현 — 일단 첫 N 청크
+            // 만 합쳐서 inline으로 처리해 사용자 좌절 차단 (단일 호출 안전선).
+            const safeBlocks: string[] = [];
+            let totalChars = 0;
+            for (const c of result.chunks) {
+              if (totalChars + c.text.length > 150_000) break;
+              safeBlocks.push(`[source: ${c.source}]\n${c.text}`);
+              totalChars += c.text.length;
+            }
+            docContext =
+              `[Active sources — large file partial inline (${safeBlocks.length}/${result.chunks.length} chunks)]\n` +
+              `The file is too large to inline fully (${result.totalChars.toLocaleString()} chars). Showing the first portion. ` +
+              `Tell the user that some content was truncated for size, and offer to process specific sections if needed.\n\n` +
+              safeBlocks.join('\n\n---\n\n');
+          } else {
+            // too_large
+            docContext =
+              `[Active sources — too large for full processing]\n` +
+              `Files exceed the safe size limit (${result.totalChars.toLocaleString()} chars). ` +
+              `Inform the user that the file is too large for whole-file translation/summary in one pass, ` +
+              `and offer alternatives: (1) ask about specific sections, (2) split the file before uploading.`;
+          }
+        } else if (intent === 'metadata_only') {
+          // 페이지 수 / 파일 크기 등 메타만
+          docContext = buildMetadataContext(activeDocs);
+        } else {
+          // rag_search (기존 동작)
+          const embeddingApiKey = getKey('openai') || getKey('google') || undefined;
+          const embeddingProvider: 'openai' | 'google' | undefined = getKey('openai') ? 'openai' : getKey('google') ? 'google' : undefined;
+          docContext = await buildContext(content, activeDocs, embeddingApiKey, embeddingProvider);
+        }
+
+        // 모드 헤더 prepend (모든 모드 공통)
+        if (docContext) {
+          docContext = `${getModePromptHeader(intent, lang)}\n\n---\n\n${docContext}`;
+        }
+
+        // Sources 추출 (모든 모드 공통)
         if (docContext) {
           const matches = docContext.match(/\[source:\s*([^\]]+)\]/g) ?? [];
           const set = new Set<string>();

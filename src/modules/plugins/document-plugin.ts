@@ -673,3 +673,83 @@ export async function buildContext(
     lines
   );
 }
+
+// ── Full Context Mode (Tori 17989643 PR #1) ────────────────────────────────
+// 번역/요약/재구성 같은 전체 처리 의도용. RAG 검색 우회하고 파일 전체 텍스트
+// 를 LLM 컨텍스트로 주입. 토큰 한도 초과 시 호출자가 chunked 처리 결정.
+//
+// FULL_CONTEXT_TOKENS_INLINE (50K), FULL_CONTEXT_TOKENS_CHUNKED (200K) 임계값
+// 은 intent-classifier.ts 참조.
+
+const FULL_CONTEXT_INLINE_CHAR_LIMIT  = 150_000;  // ~50K tokens
+const FULL_CONTEXT_CHUNKED_CHAR_LIMIT = 600_000;  // ~200K tokens
+
+export interface FullContextResult {
+  /** 'inline' = 그대로, 'chunked' = 호출자가 분할, 'too_large' = 거부 */
+  strategy: 'inline' | 'chunked' | 'too_large';
+  /** strategy='inline' 일 때만 채워짐. system 메시지로 prepend. */
+  context: string;
+  /** strategy='chunked' 일 때 호출자가 사용. 각 chunk 별 별도 LLM 요청. */
+  chunks: Array<{ source: string; text: string; index: number; total: number }>;
+  /** 총 글자 수 (디버깅/로깅용) */
+  totalChars: number;
+}
+
+export function buildFullContext(docs: ParsedDocument[]): FullContextResult {
+  if (docs.length === 0) {
+    return { strategy: 'inline', context: '', chunks: [], totalChars: 0 };
+  }
+
+  const totalChars = docs.reduce((sum, d) => sum + d.totalChars, 0);
+
+  if (totalChars <= FULL_CONTEXT_INLINE_CHAR_LIMIT) {
+    const blocks = docs.map((d) => {
+      const fullText = d.chunks.map((c) => c.text).join('\n');
+      return `[source: ${d.name}]\n${fullText}`;
+    });
+    const context =
+      `[Active sources — full text inlined for whole-file processing]\n` +
+      `These ${docs.length} file(s) are provided in full so you can translate/summarize/restructure as requested.\n\n` +
+      blocks.join('\n\n---\n\n');
+    return { strategy: 'inline', context, chunks: [], totalChars };
+  }
+
+  if (totalChars <= FULL_CONTEXT_CHUNKED_CHAR_LIMIT) {
+    // 청크 단위 순차 처리 — 호출자가 chunks를 N번 LLM 호출로 처리
+    const flat: Array<{ source: string; text: string }> = [];
+    for (const d of docs) {
+      for (const c of d.chunks) {
+        flat.push({ source: d.name, text: c.text });
+      }
+    }
+    return {
+      strategy: 'chunked',
+      context: '',
+      chunks: flat.map((c, i) => ({ ...c, index: i, total: flat.length })),
+      totalChars,
+    };
+  }
+
+  return { strategy: 'too_large', context: '', chunks: [], totalChars };
+}
+
+// ── Metadata-only Mode (Tori 17989643 PR #1) ───────────────────────────────
+// "몇 페이지", "파일 크기" 같은 메타 질문용. 본문 없이 메타데이터만 주입.
+
+export function buildMetadataContext(docs: ParsedDocument[]): string {
+  if (docs.length === 0) return '';
+  const lines = docs.map((d) => {
+    const charCount = d.totalChars;
+    const chunkCount = d.chunks.length;
+    return `- ${d.name}
+  type: ${d.type}
+  total characters: ${charCount.toLocaleString()}
+  chunks: ${chunkCount}
+  embedded: ${d.embeddingModel ?? 'no'}`;
+  });
+  return (
+    `[Active sources — metadata]\n` +
+    `Body content is not loaded in this mode. Use only this metadata to answer.\n\n` +
+    lines.join('\n')
+  );
+}
