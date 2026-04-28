@@ -42,6 +42,9 @@ import { buildContext, buildFullContext, buildMetadataContext } from '@/modules/
 import { classifyAttachmentIntent, getModePromptHeader, getLangEnforcementHeader } from '@/modules/chat/intent-classifier';
 // [2026-04-28 Roy 직접 요청] AI 응답을 PDF로 자동 다운로드
 import { exportResponseAsPDF, detectPdfDownloadIntent, stripPdfDownloadIntent } from '@/lib/export/export-response-pdf';
+// [Tori 18644993 PR #1+#2] Cross-Model 컨텍스트 연속성
+import { checkContextBridge } from '@/lib/context/context-bridge';
+import { augmentForModelSwitch, type TargetModelType } from '@/lib/context/augmentation-layer';
 // Tori 통합 RAG — 활성 소스 칩 바
 import { ActiveSourcesBar } from '@/modules/chat/active-sources-bar';
 // [2026-04-28] 진행률 배너 — 칩의 작은 점만으로는 분석 중을 인지 못하던 UX 보강
@@ -1269,10 +1272,61 @@ The [Active...] sections below are the user's activated sources. Use them as you
         )
       : updatedMessages;
 
+    // [Tori 18644993 PR #2] Cross-Model 컨텍스트 보강
+    //  - 직전 assistant 모델 ≠ 현재 effectiveModel 이면 Haiku 호출로 보강.
+    //  - 사용자 Anthropic 키가 있어야 작동 (BYOK). 없으면 silent skip.
+    //  - 캐시 hit이면 비용 0. miss면 1 Haiku call.
+    //  - target type 추론: image 키워드 → 'image', 첨부 이미지 → 'vision', 그 외 → 'text'.
+    let bridgedMessages = sanitizedMessages;
+    let bridgeUsed = false;
+    let bridgeFromCache = false;
+    try {
+      const bridge = checkContextBridge(
+        sanitizedMessages.slice(0, -1) as unknown as Parameters<typeof checkContextBridge>[0],
+        effectiveModel
+      );
+      const anthropicKey = getKey('anthropic') || '';
+      if (bridge.needsAugmentation && anthropicKey && content) {
+        const lastUser = sanitizedMessages[sanitizedMessages.length - 1];
+        const lastUserContent = typeof lastUser?.content === 'string' ? lastUser.content : content;
+        // target type 추론 (PR #3 ModelAdapter에서 정교화 예정)
+        const targetType: TargetModelType =
+          (effectiveModel === 'dall-e-3' || effectiveModel === 'gpt-image-1' || detectCategory(lastUserContent, false) === 'image_gen') ? 'image'
+          : (images && images.length > 0) ? 'vision'
+          : 'text';
+        const augResult = await augmentForModelSwitch({
+          sessionMessages: sanitizedMessages.slice(0, -1) as unknown as Parameters<typeof augmentForModelSwitch>[0]['sessionMessages'],
+          currentUserMessage: lastUserContent,
+          targetModel: effectiveModel,
+          targetModelType: targetType,
+          lang,
+          apiKey: anthropicKey,
+          signal: controller.signal,
+        });
+        if (augResult.augmentedPrompt) {
+          // 마지막 user 메시지를 보강된 prompt로 교체 (display는 원본 유지 — 화면엔 변화 없음)
+          bridgedMessages = sanitizedMessages.map((m, i, arr) =>
+            i === arr.length - 1 && m.role === 'user'
+              ? { ...m, content: augResult.augmentedPrompt }
+              : m
+          );
+          bridgeUsed = true;
+          bridgeFromCache = augResult.fromCache;
+        }
+      }
+    } catch (err) {
+      // Haiku 호출 실패 — 보강 없이 원래 메시지 그대로 (silent fallback)
+      console.warn('[Bridge] augmentation skipped:', (err as Error)?.message);
+    }
+    // bridgeUsed/fromCache는 추후 PR #5 UI Badge에서 활용 (지금은 디버그 로그만)
+    if (bridgeUsed && typeof window !== 'undefined') {
+      console.info('[Bridge]', bridgeFromCache ? 'cache hit' : 'Haiku call', '→', effectiveModel);
+    }
+
     // ── Trial path (Gemini 2.5 Flash, no user key) ───────────────
     if (isTrialMode) {
       sendTrialMessage({
-        messages: sanitizedMessages.map(m => ({ role: m.role, content: m.content })),
+        messages: bridgedMessages.map(m => ({ role: m.role, content: m.content })),
         signal: controller.signal,
         onChunk: (text) => {
           accumulated += text;
@@ -1389,7 +1443,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
 
     const apiMessages = [
       { role: 'system' as const, content: systemContent } as { role: 'system'; content: import('@/modules/chat/chat-api').MessageContent },
-      ...sanitizedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
+      ...bridgedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
     ];
 
     sendChatRequest({
