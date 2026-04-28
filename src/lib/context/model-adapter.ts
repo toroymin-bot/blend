@@ -36,6 +36,8 @@ export interface AdapterInput {
   lang: 'ko' | 'en';
   /** 사용자 중단 시 전파. */
   signal?: AbortSignal;
+  /** PR #4 — 세션 ID (older summary 캐시 분리). */
+  sessionId?: string;
 }
 
 export interface AdapterResult {
@@ -121,6 +123,7 @@ async function runAdapter(
       lang: input.lang,
       apiKey: input.anthropicKey,
       signal: input.signal,
+      sessionId: input.sessionId,
     });
 
     if (!aug.augmentedPrompt || !aug.augmentedPrompt.trim()) {

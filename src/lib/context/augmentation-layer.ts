@@ -14,6 +14,7 @@
  */
 
 import type { BridgeMessage } from './context-bridge';
+import { getOrCreateOlderSummary } from './older-summary';
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 const RECENT_WINDOW = 10;            // 최근 N개 메시지를 fully include
@@ -41,6 +42,8 @@ export interface AugmentInput {
   apiKey: string;
   /** AbortSignal — 사용자가 중단 시 전파. */
   signal?: AbortSignal;
+  /** PR #4 — 세션 ID (Auto Summarization 캐시 키 분리). */
+  sessionId?: string;
 }
 
 export interface AugmentResult {
@@ -240,6 +243,26 @@ export async function augmentForModelSwitch(input: AugmentInput): Promise<Augmen
   }
 
   const recent = input.sessionMessages.slice(-RECENT_WINDOW);
+  const older = input.sessionMessages.slice(0, -RECENT_WINDOW);
+
+  // [PR #4] 옛 메시지가 있으면 Haiku로 요약해서 보강 prompt에 함께 전달.
+  // 실패해도 요약 없이 진행 (silent fallback). 캐시 hit이 압도적이라
+  // 비용 영향 최소.
+  let olderSummary: string | null = null;
+  if (older.length > 0) {
+    try {
+      const summary = await getOrCreateOlderSummary(
+        older,
+        input.sessionId ?? 'default',
+        input.lang,
+        input.apiKey,
+        input.signal,
+      );
+      if (summary) olderSummary = summary;
+    } catch {
+      // 요약 실패 — null 유지
+    }
+  }
 
   const system = buildAugmentationSystemPrompt({
     targetModel: input.targetModel,
@@ -248,7 +271,7 @@ export async function augmentForModelSwitch(input: AugmentInput): Promise<Augmen
   });
 
   const userPrompt = buildAugmentationUserPrompt({
-    olderSummary: null, // PR #4에서 채워질 예정
+    olderSummary,
     recent,
     currentUserMessage: input.currentUserMessage,
   });
