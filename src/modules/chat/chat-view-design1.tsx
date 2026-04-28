@@ -1256,6 +1256,19 @@ The [Active...] sections below are the user's activated sources. Use them as you
       return m.content;
     };
 
+    // [2026-04-28 Roy] PDF 다운로드 의도 감지 + AI 거부 차단 (trial+BYOK 공용)
+    // wantsPdfDownload: 활성 문서 + "PDF로 다운로드" 매칭 시 true.
+    // sanitizedMessages: AI에게 보낼 메시지에서 "PDF로 다운로드" 부분 제거
+    //   (GPT-4o-mini 등이 PDF 단어 보면 alignment 자동 거부 → 순수 번역 task만 노출).
+    const wantsPdfDownload = detectPdfDownloadIntent(content) && docSources.length > 0;
+    const sanitizedMessages = wantsPdfDownload
+      ? updatedMessages.map((m, i, arr) =>
+          i === arr.length - 1 && m.role === 'user'
+            ? { ...m, content: stripPdfDownloadIntent(typeof m.content === 'string' ? m.content : '') }
+            : m
+        )
+      : updatedMessages;
+
     // ── Trial path (Gemini 2.5 Flash, no user key) ───────────────
     if (isTrialMode) {
       sendTrialMessage({
@@ -1339,20 +1352,6 @@ The [Active...] sections below are the user's activated sources. Use them as you
       }
     }
 
-    // [2026-04-28 Roy] PDF 다운로드 의도 감지 — 활성 문서 + "PDF로 다운로드"
-    // 요청이면 (a) AI가 "PDF 만들 수 없음" 거부 차단, (b) 응답 완료 후 자동 export.
-    const wantsPdfDownload = detectPdfDownloadIntent(content) && docSources.length > 0;
-    // [2026-04-28 v4] AI 거부 차단 강화 — 시스템 프롬프트만으로는 부족
-    // (GPT-4o-mini 등이 "PDF" 단어 보면 alignment 자동 거부). 사용자 마지막
-    // 메시지에서 PDF 다운로드 부분을 제거해서 AI에게는 "번역해줘" 같은 순수
-    // task만 전달. trial + BYOK 양쪽에서 사용.
-    const sanitizedMessages = wantsPdfDownload
-      ? updatedMessages.map((m, i, arr) =>
-          i === arr.length - 1 && m.role === 'user'
-            ? { ...m, content: stripPdfDownloadIntent(typeof m.content === 'string' ? m.content : '') }
-            : m
-        )
-      : updatedMessages;
     const pdfDownloadHeader = wantsPdfDownload
       ? (lang === 'ko'
           ? `[PDF 다운로드 자동화 안내]
