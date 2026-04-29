@@ -562,3 +562,17 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 - QA Phase 1~4 매일 실행 (총 300개+)
 - 모델 sync: 패밀리별 최신 2개만 유지
 - 실행 시간: 새벽 1:07 ~ 오전 7:00 (6시간 풀가동)
+
+---
+
+## 2026-04-29 — blend-daily-qa 발견 항목
+
+### [x] IMP-016 — D1ModelsView "최신" 추상 카피 12건 (REG-01 후속) ✅ 2026-04-30
+- **수정**: `src/data/available-models.generated.json` 12개 description_ko + `scripts/update-models.ts` META_OVERRIDES 12개 description_ko/description_en 모두 use-case 카피로 교체
+- **대상 모델**: claude-sonnet-4-20250514, gpt-4-turbo, gpt-4.1, gpt-4o-realtime-preview, gpt-4o-search-preview, gpt-5-search-api, gpt-5.1, gpt-5.1-chat-latest, gpt-5.2-chat-latest, gpt-5.5, gpt-realtime, gpt-4o-mini-search-preview
+- **회귀 방지**: META_OVERRIDES도 같이 수정해 다음 update-models 자동 sync 시 회귀 없음
+- **검증**: `grep "최신\|최강" generated.json model-registry.ts update-models.ts` → 0 hit
+
+### [x] CLEANUP-01 — chat-view-design1.tsx:1350 stale `void` suppressions ✅ 2026-04-30
+- **수정**: line 1349 주석 + line 1350 `void bridgeApplied; void bridgeFromCache; void bridgeSourceIds;` 제거. 사용처 없는 `bridgeSourceIds` 변수 선언/할당도 함께 삭제. `bridgeApplied`/`bridgeFromCache`는 line 1368-1369, 1494-1495에서 실제 사용 유지
+- **검증**: `npx tsc --noEmit` 통과, `vercel --prod` 빌드 성공

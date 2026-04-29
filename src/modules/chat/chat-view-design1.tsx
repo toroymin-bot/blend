@@ -1308,7 +1308,6 @@ The [Active...] sections below are the user's activated sources. Use them as you
     let bridgedMessages = sanitizedMessages;
     let bridgeApplied = false;
     let bridgeFromCache = false;
-    let bridgeSourceIds: string[] = [];
     {
       const lastUser = sanitizedMessages[sanitizedMessages.length - 1];
       const lastUserContent = typeof lastUser?.content === 'string' ? lastUser.content : content;
@@ -1332,9 +1331,6 @@ The [Active...] sections below are the user's activated sources. Use them as you
         );
         bridgeApplied = true;
         bridgeFromCache = adapt.fromCache;
-        bridgeSourceIds = history
-          .map((m) => (m as unknown as { id?: string }).id)
-          .filter((id): id is string => typeof id === 'string');
       }
       if (typeof window !== 'undefined') {
         console.info(
@@ -1346,8 +1342,6 @@ The [Active...] sections below are the user's activated sources. Use them as you
         );
       }
     }
-    // bridgeApplied/fromCache/sourceIds는 PR #5 UI Badge에서 활용
-    void bridgeApplied; void bridgeFromCache; void bridgeSourceIds;
 
     // ── Trial path (Gemini 2.5 Flash, no user key) ───────────────
     if (isTrialMode) {

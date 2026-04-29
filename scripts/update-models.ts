@@ -235,8 +235,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
 
   'gpt-5.5': {
     displayName: "GPT-5.5",
-    description_ko: "최신 모델로 더 똑똑해요",
-    description_en: "Smarter with the latest updates",
+    description_ko: "깊이 있는 추론·분석에 강해요",
+    description_en: "Strong reasoning and analysis",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'gpt-5.5-pro': {
@@ -266,14 +266,14 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },  // auto-generated 2026-04-24
   'claude-sonnet-4-20250514': {
     displayName: "Claude Sonnet 4.2",
-    description_ko: "최신 일상 업무에 좋아요",
-    description_en: "Good for daily tasks, latest version",
+    description_ko: "일상 업무에 균형 잡힌 답변을 해요",
+    description_en: "Balanced for everyday tasks",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'gpt-4-turbo': {
     displayName: "GPT-4 Turbo",
-    description_ko: "최신 정보를 잘 알아요",
-    description_en: "Up-to-date knowledge",
+    description_ko: "문서·코딩 분석에 안정적이에요",
+    description_en: "Steady for docs and code analysis",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'gpt-4o-audio-preview': {
@@ -284,8 +284,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },  // auto-generated 2026-04-24
   'gpt-4o-realtime-preview': {
     displayName: "GPT-4o Realtime Preview",
-    description_ko: "최신 정보에 빠르게 답해요",
-    description_en: "Responds quickly with latest info",
+    description_ko: "실시간 음성 대화에 특화돼요",
+    description_en: "Specialized for live voice chat",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'o1': {
@@ -314,8 +314,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },  // auto-generated 2026-04-24
   'gpt-4o-mini-search-preview': {
     displayName: "GPT-4o Mini Search Preview",
-    description_ko: "최신 정보를 잘 찾아요",
-    description_en: "Good at finding latest info",
+    description_ko: "가벼운 웹 검색 질문에 빠르게 답해요",
+    description_en: "Quick answers from light web search",
     tier: "fast",
   },  // auto-generated 2026-04-24
   'gpt-4o-transcribe': {
@@ -350,8 +350,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },  // auto-generated 2026-04-24
   'gpt-4.1': {
     displayName: "GPT-4.1",
-    description_ko: "최신 정보를 잘 알아요",
-    description_en: "Good with up-to-date information",
+    description_ko: "긴 문서·코드 분석에 강해요",
+    description_en: "Strong on long docs and code",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'gpt-4.1-mini': {
@@ -398,8 +398,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },  // auto-generated 2026-04-24
   'gpt-realtime': {
     displayName: "GPT Realtime",
-    description_ko: "최신 정보를 빠르게 찾아요",
-    description_en: "Fast access to real-time info",
+    description_ko: "실시간 음성 대화에 특화돼요",
+    description_en: "Specialized for live voice chat",
     tier: "fast",
   },  // auto-generated 2026-04-24
   'gpt-audio': {
@@ -428,8 +428,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },  // auto-generated 2026-04-24
   'gpt-5-search-api': {
     displayName: "GPT-5 Search API",
-    description_ko: "최신 정보를 검색해요",
-    description_en: "Searches for the latest information",
+    description_ko: "웹 검색으로 정보를 찾아 답해요",
+    description_en: "Answers by fetching web results",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'gpt-realtime-mini': {
@@ -440,14 +440,14 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },  // auto-generated 2026-04-24
   'gpt-5.1-chat-latest': {
     displayName: "GPT-5.1 Chat",
-    description_ko: "최신 모델이에요",
-    description_en: "Latest model",
+    description_ko: "대화형 응답에 최적화됐어요",
+    description_en: "Optimized for conversational responses",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'gpt-5.1': {
     displayName: "GPT-5.1",
-    description_ko: "최신 정보를 잘 알아요",
-    description_en: "Good at up-to-date information",
+    description_ko: "일상 대화·분석에 두루 잘 맞아요",
+    description_en: "Balanced for everyday chat and analysis",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'gpt-5.1-codex': {
@@ -470,8 +470,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },  // auto-generated 2026-04-24
   'gpt-5.2-chat-latest': {
     displayName: "GPT-5.2 Chat",
-    description_ko: "최신 모델이에요",
-    description_en: "Our latest model",
+    description_ko: "자연스러운 대화에 강해요",
+    description_en: "Strong at natural conversation",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'gpt-5.2-codex': {
@@ -500,8 +500,8 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },  // auto-generated 2026-04-24
   'gpt-4o-search-preview': {
     displayName: "GPT-4o Search Preview",
-    description_ko: "최신 정보를 검색해요",
-    description_en: "Searches for the latest info",
+    description_ko: "웹 검색을 자동으로 활용해요",
+    description_en: "Uses live web search automatically",
     tier: "balanced",
   },  // auto-generated 2026-04-24
   'gpt-5.3-chat-latest': {
