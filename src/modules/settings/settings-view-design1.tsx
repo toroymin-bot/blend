@@ -25,6 +25,9 @@ import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 import { downloadBackup, importBackup, clearAllData, getCounts, type BackupMeta } from '@/lib/full-backup';
 import { useTranslation }   from '@/lib/i18n';
 import { D1_PROVIDERS, API_GUIDE_STEPS_KEYS } from '@/modules/shared/providers-design1';
+// [2026-04-29 Tori 18841602 v2 P0] 모바일 콘텐츠 깨짐 수정 — 200px nav 가 mobile에서도
+// 그대로 push 되어 우측 콘텐츠가 1-2글자 폭으로 잘리던 문제. deviceClass 분기로 해결.
+import { useDeviceClass } from '@/hooks/use-device-class';
 
 // ── Design tokens ─────────────────────────────────────────────────
 const tokens = {
@@ -136,11 +139,41 @@ export function D1SettingsView() {
   } = useSettingsStore();
   const { t, lang, setLang } = useTranslation();
 
-  const [activeSection, setActiveSection] = useState<SectionId>('api');
-  // Roy 결정 2026-04-25: theme 섹션 제거. 활성 섹션이 'theme'이면 'api'로 redirect.
+  // [2026-04-29 Tori 18841602 v2] mobile 진입 시 메뉴(null) 모드, tablet+ 는 'api' 섹션 렌더
+  const deviceClass = useDeviceClass();
+  const [activeSection, setActiveSection] = useState<SectionId | null>('api');
+  const [drawerOpen,   setDrawerOpen]   = useState(false);
+
+  // Mobile 진입 시 첫 화면은 메뉴 리스트 (activeSection=null) — drill-down 패턴.
+  // Tablet/Desktop 진입 시 'api' 섹션 자동 활성. 디바이스 회전 시에도 정합성 유지.
+  useEffect(() => {
+    if (deviceClass === 'mobile') {
+      // mobile 진입 시점에 이미 섹션을 보고 있었다면 그대로 유지 (단, 'theme' 같은 호환 섹션은 정정).
+      if (activeSection === 'theme') setActiveSection('api');
+    } else {
+      // tablet/desktop — null 이면 'api' 자동 활성, 'theme' 호환 redirect
+      if (activeSection === null || activeSection === 'theme') setActiveSection('api');
+    }
+    // drawer는 폭이 desktop이면 강제로 닫음 (회전 시 잔존 방지)
+    if (deviceClass === 'desktop') setDrawerOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceClass]);
+
+  // 'theme' 호환 redirect 보존 (legacy)
   useEffect(() => {
     if (activeSection === 'theme') setActiveSection('api');
   }, [activeSection]);
+
+  // Esc → drawer 닫기 + mobile 백 (section → 메뉴)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      if (drawerOpen) setDrawerOpen(false);
+      else if (deviceClass === 'mobile' && activeSection !== null) setActiveSection(null);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawerOpen, deviceClass, activeSection]);
   const [showKeys,    setShowKeys]    = useState<Record<string, boolean>>({});
   const [testingKey,  setTestingKey]  = useState<Record<string, boolean>>({});
   const [testResult,  setTestResult]  = useState<Record<string, 'ok' | 'fail' | null>>({});
@@ -293,42 +326,161 @@ export function D1SettingsView() {
   const guideData = guideProvider ? API_GUIDE_STEPS_KEYS[guideProvider] : null;
   const guideInfo = D1_PROVIDERS.find((p) => p.id === guideProvider);
 
-  return (
-    <div className="flex h-full overflow-hidden" style={{ background: tokens.bg }}>
+  // [2026-04-29 v2] mobile drill-down 메뉴 모드 + tablet drawer + desktop 2-column 분기.
+  const showInlineNav = deviceClass === 'desktop';
+  const showHeader    = deviceClass !== 'desktop';
+  // mobile에서 activeSection=null 이면 메뉴 화면, 그 외엔 섹션 콘텐츠.
+  const showMobileMenu = deviceClass === 'mobile' && activeSection === null;
+  const currentSectionLabel = SECTIONS.find((s) => s.id === activeSection)?.labelKey;
 
-      {/* ══ LEFT NAV ══ */}
-      <nav
-        className="flex w-[200px] shrink-0 flex-col gap-px overflow-y-auto border-r px-3 py-6"
-        style={{ borderColor: tokens.border }}
-      >
-        <h1 className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.08em]"
-            style={{ color: tokens.textFaint }}>
-          {t('settings.title')}
-        </h1>
+  // 각 섹션 가시 여부 — desktop은 전부, mobile/tablet은 activeSection 만.
+  function visible(id: SectionId): boolean {
+    return deviceClass === 'desktop' || activeSection === id;
+  }
+
+  function NavButtons({ onClick }: { onClick?: () => void }) {
+    return (
+      <>
         {SECTIONS.map((s) => (
           <button
             key={s.id}
             onClick={() => {
               setActiveSection(s.id);
-              document.getElementById(`section-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              if (deviceClass === 'desktop') {
+                document.getElementById(`section-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+              onClick?.();
             }}
-            className="w-full rounded-xl px-3 py-2 text-left text-[13px] font-medium transition-colors"
+            className="w-full rounded-xl px-3 py-3 text-left text-[14px] font-medium transition-colors flex items-center justify-between gap-2"
             style={{
               background: activeSection === s.id ? tokens.navActive : 'transparent',
               color: activeSection === s.id ? tokens.text : tokens.textDim,
+              minHeight: 48, // WCAG 2.1 모바일 터치 타겟
             }}
           >
-            {t(s.labelKey)}
+            <span className="truncate">{t(s.labelKey)}</span>
+            {/* mobile drill-down chevron */}
+            {deviceClass === 'mobile' && activeSection === null && (
+              <span aria-hidden style={{ color: tokens.textFaint }}>›</span>
+            )}
           </button>
         ))}
-      </nav>
+      </>
+    );
+  }
 
-      {/* ══ RIGHT CONTENT ══ */}
-      <main className="flex-1 overflow-y-auto px-8 py-8">
-        <div className="max-w-[600px] space-y-10">
+  return (
+    <div className={`h-full overflow-hidden ${showInlineNav ? 'flex' : 'flex flex-col'}`} style={{ background: tokens.bg }}>
+
+      {/* ══ MOBILE/TABLET HEADER ══ */}
+      {showHeader && (
+        <div
+          className="flex h-14 shrink-0 items-center gap-3 border-b px-3"
+          style={{ borderColor: tokens.border }}
+        >
+          {showMobileMenu ? (
+            <h1 className="text-[16px] font-semibold tracking-tight px-1" style={{ color: tokens.text }}>
+              {t('settings.title')}
+            </h1>
+          ) : deviceClass === 'mobile' ? (
+            <>
+              {/* Mobile back to menu */}
+              <button
+                onClick={() => setActiveSection(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-black/5"
+                aria-label="Back"
+                style={{ color: tokens.text }}
+              >
+                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+              <h1 className="text-[15px] font-semibold tracking-tight truncate" style={{ color: tokens.text }}>
+                {currentSectionLabel ? t(currentSectionLabel) : t('settings.title')}
+              </h1>
+            </>
+          ) : (
+            <>
+              {/* Tablet hamburger */}
+              <button
+                onClick={() => setDrawerOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-black/5"
+                aria-label="Menu"
+                style={{ color: tokens.text }}
+              >
+                <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
+                  <path d="M3 6h18M3 12h18M3 18h18"/>
+                </svg>
+              </button>
+              <h1 className="text-[15px] font-semibold tracking-tight truncate" style={{ color: tokens.text }}>
+                {currentSectionLabel ? t(currentSectionLabel) : t('settings.title')}
+              </h1>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ══ MOBILE MENU MODE ══ */}
+      {showMobileMenu && (
+        <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
+          <NavButtons />
+        </div>
+      )}
+
+      {/* ══ TABLET DRAWER ══ */}
+      {drawerOpen && deviceClass === 'tablet' && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
+          <aside
+            className="absolute left-0 top-0 flex h-full w-[260px] flex-col gap-px overflow-y-auto border-r p-3"
+            style={{
+              background: tokens.bg,
+              borderColor: tokens.border,
+              animation: 'drawerSlide 220ms cubic-bezier(0.16,1,0.3,1) both',
+            }}
+          >
+            <div className="mb-2 flex items-center justify-between px-1 py-2">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+                {t('settings.title')}
+              </span>
+              <button
+                onClick={() => setDrawerOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5"
+                style={{ color: tokens.textDim }}
+                aria-label="Close"
+              >
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <NavButtons onClick={() => setDrawerOpen(false)} />
+          </aside>
+        </div>
+      )}
+
+      {/* ══ DESKTOP LEFT NAV (existing 2-column) ══ */}
+      {showInlineNav && (
+        <nav
+          className="flex w-[200px] shrink-0 flex-col gap-px overflow-y-auto border-r px-3 py-6"
+          style={{ borderColor: tokens.border }}
+        >
+          <h1 className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.08em]"
+              style={{ color: tokens.textFaint }}>
+            {t('settings.title')}
+          </h1>
+          <NavButtons />
+        </nav>
+      )}
+
+      {/* ══ MAIN CONTENT ══ */}
+      {!showMobileMenu && (
+      <main className={`flex-1 overflow-y-auto ${deviceClass === 'mobile' ? 'px-4 py-4' : deviceClass === 'tablet' ? 'px-6 py-6' : 'px-8 py-8'}`}>
+        <div className={`${deviceClass === 'desktop' ? 'max-w-[600px]' : 'w-full max-w-[600px]'} space-y-10`}>
 
           {/* ── 1. API Keys ─────────────────────────────────── */}
-          <section>
+          <section style={{ display: visible('api') ? undefined : 'none' }}>
             <SectionH id="api" label={t('settings.api_keys')} />
             <p className="mb-4 text-[13px]" style={{ color: tokens.textDim }}>
               {t('settings.api_keys_desc')}
@@ -441,7 +593,7 @@ export function D1SettingsView() {
           </section>
 
           {/* ── 2. Custom Models ──────────────────────────────── */}
-          <section>
+          <section style={{ display: visible('models') ? undefined : 'none' }}>
             <SectionH id="models" label={t('settings.custom_models')} />
             <p className="mb-4 text-[13px]" style={{ color: tokens.textDim }}>
               {t('settings.custom_models_desc')}
@@ -539,7 +691,7 @@ export function D1SettingsView() {
           </section>
 
           {/* ── 3. System Prompt ──────────────────────────────── */}
-          <section>
+          <section style={{ display: visible('prompt') ? undefined : 'none' }}>
             <SectionH id="prompt" label={t('settings.system_prompt')} />
             <Card>
               <div className="p-5 space-y-3">
@@ -628,7 +780,7 @@ export function D1SettingsView() {
           {SHOW_ANALYTICS_SECTION && <AnalyticsSection t={t} />}
 
           {/* ── 5. Language ───────────────────────────────────── */}
-          <section>
+          <section style={{ display: visible('language') ? undefined : 'none' }}>
             <SectionH id="language" label={t('settings.language')} />
             <Card>
               <Row
@@ -659,7 +811,7 @@ export function D1SettingsView() {
           </section>
 
           {/* ── 6. Data ───────────────────────────────────────── */}
-          <section>
+          <section style={{ display: visible('data') ? undefined : 'none' }}>
             <SectionH id="data" label={t('settings.data_storage')} />
             <Card>
               <div className="p-5">
@@ -703,7 +855,7 @@ export function D1SettingsView() {
           </section>
 
           {/* ── 7. Info ───────────────────────────────────────── */}
-          <section>
+          <section style={{ display: visible('info') ? undefined : 'none' }}>
             <SectionH id="info" label={t('settings.info')} />
             <Card>
               <Row label={t('settings.version')} noBorder />
@@ -713,6 +865,7 @@ export function D1SettingsView() {
 
         </div>
       </main>
+      )}
 
       {/* ══ API Key Guide Modal — [2026-04-26] 5개 프로바이더 디자인 통일 ══ */}
       {guideProvider && guideData && guideInfo && (
