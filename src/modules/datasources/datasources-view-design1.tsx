@@ -20,6 +20,13 @@ import { subscribeOneDriveChanges } from '@/lib/sync/onedrive-subscribe';
 // P2.2 OAuth 직접 흐름 (Tori 명세 — LegacyHandoff 제거)
 import { requestGoogleAccessToken, scanDriveFolder } from '@/lib/connectors/google-drive-connector';
 import { requestOneDriveAccessToken, scanOneDriveFolder } from '@/lib/connectors/onedrive-connector';
+// [2026-04-29 Tori 19857410] Local Drive 통합
+import { LocalDriveModal } from '@/modules/datasources/local-drive-modal';
+import type { LocalPickerResult } from '@/modules/datasources/pickers/local-drive-picker';
+import { detectCapability } from '@/lib/local-drive/capability';
+import { saveHandle, deleteHandle, verifyPermission } from '@/lib/local-drive/handle-store';
+import { checkAllLocalSources } from '@/lib/local-drive/auto-check';
+import { scanLocalDirectory } from '@/lib/connectors/local-connector';
 
 // ── Tokens ───────────────────────────────────────────────────────
 const tokens = {
@@ -75,6 +82,16 @@ const copy = {
     connectErrCancelled: '인증이 취소되었습니다.',
     connectErrMissingId: 'OAuth 클라이언트 ID가 설정되지 않았습니다. 잠시 후 다시 시도하세요.',
     connecting:   '연결 중...',
+    // [2026-04-29 Tori 19857410] Local Drive
+    localLabel:    '로컬 드라이브',
+    localDesc:     '내 컴퓨터의 폴더·파일',
+    statusUpdates: '변경 감지',
+    statusPermReq: '권한 만료',
+    needsResel:    '이 브라우저는 매 세션마다 다시 선택해야 해요',
+    reconnect:     '다시 연결',
+    syncedDelta:   (a: number, m: number, r: number) => `+${a} 추가 · ${m} 변경 · ${r} 삭제`,
+    permRequired:  '폴더 권한이 만료됐어요. 다시 연결해주세요.',
+    localFallbackNotice: 'Chrome/Edge에서 폴더 권한을 자동 기억할 수 있어요. 현재 브라우저에선 매번 다시 선택해야 해요.',
   },
   en: {
     title:        'Data Sources',
@@ -112,6 +129,16 @@ const copy = {
     connectErrCancelled: 'Authentication cancelled.',
     connectErrMissingId: 'OAuth client ID is not configured. Try again later.',
     connecting:   'Connecting...',
+    // [2026-04-29 Tori 19857410] Local Drive
+    localLabel:    'Local Drive',
+    localDesc:     'Folders and files on this device',
+    statusUpdates: 'Updates available',
+    statusPermReq: 'Permission required',
+    needsResel:    'This browser requires re-selection every session',
+    reconnect:     'Reconnect',
+    syncedDelta:   (a: number, m: number, r: number) => `+${a} added · ${m} modified · ${r} removed`,
+    permRequired:  'Folder permission has expired. Please reconnect.',
+    localFallbackNotice: 'Chrome and Edge remember folder access automatically. This browser requires re-selection each session.',
   },
 } as const;
 
@@ -124,9 +151,11 @@ type AvailableSource = {
 };
 
 // Tori 보충 명세 (2026-04-25): WebDAV 카드 제거 (사용 수요 적음, NAS 제거와 동일 맥락)
+// [2026-04-29 Tori 19857410] 로컬 드라이브 카드 추가 — Chrome/Edge에선 폴더 핸들 영구 저장.
 const AVAILABLE: AvailableSource[] = [
-  { type: 'google-drive', label: 'Google Drive', icon: '☁️', enabled: true },
-  { type: 'onedrive',     label: 'OneDrive',     icon: '📁', enabled: true },
+  { type: 'google-drive', label: 'Google Drive',  icon: '☁️', enabled: true },
+  { type: 'onedrive',     label: 'OneDrive',      icon: '📁', enabled: true },
+  { type: 'local',        label: 'Local Drive',   icon: '💾', enabled: true },
 ];
 
 const ICON_BY_TYPE: Record<DataSourceType, string> = {
@@ -179,6 +208,43 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     selections: DataSourceSelection[];
   } | null>(null);
 
+  // [2026-04-29 Tori 19857410] Local drive — modal 단계와 비용 미리보기 단계가 분리됨.
+  const [showLocalPicker, setShowLocalPicker] = useState(false);
+  const [pendingLocal, setPendingLocal] = useState<LocalPickerResult | null>(null);
+  // 재연결 대상 source.id (null이면 신규 추가, 값이 있으면 기존 source 패치).
+  const [reconnectTargetId, setReconnectTargetId] = useState<string | null>(null);
+
+  // 자동 체크 한 번만 실행 (mount 시).
+  useEffect(() => {
+    let cancelled = false;
+    const localSources = sources.filter((s) => s.config.type === 'local');
+    if (localSources.length === 0) return;
+    void (async () => {
+      const inputs = localSources.map((s) => ({
+        sourceId: s.id,
+        prevSnapshot: s.localFileSnapshot,
+      }));
+      const results = await checkAllLocalSources(inputs);
+      if (cancelled) return;
+      for (const r of results) {
+        if (r.outcome === 'connected') {
+          updateSource(r.sourceId, { fileCount: r.currentFileCount });
+          setStatus(r.sourceId, 'connected');
+        } else if (r.outcome === 'has_updates') {
+          updateSource(r.sourceId, { fileCount: r.currentFileCount });
+          setStatus(r.sourceId, 'has_updates');
+        } else if (r.outcome === 'permission_required') {
+          setStatus(r.sourceId, 'permission_required');
+        } else if (r.outcome === 'missing') {
+          setStatus(r.sourceId, 'error', 'missing');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // mount 시 한 번 + sources 갯수가 변할 때마다 재체크 (reconnect 후 갱신)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sources.length]);
+
   // P2.2 보강 — 동기화: 루트 폴더 스캔 → fileCount 업데이트
   async function runSync(source: DataSource) {
     setStatus(source.id, 'syncing');
@@ -195,6 +261,35 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
         const items = await scanOneDriveFolder(token, source.config.folderId);
         updateSource(source.id, { fileCount: items.length, lastSync: Date.now() });
         setStatus(source.id, 'connected');
+      } else if (source.config.type === 'local') {
+        // [2026-04-29 Tori 19857410 §4] 로컬 동기화 — 핸들 가져와 권한 확인 후 재스캔.
+        const { loadHandle } = await import('@/lib/local-drive/handle-store');
+        const handle = await loadHandle(source.id);
+        if (!handle) {
+          setStatus(source.id, 'permission_required');
+          return;
+        }
+        const ok = await verifyPermission(handle, 'read');
+        if (!ok) {
+          setStatus(source.id, 'permission_required');
+          return;
+        }
+        if (handle.kind === 'directory') {
+          const files = await scanLocalDirectory(handle as FileSystemDirectoryHandle);
+          updateSource(source.id, {
+            fileCount: files.length,
+            lastSync: Date.now(),
+            localFileSnapshot: files.map((f) => ({ path: f.path, lastModified: f.lastModified })),
+          });
+        } else {
+          const file = await (handle as FileSystemFileHandle).getFile();
+          updateSource(source.id, {
+            fileCount: 1,
+            lastSync: Date.now(),
+            localFileSnapshot: [{ path: handle.name, lastModified: file.lastModified }],
+          });
+        }
+        setStatus(source.id, 'connected');
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Sync failed';
@@ -202,8 +297,22 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     }
   }
 
+  // [2026-04-29 Tori 19857410] 로컬 권한 만료 후 재연결 — 같은 source.id 유지하면서
+  // 새 폴더 핸들을 받아 IDB 갱신, snapshot 재구축.
+  function runReconnectLocal(source: DataSource) {
+    if (source.config.type !== 'local') return;
+    setReconnectTargetId(source.id);
+    setShowLocalPicker(true);
+  }
+
   // [2026-04-26 Tori 16384118 §3] OAuth → Picker → 비용 모달 → Subscribe → addSource
   async function runConnect(type: DataSourceType) {
+    // [2026-04-29 Tori 19857410] 로컬은 OAuth 없이 모달 직접 — ConnectMiniModal 우회.
+    if (type === 'local') {
+      setConnectTarget(null);
+      setShowLocalPicker(true);
+      return;
+    }
     setConnecting(true);
     setConnectErr(null);
     try {
@@ -259,6 +368,11 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   // [2026-04-26] 비용 모달 [동기화 시작] 클릭 시 — addSource + Subscribe.
   async function confirmAndStartSync(opts?: { capTop200?: boolean }) {
     if (!pendingPicker) return;
+    // [2026-04-29] 로컬은 별도 흐름 — 핸들 IDB 저장 + snapshot 동기 기록.
+    if (pendingPicker.type === 'local') {
+      await confirmAndStartLocalSync(opts);
+      return;
+    }
     const { type, accessToken, selections } = pendingPicker;
     const finalSelections = opts?.capTop200
       ? selections.map((s) => s.kind === 'folder'
@@ -300,6 +414,72 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     setPendingPicker(null);
   }
 
+  // [2026-04-29 Tori 19857410] 로컬 picker 결과를 비용 모달용으로 변환.
+  // pendingPicker 에 type='local'· accessToken='' 로 통합 보관 (CostPreviewModal 재사용).
+  function onLocalPicked(result: LocalPickerResult) {
+    setPendingLocal(result);
+    setShowLocalPicker(false);
+    setPendingPicker({
+      type: 'local',
+      accessToken: '',
+      selections: [result.selection],
+    });
+  }
+
+  // 비용 모달에서 [동기화 시작] — 로컬 분기 처리.
+  async function confirmAndStartLocalSync(opts?: { capTop200?: boolean }) {
+    if (!pendingLocal) return;
+    const { selection, handle, snapshot, files } = pendingLocal;
+    const cap = detectCapability();
+    const fileCount = opts?.capTop200 && Array.isArray(files)
+      ? Math.min(files.length, MAX_FILES_PER_FOLDER)
+      : files.length;
+
+    // 재연결인 경우: 기존 source.id 유지하며 핸들·snapshot 갱신.
+    if (reconnectTargetId) {
+      if (handle) await saveHandle(reconnectTargetId, handle);
+      updateSource(reconnectTargetId, {
+        fileCount,
+        lastSync: Date.now(),
+        localFileSnapshot: snapshot,
+        config: {
+          type: 'local',
+          label: selection.name,
+          capability: cap,
+          needsReselection: cap === 'drag_drop_only',
+        },
+      });
+      setStatus(reconnectTargetId, 'connected');
+      setReconnectTargetId(null);
+      setPendingLocal(null);
+      setPendingPicker(null);
+      return;
+    }
+
+    const created = addSource(
+      {
+        type: 'local',
+        label: selection.name,
+        capability: cap,
+        needsReselection: cap === 'drag_drop_only',
+      },
+      selection.name,
+      handle && handle.kind === 'directory' ? (handle as FileSystemDirectoryHandle) : undefined,
+    );
+    if (handle) await saveHandle(created.id, handle);
+    updateSource(created.id, {
+      selections: [selection],
+      fileCount,
+      lastSync: Date.now(),
+      totalCount: fileCount,
+      syncedCount: fileCount,
+      localFileSnapshot: snapshot,
+    });
+    setStatus(created.id, 'connected');
+    setPendingLocal(null);
+    setPendingPicker(null);
+  }
+
   return (
     <div
       className="h-full overflow-y-auto"
@@ -338,6 +518,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
                     t={t}
                     onDisconnect={() => setConfirmDel(s.id)}
                     onSync={() => runSync(s)}
+                    onReconnect={s.config.type === 'local' ? () => runReconnectLocal(s) : undefined}
                   />
                 </li>
               ))}
@@ -356,7 +537,16 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
                 key={a.type}
                 source={a}
                 t={t}
-                onConnect={() => { setConnectErr(null); setConnectTarget(a.type); }}
+                onConnect={() => {
+                  setConnectErr(null);
+                  // [2026-04-29] 로컬은 OAuth 권한 모달 우회하고 picker 모달 직접 띄움.
+                  if (a.type === 'local') {
+                    setReconnectTargetId(null);
+                    setShowLocalPicker(true);
+                  } else {
+                    setConnectTarget(a.type);
+                  }
+                }}
               />
             ))}
           </div>
@@ -373,7 +563,15 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           message={t.confirmDis}
           confirmLabel={t.yesDis}
           cancelLabel={t.cancel}
-          onConfirm={() => { removeSource(confirmDelId); setConfirmDel(null); }}
+          onConfirm={() => {
+            // [2026-04-29] 로컬 소스라면 IndexedDB 핸들도 정리.
+            const target = sources.find((s) => s.id === confirmDelId);
+            if (target?.config.type === 'local') {
+              void deleteHandle(confirmDelId);
+            }
+            removeSource(confirmDelId);
+            setConfirmDel(null);
+          }}
           onCancel={() => setConfirmDel(null)}
         />
       )}
@@ -395,9 +593,25 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           lang={lang}
           open={!!pendingPicker}
           selections={pendingPicker.selections}
-          onClose={() => setPendingPicker(null)}
+          onClose={() => {
+            setPendingPicker(null);
+            setPendingLocal(null);
+            setReconnectTargetId(null);
+          }}
           onConfirm={() => { void confirmAndStartSync(); }}
           onCapTop200={() => { void confirmAndStartSync({ capTop200: true }); }}
+        />
+      )}
+
+      {/* [2026-04-29 Tori 19857410] 로컬 드라이브 picker 모달 */}
+      {showLocalPicker && (
+        <LocalDriveModal
+          lang={lang}
+          onCancel={() => {
+            setShowLocalPicker(false);
+            setReconnectTargetId(null);
+          }}
+          onPicked={(r) => onLocalPicked(r)}
         />
       )}
     </div>
@@ -407,15 +621,19 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
 // ── Subcomponents ────────────────────────────────────────────────
 
 function ConnectedCard({
-  source, t, onDisconnect, onSync,
+  source, t, onDisconnect, onSync, onReconnect,
 }: {
   source: DataSource;
   t: typeof copy[keyof typeof copy];
   onDisconnect: () => void;
   onSync: () => void;
+  onReconnect?: () => void;
 }) {
   const icon = ICON_BY_TYPE[source.type] ?? '📁';
   const status = source.status;
+  // [2026-04-29 Tori 19857410] 로컬 capability 안내 (Drag&Drop only인 경우 매 세션 재선택 필요)
+  const isLocal = source.config.type === 'local';
+  const needsResel = isLocal && (source.config as { needsReselection?: boolean }).needsReselection === true;
   return (
     <div
       className="rounded-2xl border p-5"
@@ -437,16 +655,32 @@ function ConnectedCard({
           className="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
           style={{
             background:
-              status === 'connected' ? 'rgba(16,163,127,0.10)' :
-              status === 'error'     ? 'rgba(204,68,68,0.10)' :
-                                       tokens.surfaceAlt,
+              status === 'connected'           ? 'rgba(16,163,127,0.10)' :
+              status === 'error'               ? 'rgba(204,68,68,0.10)' :
+              status === 'permission_required' ? 'rgba(204,68,68,0.10)' :
+              status === 'has_updates'         ? 'rgba(241,196,15,0.14)' :
+                                                 tokens.surfaceAlt,
             color:
-              status === 'connected' ? tokens.success :
-              status === 'error'     ? tokens.danger :
-                                       tokens.textDim,
+              status === 'connected'           ? tokens.success :
+              status === 'error'               ? tokens.danger :
+              status === 'permission_required' ? tokens.danger :
+              status === 'has_updates'         ? '#a07e0a' :
+                                                 tokens.textDim,
           }}
+          title={
+            status === 'has_updates' ? t.statusUpdates :
+            status === 'permission_required' ? t.permRequired :
+            undefined
+          }
         >
-          {status === 'connected' ? t.connectedBadge : status === 'syncing' ? t.syncing : status === 'error' ? t.error : status}
+          {
+            status === 'connected'           ? t.connectedBadge :
+            status === 'syncing'             ? t.syncing :
+            status === 'error'               ? t.error :
+            status === 'has_updates'         ? `🟡 ${t.statusUpdates}` :
+            status === 'permission_required' ? `🔴 ${t.statusPermReq}` :
+            status
+          }
         </span>
       </div>
 
@@ -455,15 +689,32 @@ function ConnectedCard({
         {source.lastSync ? ` · ${t.syncedAgo(fmtRelative(source.lastSync, copy.ko))}` : ''}
       </div>
 
-      <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          onClick={onSync}
-          className="rounded-md px-3 py-1.5 text-[12px] transition-colors"
-          style={{ background: tokens.surfaceAlt, color: tokens.text }}
-        >
-          {t.sync}
-        </button>
+      {needsResel && (
+        <div className="mt-2 text-[11px]" style={{ color: tokens.textFaint }}>
+          ⚠️ {t.needsResel}
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {status === 'permission_required' && onReconnect ? (
+          <button
+            type="button"
+            onClick={onReconnect}
+            className="rounded-md px-3 py-1.5 text-[12px] transition-colors"
+            style={{ background: tokens.text, color: tokens.bg }}
+          >
+            {t.reconnect}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onSync}
+            className="rounded-md px-3 py-1.5 text-[12px] transition-colors"
+            style={{ background: tokens.surfaceAlt, color: tokens.text }}
+          >
+            {t.sync}
+          </button>
+        )}
         <button
           type="button"
           onClick={onDisconnect}
@@ -484,6 +735,8 @@ function AvailableCard({
   t: typeof copy[keyof typeof copy];
   onConnect: () => void;
 }) {
+  // [2026-04-29] 'local' 라벨은 t.localLabel 사용 (다국어), 클라우드는 source.label (브랜드명).
+  const displayLabel = source.type === 'local' ? t.localLabel : source.label;
   return (
     <div
       className="rounded-2xl border p-4 text-center"
@@ -491,7 +744,7 @@ function AvailableCard({
     >
       <div className="text-[28px] leading-none">{source.icon}</div>
       <div className="mt-2 text-[13px] font-medium truncate" style={{ color: tokens.text }}>
-        {source.label}
+        {displayLabel}
       </div>
       {source.enabled ? (
         <button

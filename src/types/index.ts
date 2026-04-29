@@ -102,11 +102,22 @@ export interface UsageStats {
 // ── Multi-Source RAG (Enterprise) ─────────────────────────────────────────────
 
 export type DataSourceType = 'local' | 'google-drive' | 'onedrive' | 'webdav';
-export type DataSourceStatus = 'idle' | 'syncing' | 'error' | 'connected';
+// [2026-04-29 Tori 19857410 §4.3] has_updates / permission_required 추가 — 로컬 소스 자동 체크 결과 표시.
+export type DataSourceStatus =
+  | 'idle'
+  | 'syncing'
+  | 'error'
+  | 'connected'
+  | 'has_updates'
+  | 'permission_required';
 
 export interface LocalSourceConfig {
   type: 'local';
   label: string; // user-visible name for the directory
+  // [2026-04-29 Tori 19857410 §3] 브라우저 capability — UI 안내·자동 체크 분기에 사용.
+  capability?: 'fs_access_api' | 'drag_drop_only';
+  /** Drag&Drop 모드에선 매 세션 재선택 필요. */
+  needsReselection?: boolean;
 }
 
 export interface GoogleDriveConfig {
@@ -165,6 +176,10 @@ export interface DataSource {
   webhookExpiresAt?: number;               // 갱신 필요 시점 (ms)
   todayEmbeddingCost?: number;             // $ 단위 (자정 리셋)
   totalEmbeddingCost?: number;
+
+  // [2026-04-29 Tori 19857410 §4.2] 로컬 변경 감지용 — 마지막 동기화 시점 파일 메타.
+  // path → lastModified 매핑. 페이지 진입 시 현재와 비교해 has_updates 판단.
+  localFileSnapshot?: Array<{ path: string; lastModified: number }>;
 }
 
 // [2026-04-26 Tori 16384118 §3.1] 폴더/파일 명시 선택
