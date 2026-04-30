@@ -576,3 +576,15 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 ### [x] CLEANUP-01 — chat-view-design1.tsx:1350 stale `void` suppressions ✅ 2026-04-30
 - **수정**: line 1349 주석 + line 1350 `void bridgeApplied; void bridgeFromCache; void bridgeSourceIds;` 제거. 사용처 없는 `bridgeSourceIds` 변수 선언/할당도 함께 삭제. `bridgeApplied`/`bridgeFromCache`는 line 1368-1369, 1494-1495에서 실제 사용 유지
 - **검증**: `npx tsc --noEmit` 통과, `vercel --prod` 빌드 성공
+
+---
+
+## 2026-05-01 — blend-daily-dev nighttask
+
+### [x] CLEAN-QUEUE-01 — 새 dev 작업 없음 + 시스템 헬스 체크 통과 ✅ 2026-05-01
+- **결과**: Improvement Approved 대기 0, Bug Fix Requested 0, TC Fail 미수정 0, TC 295/295 100%
+- **헬스 체크**: production 4 URL(ko/en/design1-ko/design1-en) 모두 200, i18n 937 키 완전 동기, REG-01 회귀 0 hit
+- **커밋**: `f4146ea` chore(nighttask) — 자동 변경 3건(launch.json, publish.py, sync-models.log) + 이전 nighttask carry-over 보고서 8개 정리
+- **Confluence**: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/21594135
+- **Dev 시트**: row 132
+- **GAS 이메일**: 인증 차단 (기존 GAS-AUTH 이슈 동일, Roy 재인증 필요)
