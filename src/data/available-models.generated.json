@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-30T08:29:20.383Z",
+  "generatedAt": "2026-04-30T10:59:15.604Z",
   "providers": [
     "anthropic",
     "openai",
@@ -884,18 +884,6 @@
       "supportsStreaming": false
     },
     {
-      "id": "tts-1-1106",
-      "provider": "openai",
-      "displayName": "Tts 1 1106",
-      "description_ko": "openai 모델",
-      "description_en": "openai model",
-      "tier": "balanced",
-      "createdAt": 1699053241,
-      "deprecated": false,
-      "supportsVision": false,
-      "supportsStreaming": true
-    },
-    {
       "id": "tts-1-hd",
       "provider": "openai",
       "displayName": "Tts 1 Hd",
@@ -915,6 +903,18 @@
       "description_en": "Good at converting text to speech",
       "tier": "balanced",
       "createdAt": 1681940951,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": true
+    },
+    {
+      "id": "tts-1-1106",
+      "provider": "openai",
+      "displayName": "TTS-1",
+      "description_ko": "음성 변환을 잘해요",
+      "description_en": "Good at speech conversion",
+      "tier": "balanced",
+      "createdAt": 1699053241,
       "deprecated": false,
       "supportsVision": false,
       "supportsStreaming": true
