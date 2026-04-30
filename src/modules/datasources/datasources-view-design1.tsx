@@ -12,7 +12,7 @@ import { useDataSourceStore } from '@/stores/datasource-store';
 import type { DataSource, DataSourceType, DataSourceSelection } from '@/types';
 // [2026-04-26 Tori 16384118 §3] Picker + Cost preview + Subscribe
 import { openGoogleDrivePicker } from '@/modules/datasources/pickers/google-drive-picker';
-import { openOneDrivePicker } from '@/modules/datasources/pickers/onedrive-picker';
+import { OneDriveFolderModal } from '@/modules/datasources/onedrive-folder-modal';
 import { validateSelections, describeValidationError, MAX_FILES_PER_FOLDER } from '@/modules/datasources/pickers/picker-shared';
 import { CostPreviewModal } from '@/modules/datasources/cost-preview-modal';
 import { subscribeGoogleDriveChanges } from '@/lib/sync/google-drive-subscribe';
@@ -215,6 +215,9 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   // [2026-04-29 Tori 19857410] Local drive — modal 단계와 비용 미리보기 단계가 분리됨.
   const [showLocalPicker, setShowLocalPicker] = useState(false);
   const [pendingLocal, setPendingLocal] = useState<LocalPickerResult | null>(null);
+  // [2026-04-30 OneDrive] popup picker SDK 대신 자체 폴더 모달 사용
+  const [oneDriveAccessToken, setOneDriveAccessToken] = useState<string | null>(null);
+  const [showOneDriveFolderModal, setShowOneDriveFolderModal] = useState(false);
   // 재연결 대상 source.id (null이면 신규 추가, 값이 있으면 기존 source 패치).
   const [reconnectTargetId, setReconnectTargetId] = useState<string | null>(null);
   // [2026-04-30 Roy progress] 동기화 진행률 (sourceId → IndexProgress)
@@ -370,16 +373,23 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
         const clientId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID;
         const pickerKey = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY;
         if (!clientId)  { setConnectErr(t.connectErrMissingId); return; }
-        if (!pickerKey) { setConnectErr('Picker API key missing (NEXT_PUBLIC_GOOGLE_PICKER_API_KEY)'); return; }
+        if (!pickerKey) {
+          setConnectErr(lang === 'ko'
+            ? 'Google Drive 연결을 준비하고 있어요. 잠시 후 다시 시도해주세요.'
+            : 'Google Drive is being prepared. Please try again in a moment.');
+          return;
+        }
         accessToken = await requestGoogleAccessToken(clientId);
         selections  = await openGoogleDrivePicker({ accessToken, apiKey: pickerKey });
       } else if (type === 'onedrive') {
-        // [2026-04-26 QA-BUG-L/M] OneDrive Picker SDK v8 통신 형식이 검증되지 않아 popup이 깨진 URL/handshake로
-        // 작동 X. Microsoft Graph 직접 사용한 자체 picker UI 도입 전까진 임시 비활성.
-        // OAuth 토큰 발급은 가능하지만 폴더 선택 UI가 없어 사용자에게 명확히 안내.
-        setConnectErr(lang === 'ko'
-          ? 'OneDrive 폴더 선택은 곧 지원돼요. 지금은 Google Drive를 사용해주세요.'
-          : 'OneDrive folder picker is coming soon. Use Google Drive for now.');
+        // [2026-04-30] popup picker SDK가 모바일에서 불안정 — 자체 폴더 모달로 교체.
+        // OAuth 토큰만 받고, 폴더 선택은 OneDriveFolderModal에서 Graph API로 처리.
+        const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID;
+        if (!clientId) { setConnectErr(t.connectErrMissingId); return; }
+        accessToken = await requestOneDriveAccessToken(clientId);
+        setOneDriveAccessToken(accessToken);
+        setShowOneDriveFolderModal(true);
+        setConnectTarget(null);
         return;
       } else {
         setConnectTarget(null);
@@ -662,6 +672,32 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           onPicked={(r) => onLocalPicked(r)}
         />
       )}
+
+      {/* [2026-04-30] OneDrive 폴더 선택 모달 */}
+      <OneDriveFolderModal
+        open={showOneDriveFolderModal}
+        accessToken={oneDriveAccessToken}
+        lang={lang}
+        onCancel={() => {
+          setShowOneDriveFolderModal(false);
+          setOneDriveAccessToken(null);
+        }}
+        onPicked={(picked) => {
+          setShowOneDriveFolderModal(false);
+          if (picked.length === 0 || !oneDriveAccessToken) {
+            setOneDriveAccessToken(null);
+            return;
+          }
+          const validation = validateSelections(picked);
+          if (!validation.ok) {
+            setConnectErr(describeValidationError(validation.reason, lang));
+            setOneDriveAccessToken(null);
+            return;
+          }
+          setPendingPicker({ type: 'onedrive', accessToken: oneDriveAccessToken, selections: picked });
+          setOneDriveAccessToken(null);
+        }}
+      />
     </div>
   );
 }

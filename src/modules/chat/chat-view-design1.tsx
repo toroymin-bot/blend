@@ -472,13 +472,6 @@ export default function D1ChatView({
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // [2026-04-30 Tori 18841602 v3.1] 모바일 헤더 [🕒] 버튼 → global event로 history 오픈
-  useEffect(() => {
-    const handler = () => setHistoryOpen(true);
-    window.addEventListener('d1:open-history', handler);
-    return () => window.removeEventListener('d1:open-history', handler);
-  }, []);
-
   // Build chat summaries for the overlay
   const chatSummaries = useMemo<ChatSummary[]>(() => {
     return d1Chats.map((c) => ({
@@ -1651,6 +1644,16 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         </div>
         <div className="flex items-center gap-1">
           <D1IconButton
+            title={lang === 'ko' ? '새 채팅' : 'New chat'}
+            onClick={() => {
+              setActiveChatId(null);
+              setMessages([]);
+              setValue('');
+            }}
+          >
+            <PlusIcon />
+          </D1IconButton>
+          <D1IconButton
             title={`${t.history} (${typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) ? '⌘K' : 'Ctrl+K'})`}
             onClick={() => setHistoryOpen(true)}
           >
@@ -1793,6 +1796,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onRemoveImage={handleRemoveImage}
               voiceEnabled
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
+              onVoiceError={showToast}
             />
 
             {/* Suggestions — desktop only. Sprint 2 (16384367): 6 카드 + icon + ⓘ 툴팁 */}
@@ -1893,6 +1897,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onRemoveImage={handleRemoveImage}
               voiceEnabled
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
+              onVoiceError={showToast}
             />
           </div>
         </div>
@@ -2377,6 +2382,7 @@ function D1InputBar({
   onRemoveImage,
   voiceEnabled = true,
   onVoiceFallbackRecorded,
+  onVoiceError,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2397,6 +2403,7 @@ function D1InputBar({
   onRemoveImage?: (idx: number) => void;
   voiceEnabled?: boolean;
   onVoiceFallbackRecorded?: (blob: Blob) => void;
+  onVoiceError?: (msg: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -2508,6 +2515,7 @@ function D1InputBar({
             <VoiceButton
               onTranscript={handleVoiceTranscript}
               onFallbackRecorded={onVoiceFallbackRecorded}
+              onError={onVoiceError}
               disabled={isStreaming}
               lang={lang}
             />
@@ -2819,6 +2827,7 @@ const iconProps = {
 
 function ChevronIcon()  { return <svg {...iconProps} width={14} height={14}><path d="m6 9 6 6 6-6" /></svg>; }
 function HistoryIcon()  { return <svg {...iconProps}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></svg>; }
+function PlusIcon()     { return <svg {...iconProps}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>; }
 function ShareIcon()    { return <svg {...iconProps}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><path d="m16 6-4-4-4 4" /><path d="M12 2v13" /></svg>; }
 function AttachIcon()   { return <svg {...iconProps}><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.58 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>; }
 function MicIcon()      { return <svg {...iconProps}><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>; }

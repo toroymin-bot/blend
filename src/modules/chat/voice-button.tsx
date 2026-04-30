@@ -51,11 +51,13 @@ interface VoiceButtonProps {
   onTranscript: (text: string, isFinal: boolean) => void;
   /** Fallback: called with audio blob when Web Speech API is not available */
   onFallbackRecorded?: (blob: Blob) => void;
+  /** User-facing error (permission denied, unsupported browser, etc.) */
+  onError?: (msg: string) => void;
   disabled?: boolean;
   lang?: string; // 'ko' | 'en'
 }
 
-export function VoiceButton({ onTranscript, onFallbackRecorded, disabled, lang = 'en' }: VoiceButtonProps) {
+export function VoiceButton({ onTranscript, onFallbackRecorded, onError, disabled, lang = 'en' }: VoiceButtonProps) {
   const [recording, setRecording] = useState(false);
   const [pulseAnim, setPulseAnim] = useState(false);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
@@ -159,9 +161,31 @@ export function VoiceButton({ onTranscript, onFallbackRecorded, disabled, lang =
   // ── MediaRecorder fallback path ────────────────────────────────────────────
 
   const startFallback = async () => {
+    // [2026-04-30 모바일 음성 픽스] iOS Safari/Android Chrome 호환성 강화 + 사용자 피드백.
+    // navigator.mediaDevices가 없으면 브라우저가 미지원 (HTTP 환경 등).
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      onError?.(lang === 'ko'
+        ? '이 브라우저는 음성 입력을 지원하지 않아요. 다른 브라우저로 시도해주세요.'
+        : 'Voice input is not supported in this browser. Please try a different browser.');
+      return;
+    }
+    if (typeof MediaRecorder === 'undefined') {
+      onError?.(lang === 'ko'
+        ? '이 브라우저는 음성 녹음을 지원하지 않아요.'
+        : 'This browser does not support voice recording.');
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const preferredMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+      // iOS Safari는 audio/mp4만 지원. Android Chrome은 audio/webm. 둘 다 시도.
+      const preferredMimes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4',
+      ];
       const mimeType = preferredMimes.find((m) => MediaRecorder.isTypeSupported(m)) || '';
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       chunksRef.current = [];
@@ -176,12 +200,34 @@ export function VoiceButton({ onTranscript, onFallbackRecorded, disabled, lang =
         setRecording(false);
         setPulseAnim(false);
       };
+      recorder.onerror = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        setPulseAnim(false);
+        onError?.(lang === 'ko'
+          ? '녹음 중 문제가 생겼어요. 다시 시도해주세요.'
+          : 'Recording error. Please try again.');
+      };
       recorder.start();
       mediaRecorderRef.current = recorder;
       setRecording(true);
       setPulseAnim(true);
     } catch (e) {
-      console.error('Microphone access error:', e);
+      const err = e as DOMException;
+      // NotAllowedError: 권한 거부. NotFoundError: 마이크 없음. 그 외: 일반 실패.
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        onError?.(lang === 'ko'
+          ? '마이크 권한이 필요해요. 브라우저 주소창의 자물쇠 아이콘에서 마이크를 허용해주세요.'
+          : 'Microphone access required. Tap the lock icon in the address bar to allow it.');
+      } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
+        onError?.(lang === 'ko'
+          ? '마이크를 찾을 수 없어요. 마이크가 연결되어 있는지 확인해주세요.'
+          : 'No microphone found. Please check that one is connected.');
+      } else {
+        onError?.(lang === 'ko'
+          ? '마이크를 시작할 수 없어요. 다시 시도해주세요.'
+          : 'Could not start the microphone. Please try again.');
+      }
     }
   };
 
