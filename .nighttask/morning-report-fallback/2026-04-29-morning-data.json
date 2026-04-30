@@ -1,0 +1,42 @@
+{
+  "dayNumber": 26,
+  "files": 4,
+  "lines": 210,
+  "features": 2,
+  "cost": "$0",
+  "newFeatures": [
+    {
+      "title": "REG-01 — model-registry.ts 추상 카피 정리",
+      "description": "GPT-5/5.1/5.2/5.3/5.4, Claude Opus 4/4.1/4.5, Gemini 2.5/3 Pro/Flash, Gemma 4, Lyria 3 등 15개 엔트리의 '최신/최강' 추상 카피를 use-case 기반 설명(코딩·번역, 음성 합성, 이미지 생성, 음악 등)으로 일괄 교체. description/descriptionKo 양쪽 정리, 중복 카피 분리.",
+      "commit": "3a8e6ec"
+    },
+    {
+      "title": "2026-04-29 nighttask dev log + Confluence 발행 준비",
+      "description": "REG-01 작업 + i18n-DELTA-01 검증(ko 937 = en 937) + D1-Page-08 정리를 nighttask dev log로 정리. publish.py PAGES 타겟 갱신.",
+      "commit": "f8d9871"
+    }
+  ],
+  "issues": [
+    {
+      "title": "IMP-NEW: available-models.generated.json 최신 카피 12건 잔존",
+      "description": "REG-01이 model-registry.ts만 정리하여 D1ModelsView가 사용하는 generated.json은 미적용. /design1 경로 한정 회귀 — 다음 nighttask에서 sync 스크립트로 재생성 예정.",
+      "severity": "IMP"
+    }
+  ],
+  "tomorrowPlan": [
+    "IMP-NEW: available-models.generated.json 12건 sync (REG-01 후속, D1 경로)",
+    "chat-view-design1.tsx:1350 stale void 표현 정리 (PR#5 이후 실제 사용 중)",
+    "TEST-489~505 placeholder TC 17건 신규 작성",
+    "Tori 다음 PR 큐 모니터링"
+  ],
+  "confluenceLinks": [
+    "https://ai4min.atlassian.net/wiki/spaces/Blend/pages/19103745"
+  ],
+  "githubLinks": [
+    "https://github.com/toroymin-bot/blend/commit/3a8e6ec",
+    "https://github.com/toroymin-bot/blend/commit/f8d9871"
+  ],
+  "totalCommits": 2,
+  "qaFailCount": 0,
+  "qaNewTests": 0
+}

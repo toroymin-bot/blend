@@ -20,7 +20,7 @@ PARENT_PAGE_ID = "9371649"
 
 # Map: filename → page title
 PAGES = [
-    ("2026-04-29-dev-log.md", "Blend 개발일지 — 2026-04-29 (새벽 nighttask)"),
+    ("2026-05-01-dev-log.md", "Blend 개발일지 — 2026-05-01 (새벽 nighttask)"),
 ]
 
 
