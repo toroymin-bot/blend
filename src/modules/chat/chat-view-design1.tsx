@@ -654,12 +654,13 @@ export default function D1ChatView({
   function triggerAutoTitle(userContent: string, assistantContent: string) {
     if (typeof window === 'undefined') return;
     // 사용 가능한 BYOK 또는 trial fallback 결정
+    // [2026-04-30] 구버전 모델 ID deprecated 픽스 — Haiku 4.5 / Gemini 2.5 Flash / Llama 3.3
     const FALLBACK_ORDER: Array<{ provider: AIProvider; apiModel: string }> = [
-      { provider: 'openai',    apiModel: 'gpt-4o-mini' },
-      { provider: 'anthropic', apiModel: 'claude-3-5-haiku-20241022' },
-      { provider: 'google',    apiModel: 'gemini-1.5-flash' },
+      { provider: 'openai',    apiModel: 'gpt-5-mini' },
+      { provider: 'anthropic', apiModel: 'claude-haiku-4-5-20251001' },
+      { provider: 'google',    apiModel: 'gemini-2.5-flash' },
       { provider: 'deepseek',  apiModel: 'deepseek-chat' },
-      { provider: 'groq',      apiModel: 'llama3-70b-8192' },
+      { provider: 'groq',      apiModel: 'llama-3.3-70b-versatile' },
     ];
     const avail = FALLBACK_ORDER.find((p) => hasKey(p.provider));
     const sysPrompt = lang === 'ko'
@@ -1441,12 +1442,13 @@ The [Active...] sections below are the user's activated sources. Use them as you
     }
 
     // ── Normal (BYOK) path ───────────────────────────────────────
+    // [2026-04-30] 구버전 모델 ID deprecated 픽스 — Haiku 4.5 / Gemini 2.5 Flash / Llama 3.3
     const FALLBACK_ORDER: Array<{ provider: AIProvider; apiModel: string }> = [
-      { provider: 'openai',    apiModel: 'gpt-4o-mini' },
-      { provider: 'anthropic', apiModel: 'claude-3-5-haiku-20241022' },
-      { provider: 'google',    apiModel: 'gemini-1.5-flash' },
+      { provider: 'openai',    apiModel: 'gpt-5-mini' },
+      { provider: 'anthropic', apiModel: 'claude-haiku-4-5-20251001' },
+      { provider: 'google',    apiModel: 'gemini-2.5-flash' },
       { provider: 'deepseek',  apiModel: 'deepseek-chat' },
-      { provider: 'groq',      apiModel: 'llama3-70b-8192' },
+      { provider: 'groq',      apiModel: 'llama-3.3-70b-versatile' },
     ];
 
     let resolvedProvider: AIProvider;
