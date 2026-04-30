@@ -66,9 +66,20 @@ export function VoiceButton({ onTranscript, onFallbackRecorded, onError, disable
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
 
-  // Resolve SpeechRecognition constructor (handles webkit prefix)
+  // Resolve SpeechRecognition constructor (handles webkit prefix).
+  // [2026-04-30] iOS Safari는 webkitSpeechRecognition 객체가 존재하지만 실제 작동 안 함
+  // (사용자 제스처에 mic 권한 요청 X, onresult 안 옴). 명시적으로 우회해 MediaRecorder 사용.
+  const isIOS = (): boolean => {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod/.test(ua)) return true;
+    // iPadOS 13+는 Mac UA로 보고됨 — touch 지원 + Mac으로 감지
+    if (/Macintosh/.test(ua) && typeof document !== 'undefined' && 'ontouchend' in document) return true;
+    return false;
+  };
   const getSpeechRecognition = (): ISpeechRecognitionConstructor | null => {
     if (typeof window === 'undefined') return null;
+    if (isIOS()) return null; // iOS는 항상 MediaRecorder fallback 사용
     return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
   };
 
@@ -141,9 +152,38 @@ export function VoiceButton({ onTranscript, onFallbackRecorded, onError, disable
       isRecordingRef.current = false;
       setRecording(false);
       setPulseAnim(false);
+      const e = errEvent.error || '';
+      let msg = '';
+      if (e === 'not-allowed' || e === 'service-not-allowed') {
+        msg = lang === 'ko'
+          ? '마이크 권한이 필요해요. 브라우저 설정에서 마이크를 허용해주세요.'
+          : 'Microphone access required. Please allow it in browser settings.';
+      } else if (e === 'network') {
+        msg = lang === 'ko'
+          ? '네트워크 연결을 확인해주세요.'
+          : 'Please check your network connection.';
+      } else if (e === 'language-not-supported') {
+        msg = lang === 'ko'
+          ? '이 브라우저는 한국어 음성 인식을 지원하지 않아요.'
+          : 'Speech recognition is not supported for the selected language.';
+      } else if (e === 'audio-capture') {
+        msg = lang === 'ko'
+          ? '마이크를 찾을 수 없어요. 마이크가 연결되어 있는지 확인해주세요.'
+          : 'No microphone found. Please check that one is connected.';
+      } else {
+        msg = lang === 'ko'
+          ? '음성 인식을 시작할 수 없어요. 다시 시도해주세요.'
+          : 'Could not start voice recognition. Please try again.';
+      }
+      onError?.(msg);
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      // InvalidStateError 등 — fallback 시도하도록 false 반환
+      return false;
+    }
     recognitionRef.current = recognition;
     isRecordingRef.current = true;
     setRecording(true);

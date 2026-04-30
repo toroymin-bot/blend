@@ -1796,7 +1796,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onRemoveImage={handleRemoveImage}
               voiceEnabled
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
-              onVoiceError={showToast}
+              onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
             />
 
             {/* Suggestions — desktop only. Sprint 2 (16384367): 6 카드 + icon + ⓘ 툴팁 */}
@@ -1897,7 +1897,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onRemoveImage={handleRemoveImage}
               voiceEnabled
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
-              onVoiceError={showToast}
+              onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
             />
           </div>
         </div>
