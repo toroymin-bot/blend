@@ -10,5 +10,37 @@
         { "key": "Strict-Transport-Security","value": "max-age=63072000; includeSubDomains; preload" }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/ko",
+      "destination": "/design1/ko",
+      "permanent": true
+    },
+    {
+      "source": "/en",
+      "destination": "/design1/en",
+      "permanent": true
+    },
+    {
+      "source": "/ko/share",
+      "destination": "/design1/ko/share",
+      "permanent": true
+    },
+    {
+      "source": "/en/share",
+      "destination": "/design1/en/share",
+      "permanent": true
+    },
+    {
+      "source": "/ko/qatest",
+      "destination": "/design1/ko/qatest",
+      "permanent": true
+    },
+    {
+      "source": "/en/qatest",
+      "destination": "/design1/en/qatest",
+      "permanent": true
+    }
   ]
 }
