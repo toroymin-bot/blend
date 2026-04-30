@@ -41,6 +41,26 @@
       "source": "/en/qatest",
       "destination": "/design1/en/qatest",
       "permanent": true
+    },
+    {
+      "source": "/design1/:lang(ko|en)/agents",
+      "destination": "/design1/:lang",
+      "permanent": false
+    },
+    {
+      "source": "/design1/:lang(ko|en)/plugins",
+      "destination": "/design1/:lang",
+      "permanent": false
+    },
+    {
+      "source": "/:lang(ko|en)/agents",
+      "destination": "/design1/:lang",
+      "permanent": false
+    },
+    {
+      "source": "/:lang(ko|en)/plugins",
+      "destination": "/design1/:lang",
+      "permanent": false
     }
   ]
 }

@@ -472,6 +472,13 @@ export default function D1ChatView({
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  // [2026-04-30 Tori 18841602 v3.1] 모바일 헤더 [🕒] 버튼 → global event로 history 오픈
+  useEffect(() => {
+    const handler = () => setHistoryOpen(true);
+    window.addEventListener('d1:open-history', handler);
+    return () => window.removeEventListener('d1:open-history', handler);
+  }, []);
+
   // Build chat summaries for the overlay
   const chatSummaries = useMemo<ChatSummary[]>(() => {
     return d1Chats.map((c) => ({

@@ -312,10 +312,12 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   // Roy 결정 2026-04-25:
   // - Prompts 메뉴 제거 (PromptsView 컴포넌트는 보존)
   // - Data Sources를 메인 사이드바(Documents 아래)로 승격 — popover에서 제거
+  // [2026-04-30 Tori 18841602 v3] 에이전트/플러그인 비활성 — 코드 보존(주석 처리),
+  //   라우트는 vercel.json 302 redirect로 home 처리. 향후 복원 시 주석 해제 + redirects 제거.
   const moreItems: [ViewId, string, React.ReactNode][] = [
     ['models',      t.models,      <ModelsIcon      key="mo" />],
-    ['agents',      t.agents,      <AgentsIcon      key="ag" />],
-    ['plugins',     t.plugins,     <PluginsIcon     key="pl" />],
+    // ['agents',      t.agents,      <AgentsIcon      key="ag" />],     // 비활성 — 18841602 v3
+    // ['plugins',     t.plugins,     <PluginsIcon     key="pl" />],     // 비활성 — 18841602 v3
     ['savings',     t.savings,     <SavingsIcon     key="sa" />],
     ['dashboard',   t.dashboard,   <DashboardIcon   key="da" />],
     ['security',    t.security,    <SecurityIcon    key="se" />],
@@ -460,6 +462,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       {/* ══ MAIN ══ */}
       <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Mobile top bar */}
+        {/* [2026-04-30 Tori 18841602 v3.1] 우측에 [+] 새 채팅 + [🕒] 히스토리 버튼 추가.
+            [+]는 데스크톱 사이드바 '새 채팅'과 동일 핸들러(handleNewChat). [🕒]는 chat-view에
+            global event로 전달돼 D1HistoryOverlay 오픈. */}
         <div
           className="flex h-12 shrink-0 items-center gap-3 border-b px-4 md:hidden"
           style={{ borderColor: tokens.border, background: tokens.bg }}
@@ -476,6 +481,41 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
           </button>
           <span style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontSize: 22, color: tokens.text, lineHeight: 1 }}>B</span>
           <span className="text-[15px] font-semibold tracking-tight" style={{ color: tokens.text }}>{t.logo}</span>
+
+          {/* spacer */}
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5"
+              style={{ color: tokens.text }}
+              aria-label={t.newChat}
+              title={t.newChat}
+            >
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('d1:open-history'));
+                }
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5"
+              style={{ color: tokens.text }}
+              aria-label={lang === 'ko' ? '대화 기록' : 'History'}
+              title={lang === 'ko' ? '대화 기록' : 'History'}
+            >
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M12 7v5l4 2" />
+              </svg>
+            </button>
+          </div>
         </div>
         {renderView()}
       </main>
@@ -496,12 +536,14 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
               <span style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontSize: 28, color: tokens.text, lineHeight: 1 }}>B</span>
               <span className="ml-3 text-[15px] font-semibold tracking-tight" style={{ color: tokens.text }}>{t.logo}</span>
             </button>
+            {/* [2026-04-30 Tori 18841602 v3] datasources 추가 (메인 그룹) */}
             {([
-              ['chat',      t.chat,      <ChatIcon      key="ch" />],
-              ['compare',   t.compare,   <CompareIcon   key="cp" />],
-              ['documents', t.documents, <DocumentsIcon key="dc" />],
-              ['meeting',   t.meeting,   <MeetingIcon   key="me" />],
-              ['billing',   t.billing,   <BillingIcon   key="bi" />],
+              ['chat',        t.chat,        <ChatIcon        key="ch" />],
+              ['compare',     t.compare,     <CompareIcon     key="cp" />],
+              ['documents',   t.documents,   <DocumentsIcon   key="dc" />],
+              ['datasources', t.datasources, <DataSourcesIcon key="ds" />],
+              ['meeting',     t.meeting,     <MeetingIcon     key="me" />],
+              ['billing',     t.billing,     <BillingIcon     key="bi" />],
             ] as [ViewId, string, React.ReactNode][]).map(([id, label, icon]) => (
               <button
                 key={id}
@@ -525,6 +567,20 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                 {label}
               </button>
             ))}
+            {/* [2026-04-30 Tori 18841602 v3] 60초 둘러보기 — Welcome demo 재진입 */}
+            <button
+              onClick={() => {
+                setDrawerOpen(false);
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('blend:replay-welcome'));
+                }
+              }}
+              className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none pl-4 pr-3 text-[13px] transition-colors hover:bg-black/5"
+              style={{ color: tokens.text }}
+            >
+              <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" aria-hidden style={{ color: tokens.textDim }}>🎬</span>
+              {lang === 'ko' ? '60초 둘러보기' : '60-second tour'}
+            </button>
             <button
               onClick={() => { nav('about'); setDrawerOpen(false); }}
               className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none pl-4 pr-3 text-[13px] transition-colors hover:bg-black/5"
