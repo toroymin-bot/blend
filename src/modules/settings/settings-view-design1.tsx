@@ -139,21 +139,28 @@ export function D1SettingsView() {
   } = useSettingsStore();
   const { t, lang, setLang } = useTranslation();
 
-  // [2026-04-29 Tori 18841602 v2] mobile 진입 시 메뉴(null) 모드, tablet+ 는 'api' 섹션 렌더
+  // [2026-04-29 Tori 18841602 v2 / 2026-04-30 v3.2] 진입 동작 정정.
+  //
+  // v3.2 BUG-FIX: 초기값이 'api' 였던 게 V16 회귀의 직접 원인. 모바일 첫 진입 시
+  //   showMobileMenu = (deviceClass==='mobile' && activeSection===null) → activeSection
+  //   이 'api' 라서 false → 메뉴 X, API 섹션 직접 노출. v1 Drill-down 명세 위반.
+  //
+  // 수정: 초기값을 null 로 변경. SSR fallback은 deviceClass='desktop'으로 시작하고
+  //   클라이언트 mount 시 useEffect가 즉시 데스크톱/태블릿이면 'api'로 셋.
+  //   모바일 mount 시엔 null 유지 → 메뉴 노출.
   const deviceClass = useDeviceClass();
-  const [activeSection, setActiveSection] = useState<SectionId | null>('api');
+  const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [drawerOpen,   setDrawerOpen]   = useState(false);
 
-  // Mobile 진입 시 첫 화면은 메뉴 리스트 (activeSection=null) — drill-down 패턴.
-  // Tablet/Desktop 진입 시 'api' 섹션 자동 활성. 디바이스 회전 시에도 정합성 유지.
+  // Tablet/Desktop 첫 진입 또는 회전 시 — null 이면 'api' 자동 활성.
+  // Mobile 진입 시엔 null 그대로 두어 메뉴 노출 (드릴다운 패턴).
   useEffect(() => {
-    if (deviceClass === 'mobile') {
-      // mobile 진입 시점에 이미 섹션을 보고 있었다면 그대로 유지 (단, 'theme' 같은 호환 섹션은 정정).
-      if (activeSection === 'theme') setActiveSection('api');
-    } else {
-      // tablet/desktop — null 이면 'api' 자동 활성, 'theme' 호환 redirect
+    if (deviceClass === 'desktop' || deviceClass === 'tablet') {
       if (activeSection === null || activeSection === 'theme') setActiveSection('api');
     }
+    // mobile: 사용자가 명시적으로 선택한 섹션은 유지, 초기 null도 유지.
+    // 단 'theme' 같은 호환 호환섹션은 'api'로 정정 (사용자에게 빈 화면 X).
+    if (deviceClass === 'mobile' && activeSection === 'theme') setActiveSection('api');
     // drawer는 폭이 desktop이면 강제로 닫음 (회전 시 잔존 방지)
     if (deviceClass === 'desktop') setDrawerOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
