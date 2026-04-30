@@ -1140,45 +1140,79 @@ export default function D1ChatView({
         }
       } catch { /* ignore */ }
 
-      // Tori 핫픽스 (2026-04-25, 2026-04-30 정정) — 활성 데이터 소스 메타 주입
-      // [2026-04-30 BUG-FIX] 이전 핫픽스의 시스템 프롬프트 카피가 "NOT yet indexed,
-      // embeddings is a separate feature" 라는 stale 메시지를 항상 보내고 있어
-      // 실제로 RAG 청크가 retrieve 됐는데도 AI가 "파일 검색 활성화 X" 거부 답변을
-      // 환각으로 생성하던 회귀. embeddings 인프라는 이미 동작 중 (청크 retrieving 확인).
-      // → docContext에 RAG hit이 있으면(즉 활성 문서 청크가 이미 위에 주입됨)
-      //    데이터소스는 단순 라벨만 추가하고 거부 유도 카피는 빼야 함.
+      // Tori 핫픽스 (2026-04-25, 2026-04-30 v2 정정) — 활성 데이터 소스 메타 주입
+      // [2026-04-30 v2 BUG-FIX] 사용자가 "구글 드라이브의 내용을 요약해봐" 같이 특정 소스를
+      //   직접 지명해 물었을 때 "구체적 내용 요약 X" 환각 답변하던 회귀.
+      //   원인: dsHeader가 모든 소스를 동등하게 표기 + RAG 청크가 다른 자료에서 왔는지
+      //   해당 소스에서 왔는지 구분 없음.
+      //
+      // 정정: 각 소스에 대해 실제로 indexed 된 문서가 몇 개인지 source-indexer의
+      //   `__source:<id>/` 태그 prefix로 카운트. 이를 dsHeader에 명시:
+      //     - "Google Drive (folder name) · 12 files connected · 5 indexed and searchable"
+      //     - "OneDrive (folder name) · 8 files connected · 0 indexed (sync pending)"
+      //   AI는 정확한 사실 기반으로 답변 가능.
       const { useDataSourceStore } = await import('@/stores/datasource-store');
       const dsList = useDataSourceStore.getState().sources.filter((s) => s.isActive !== false);
       if (dsList.length > 0) {
+        // source-indexer의 `__source:<id>/<file>` 패턴으로 indexed 문서 카운트
+        const allActiveDocs = (await import('@/stores/document-store'))
+          .useDocumentStore.getState().getActiveDocs();
+        const indexedBySource = new Map<string, number>();
+        for (const d of allActiveDocs) {
+          const m = (d.name || '').match(/^__source:([^/]+)\//);
+          if (m) {
+            indexedBySource.set(m[1], (indexedBySource.get(m[1]) ?? 0) + 1);
+          }
+        }
+
         const dsLines = dsList.map((s) => {
           const svc = s.type === 'google-drive' ? 'Google Drive'
                     : s.type === 'onedrive'     ? 'OneDrive'
                     : s.type === 'local'        ? 'Local Drive'
                     : s.type === 'webdav'       ? 'WebDAV' : s.type;
           const folder = s.name && s.name !== svc ? ` · ${s.name}` : '';
-          const fileCount = typeof s.fileCount === 'number' ? ` (${s.fileCount} files)` : '';
-          // 인덱싱 진행 중인 소스만 별도 표기
-          const status = s.status === 'syncing' ? ' [indexing in progress]'
-                       : s.status === 'error'   ? ` [sync error: ${s.error ?? 'unknown'}]`
-                       : '';
-          return `- ${svc}${folder}${fileCount}${status}`;
+          const fileCount = typeof s.fileCount === 'number' ? ` · ${s.fileCount} files connected` : '';
+          const indexed = indexedBySource.get(s.id) ?? 0;
+          const indexedNote = indexed > 0
+            ? ` · ${indexed} indexed and searchable`
+            : (s.status === 'syncing'
+                ? ' · 0 indexed (sync in progress)'
+                : s.status === 'error'
+                  ? ` · 0 indexed (sync error: ${s.error ?? 'unknown'})`
+                  : ' · 0 indexed (run sync from Data Sources page to enable file search)');
+          return `- ${svc}${folder}${fileCount}${indexedNote}`;
         }).join('\n');
 
-        // RAG 청크가 이미 retrieve 됐으면 → 데이터소스는 단순 보조 메타 (거부 유도 X).
-        // RAG 청크가 없고 활성 소스만 있으면 → "검색 시도 후 안내" 톤.
+        // 어떤 소스든 indexed 청크가 있는지 요약
+        const totalIndexed = Array.from(indexedBySource.values()).reduce((a, b) => a + b, 0);
         const hasRagContext = docContext.length > 0;
-        const dsHeader = hasRagContext
-          ? `[Active data sources — supplementary]
-The user has these external sources connected. The chunks above (if any) come from these sources. Cite them naturally when relevant.
 
-${dsLines}`
-          : `[Active data sources — connected but no relevant chunks for this query]
-The user has these data sources connected and indexed. For the current question, no chunks were retrieved (the embedding search returned nothing matching). Possible reasons: the question is too general, or the relevant content isn't in these sources yet. Acknowledge the connection, answer with general knowledge if useful, and suggest the user phrase the question more specifically about file contents to trigger search.
+        const dsHeader = hasRagContext && totalIndexed > 0
+          // 청크 retrieve 됐고 indexed 소스 있음 → 자연스럽게 인용
+          ? `[Active data sources — connected]
+${dsLines}
 
-${dsLines}`;
+The chunks shown below were retrieved from these sources via embedding search. Cite them inline when relevant. If the user asks specifically about a source that shows "0 indexed", explain that the connection is in place but file content needs to be synced — direct them to Data Sources page.`
+
+          : hasRagContext
+          // 청크 retrieve 됐지만 indexed 소스 0 → 청크는 다른 곳(uploaded docs / meetings)에서 옴
+          ? `[Active data sources — connected, content not yet synced]
+${dsLines}
+
+⚠️ The chunks below come from directly-uploaded documents or meeting transcripts, NOT from the data sources above. If the user asks about a specific data source's content (e.g. "summarize my Google Drive"), tell them the source is connected but file content hasn't been embedded yet — and direct them to Data Sources page to sync. Don't fabricate Drive/OneDrive contents.`
+
+          // 청크 0 + indexed 소스 0 → 연결만 되어 있음
+          : `[Active data sources — connected, content not yet searchable]
+${dsLines}
+
+These data sources are connected to the user's account but file contents aren't indexed yet. For now, you can only acknowledge the connection. If the user asks about file contents, suggest they go to Data Sources page and run sync. For other questions, answer with general knowledge.`;
+
         docContext = docContext ? `${dsHeader}\n\n---\n\n${docContext}` : dsHeader;
-        // 출처 칩에도 표시
+
+        // 출처 칩에도 표시 — indexed 0인 소스는 칩에서 제외 (사용자 혼동 방지)
         dsList.forEach((s) => {
+          const indexed = indexedBySource.get(s.id) ?? 0;
+          if (indexed === 0) return;
           const svc = s.type === 'google-drive' ? 'Google Drive'
                     : s.type === 'onedrive' ? 'OneDrive'
                     : s.type === 'local' ? 'Local Drive' : s.type;
