@@ -27,6 +27,10 @@ import { detectCapability } from '@/lib/local-drive/capability';
 import { saveHandle, deleteHandle, verifyPermission } from '@/lib/local-drive/handle-store';
 import { checkAllLocalSources } from '@/lib/local-drive/auto-check';
 import { scanLocalDirectory } from '@/lib/connectors/local-connector';
+// [2026-04-30 Roy progress] 실제 0~100% sync progress
+import { indexSource, type IndexProgress } from '@/lib/source-indexer';
+import { useAPIKeyStore } from '@/stores/api-key-store';
+import { useDocumentStore } from '@/stores/document-store';
 
 // ── Tokens ───────────────────────────────────────────────────────
 const tokens = {
@@ -213,6 +217,11 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const [pendingLocal, setPendingLocal] = useState<LocalPickerResult | null>(null);
   // 재연결 대상 source.id (null이면 신규 추가, 값이 있으면 기존 source 패치).
   const [reconnectTargetId, setReconnectTargetId] = useState<string | null>(null);
+  // [2026-04-30 Roy progress] 동기화 진행률 (sourceId → IndexProgress)
+  const [syncProgress, setSyncProgress] = useState<Record<string, IndexProgress>>({});
+  const getKey = useAPIKeyStore((s) => s.getKey);
+  const getHandle = useDataSourceStore((s) => s.getHandle);
+  const reloadDocs = useDocumentStore((s) => s.loadFromDB);
 
   // 자동 체크 한 번만 실행 (mount 시).
   useEffect(() => {
@@ -245,55 +254,93 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sources.length]);
 
-  // P2.2 보강 — 동기화: 루트 폴더 스캔 → fileCount 업데이트
+  // [2026-04-30 Roy] 동기화 — scan만 X. 실제 indexSource()로 download → parse → embed → save.
+  // 프로그레스 콜백으로 0~100% 실시간 업데이트.
   async function runSync(source: DataSource) {
     setStatus(source.id, 'syncing');
+    setSyncProgress((prev) => ({
+      ...prev,
+      [source.id]: { total: 0, done: 0, current: '', errors: [] },
+    }));
+
     try {
-      if (source.config.type === 'google-drive') {
-        const token = source.config.accessToken;
-        if (!token) throw new Error('No access token');
-        const files = await scanDriveFolder(token, source.config.folderId);
-        updateSource(source.id, { fileCount: files.length, lastSync: Date.now() });
-        setStatus(source.id, 'connected');
-      } else if (source.config.type === 'onedrive') {
-        const token = source.config.accessToken;
-        if (!token) throw new Error('No access token');
-        const items = await scanOneDriveFolder(token, source.config.folderId);
-        updateSource(source.id, { fileCount: items.length, lastSync: Date.now() });
-        setStatus(source.id, 'connected');
-      } else if (source.config.type === 'local') {
-        // [2026-04-29 Tori 19857410 §4] 로컬 동기화 — 핸들 가져와 권한 확인 후 재스캔.
-        const { loadHandle } = await import('@/lib/local-drive/handle-store');
-        const handle = await loadHandle(source.id);
+      // 임베딩 키 확보 — OpenAI 또는 Google. 없으면 명확히 거부.
+      const openaiKey = getKey('openai');
+      const googleKey = getKey('google');
+      const embeddingKey      = openaiKey || googleKey;
+      const embeddingProvider = openaiKey ? 'openai' : googleKey ? 'google' : null;
+      if (!embeddingKey || !embeddingProvider) {
+        setStatus(source.id, 'error', lang === 'ko'
+          ? 'OpenAI 또는 Google API 키가 필요해요 (설정 → API 키)'
+          : 'OpenAI or Google API key required (Settings → API Keys)');
+        setSyncProgress((prev) => { const next = { ...prev }; delete next[source.id]; return next; });
+        return;
+      }
+
+      // 로컬 드라이브는 핸들 권한 재확인.
+      let dirHandle: FileSystemDirectoryHandle | undefined;
+      if (source.config.type === 'local') {
+        const handle = getHandle(source.id);
         if (!handle) {
           setStatus(source.id, 'permission_required');
+          setSyncProgress((prev) => { const next = { ...prev }; delete next[source.id]; return next; });
           return;
         }
         const ok = await verifyPermission(handle, 'read');
         if (!ok) {
           setStatus(source.id, 'permission_required');
+          setSyncProgress((prev) => { const next = { ...prev }; delete next[source.id]; return next; });
           return;
         }
-        if (handle.kind === 'directory') {
-          const files = await scanLocalDirectory(handle as FileSystemDirectoryHandle);
-          updateSource(source.id, {
-            fileCount: files.length,
-            lastSync: Date.now(),
-            localFileSnapshot: files.map((f) => ({ path: f.path, lastModified: f.lastModified })),
-          });
-        } else {
-          const file = await (handle as FileSystemFileHandle).getFile();
-          updateSource(source.id, {
-            fileCount: 1,
-            lastSync: Date.now(),
-            localFileSnapshot: [{ path: handle.name, lastModified: file.lastModified }],
-          });
-        }
-        setStatus(source.id, 'connected');
+        dirHandle = handle;
       }
+
+      const { indexed, errors } = await indexSource(
+        source,
+        embeddingKey,
+        embeddingProvider,
+        dirHandle,
+        (p) => {
+          setSyncProgress((prev) => ({ ...prev, [source.id]: p }));
+          // 스토어에도 0~100% 기록 (다른 화면에서도 참고 가능)
+          if (p.total > 0) {
+            updateSource(source.id, {
+              syncProgress: Math.round((p.done / p.total) * 100),
+              syncedCount: p.done,
+              totalCount: p.total,
+            });
+          }
+        },
+      );
+
+      // 로컬은 snapshot도 갱신 (변경 감지 baseline)
+      if (source.config.type === 'local' && dirHandle) {
+        const files = await scanLocalDirectory(dirHandle);
+        updateSource(source.id, {
+          localFileSnapshot: files.map((f) => ({ path: f.path, lastModified: f.lastModified })),
+        });
+      }
+
+      updateSource(source.id, {
+        fileCount: indexed,
+        indexedCount: indexed,
+        syncProgress: 100,
+        lastSync: Date.now(),
+        error: errors.length > 0
+          ? (lang === 'ko' ? `${errors.length}개 파일 실패` : `${errors.length} files failed`)
+          : undefined,
+      });
+      setStatus(source.id, errors.length === 0 ? 'connected' : 'error');
+      // RAG 채팅에서 즉시 새 청크 인식되도록 문서 store 강제 reload
+      void reloadDocs({ force: true });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Sync failed';
       setStatus(source.id, 'error', msg);
+    } finally {
+      // 완료 후 800ms 뒤 progress 모달 정리 (사용자가 100% 잠시 인지)
+      setTimeout(() => {
+        setSyncProgress((prev) => { const next = { ...prev }; delete next[source.id]; return next; });
+      }, 800);
     }
   }
 
@@ -516,6 +563,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
                   <ConnectedCard
                     source={s}
                     t={t}
+                    progress={syncProgress[s.id]}
                     onDisconnect={() => setConfirmDel(s.id)}
                     onSync={() => runSync(s)}
                     onReconnect={s.config.type === 'local' ? () => runReconnectLocal(s) : undefined}
@@ -621,10 +669,11 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
 // ── Subcomponents ────────────────────────────────────────────────
 
 function ConnectedCard({
-  source, t, onDisconnect, onSync, onReconnect,
+  source, t, progress, onDisconnect, onSync, onReconnect,
 }: {
   source: DataSource;
   t: typeof copy[keyof typeof copy];
+  progress?: IndexProgress;
   onDisconnect: () => void;
   onSync: () => void;
   onReconnect?: () => void;
@@ -634,6 +683,11 @@ function ConnectedCard({
   // [2026-04-29 Tori 19857410] 로컬 capability 안내 (Drag&Drop only인 경우 매 세션 재선택 필요)
   const isLocal = source.config.type === 'local';
   const needsResel = isLocal && (source.config as { needsReselection?: boolean }).needsReselection === true;
+  // [2026-04-30 Roy progress] 동기화 중일 때 0~100% 진행률
+  const isSyncing = status === 'syncing';
+  const pct = progress && progress.total > 0
+    ? Math.round((progress.done / progress.total) * 100)
+    : (typeof source.syncProgress === 'number' ? source.syncProgress : 0);
   return (
     <div
       className="rounded-2xl border p-5"
@@ -695,6 +749,42 @@ function ConnectedCard({
         </div>
       )}
 
+      {/* [2026-04-30 Roy progress] 동기화 중 — 미니멀 프로그레스 바 + 현재 파일 + % */}
+      {isSyncing && (
+        <div className="mt-3" aria-live="polite">
+          <div className="flex items-baseline justify-between gap-3 text-[11.5px] tabular-nums" style={{ color: tokens.textDim }}>
+            <span className="truncate" title={progress?.current ?? ''}>
+              {progress?.current
+                ? progress.current
+                : (t.syncing + '…')}
+            </span>
+            <span className="shrink-0" style={{ color: tokens.text, fontWeight: 500 }}>
+              {progress && progress.total > 0
+                ? `${progress.done} / ${progress.total} · ${pct}%`
+                : `${pct}%`}
+            </span>
+          </div>
+          <div
+            className="mt-1.5 h-[3px] w-full overflow-hidden rounded-full"
+            style={{ background: tokens.surfaceAlt }}
+          >
+            <div
+              className={`h-full rounded-full transition-[width] duration-300 ease-out ${pct === 0 ? 'animate-pulse' : ''}`}
+              style={{
+                // 0% 일 때 얇은 indicator (8%)로 indeterminate 느낌
+                width: `${pct === 0 ? 8 : pct}%`,
+                background: tokens.accent,
+              }}
+            />
+          </div>
+          {progress && progress.errors.length > 0 && (
+            <div className="mt-1.5 text-[11px]" style={{ color: tokens.danger }}>
+              {progress.errors.length}개 오류
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap gap-2">
         {status === 'permission_required' && onReconnect ? (
           <button
@@ -709,17 +799,19 @@ function ConnectedCard({
           <button
             type="button"
             onClick={onSync}
+            disabled={isSyncing}
             className="rounded-md px-3 py-1.5 text-[12px] transition-colors"
-            style={{ background: tokens.surfaceAlt, color: tokens.text }}
+            style={{ background: tokens.surfaceAlt, color: tokens.text, opacity: isSyncing ? 0.5 : 1, cursor: isSyncing ? 'not-allowed' : 'pointer' }}
           >
-            {t.sync}
+            {isSyncing ? `${t.syncing}…` : t.sync}
           </button>
         )}
         <button
           type="button"
           onClick={onDisconnect}
+          disabled={isSyncing}
           className="rounded-md px-3 py-1.5 text-[12px] transition-colors hover:bg-black/5"
-          style={{ color: tokens.danger }}
+          style={{ color: tokens.danger, opacity: isSyncing ? 0.5 : 1 }}
         >
           {t.disconnect}
         </button>
