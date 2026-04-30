@@ -226,6 +226,13 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },
 
   // ===== AUTO-APPEND BELOW (do not delete this line) =====
+  'tts-1-hd': {
+    displayName: "TTS-1-HD",
+    description_ko: "고품질 음성 합성을 해요",
+    description_en: "High-quality voice synthesis",
+    tier: "balanced",
+  },  // auto-generated 2026-04-30
+
   'tts-1-1106': {
     displayName: "TTS-1",
     description_ko: "음성 변환을 잘해요",

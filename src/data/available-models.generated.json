@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-30T10:59:15.604Z",
+  "generatedAt": "2026-04-30T19:40:56.725Z",
   "providers": [
     "anthropic",
     "openai",
@@ -884,18 +884,6 @@
       "supportsStreaming": false
     },
     {
-      "id": "tts-1-hd",
-      "provider": "openai",
-      "displayName": "Tts 1 Hd",
-      "description_ko": "openai 모델",
-      "description_en": "openai model",
-      "tier": "balanced",
-      "createdAt": 1699046015,
-      "deprecated": false,
-      "supportsVision": false,
-      "supportsStreaming": true
-    },
-    {
       "id": "tts-1",
       "provider": "openai",
       "displayName": "TTS-1",
@@ -927,6 +915,18 @@
       "description_en": "Natural, high-quality voice",
       "tier": "balanced",
       "createdAt": 1699053533,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": true
+    },
+    {
+      "id": "tts-1-hd",
+      "provider": "openai",
+      "displayName": "TTS-1-HD",
+      "description_ko": "고품질 음성 합성을 해요",
+      "description_en": "High-quality voice synthesis",
+      "tier": "balanced",
+      "createdAt": 1699046015,
       "deprecated": false,
       "supportsVision": false,
       "supportsStreaming": true
