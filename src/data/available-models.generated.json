@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T16:45:48.264Z",
+  "generatedAt": "2026-04-30T08:29:20.383Z",
   "providers": [
     "anthropic",
     "openai",
@@ -596,6 +596,30 @@
       "supportsStreaming": true
     },
     {
+      "id": "dall-e-2",
+      "provider": "openai",
+      "displayName": "DALL-E 2",
+      "description_ko": "그림을 그려줘요",
+      "description_en": "Generates images",
+      "tier": "balanced",
+      "createdAt": 1698798177,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": false
+    },
+    {
+      "id": "dall-e-3",
+      "provider": "openai",
+      "displayName": "DALL-E 3",
+      "description_ko": "그림을 잘 그려요",
+      "description_en": "Strong at image generation",
+      "tier": "balanced",
+      "createdAt": 1698785189,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": false
+    },
+    {
       "id": "gpt-4-turbo",
       "provider": "openai",
       "displayName": "GPT-4 Turbo",
@@ -628,7 +652,7 @@
       "tier": "balanced",
       "createdAt": 1727460443,
       "deprecated": false,
-      "supportsVision": true,
+      "supportsVision": false,
       "supportsStreaming": true
     },
     {
@@ -640,7 +664,7 @@
       "tier": "balanced",
       "createdAt": 1727659998,
       "deprecated": false,
-      "supportsVision": true,
+      "supportsVision": false,
       "supportsStreaming": true
     },
     {
@@ -664,8 +688,8 @@
       "tier": "balanced",
       "createdAt": 1742068463,
       "deprecated": false,
-      "supportsVision": true,
-      "supportsStreaming": true
+      "supportsVision": false,
+      "supportsStreaming": false
     },
     {
       "id": "gpt-4o-transcribe-diarize",
@@ -676,8 +700,8 @@
       "tier": "balanced",
       "createdAt": 1750798887,
       "deprecated": false,
-      "supportsVision": true,
-      "supportsStreaming": true
+      "supportsVision": false,
+      "supportsStreaming": false
     },
     {
       "id": "gpt-5-chat-latest",
@@ -824,6 +848,102 @@
       "supportsStreaming": true
     },
     {
+      "id": "gpt-image-1.5",
+      "provider": "openai",
+      "displayName": "GPT-Image 1.5",
+      "description_ko": "이미지를 잘 만들어요",
+      "description_en": "Strong at image generation",
+      "tier": "balanced",
+      "createdAt": 1764030620,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": false
+    },
+    {
+      "id": "gpt-image-1",
+      "provider": "openai",
+      "displayName": "GPT-Image-1",
+      "description_ko": "이미지를 잘 만들어요",
+      "description_en": "Great at generating images",
+      "tier": "balanced",
+      "createdAt": 1745517030,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": false
+    },
+    {
+      "id": "gpt-image-2",
+      "provider": "openai",
+      "displayName": "GPT-Image-2",
+      "description_ko": "이미지를 잘 이해해요",
+      "description_en": "Understands images well",
+      "tier": "balanced",
+      "createdAt": 1776399795,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": false
+    },
+    {
+      "id": "tts-1-1106",
+      "provider": "openai",
+      "displayName": "Tts 1 1106",
+      "description_ko": "openai 모델",
+      "description_en": "openai model",
+      "tier": "balanced",
+      "createdAt": 1699053241,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": true
+    },
+    {
+      "id": "tts-1-hd",
+      "provider": "openai",
+      "displayName": "Tts 1 Hd",
+      "description_ko": "openai 모델",
+      "description_en": "openai model",
+      "tier": "balanced",
+      "createdAt": 1699046015,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": true
+    },
+    {
+      "id": "tts-1",
+      "provider": "openai",
+      "displayName": "TTS-1",
+      "description_ko": "음성 변환을 잘해요",
+      "description_en": "Good at converting text to speech",
+      "tier": "balanced",
+      "createdAt": 1681940951,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": true
+    },
+    {
+      "id": "tts-1-hd-1106",
+      "provider": "openai",
+      "displayName": "TTS-1 HD",
+      "description_ko": "자연스러운 음성이에요",
+      "description_en": "Natural, high-quality voice",
+      "tier": "balanced",
+      "createdAt": 1699053533,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": true
+    },
+    {
+      "id": "whisper-1",
+      "provider": "openai",
+      "displayName": "Whisper-1",
+      "description_ko": "음성을 텍스트로 바꿔줘요",
+      "description_en": "Transcribes speech to text",
+      "tier": "balanced",
+      "createdAt": 1677532384,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": false
+    },
+    {
       "id": "gpt-audio-mini",
       "provider": "openai",
       "displayName": "GPT Audio Mini",
@@ -916,7 +1036,7 @@
       "tier": "fast",
       "createdAt": 1734387380,
       "deprecated": false,
-      "supportsVision": true,
+      "supportsVision": false,
       "supportsStreaming": true
     },
     {
@@ -928,7 +1048,7 @@
       "tier": "fast",
       "createdAt": 1734387424,
       "deprecated": false,
-      "supportsVision": true,
+      "supportsVision": false,
       "supportsStreaming": true
     },
     {
@@ -951,6 +1071,18 @@
       "description_en": "Good at speech recognition",
       "tier": "fast",
       "createdAt": 1742068596,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": false
+    },
+    {
+      "id": "gpt-4o-mini-tts",
+      "provider": "openai",
+      "displayName": "GPT-4o Mini TTS",
+      "description_ko": "음성 대화에 특화됐어요",
+      "description_en": "Best for voice conversations",
+      "tier": "fast",
+      "createdAt": 1742403959,
       "deprecated": false,
       "supportsVision": true,
       "supportsStreaming": true
@@ -1014,6 +1146,18 @@
       "deprecated": false,
       "supportsVision": true,
       "supportsStreaming": true
+    },
+    {
+      "id": "gpt-image-1-mini",
+      "provider": "openai",
+      "displayName": "GPT-Image-1 Mini",
+      "description_ko": "이미지 이해를 잘해요",
+      "description_en": "Good at understanding images",
+      "tier": "fast",
+      "createdAt": 1758845821,
+      "deprecated": false,
+      "supportsVision": false,
+      "supportsStreaming": false
     },
     {
       "id": "o3-mini",

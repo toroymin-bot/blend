@@ -226,6 +226,67 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },
 
   // ===== AUTO-APPEND BELOW (do not delete this line) =====
+  'whisper-1': {
+    displayName: "Whisper-1",
+    description_ko: "음성을 텍스트로 바꿔줘요",
+    description_en: "Transcribes speech to text",
+    tier: "balanced",
+  },  // auto-generated 2026-04-30
+  'tts-1': {
+    displayName: "TTS-1",
+    description_ko: "음성 변환을 잘해요",
+    description_en: "Good at converting text to speech",
+    tier: "balanced",
+  },  // auto-generated 2026-04-30
+  'dall-e-3': {
+    displayName: "DALL-E 3",
+    description_ko: "그림을 잘 그려요",
+    description_en: "Strong at image generation",
+    tier: "balanced",
+  },  // auto-generated 2026-04-30
+  'dall-e-2': {
+    displayName: "DALL-E 2",
+    description_ko: "그림을 그려줘요",
+    description_en: "Generates images",
+    tier: "balanced",
+  },  // auto-generated 2026-04-30
+  'tts-1-hd-1106': {
+    displayName: "TTS-1 HD",
+    description_ko: "자연스러운 음성이에요",
+    description_en: "Natural, high-quality voice",
+    tier: "balanced",
+  },  // auto-generated 2026-04-30
+  'gpt-4o-mini-tts': {
+    displayName: "GPT-4o Mini TTS",
+    description_ko: "음성 대화에 특화됐어요",
+    description_en: "Best for voice conversations",
+    tier: "fast",
+  },  // auto-generated 2026-04-30
+  'gpt-image-1': {
+    displayName: "GPT-Image-1",
+    description_ko: "이미지를 잘 만들어요",
+    description_en: "Great at generating images",
+    tier: "balanced",
+  },  // auto-generated 2026-04-30
+  'gpt-image-1-mini': {
+    displayName: "GPT-Image-1 Mini",
+    description_ko: "이미지 이해를 잘해요",
+    description_en: "Good at understanding images",
+    tier: "fast",
+  },  // auto-generated 2026-04-30
+  'gpt-image-1.5': {
+    displayName: "GPT-Image 1.5",
+    description_ko: "이미지를 잘 만들어요",
+    description_en: "Strong at image generation",
+    tier: "balanced",
+  },  // auto-generated 2026-04-30
+  'gpt-image-2': {
+    displayName: "GPT-Image-2",
+    description_ko: "이미지를 잘 이해해요",
+    description_en: "Understands images well",
+    tier: "balanced",
+  },  // auto-generated 2026-04-30
+
   'gemma-3-4b-it': {
     displayName: "Gemma 3 4B IT",
     description_ko: "가볍고 빨라요",
