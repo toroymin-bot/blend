@@ -1140,28 +1140,48 @@ export default function D1ChatView({
         }
       } catch { /* ignore */ }
 
-      // Tori 핫픽스 (2026-04-25) — 활성 데이터 소스 메타 주입
-      // 청크 임베딩 인프라는 후속 작업이라 일단 LLM에게 활성 폴더 컨텍스트만 알림.
+      // Tori 핫픽스 (2026-04-25, 2026-04-30 정정) — 활성 데이터 소스 메타 주입
+      // [2026-04-30 BUG-FIX] 이전 핫픽스의 시스템 프롬프트 카피가 "NOT yet indexed,
+      // embeddings is a separate feature" 라는 stale 메시지를 항상 보내고 있어
+      // 실제로 RAG 청크가 retrieve 됐는데도 AI가 "파일 검색 활성화 X" 거부 답변을
+      // 환각으로 생성하던 회귀. embeddings 인프라는 이미 동작 중 (청크 retrieving 확인).
+      // → docContext에 RAG hit이 있으면(즉 활성 문서 청크가 이미 위에 주입됨)
+      //    데이터소스는 단순 라벨만 추가하고 거부 유도 카피는 빼야 함.
       const { useDataSourceStore } = await import('@/stores/datasource-store');
       const dsList = useDataSourceStore.getState().sources.filter((s) => s.isActive !== false);
       if (dsList.length > 0) {
         const dsLines = dsList.map((s) => {
           const svc = s.type === 'google-drive' ? 'Google Drive'
                     : s.type === 'onedrive'     ? 'OneDrive'
+                    : s.type === 'local'        ? 'Local Drive'
                     : s.type === 'webdav'       ? 'WebDAV' : s.type;
           const folder = s.name && s.name !== svc ? ` · ${s.name}` : '';
           const fileCount = typeof s.fileCount === 'number' ? ` (${s.fileCount} files)` : '';
-          return `- ${svc}${folder}${fileCount}`;
+          // 인덱싱 진행 중인 소스만 별도 표기
+          const status = s.status === 'syncing' ? ' [indexing in progress]'
+                       : s.status === 'error'   ? ` [sync error: ${s.error ?? 'unknown'}]`
+                       : '';
+          return `- ${svc}${folder}${fileCount}${status}`;
         }).join('\n');
-        const dsHeader =
-`[Active data sources connected to this user's account]
-The user has activated these external data sources. The actual file contents are NOT yet indexed (file embedding is a separate feature). When the user asks about the data inside these sources, acknowledge the connection and tell them you can see the folder is connected but the file content search will be available after embeddings are processed. Don't fabricate file contents.
+
+        // RAG 청크가 이미 retrieve 됐으면 → 데이터소스는 단순 보조 메타 (거부 유도 X).
+        // RAG 청크가 없고 활성 소스만 있으면 → "검색 시도 후 안내" 톤.
+        const hasRagContext = docContext.length > 0;
+        const dsHeader = hasRagContext
+          ? `[Active data sources — supplementary]
+The user has these external sources connected. The chunks above (if any) come from these sources. Cite them naturally when relevant.
+
+${dsLines}`
+          : `[Active data sources — connected but no relevant chunks for this query]
+The user has these data sources connected and indexed. For the current question, no chunks were retrieved (the embedding search returned nothing matching). Possible reasons: the question is too general, or the relevant content isn't in these sources yet. Acknowledge the connection, answer with general knowledge if useful, and suggest the user phrase the question more specifically about file contents to trigger search.
 
 ${dsLines}`;
         docContext = docContext ? `${dsHeader}\n\n---\n\n${docContext}` : dsHeader;
         // 출처 칩에도 표시
         dsList.forEach((s) => {
-          const svc = s.type === 'google-drive' ? 'Google Drive' : s.type === 'onedrive' ? 'OneDrive' : s.type;
+          const svc = s.type === 'google-drive' ? 'Google Drive'
+                    : s.type === 'onedrive' ? 'OneDrive'
+                    : s.type === 'local' ? 'Local Drive' : s.type;
           docSources.push(s.name && s.name !== svc ? `${svc} · ${s.name}` : svc);
         });
       }
