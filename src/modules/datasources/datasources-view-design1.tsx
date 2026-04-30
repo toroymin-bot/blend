@@ -11,7 +11,8 @@ import { useEffect, useState } from 'react';
 import { useDataSourceStore } from '@/stores/datasource-store';
 import type { DataSource, DataSourceType, DataSourceSelection } from '@/types';
 // [2026-04-26 Tori 16384118 §3] Picker + Cost preview + Subscribe
-import { openGoogleDrivePicker } from '@/modules/datasources/pickers/google-drive-picker';
+// [2026-04-30] Google Picker SDK 제거 — 자체 폴더 모달 (OneDrive와 동일 패턴, 모바일 안정 + hex 캐시 폴더 자동 숨김)
+import { GoogleDriveFolderModal } from '@/modules/datasources/google-drive-folder-modal';
 import { OneDriveFolderModal } from '@/modules/datasources/onedrive-folder-modal';
 import { validateSelections, describeValidationError, MAX_FILES_PER_FOLDER } from '@/modules/datasources/pickers/picker-shared';
 import { CostPreviewModal } from '@/modules/datasources/cost-preview-modal';
@@ -215,9 +216,11 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   // [2026-04-29 Tori 19857410] Local drive — modal 단계와 비용 미리보기 단계가 분리됨.
   const [showLocalPicker, setShowLocalPicker] = useState(false);
   const [pendingLocal, setPendingLocal] = useState<LocalPickerResult | null>(null);
-  // [2026-04-30 OneDrive] popup picker SDK 대신 자체 폴더 모달 사용
+  // [2026-04-30 OneDrive/Google] popup picker SDK 대신 자체 폴더 모달 사용
   const [oneDriveAccessToken, setOneDriveAccessToken] = useState<string | null>(null);
   const [showOneDriveFolderModal, setShowOneDriveFolderModal] = useState(false);
+  const [googleDriveAccessToken, setGoogleDriveAccessToken] = useState<string | null>(null);
+  const [showGoogleDriveFolderModal, setShowGoogleDriveFolderModal] = useState(false);
   // 재연결 대상 source.id (null이면 신규 추가, 값이 있으면 기존 source 패치).
   const [reconnectTargetId, setReconnectTargetId] = useState<string | null>(null);
   // [2026-04-30 Roy progress] 동기화 진행률 (sourceId → IndexProgress)
@@ -366,27 +369,22 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     setConnecting(true);
     setConnectErr(null);
     try {
-      let accessToken: string;
-      let selections: DataSourceSelection[] | null = null;
-
       if (type === 'google-drive') {
+        // [2026-04-30] Google Picker SDK 제거 — OAuth 토큰만 받고 자체 폴더 모달로.
+        // hex 캐시 폴더 자동 숨김 + 모바일 popup 의존 제거.
         const clientId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID;
-        const pickerKey = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY;
-        if (!clientId)  { setConnectErr(t.connectErrMissingId); return; }
-        if (!pickerKey) {
-          setConnectErr(lang === 'ko'
-            ? 'Google Drive 연결을 준비하고 있어요. 잠시 후 다시 시도해주세요.'
-            : 'Google Drive is being prepared. Please try again in a moment.');
-          return;
-        }
-        accessToken = await requestGoogleAccessToken(clientId);
-        selections  = await openGoogleDrivePicker({ accessToken, apiKey: pickerKey });
+        if (!clientId) { setConnectErr(t.connectErrMissingId); return; }
+        const accessToken = await requestGoogleAccessToken(clientId);
+        setGoogleDriveAccessToken(accessToken);
+        setShowGoogleDriveFolderModal(true);
+        setConnectTarget(null);
+        return;
       } else if (type === 'onedrive') {
         // [2026-04-30] popup picker SDK가 모바일에서 불안정 — 자체 폴더 모달로 교체.
         // OAuth 토큰만 받고, 폴더 선택은 OneDriveFolderModal에서 Graph API로 처리.
         const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID;
         if (!clientId) { setConnectErr(t.connectErrMissingId); return; }
-        accessToken = await requestOneDriveAccessToken(clientId);
+        const accessToken = await requestOneDriveAccessToken(clientId);
         setOneDriveAccessToken(accessToken);
         setShowOneDriveFolderModal(true);
         setConnectTarget(null);
@@ -395,23 +393,6 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
         setConnectTarget(null);
         return;
       }
-
-      // 사용자가 Picker 취소
-      if (!selections || selections.length === 0) {
-        setConnectErr(t.connectErrCancelled);
-        return;
-      }
-
-      // 검증 (max 20 / per-folder cap / 화이트리스트)
-      const validation = validateSelections(selections);
-      if (!validation.ok) {
-        setConnectErr(describeValidationError(validation.reason, lang));
-        return;
-      }
-
-      // 비용 미리보기 모달로 진입
-      setPendingPicker({ type, accessToken, selections });
-      setConnectTarget(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Connection failed';
       if (/popup/i.test(msg))      setConnectErr(t.connectErrPopupBlocked);
@@ -672,6 +653,32 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           onPicked={(r) => onLocalPicked(r)}
         />
       )}
+
+      {/* [2026-04-30] Google Drive 폴더 선택 모달 — hex 캐시 폴더 자동 숨김 */}
+      <GoogleDriveFolderModal
+        open={showGoogleDriveFolderModal}
+        accessToken={googleDriveAccessToken}
+        lang={lang}
+        onCancel={() => {
+          setShowGoogleDriveFolderModal(false);
+          setGoogleDriveAccessToken(null);
+        }}
+        onPicked={(picked) => {
+          setShowGoogleDriveFolderModal(false);
+          if (picked.length === 0 || !googleDriveAccessToken) {
+            setGoogleDriveAccessToken(null);
+            return;
+          }
+          const validation = validateSelections(picked);
+          if (!validation.ok) {
+            setConnectErr(describeValidationError(validation.reason, lang));
+            setGoogleDriveAccessToken(null);
+            return;
+          }
+          setPendingPicker({ type: 'google-drive', accessToken: googleDriveAccessToken, selections: picked });
+          setGoogleDriveAccessToken(null);
+        }}
+      />
 
       {/* [2026-04-30] OneDrive 폴더 선택 모달 */}
       <OneDriveFolderModal
