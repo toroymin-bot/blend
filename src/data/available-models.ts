@@ -122,6 +122,38 @@ export function inferProvider(modelId: string): ProviderId | null {
   return AVAILABLE_MODELS.find((x) => x.id === modelId)?.provider ?? null;
 }
 
+/**
+ * Auto-routing fallback chain — derived from registry, NOT hardcoded.
+ *
+ * Picks 1 cheap+fast model per provider so when a model is deprecated by the
+ * provider (e.g. claude-3-5-haiku-20241022 retired), the 3-hour cron updates
+ * the registry and this chain follows automatically without code changes.
+ *
+ * Tier preference per provider: fast → balanced → any non-deprecated.
+ * Provider order is the same priority as the legacy hardcoded chain.
+ */
+const AUTO_PROVIDER_PRIORITY: ProviderId[] = ['openai', 'anthropic', 'google', 'deepseek', 'groq'];
+
+// Auto fallback은 텍스트 채팅용 — audio/realtime/tts/image/codex/transcribe 전용 모델 제외.
+// (registry tier='fast'에 이런 specialty 모델도 포함될 수 있음)
+const NON_TEXT_CHAT_PATTERN = /audio|realtime|transcribe|tts|image-|codex|search-preview/i;
+function isTextChatModel(id: string): boolean {
+  return !NON_TEXT_CHAT_PATTERN.test(id);
+}
+
+export function getAutoFallbackChain(): Array<{ provider: ProviderId; apiModel: string }> {
+  return AUTO_PROVIDER_PRIORITY.flatMap((provider) => {
+    const ofProvider = AVAILABLE_MODELS.filter(
+      (m) => m.provider === provider && !m.deprecated && isTextChatModel(m.id),
+    );
+    const fast = ofProvider.find((m) => m.tier === 'fast');
+    const balanced = ofProvider.find((m) => m.tier === 'balanced');
+    const any = ofProvider[0];
+    const pick = fast || balanced || any;
+    return pick ? [{ provider, apiModel: pick.id }] : [];
+  });
+}
+
 /** Fallback heuristic when model isn't in registry */
 export function inferProviderFromPattern(modelId: string): ProviderId {
   if (modelId.startsWith('claude-')) return 'anthropic';

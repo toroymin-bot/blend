@@ -20,7 +20,7 @@ import type { AIProvider } from '@/types';
 import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
-import { AVAILABLE_MODELS, getFeaturedModels, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
+import { AVAILABLE_MODELS, getFeaturedModels, getAutoFallbackChain, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
 import { trackEvent } from '@/lib/analytics';
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
@@ -654,14 +654,17 @@ export default function D1ChatView({
   function triggerAutoTitle(userContent: string, assistantContent: string) {
     if (typeof window === 'undefined') return;
     // 사용 가능한 BYOK 또는 trial fallback 결정
-    // [2026-04-30] 구버전 모델 ID deprecated 픽스 — Haiku 4.5 / Gemini 2.5 Flash / Llama 3.3
-    const FALLBACK_ORDER: Array<{ provider: AIProvider; apiModel: string }> = [
-      { provider: 'openai',    apiModel: 'gpt-5-mini' },
-      { provider: 'anthropic', apiModel: 'claude-haiku-4-5-20251001' },
-      { provider: 'google',    apiModel: 'gemini-2.5-flash' },
-      { provider: 'deepseek',  apiModel: 'deepseek-chat' },
-      { provider: 'groq',      apiModel: 'llama-3.3-70b-versatile' },
-    ];
+    // [2026-04-30] FALLBACK_ORDER를 registry에서 동적 도출 — 3시간 cron이 모델 갱신하면 자동 따라감.
+    // 안전망: registry가 비어있으면 (build error 등) 마지막에 알려진 최신 ID로 fallback.
+    const dynamicChain = getAutoFallbackChain();
+    const FALLBACK_ORDER: Array<{ provider: AIProvider; apiModel: string }> =
+      dynamicChain.length > 0 ? dynamicChain : [
+        { provider: 'openai',    apiModel: 'gpt-5-mini' },
+        { provider: 'anthropic', apiModel: 'claude-haiku-4-5-20251001' },
+        { provider: 'google',    apiModel: 'gemini-2.5-flash' },
+        { provider: 'deepseek',  apiModel: 'deepseek-chat' },
+        { provider: 'groq',      apiModel: 'llama-3.3-70b-versatile' },
+      ];
     const avail = FALLBACK_ORDER.find((p) => hasKey(p.provider));
     const sysPrompt = lang === 'ko'
       ? '대화의 주제를 4-6단어 한국어로 요약하라. 제목만 반환. 따옴표·마침표 금지.'
@@ -1442,14 +1445,17 @@ The [Active...] sections below are the user's activated sources. Use them as you
     }
 
     // ── Normal (BYOK) path ───────────────────────────────────────
-    // [2026-04-30] 구버전 모델 ID deprecated 픽스 — Haiku 4.5 / Gemini 2.5 Flash / Llama 3.3
-    const FALLBACK_ORDER: Array<{ provider: AIProvider; apiModel: string }> = [
-      { provider: 'openai',    apiModel: 'gpt-5-mini' },
-      { provider: 'anthropic', apiModel: 'claude-haiku-4-5-20251001' },
-      { provider: 'google',    apiModel: 'gemini-2.5-flash' },
-      { provider: 'deepseek',  apiModel: 'deepseek-chat' },
-      { provider: 'groq',      apiModel: 'llama-3.3-70b-versatile' },
-    ];
+    // [2026-04-30] FALLBACK_ORDER를 registry에서 동적 도출 — 3시간 cron이 모델 갱신하면 자동 따라감.
+    // 안전망: registry가 비어있으면 (build error 등) 마지막에 알려진 최신 ID로 fallback.
+    const dynamicChain = getAutoFallbackChain();
+    const FALLBACK_ORDER: Array<{ provider: AIProvider; apiModel: string }> =
+      dynamicChain.length > 0 ? dynamicChain : [
+        { provider: 'openai',    apiModel: 'gpt-5-mini' },
+        { provider: 'anthropic', apiModel: 'claude-haiku-4-5-20251001' },
+        { provider: 'google',    apiModel: 'gemini-2.5-flash' },
+        { provider: 'deepseek',  apiModel: 'deepseek-chat' },
+        { provider: 'groq',      apiModel: 'llama-3.3-70b-versatile' },
+      ];
 
     let resolvedProvider: AIProvider;
     let resolvedApiModel: string;
