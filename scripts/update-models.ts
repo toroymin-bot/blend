@@ -744,13 +744,25 @@ async function fetchOpenAI(key: string): Promise<NormalizedModel[]> {
 
   for (const m of data.data ?? []) {
     const id = m.id as string;
-    if (!/^(gpt-|o[1234])/.test(id)) continue;
-    if (/embedding|moderation|whisper|tts|dall-e|image|instruct/.test(id)) continue;
+    // [2026-04-30 Tori 21037059] image-gen / voice 모델 등록 — 21102594 PR #5 실효화.
+    // 사용자 노출 prefix: gpt-*, o[1234]*, dall-e-*, gpt-image-*, tts-*, whisper-*.
+    if (!/^(gpt-|o[1234]|dall-e-|tts-|whisper-)/.test(id)) continue;
+    // 진짜 비노출 모델만 제외: 임베딩/모더레이션/instruct(사용자 직접 호출 X).
+    if (/embedding|moderation|instruct/.test(id)) continue;
     if (/-\d{4}-\d{2}-\d{2}$/.test(id)) continue; // skip dated variants
     if (/gpt-3\.5|gpt-4$|gpt-4-0/.test(id)) continue; // skip retired
 
     const override = META_OVERRIDES[id];
     const classified = override ?? classifyUnknown(id, 'openai');
+
+    // [2026-04-30] 모델 종류별 vision/streaming 정확화:
+    //  - image-gen (dall-e, gpt-image): output이 이미지 — vision X, streaming X
+    //  - voice (tts, whisper, gpt-audio, gpt-realtime): vision X, streaming은 일부만
+    //  - 텍스트 (gpt-4o+, gpt-5+, o[34]+): vision/streaming O
+    const isImageGen = /^(dall-e-|gpt-image-)/.test(id);
+    const isVoice    = /^(tts-|whisper-)/.test(id) || /audio|realtime|transcribe/.test(id);
+    const supportsVision    = !isImageGen && !isVoice && /gpt-4o|gpt-5|o[34]/.test(id);
+    const supportsStreaming = !isImageGen && !/whisper-|transcribe/.test(id);
 
     models.push({
       id,
@@ -761,8 +773,8 @@ async function fetchOpenAI(key: string): Promise<NormalizedModel[]> {
       tier: classified.tier ?? 'balanced',
       createdAt: m.created,
       deprecated: false,
-      supportsVision: /gpt-4o|gpt-5|o[34]/.test(id),
-      supportsStreaming: true,
+      supportsVision,
+      supportsStreaming,
     });
   }
 
