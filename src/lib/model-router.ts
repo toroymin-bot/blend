@@ -83,17 +83,20 @@ const KW: Record<Exclude<RouteCategory, 'vision' | 'general'>, string[]> = {
 };
 
 // ── 카테고리별 우선 모델 목록 (첫 번째 사용 가능한 모델 선택) ────────────
+// [2026-04-30 Tori 21102594 PR #5] 회사 권장 flagship 우선 — 가장 최신 안정 모델 먼저.
+// 신규 모델이 registry에 추가되면 여기 첫 자리로 옮길 수 있음 (수동 또는 자동 갱신).
 const ROUTE_MAP: Record<RouteCategory, string[]> = {
-  coding:      ['claude-sonnet-4-6', 'gpt-4.1', 'gpt-4o'],
-  reasoning:   ['deepseek-reasoner', 'claude-sonnet-4-6', 'gpt-4o'],
-  creative:    ['claude-sonnet-4-6', 'gpt-4o', 'gpt-4.1'],
-  translation: ['gpt-4o-mini', 'gpt-4.1-mini', 'claude-haiku-4-5-20251001'],
-  vision:      ['gpt-4o', 'claude-sonnet-4-6', 'gemini-2.5-pro'],
-  image_gen:   ['dall-e-3', 'gpt-image-1'],
-  data:        ['gemini-2.5-pro', 'gpt-4o', 'claude-sonnet-4-6'],
-  simple:      ['gpt-4o-mini', 'gpt-4.1-mini', 'claude-haiku-4-5-20251001'],
-  long_doc:    ['claude-sonnet-4-6', 'gemini-2.5-pro', 'gpt-4o'],
-  general:     ['gpt-4o', 'claude-sonnet-4-6', 'gpt-4.1'],
+  coding:      ['claude-opus-4-7', 'claude-sonnet-4-6', 'gpt-5.5', 'gpt-5.4', 'gpt-4.1', 'gpt-4o'],
+  reasoning:   ['o4-mini', 'claude-opus-4-7', 'gpt-5.5', 'gpt-5.4-pro', 'deepseek-reasoner', 'claude-sonnet-4-6', 'gpt-4o'],
+  creative:    ['claude-opus-4-7', 'claude-sonnet-4-6', 'gpt-5.5', 'gpt-5.4', 'gpt-4o', 'gpt-4.1'],
+  translation: ['gpt-5.4-mini', 'claude-haiku-4-5', 'gpt-4o-mini', 'gpt-4.1-mini', 'gemini-2.5-flash', 'claude-haiku-4-5-20251001'],
+  vision:      ['claude-opus-4-7', 'gpt-5.5', 'gemini-3.1-pro', 'gemini-3-pro-preview', 'gpt-4o', 'claude-sonnet-4-6', 'gemini-2.5-pro'],
+  // PR #5 핵심 — image_gen 우선순위 회사 권장(최신) 순. 사용자 키 분기는 routeToModel에서.
+  image_gen:   ['gpt-image-2', 'gpt-image-1', 'dall-e-3', 'imagen-3', 'gemini-3.1-pro'],
+  data:        ['gemini-3.1-pro', 'claude-opus-4-7', 'gpt-5.5', 'gemini-2.5-pro', 'gpt-4o', 'claude-sonnet-4-6'],
+  simple:      ['gpt-5.4-mini', 'claude-haiku-4-5', 'gemini-2.5-flash', 'gpt-4o-mini', 'gpt-4.1-mini', 'claude-haiku-4-5-20251001'],
+  long_doc:    ['claude-opus-4-7', 'gemini-3.1-pro', 'gpt-5.5', 'claude-sonnet-4-6', 'gemini-2.5-pro', 'gpt-4o'],
+  general:     ['claude-opus-4-7', 'gpt-5.5', 'gpt-5.4', 'gpt-4o', 'claude-sonnet-4-6', 'gpt-4.1'],
 };
 
 // ── 카테고리 라벨 (UI 표시용) ────────────────────────────────────────────

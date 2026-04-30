@@ -20,6 +20,9 @@ import {
 } from '@/data/available-models';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import type { AIProvider } from '@/types';
+// [2026-04-30 Tori 21102594 PR #1+#2+#4] 7개 분류 + 자동 매핑 + 삭제 알림
+import { modelMatchesCategory, type ModelCategory } from '@/lib/models/classify';
+import { ModelRemovedBanner } from '@/modules/models/model-removed-banner';
 
 // ── Design tokens ────────────────────────────────────────────────
 const tokens = {
@@ -52,7 +55,19 @@ const PROVIDER_TO_AIPROV: Record<ProviderId, AIProvider> = {
 };
 
 // ── Filter ───────────────────────────────────────────────────────
-type FilterId = 'all' | 'free' | 'vision' | 'reasoning' | 'long';
+// [2026-04-30 Tori 21102594 PR #1] 7개 사용자 친화적 분류로 확장
+type FilterId = 'all' | ModelCategory;
+
+const FILTER_ORDER: FilterId[] = [
+  'all',
+  'free',
+  'quick_reply',
+  'deep_thinking',
+  'long_context',
+  'see_images',
+  'draw_images',
+  'voice',
+];
 
 // ── Copy ─────────────────────────────────────────────────────────
 const copy = {
@@ -60,11 +75,14 @@ const copy = {
     title:        '모델',
     countFmt:     (p: number, m: number) => `${p}개 프로바이더 · ${m}개 모델`,
     filters: {
-      all:        '전체',
-      free:       '무료',
-      vision:     '비전',
-      reasoning:  '추론',
-      long:       '긴 문서',
+      all:            '전체',
+      free:           '무료',
+      quick_reply:    '빠른 답변',
+      deep_thinking:  '깊이 생각',
+      long_context:   '긴 글 처리',
+      see_images:     '이미지 보기',
+      draw_images:    '이미지 그리기',
+      voice:          '목소리',
     },
     contextLabel: '컨텍스트',
     visionBadge:  '비전',
@@ -82,11 +100,14 @@ const copy = {
     title:        'Models',
     countFmt:     (p: number, m: number) => `${p} providers · ${m} models`,
     filters: {
-      all:        'All',
-      free:       'Free',
-      vision:     'Vision',
-      reasoning:  'Reasoning',
-      long:       'Long context',
+      all:            'All',
+      free:           'Free',
+      quick_reply:    'Quick reply',
+      deep_thinking:  'Deep thinking',
+      long_context:   'Long context',
+      see_images:     'See images',
+      draw_images:    'Draw images',
+      voice:          'Voice',
     },
     contextLabel: 'Context',
     visionBadge:  'Vision',
@@ -124,13 +145,8 @@ function fmtRegistryDate(iso: string, lang: 'ko' | 'en'): string {
 }
 
 function modelMatchesFilter(m: AvailableModel, f: FilterId): boolean {
-  switch (f) {
-    case 'all':       return true;
-    case 'free':      return m.tier === 'trial' || m.provider === 'groq';
-    case 'vision':    return !!m.supportsVision;
-    case 'reasoning': return m.tier === 'reasoning';
-    case 'long':      return (m.contextWindow ?? 0) >= 1_000_000;
-  }
+  // [2026-04-30 Tori 21102594 PR #2] classify.ts 의 단일 매핑 로직 사용 — UI/Router 일관.
+  return modelMatchesCategory(m, f);
 }
 
 // ── Main view ────────────────────────────────────────────────────
@@ -199,6 +215,9 @@ export default function D1ModelsView({
     >
       <div className="mx-auto w-full max-w-3xl px-6 py-12 md:py-16">
 
+        {/* [2026-04-30 Tori 21102594 PR #4] 모델 제거 알림 — 사용자가 보던 모델이 사라진 경우만 노출 */}
+        <ModelRemovedBanner lang={lang} />
+
         {/* ══ Hero ══ */}
         <header className="mb-8">
           <h1
@@ -230,8 +249,9 @@ export default function D1ModelsView({
         </div>
 
         {/* ══ Filter chips ══ */}
-        <div className="mb-8 flex flex-wrap gap-2 overflow-x-auto">
-          {(['all', 'free', 'vision', 'reasoning', 'long'] as FilterId[]).map((f) => (
+        {/* [2026-04-30] 7개 분류로 확장. 모바일 wrap 대응 (gap-2 + flex-wrap). */}
+        <div className="mb-8 flex flex-wrap gap-2">
+          {FILTER_ORDER.map((f) => (
             <FilterChip
               key={f}
               label={t.filters[f]}
