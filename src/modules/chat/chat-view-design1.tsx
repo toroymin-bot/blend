@@ -20,7 +20,7 @@ import type { AIProvider } from '@/types';
 import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
-import { AVAILABLE_MODELS, getFeaturedModels, getAutoFallbackChain, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
+import { AVAILABLE_MODELS, getFeaturedModels, getAutoFallbackChain, getBestImageModel, isImageGenModel, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
 import { trackEvent } from '@/lib/analytics';
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
@@ -873,14 +873,15 @@ export default function D1ChatView({
     const imgPrompt = extractImagePrompt(content);
 
     // [2026-04-27 BUG-006 회귀 수정] 자연어 이미지 생성 자동 라우팅
-    // legacy chat-view.tsx에선 routeToModel + isDalleModel 분기로 동작했으나
-    // design1 이전 시 누락됨. detectCategory()의 image_gen 키워드("그려줘", "draw" 등)
-    // 매칭되면 currentModel이 auto/dall-e/gpt-image일 때 DALL-E로 자동 라우팅.
+    // [2026-05-01 Roy] 모델 ID 하드코딩 제거 — registry에서 동적 도출.
+    // 사용자가 image gen 모델(dall-e-3, gpt-image-2 등)을 직접 선택했거나, Auto +
+    // 'image_gen' 카테고리 매칭 시 image generation으로 라우팅. 사용 모델은 registry
+    // 최신 버전 기준 자동 선택 (getBestImageModel) — cron이 새 모델 추가하면 따라감.
     const isAutoModel    = currentModel === 'auto';
-    const isDalleModel   = currentModel === 'dall-e-3' || currentModel === 'gpt-image-1';
+    const isUserPickedImageModel = isImageGenModel(currentModel);
     const noAttachedImg  = !images || images.length === 0;
     const autoImagePrompt =
-      !imgPrompt && (isAutoModel || isDalleModel) && noAttachedImg && content
+      !imgPrompt && (isAutoModel || isUserPickedImageModel) && noAttachedImg && content
         ? (detectCategory(content, false) === 'image_gen' ? content : null)
         : null;
 
@@ -891,21 +892,22 @@ export default function D1ChatView({
         setToastMsg(t.noApiKey);
         return;
       }
+      // 사용자가 명시적으로 image 모델 골랐으면 그 모델 사용, 그렇지 않으면 registry-derived 최신
+      const imageModel = isUserPickedImageModel ? currentModel : getBestImageModel();
       setValue('');
       setAttachedImages([]);
       const userMsg: Message = { id: Date.now().toString(), role: 'user', content };
       setMessages((prev) => [...prev, userMsg]);
       setIsStreaming(true);
 
-      // [Tori 18644993 PR #3] image flow에 ModelAdapter 적용 — 직전 대화의
-      // 묘사(주황 고양이 등)를 DALL-E English prompt로 보강. Anthropic 키
-      // 있고 model switch일 때만. 없으면 원본 prompt 그대로 사용.
+      // [Tori 18644993 PR #3] image flow에 ModelAdapter 적용 — 직전 대화의 묘사를
+      // English prompt로 보강 (Anthropic 키 + 모델 switch 시).
       void (async () => {
         const history = messages as unknown as Parameters<typeof adaptForImage>[0]['sessionMessages'];
         const adapt = await adaptForImage({
           sessionMessages: history,
           currentUserMessage: finalImgPrompt,
-          targetModel: 'dall-e-3',
+          targetModel: imageModel,
           anthropicKey: getKey('anthropic') || undefined,
           lang,
         });
@@ -915,11 +917,11 @@ export default function D1ChatView({
             '[Bridge:image]',
             adapt.reason,
             adapt.bridgeApplied ? (adapt.fromCache ? '(cache hit)' : '(Haiku call)') : '',
-            '→ dall-e-3'
+            `→ ${imageModel}`
           );
         }
 
-        generateImage(promptToSend, openaiKey)
+        generateImage(promptToSend, openaiKey, imageModel)
           .then((res) => {
             if (res.error) {
               setMessages((prev) => [...prev, {
@@ -933,7 +935,7 @@ export default function D1ChatView({
               id: Date.now().toString() + '_img',
               role: 'assistant',
               content: `![${finalImgPrompt.slice(0, 80)}](${res.url})`,
-              modelUsed: 'dall-e-3',
+              modelUsed: imageModel,
               bridgeApplied: adapt.bridgeApplied,
               bridgeFromCache: adapt.fromCache,
             }]);

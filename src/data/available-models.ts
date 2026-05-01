@@ -141,6 +141,41 @@ function isTextChatModel(id: string): boolean {
   return !NON_TEXT_CHAT_PATTERN.test(id);
 }
 
+/**
+ * 이미지 생성 모델 자동 선택 — registry에서 동적 도출.
+ * - 패턴 매칭으로 모든 gpt-image / dall-e 시리즈 발견
+ * - 버전 숫자 기준 정렬 → 가장 높은 버전 자동 선택
+ * - 3시간 cron이 새 모델(gpt-image-3, gpt-image-2.5 등)을 registry에 추가하면
+ *   다음 호출부터 자동으로 그 모델 사용 — 코드 수정 X.
+ * - dated snapshot(예: gpt-image-2-2026-04-21)은 제외 (alias 우선)
+ *
+ * 점수 = family bonus + 버전. gpt-image 시리즈 = +100, dall-e 시리즈 = +0
+ *   → gpt-image-1(=101) > dall-e-3(=3)이 되어 gpt-image 시리즈 항상 우선.
+ */
+export function isImageGenModel(modelId: string): boolean {
+  return /^(dall-e|gpt-image)-\d/.test(modelId);
+}
+
+function imageModelScore(id: string): number {
+  const family = id.startsWith('gpt-image') ? 100 : 0;
+  const m = id.match(/-(\d+(?:\.\d+)?)/);
+  const version = m ? parseFloat(m[1]) : 0;
+  return family + version;
+}
+
+export function getBestImageModel(): string {
+  const candidates = AVAILABLE_MODELS.filter((m) =>
+    m.provider === 'openai' &&
+    !m.deprecated &&
+    isImageGenModel(m.id) &&
+    // dated snapshot 제외 — alias가 있으면 alias 우선 (예: 'gpt-image-2'가 있으면 'gpt-image-2-2026-04-21' 무시)
+    !/-\d{4}-\d{2}-\d{2}$/.test(m.id),
+  );
+  candidates.sort((a, b) => imageModelScore(b.id) - imageModelScore(a.id));
+  // registry가 어떤 이유로 비어있어도 무한 루프 X — undefined fallback은 호출자가 처리.
+  return candidates[0]?.id ?? 'dall-e-3';
+}
+
 export function getAutoFallbackChain(): Array<{ provider: ProviderId; apiModel: string }> {
   return AUTO_PROVIDER_PRIORITY.flatMap((provider) => {
     const ofProvider = AVAILABLE_MODELS.filter(
