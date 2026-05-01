@@ -7,7 +7,7 @@
  * 기존 useDataSourceStore + OAuth 모듈 재사용.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDataSourceStore } from '@/stores/datasource-store';
 import type { DataSource, DataSourceType, DataSourceSelection } from '@/types';
 // [2026-04-26 Tori 16384118 §3] Picker + Cost preview + Subscribe
@@ -25,13 +25,10 @@ import { requestOneDriveAccessToken, scanOneDriveFolder } from '@/lib/connectors
 import { LocalDriveModal } from '@/modules/datasources/local-drive-modal';
 import type { LocalPickerResult } from '@/modules/datasources/pickers/local-drive-picker';
 import { detectCapability } from '@/lib/local-drive/capability';
-import { saveHandle, deleteHandle, verifyPermission } from '@/lib/local-drive/handle-store';
+import { saveHandle, deleteHandle } from '@/lib/local-drive/handle-store';
 import { checkAllLocalSources } from '@/lib/local-drive/auto-check';
-import { scanLocalDirectory } from '@/lib/connectors/local-connector';
-// [2026-04-30 Roy progress] 실제 0~100% sync progress
-import { indexSource, type IndexProgress } from '@/lib/source-indexer';
-import { useAPIKeyStore } from '@/stores/api-key-store';
-import { useDocumentStore } from '@/stores/document-store';
+// [2026-05-01 Roy] 백그라운드 동기화 — module-level runner (컴포넌트 lifecycle 분리)
+import { runSync as runBackgroundSync, cancelSync as cancelBackgroundSync } from '@/lib/sync-runner';
 
 // ── Tokens ───────────────────────────────────────────────────────
 const tokens = {
@@ -275,13 +272,8 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const [showGoogleDriveFolderModal, setShowGoogleDriveFolderModal] = useState(false);
   // 재연결 대상 source.id (null이면 신규 추가, 값이 있으면 기존 source 패치).
   const [reconnectTargetId, setReconnectTargetId] = useState<string | null>(null);
-  // [2026-04-30 Roy progress] 동기화 진행률 (sourceId → IndexProgress)
-  const [syncProgress, setSyncProgress] = useState<Record<string, IndexProgress>>({});
-  // [2026-05-01 Roy cancel] 동기화 중 취소 — sourceId → AbortController
-  const abortControllers = useRef<Map<string, AbortController>>(new Map());
-  const getKey = useAPIKeyStore((s) => s.getKey);
-  const getHandle = useDataSourceStore((s) => s.getHandle);
-  const reloadDocs = useDocumentStore((s) => s.loadFromDB);
+  // [2026-05-01 Roy] 동기화는 sync-runner module이 담당 — 진행률은 source.syncProgress/
+  // syncStage/syncCurrent에 store-level로 저장. 컴포넌트가 unmount돼도 진행 유지.
 
   // 자동 체크 한 번만 실행 (mount 시).
   useEffect(() => {
@@ -314,118 +306,14 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sources.length]);
 
-  // [2026-04-30 Roy] 동기화 — scan만 X. 실제 indexSource()로 download → parse → embed → save.
-  // 프로그레스 콜백으로 0~100% 실시간 업데이트.
-  // [2026-05-01 Roy cancel] AbortController로 중간 취소 가능.
-  async function runSync(source: DataSource) {
-    // 같은 source에 이전 진행 있으면 abort
-    abortControllers.current.get(source.id)?.abort();
-    const ctrl = new AbortController();
-    abortControllers.current.set(source.id, ctrl);
-
-    setStatus(source.id, 'syncing');
-    setSyncProgress((prev) => ({
-      ...prev,
-      [source.id]: { total: 0, done: 0, current: '', errors: [], stage: 'scanning' },
-    }));
-
-    try {
-      // 임베딩 키 확보 — OpenAI 또는 Google. 없으면 명확히 거부.
-      const openaiKey = getKey('openai');
-      const googleKey = getKey('google');
-      const embeddingKey      = openaiKey || googleKey;
-      const embeddingProvider = openaiKey ? 'openai' : googleKey ? 'google' : null;
-      if (!embeddingKey || !embeddingProvider) {
-        setStatus(source.id, 'error', lang === 'ko'
-          ? 'OpenAI 또는 Google API 키가 필요해요 (설정 → API 키)'
-          : 'OpenAI or Google API key required (Settings → API Keys)');
-        setSyncProgress((prev) => { const next = { ...prev }; delete next[source.id]; return next; });
-        return;
-      }
-
-      // 로컬 드라이브는 핸들 권한 재확인.
-      let dirHandle: FileSystemDirectoryHandle | undefined;
-      if (source.config.type === 'local') {
-        const handle = getHandle(source.id);
-        if (!handle) {
-          setStatus(source.id, 'permission_required');
-          setSyncProgress((prev) => { const next = { ...prev }; delete next[source.id]; return next; });
-          return;
-        }
-        const ok = await verifyPermission(handle, 'read');
-        if (!ok) {
-          setStatus(source.id, 'permission_required');
-          setSyncProgress((prev) => { const next = { ...prev }; delete next[source.id]; return next; });
-          return;
-        }
-        dirHandle = handle;
-      }
-
-      const result = await indexSource(
-        source,
-        embeddingKey,
-        embeddingProvider,
-        dirHandle,
-        (p) => {
-          setSyncProgress((prev) => ({ ...prev, [source.id]: p }));
-          // 스토어에도 0~100% 기록 (다른 화면에서도 참고 가능)
-          if (p.total > 0) {
-            updateSource(source.id, {
-              syncProgress: Math.round((p.done / p.total) * 100),
-              syncedCount: p.done,
-              totalCount: p.total,
-            });
-          }
-        },
-        ctrl.signal,
-      );
-      const { indexed, errors } = result;
-
-      // 사용자 취소면 idle로 복귀하고 종료
-      if (result.cancelled) {
-        setStatus(source.id, 'idle');
-        return;
-      }
-
-      // 로컬은 snapshot도 갱신 (변경 감지 baseline)
-      if (source.config.type === 'local' && dirHandle) {
-        const files = await scanLocalDirectory(dirHandle);
-        updateSource(source.id, {
-          localFileSnapshot: files.map((f) => ({ path: f.path, lastModified: f.lastModified })),
-        });
-      }
-
-      updateSource(source.id, {
-        fileCount: indexed,
-        indexedCount: indexed,
-        syncProgress: 100,
-        lastSync: Date.now(),
-        error: errors.length > 0
-          ? (lang === 'ko' ? `${errors.length}개 파일 실패` : `${errors.length} files failed`)
-          : undefined,
-      });
-      setStatus(source.id, errors.length === 0 ? 'connected' : 'error');
-      // RAG 채팅에서 즉시 새 청크 인식되도록 문서 store 강제 reload
-      void reloadDocs({ force: true });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Sync failed';
-      setStatus(source.id, 'error', msg);
-    } finally {
-      abortControllers.current.delete(source.id);
-      // 완료 후 800ms 뒤 progress 모달 정리 (사용자가 100% 잠시 인지)
-      setTimeout(() => {
-        setSyncProgress((prev) => { const next = { ...prev }; delete next[source.id]; return next; });
-      }, 800);
-    }
+  // [2026-05-01 Roy] 동기화 시작 — module-level runner 호출.
+  // runner가 store에 진행률 기록, AbortController도 module-level Map에 보관 →
+  // 사용자가 다른 메뉴 갔다 와도 진행 유지.
+  function runSync(source: DataSource) {
+    void runBackgroundSync(source.id, { lang });
   }
-
-  // [2026-05-01 Roy cancel] 진행 중 동기화 취소
   function cancelSync(sourceId: string) {
-    const ctrl = abortControllers.current.get(sourceId);
-    if (ctrl) ctrl.abort();
-    abortControllers.current.delete(sourceId);
-    setStatus(sourceId, 'idle');
-    setSyncProgress((prev) => { const next = { ...prev }; delete next[sourceId]; return next; });
+    cancelBackgroundSync(sourceId);
   }
 
   // [2026-04-29 Tori 19857410] 로컬 권한 만료 후 재연결 — 같은 source.id 유지하면서
@@ -646,7 +534,6 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
                     source={s}
                     t={t}
                     lang={lang}
-                    progress={syncProgress[s.id]}
                     onDisconnect={() => setConfirmDel(s.id)}
                     onSync={() => runSync(s)}
                     onCancel={() => cancelSync(s.id)}
@@ -805,12 +692,11 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
 // ── Subcomponents ────────────────────────────────────────────────
 
 function ConnectedCard({
-  source, t, lang, progress, onDisconnect, onSync, onCancel, onReconnect,
+  source, t, lang, onDisconnect, onSync, onCancel, onReconnect,
 }: {
   source: DataSource;
   t: typeof copy[keyof typeof copy];
   lang: 'ko' | 'en';
-  progress?: IndexProgress;
   onDisconnect: () => void;
   onSync: () => void;
   onCancel: () => void;
@@ -821,14 +707,15 @@ function ConnectedCard({
   // [2026-04-29 Tori 19857410] 로컬 capability 안내 (Drag&Drop only인 경우 매 세션 재선택 필요)
   const isLocal = source.config.type === 'local';
   const needsResel = isLocal && (source.config as { needsReselection?: boolean }).needsReselection === true;
-  // [2026-04-30 Roy progress] 동기화 중일 때 0~100% 진행률
-  // [2026-05-01 Roy] scan 단계도 selections.length 기반 정확한 % (fake 시간 기반 제거).
+  // [2026-05-01 Roy] 진행률은 store(source.syncStage / syncCurrent / syncProgress)에서
+  // 직접 읽음 — sync-runner module이 store에 갱신. 컴포넌트 lifecycle 무관하게 복원.
   const isSyncing = status === 'syncing';
-  const stage = progress?.stage;
+  const stage = source.syncStage;
   const isScanning = stage === 'scanning';
-  const pct = progress && progress.total > 0
-    ? Math.round((progress.done / progress.total) * 100)
-    : (typeof source.syncProgress === 'number' ? source.syncProgress : 0);
+  const pct = typeof source.syncProgress === 'number' ? source.syncProgress : 0;
+  const currentName = source.syncCurrent ?? '';
+  const doneCount = source.syncedCount ?? 0;
+  const totalCount = source.totalCount ?? 0;
   return (
     <div
       className="rounded-2xl border p-5"
@@ -904,23 +791,20 @@ function ConnectedCard({
         );
       })()}
 
-      {/* [2026-04-30 Roy] 동기화 중 — 진행률 바 + 라벨 + 취소 버튼.
-          [2026-05-01 Roy] scan 단계(stage='scanning')는 시간 기반 0→90% 부드러운 진행
-          + indexing 단계는 done/total 기반 정확한 %. */}
+      {/* [2026-05-01 Roy] 동기화 중 진행률 — store(source.syncStage/syncCurrent/
+          syncProgress)에서 읽음. 컴포넌트 마운트/언마운트 무관하게 복원됨. */}
       {isSyncing && (
         <div className="mt-3" aria-live="polite">
           <div className="flex items-baseline justify-between gap-3 text-[11.5px] tabular-nums" style={{ color: tokens.textDim }}>
-            <span className="truncate" title={progress?.current ?? ''}>
+            <span className="truncate" title={currentName}>
               {isScanning
                 ? (lang === 'ko'
-                    ? `📁 ${progress?.current || '폴더'} 검색 중…`
-                    : `Scanning 📁 ${progress?.current || 'folder'}…`)
-                : (progress?.current || (t.syncing + '…'))}
+                    ? `📁 ${currentName || '폴더'} 검색 중…`
+                    : `Scanning 📁 ${currentName || 'folder'}…`)
+                : (currentName || (t.syncing + '…'))}
             </span>
             <span className="shrink-0" style={{ color: tokens.text, fontWeight: 500 }}>
-              {progress && progress.total > 0
-                ? `${progress.done} / ${progress.total} · ${pct}%`
-                : `${pct}%`}
+              {totalCount > 0 ? `${doneCount} / ${totalCount} · ${pct}%` : `${pct}%`}
             </span>
           </div>
           <div
@@ -935,11 +819,6 @@ function ConnectedCard({
               }}
             />
           </div>
-          {progress && progress.errors.length > 0 && (
-            <div className="mt-1.5 text-[11px]" style={{ color: tokens.danger }}>
-              {progress.errors.length}개 오류
-            </div>
-          )}
         </div>
       )}
 

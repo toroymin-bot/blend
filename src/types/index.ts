@@ -171,6 +171,9 @@ export interface DataSource {
   syncProgress?: number;                   // 0-100
   syncedCount?: number;
   totalCount?: number;
+  // [2026-05-01 Roy] 백그라운드 동기화 — 컴포넌트 마운트/언마운트 무관하게 진행률 복원.
+  syncStage?: 'scanning' | 'indexing' | 'done';
+  syncCurrent?: string;                    // 현재 처리 중 폴더/파일 이름
   errorReason?: 'no_key' | 'oauth_expired' | 'limit_exceeded' | 'unknown';
   webhookSubscriptionId?: string;          // Worker가 발급
   webhookExpiresAt?: number;               // 갱신 필요 시점 (ms)
