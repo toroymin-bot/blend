@@ -230,7 +230,13 @@ export async function indexSource(
 
     try {
       const rawFile = await f.getFile();
-      let doc: ParsedDocument = await parseDocument(rawFile);
+      // [2026-05-01 Roy] parseDocument에 apiKey/provider/signal 전달 — image PDF
+      // 자동 OCR fallback (vision API). 같은 임베딩 키 재사용해 추가 키 없음.
+      let doc: ParsedDocument = await parseDocument(rawFile, {
+        apiKey,
+        provider: embeddingProvider,
+        signal,
+      });
 
       // Prefix the doc name with source tag so we can identify it later
       doc = { ...doc, name: `${sourceTag(source.id)}/${f.name}` };

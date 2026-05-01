@@ -199,7 +199,10 @@ export default function D1DocumentsView({
       }
 
       try {
-        const doc = await parseDocument(file);
+        // [2026-05-01 Roy] manual upload도 image PDF 자동 OCR 가능 — 키 있을 때만.
+        const doc = await parseDocument(file, embeddingProvider
+          ? { apiKey: embeddingKey, provider: embeddingProvider }
+          : undefined);
         addDocument(doc);
 
         if (embeddingProvider) {

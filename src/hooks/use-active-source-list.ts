@@ -88,12 +88,16 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         const prog = embedProgress[d.id];
         const hasEmbedding = d.chunks.some((c) => Array.isArray(c.embedding) && c.embedding.length > 0);
         // [Tori 17989643 PR #4 + 2026-05-01 Roy] 추출 상태 검사:
-        //   image_only   = 진짜 텍스트 레이어 없는 PDF
-        //   parse_failed = pdfjs/브라우저 호환 문제 (모든 페이지 throw)
-        //   partial      = 일부 페이지만 추출 / [WARNING] 마커 / 너무 짧음
-        //   empty        = chunk 0개
+        //   ocr_recovered = OCR로 텍스트 복구됨 (image PDF였지만 vision API로 처리)
+        //   image_only    = 진짜 텍스트 레이어 없는 PDF + OCR 미적용/실패
+        //   parse_failed  = pdfjs/브라우저 호환 문제 (모든 페이지 throw)
+        //   password      = 암호 보호 PDF
+        //   partial       = 일부 페이지만 추출 / [WARNING] 마커 / 너무 짧음
+        //   empty         = chunk 0개
+        // 마커 우선순위: OCR-PROCESSED는 첫 청크이므로 이미지/parse_failed보다 먼저 검사.
         const extraction = (() => {
           if (!d.chunks || d.chunks.length === 0) return 'empty' as const;
+          if (d.chunks[0]?.text?.startsWith('[OCR-PROCESSED]')) return 'ocr_recovered' as const;
           if (d.chunks.length === 1 && d.chunks[0]?.text?.startsWith('[IMAGE-ONLY PDF]')) return 'image_only' as const;
           if (d.chunks.length === 1 && d.chunks[0]?.text?.startsWith('[PARSE-FAILED PDF]')) return 'parse_failed' as const;
           if (d.chunks[0]?.text?.startsWith('[PASSWORD-PROTECTED PDF]')) return 'password' as const;
@@ -110,11 +114,17 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         } else if (prog?.status === 'error') {
           status = 'error';
           errorMessage = prog.error;
+        } else if (extraction === 'ocr_recovered') {
+          // OCR로 텍스트 복구 성공 — partial 상태 (이미지 PDF였지만 vision API로 처리)
+          status = 'partial';
+          errorMessage = lang === 'ko'
+            ? 'OCR로 텍스트를 복구했어요 (이미지 PDF). 일부만 처리됐을 수 있어요.'
+            : 'Text recovered via OCR (image PDF). Some pages may be incomplete.';
         } else if (extraction === 'parse_failed') {
           status = 'error';
           errorMessage = lang === 'ko'
-            ? 'PDF 파싱 실패 (브라우저 호환 문제). 데스크톱 Chrome에서 다시 시도하거나 다른 PDF로 교체해주세요.'
-            : 'PDF parse failed (browser compatibility). Try again on desktop Chrome or replace with another PDF.';
+            ? 'PDF 파싱 실패. CDN/no-worker fallback도 모두 실패했어요. 데스크톱 Chrome에서 시도하거나 PDF를 다시 받아주세요.'
+            : 'PDF parse failed (CDN + no-worker fallback also failed). Try on desktop Chrome or re-download the PDF.';
         } else if (extraction === 'password') {
           status = 'error';
           errorMessage = lang === 'ko'
@@ -123,8 +133,8 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         } else if (extraction === 'image_only' || extraction === 'empty') {
           status = 'error';
           errorMessage = lang === 'ko'
-            ? '텍스트 추출 실패 (이미지 PDF). OCR 처리된 파일을 업로드하세요.'
-            : 'Text extraction failed (image PDF). Upload an OCR-processed file.';
+            ? '이미지 PDF — OCR 자동 처리 실패. OpenAI/Google API 키가 vision 호출을 거부했거나 모든 페이지에서 텍스트를 못 찾았어요.'
+            : 'Image PDF — auto-OCR failed. The vision API rejected the call, or no text was detected on any page.';
         } else if (extraction === 'partial') {
           status = 'partial';
           errorMessage = lang === 'ko'

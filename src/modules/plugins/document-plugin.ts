@@ -273,8 +273,19 @@ export async function generateEmbeddings(
 
 // ── File parsing ──────────────────────────────────────────────────────────────
 
+/**
+ * [2026-05-01 Roy] parseDocument 옵션 — 이미지 PDF/parse 실패 시 OCR fallback에
+ * 쓸 API 키. 동일한 키로 임베딩도 생성. 파라미터는 모두 optional이라 기존 호출자
+ * (`parseDocument(file)`)는 깨지지 않음.
+ */
+export interface ParseDocumentOptions {
+  apiKey?: string;
+  provider?: 'openai' | 'google';
+  signal?: AbortSignal;
+}
+
 /** Parse a file and split into searchable chunks */
-export async function parseDocument(file: File): Promise<ParsedDocument> {
+export async function parseDocument(file: File, opts?: ParseDocumentOptions): Promise<ParsedDocument> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
   let chunks: DocumentChunk[] = [];
@@ -284,7 +295,7 @@ export async function parseDocument(file: File): Promise<ParsedDocument> {
   } else if (ext === 'csv') {
     chunks = await parseCsv(file);
   } else if (ext === 'pdf') {
-    chunks = await parsePdf(file);
+    chunks = await parsePdf(file, opts);
   } else {
     chunks = await parsePlainText(file);
   }
@@ -345,25 +356,92 @@ async function parseCsv(file: File): Promise<DocumentChunk[]> {
 }
 
 // [2026-04-13 00:00] BUG-008: 대용량 PDF OOM 방지 — 50페이지 제한
-const PDF_MAX_PAGES = 50;
+// [2026-05-01 Roy] iOS는 메모리 더 작아서 30페이지로 강화. 데스크톱은 50 유지.
+const PDF_MAX_PAGES_DESKTOP = 50;
+const PDF_MAX_PAGES_IOS = 30;
+// OCR 대상 페이지 — vision API 비용 보호 (gpt-4o-mini ≈ $0.0002/page)
+const OCR_MAX_PAGES = 10;
+// pdfjs 버전 — package.json과 일치해야 CDN URL이 유효함.
+const PDFJS_VERSION = '5.6.205';
 
-async function parsePdf(file: File): Promise<DocumentChunk[]> {
+function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS 13+
+}
+
+// [2026-05-01 Roy] PDF Worker fallback chain — iOS Safari + 일부 ESM 환경에서
+// `import.meta.url` 기반 worker URL이 fail하면 CDN, 그래도 안 되면 no-worker
+// 모드. 한 번 성공한 source는 모듈-레벨 캐시에 보관해 다음 PDF에 즉시 적용.
+type WorkerSource = 'local' | 'cdn-jsdelivr' | 'cdn-unpkg' | 'no-worker';
+let cachedWorkerSource: WorkerSource | null = null;
+const WORKER_TRY_ORDER: WorkerSource[] = ['local', 'cdn-jsdelivr', 'cdn-unpkg', 'no-worker'];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyWorkerSource(pdfjsLib: any, source: WorkerSource): void {
+  if (source === 'local') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.mjs',
+      import.meta.url,
+    ).toString();
+  } else if (source === 'cdn-jsdelivr') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+  } else if (source === 'cdn-unpkg') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+  } else {
+    // no-worker — 메인 스레드에서 동작 (느리지만 호환). workerSrc를 비우고
+    // disableWorker:true 옵션으로 getDocument 호출.
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadPdfWithFallback(pdfjsLib: any, buffer: ArrayBuffer): Promise<{ pdf: any; usedSource: WorkerSource }> {
+  // 캐시된 source가 있으면 그걸 먼저 시도.
+  const order = cachedWorkerSource
+    ? [cachedWorkerSource, ...WORKER_TRY_ORDER.filter((s) => s !== cachedWorkerSource)]
+    : WORKER_TRY_ORDER;
+
+  let lastErr: unknown;
+  for (const src of order) {
+    try {
+      applyWorkerSource(pdfjsLib, src);
+      const docOpts: Record<string, unknown> = { data: buffer };
+      if (src === 'no-worker') docOpts.disableWorker = true;
+      const pdf = await pdfjsLib.getDocument(docOpts).promise;
+      cachedWorkerSource = src;
+      if (src !== 'local') {
+        console.warn(`[parsePdf] worker fallback active — using ${src}`);
+      }
+      return { pdf, usedSource: src };
+    } catch (e) {
+      lastErr = e;
+      const msg = e instanceof Error ? e.message : String(e);
+      const name = e instanceof Error ? e.name : '';
+      // PasswordException은 worker 문제가 아님 — 즉시 throw해 caller가 분기 처리.
+      if (name === 'PasswordException' || /password/i.test(msg)) throw e;
+      console.warn(`[parsePdf] worker source '${src}' failed:`, msg);
+      // 다음 source로 fallback. buffer는 detached되지 않으니 재사용 가능.
+    }
+  }
+  throw lastErr ?? new Error('All PDF worker sources failed');
+}
+
+async function parsePdf(file: File, opts?: ParseDocumentOptions): Promise<DocumentChunk[]> {
   const pdfjsLib = await import('pdfjs-dist');
-  // Use the bundled worker from node_modules
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.mjs',
-    import.meta.url
-  ).toString();
-
   const buffer = await file.arrayBuffer();
   const chunks: DocumentChunk[] = [];
 
   // [2026-05-01 Roy] 암호 보호 PDF — getDocument()가 PasswordException throw.
   // 파일 전체 실패시키지 말고 warning chunk만 추가하고 빈 결과 반환 (이미지 PDF와
   // 같은 패턴). AI는 "이 파일은 암호 보호됨"으로 응답 가능.
+  // [2026-05-01 Roy] worker fallback chain 적용 — local 실패 시 CDN, no-worker 순.
   let pdf;
+  let usedWorkerSource: WorkerSource;
   try {
-    pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const loaded = await loadPdfWithFallback(pdfjsLib, buffer);
+    pdf = loaded.pdf;
+    usedWorkerSource = loaded.usedSource;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     const name = e instanceof Error ? e.name : '';
@@ -373,20 +451,24 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
         source: `${file.name} (encrypted — no text)`,
       }];
     }
-    throw e;
+    // 모든 worker source 실패 → 진짜로 손상되었거나 매우 이례적. 사용자에게 명확히.
+    return [{
+      text: `[PARSE-FAILED PDF] The file (${file.name}) could not be opened by any PDF engine (local worker, CDN workers, no-worker mode all failed). Last error: ${msg}. The file may be corrupted, or the PDF format is non-standard.`,
+      source: `${file.name} (could not open)`,
+    }];
   }
 
-  // [2026-04-13 00:00] BUG-008: 50페이지 초과 시 경고 청크 삽입 후 제한
+  // [2026-04-13 00:00] BUG-008: 페이지 한도 초과 시 경고 청크 삽입 후 제한
+  const PDF_MAX_PAGES = isIOS() ? PDF_MAX_PAGES_IOS : PDF_MAX_PAGES_DESKTOP;
   if (pdf.numPages > PDF_MAX_PAGES) {
     chunks.push({
-      text: `[WARNING] This PDF has ${pdf.numPages} pages, exceeding the maximum of ${PDF_MAX_PAGES}. Only the first ${PDF_MAX_PAGES} pages will be analyzed. To analyze the full document, split it into smaller ranges.`,
+      text: `[WARNING] This PDF has ${pdf.numPages} pages, exceeding the maximum of ${PDF_MAX_PAGES} on this device. Only the first ${PDF_MAX_PAGES} pages will be analyzed. To analyze the full document, split it into smaller ranges.`,
       source: `${file.name} (warning: processing ${PDF_MAX_PAGES} of ${pdf.numPages} pages)`,
     });
   }
 
   // Group pages into chunks of 3 pages each for manageable context size
   const PAGE_GROUP = 3;
-  // [2026-04-13 00:00] BUG-008: 처리 페이지를 PDF_MAX_PAGES로 제한
   const effectivePages = Math.min(pdf.numPages, PDF_MAX_PAGES);
 
   // [2026-05-01 Roy] 페이지 parse 실패 vs 진짜 텍스트 없음 구분 — 모든 페이지가
@@ -398,6 +480,7 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
   let firstPageError: string | undefined;
 
   for (let start = 1; start <= effectivePages; start += PAGE_GROUP) {
+    if (opts?.signal?.aborted) throw new DOMException('PDF parse aborted', 'AbortError');
     const end = Math.min(start + PAGE_GROUP - 1, effectivePages);
     const pageTexts: string[] = [];
 
@@ -444,20 +527,51 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
     }
   }
 
-  // [2026-04-13] BUG-009 + [2026-05-01 Roy] 분기 추가:
-  //   - pagesWithText === 0 && pagesFailed > 0  → parser 호환 문제 (브라우저 이슈)
-  //   - pagesWithText === 0 && pagesFailed === 0 → 진짜 이미지 PDF
-  //   - pagesWithText > 0 && pagesFailed > 0     → 일부 페이지만 추출됨 ([WARNING])
+  // [2026-04-13] BUG-009 + [2026-05-01 Roy] 분기:
+  //   - pagesWithText === 0 && pagesFailed > 0  → parser 호환 문제 → OCR 시도
+  //   - pagesWithText === 0 && pagesFailed === 0 → 진짜 이미지 PDF → OCR 시도
+  //   - pagesWithText > 0 && pagesFailed > 0    → 일부만 추출 → [WARNING]
+  // OCR은 vision API 키 있을 때만 실행 (없으면 명확한 메시지 반환).
   const textChunks = chunks.filter((c) => !c.text.startsWith('[WARNING]'));
   if (textChunks.length === 0) {
-    if (pagesFailed > 0 && pagesWithText === 0) {
+    const isParseFailure = pagesFailed > 0 && pagesWithText === 0;
+    const ocrAvailable = !!(opts?.apiKey && opts?.provider);
+
+    if (ocrAvailable) {
+      try {
+        const ocrChunks = await ocrPdfPages(pdf, file.name, opts!.apiKey!, opts!.provider!, opts?.signal);
+        if (ocrChunks.length > 0 && ocrChunks.some((c) => !c.text.startsWith('[OCR-FAILED]'))) {
+          // OCR 성공 — 일부라도 텍스트 추출됨.
+          chunks.push(...ocrChunks);
+          chunks.unshift({
+            text: `[OCR-PROCESSED] This file had no extractable text layer (${isParseFailure ? 'parse errors' : 'image-only PDF'}). OCR via ${opts!.provider} vision API recovered text from up to ${OCR_MAX_PAGES} page(s).`,
+            source: `${file.name} (OCR via ${opts!.provider})`,
+          });
+          return chunks;
+        }
+        // OCR도 실패 — fallthrough.
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('AbortError') || (e instanceof DOMException && e.name === 'AbortError')) {
+          throw e; // 사용자 cancel은 그대로 전파
+        }
+        console.warn(`[parsePdf] OCR fallback failed:`, msg);
+        // OCR 실패 메시지를 기록하고 계속 (image_only/parse_failed 메시지로 fallthrough)
+        chunks.push({
+          text: `[OCR-FAILED] OCR fallback attempted but failed: ${msg.slice(0, 160)}`,
+          source: `${file.name} (OCR error)`,
+        });
+      }
+    }
+
+    if (isParseFailure) {
       chunks.push({
-        text: `[PARSE-FAILED PDF] The file (${file.name}) failed to parse on this browser — all ${pagesFailed} page(s) threw errors. First error: ${firstPageError ?? 'unknown'}. This is likely an iOS Safari + pdfjs compatibility issue, not an image PDF. Try opening on desktop or another browser.`,
+        text: `[PARSE-FAILED PDF] The file (${file.name}) failed to parse — all ${pagesFailed} page(s) threw errors using worker source '${usedWorkerSource}'. First error: ${firstPageError ?? 'unknown'}.${ocrAvailable ? ' OCR fallback also failed.' : ' Add an OpenAI or Google API key in Settings to enable OCR fallback.'}`,
         source: `${file.name} (parse failed — ${pagesFailed} pages errored)`,
       });
     } else {
       chunks.push({
-        text: `[IMAGE-ONLY PDF] The file (${file.name}) is a scanned image or image-based PDF with no text layer. Text cannot be extracted; RAG search is not available. Please upload an OCR-processed or text-based document.`,
+        text: `[IMAGE-ONLY PDF] The file (${file.name}) is a scanned image or image-based PDF with no text layer.${ocrAvailable ? ' OCR via vision API was attempted but failed.' : ' Add an OpenAI or Google API key in Settings to auto-OCR image PDFs.'}`,
         source: `${file.name} (image PDF — no text)`,
       });
     }
@@ -470,6 +584,144 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
   }
 
   return chunks;
+}
+
+// ── OCR fallback (image PDFs, parse failures) ──────────────────────────────
+//
+// [2026-05-01 Roy] 이미지 PDF / parse 실패 PDF에 대해 vision API로 OCR.
+// 페이지를 canvas로 렌더 → PNG base64 → vision API로 텍스트 추출.
+// gpt-4o-mini (저비용) 또는 gemini-2.5-flash-002 (가장 저렴) 사용.
+// 비용 보호: OCR_MAX_PAGES=10, scale=1.5 (canvas 크기 절제).
+//
+// e-Ticket 같은 한국 항공권 image PDF, 스캔본 계약서 등에 효과적.
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ocrPdfPages(pdf: any, fileName: string, apiKey: string, provider: 'openai' | 'google', signal?: AbortSignal): Promise<DocumentChunk[]> {
+  const ocrPages = Math.min(pdf.numPages, OCR_MAX_PAGES);
+  const chunks: DocumentChunk[] = [];
+  let firstErr: string | undefined;
+  let okPages = 0;
+
+  for (let p = 1; p <= ocrPages; p++) {
+    if (signal?.aborted) throw new DOMException('OCR aborted', 'AbortError');
+    let pngDataUrl: string;
+    try {
+      const page = await pdf.getPage(p);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('canvas 2d context unavailable');
+      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+      pngDataUrl = canvas.toDataURL('image/png');
+    } catch (renderErr) {
+      const msg = renderErr instanceof Error ? renderErr.message : String(renderErr);
+      console.warn(`[ocrPdfPages] page ${p} render failed:`, msg);
+      if (!firstErr) firstErr = `render: ${msg}`;
+      continue;
+    }
+
+    try {
+      const text = provider === 'openai'
+        ? await ocrViaOpenAI(pngDataUrl, apiKey, signal)
+        : await ocrViaGoogle(pngDataUrl, apiKey, signal);
+      if (text && text.trim().length > 0) {
+        chunks.push({
+          text: `[page ${p}]\n${text.trim()}`,
+          source: `${fileName} (page ${p}, OCR)`,
+        });
+        okPages++;
+      }
+    } catch (apiErr) {
+      const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
+      console.warn(`[ocrPdfPages] page ${p} OCR API failed:`, msg);
+      if (!firstErr) firstErr = `api: ${msg}`;
+      // rate limit / quota는 즉시 중단 — 나머지 페이지도 어차피 실패.
+      if (/429|quota|rate[_ ]?limit/i.test(msg)) {
+        chunks.push({
+          text: `[OCR-FAILED] Stopped at page ${p} due to API rate limit. Processed ${okPages} of ${ocrPages} page(s). ${msg}`,
+          source: `${fileName} (OCR rate limited)`,
+        });
+        return chunks;
+      }
+      continue;
+    }
+  }
+
+  if (okPages === 0) {
+    chunks.push({
+      text: `[OCR-FAILED] No pages produced text via OCR. First error: ${firstErr ?? 'unknown'}`,
+      source: `${fileName} (OCR all failed)`,
+    });
+  }
+
+  return chunks;
+}
+
+const OCR_PROMPT = 'Extract ALL visible text from this image, preserving the original language (Korean, English, etc.). Output only the extracted text, with no commentary or formatting markers. If the image has no text, output an empty string.';
+
+async function ocrViaOpenAI(pngDataUrl: string, apiKey: string, signal?: AbortSignal): Promise<string> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    signal: combineSignals(signal, timeoutSignal(EMBED_FETCH_TIMEOUT_MS)),
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: OCR_PROMPT },
+          { type: 'image_url', image_url: { url: pngDataUrl, detail: 'high' } },
+        ],
+      }],
+      max_tokens: 4096,
+      temperature: 0,
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`OpenAI vision ${res.status}: ${errBody.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return (data?.choices?.[0]?.message?.content ?? '').toString();
+}
+
+async function ocrViaGoogle(pngDataUrl: string, apiKey: string, signal?: AbortSignal): Promise<string> {
+  // gemini-2.5-flash 가장 저렴한 vision-capable 모델
+  const base64 = pngDataUrl.replace(/^data:image\/png;base64,/, '');
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: combineSignals(signal, timeoutSignal(EMBED_FETCH_TIMEOUT_MS)),
+      body: JSON.stringify({
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: OCR_PROMPT },
+            { inline_data: { mime_type: 'image/png', data: base64 } },
+          ],
+        }],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 4096,
+          // [2026-05-01 Roy] gemini-2.5-flash thinking 비활성 (OCR엔 불필요, latency 절감)
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+    },
+  );
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`Google vision ${res.status}: ${errBody.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  // gemini 응답 — candidates[0].content.parts[].text를 모두 join
+  const parts = data?.candidates?.[0]?.content?.parts ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return parts.map((p: any) => (typeof p?.text === 'string' ? p.text : '')).join('').trim();
 }
 
 // [2026-04-12 01:07] 기존 글자 수 기반 청킹 비활성화 (5-2단계 개선)

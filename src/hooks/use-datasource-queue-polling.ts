@@ -118,7 +118,10 @@ async function syncOneSource(
           modifiedTime: f.modifiedTime ?? '',
         };
         const raw = await downloadDriveFile(cfg.accessToken, driveFile);
-        let doc = await parseDocument(raw);
+        // [2026-05-01 Roy] queue polling — image PDF OCR fallback 활성.
+        let doc = await parseDocument(raw, embeddingProvider
+          ? { apiKey: embeddingKey, provider: embeddingProvider }
+          : undefined);
         doc = { ...doc, name: `${sourceTag(source.id)}/${driveFile.name}` };
         if (embeddingKey) {
           doc = await generateEmbeddings(doc, embeddingKey, embeddingProvider);
@@ -171,7 +174,10 @@ async function syncOneSource(
           name: it.name ?? it.id,
           size: it.size,
         } as Parameters<typeof downloadOneDriveFile>[1]);
-        let doc = await parseDocument(raw);
+        // [2026-05-01 Roy] queue polling — image PDF OCR fallback 활성.
+        let doc = await parseDocument(raw, embeddingProvider
+          ? { apiKey: embeddingKey, provider: embeddingProvider }
+          : undefined);
         doc = { ...doc, name: `${sourceTag(source.id)}/${it.name ?? it.id}` };
         if (embeddingKey) {
           doc = await generateEmbeddings(doc, embeddingKey, embeddingProvider);

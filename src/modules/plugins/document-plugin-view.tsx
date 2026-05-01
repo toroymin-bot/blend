@@ -47,7 +47,10 @@ export function DocumentPluginView() {
           setError(t('documents.unsupported_format', { name: file.name }));
           continue;
         }
-        const doc = await parseDocument(file);
+        // [2026-05-01 Roy] manual upload — image PDF OCR fallback 활성 (키 있을 때만).
+        const doc = await parseDocument(file, embeddingProvider
+          ? { apiKey: embeddingKey, provider: embeddingProvider }
+          : undefined);
         addDocument(doc);
 
         // Auto-generate embeddings if an API key is available
