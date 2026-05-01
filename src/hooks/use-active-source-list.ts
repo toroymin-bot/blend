@@ -168,9 +168,11 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
       .forEach((ds) => {
         const serviceName = dsServiceLabel(ds.type);
         const folderPath  = ds.name; // datasource-view-design1에서 'Google Drive' / 'OneDrive' 같은 라벨로 저장
-        // [2026-04-26] 데이터소스는 임베딩 인프라 없음 — 연결됨/동기화중/오류만 매핑
+        // [2026-04-26 + 2026-05-01 Roy] 데이터소스 status → ActiveSource status 매핑.
+        // 'partial' 추가 — 일부 파일만 실패한 케이스. chat chip이 주황 톤으로 표시.
         const status =
           ds.status === 'error' ? 'error' :
+          ds.status === 'partial' ? 'partial' :
           ds.status === 'syncing' ? 'syncing' :
           ds.status === 'connected' ? 'ready' : 'idle';
         result.push({

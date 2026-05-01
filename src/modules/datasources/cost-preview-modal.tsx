@@ -40,8 +40,8 @@ const COPY = {
     riskOptForce: '그래도 진행 (위험 인지 후 진행)',
     aboutCharge: '비용은 사용자의 OpenAI/Google API 키로 직접 청구됩니다.',
     sizeWarnHead: '⚠️ 큰 파일 안내',
-    oversizedFile: (name: string, mb: string) => `${name} (${mb}MB) — 25MB 초과로 분석에서 제외됩니다.`,
-    largeFolderHint: (avgMb: string) => `평균 파일 크기 ${avgMb}MB — 25MB 초과 파일은 자동으로 제외됩니다. 분석에 시간이 더 걸릴 수 있어요.`,
+    oversizedFile: (name: string, mb: string) => `${name} (${mb}MB) — 50MB 초과로 분석에서 제외됩니다.`,
+    largeFolderHint: (avgMb: string) => `평균 파일 크기 ${avgMb}MB — 50MB 초과 파일은 자동으로 제외됩니다. 분석에 시간이 더 걸릴 수 있어요.`,
   },
   en: {
     title: 'Review selected items',
@@ -58,8 +58,8 @@ const COPY = {
     riskOptForce: 'Proceed anyway (acknowledged)',
     aboutCharge: 'Cost is charged to your OpenAI/Google API key directly.',
     sizeWarnHead: '⚠️ Large file notice',
-    oversizedFile: (name: string, mb: string) => `${name} (${mb}MB) — exceeds 25MB, will be skipped.`,
-    largeFolderHint: (avgMb: string) => `Avg file size ${avgMb}MB — files over 25MB are auto-skipped. Analysis may take longer.`,
+    oversizedFile: (name: string, mb: string) => `${name} (${mb}MB) — exceeds 50MB, will be skipped.`,
+    largeFolderHint: (avgMb: string) => `Avg file size ${avgMb}MB — files over 50MB are auto-skipped. Analysis may take longer.`,
   },
 };
 
@@ -83,8 +83,8 @@ export function CostPreviewModal({ lang, open, selections, onClose, onConfirm, o
     // [2026-05-01 Roy] 큰 파일 사전 경고:
     //   - 단일 파일 selection 중 25MB 초과 → 해당 파일은 sync 단계에서 자동 skip
     //   - 폴더 selection 중 평균 파일 크기 > 5MB → 큰 파일 다수 있을 가능성
-    const SINGLE_LIMIT = 25 * 1024 * 1024;
-    const FOLDER_AVG_HINT = 5 * 1024 * 1024;
+    const SINGLE_LIMIT = 50 * 1024 * 1024;
+    const FOLDER_AVG_HINT = 10 * 1024 * 1024;
     const oversized: Array<{ name: string; mb: string }> = [];
     const largeFolders: Array<{ name: string; avgMb: string }> = [];
     for (const s of selections) {

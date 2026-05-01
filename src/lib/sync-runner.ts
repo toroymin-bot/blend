@@ -120,16 +120,26 @@ export async function runSync(sourceId: string, opts: RunSyncOptions): Promise<v
       });
     }
 
-    // [2026-05-01 Roy] 1개라도 실패하면 첫 에러 사유를 항상 포함. 사용자가 진짜 원인
-    // (API 키 / rate limit / 네트워크 / PDF 파싱 등)을 즉시 알 수 있게. errors[i]
-    // 형태: "filename: <reason>" — filename: prefix 제거 후 reason만 추출.
+    // [2026-05-01 Roy] 결과 분류:
+    //   indexed > 0 && errors > 0 → 'partial' (일부 성공/일부 실패)
+    //   indexed === 0 && errors > 0 → 'error' (전체 실패)
+    //   errors === 0 → 'connected' (모두 성공)
+    // 사용자가 '동기화 일부 실패'를 'sync 전체 실패'로 오인하지 않게 status 분리.
+    const totalFiles = result.indexed + result.errors.length;
+    const isPartial = result.errors.length > 0 && result.indexed > 0;
+    const isFullError = result.errors.length > 0 && result.indexed === 0;
+
     const errorMsg = (() => {
       if (result.errors.length === 0) return undefined;
       const ko = opts.lang === 'ko';
-      const total = result.indexed + result.errors.length;
-      const summary = ko
-        ? `${result.errors.length}/${total}개 파일 실패`
-        : `${result.errors.length}/${total} files failed`;
+      // 부분 성공이면 'X/Y개 성공, Z개 실패' 톤. 전체 실패면 'X/Y개 실패' 톤.
+      const summary = isPartial
+        ? (ko
+            ? `${result.indexed}/${totalFiles}개 동기화 성공, ${result.errors.length}개 실패`
+            : `${result.indexed}/${totalFiles} synced, ${result.errors.length} failed`)
+        : (ko
+            ? `${result.errors.length}/${totalFiles}개 파일 실패`
+            : `${result.errors.length}/${totalFiles} files failed`);
       if (result.errors[0]) {
         const firstReason = result.errors[0].replace(/^[^:]+:\s*/, '').slice(0, 200);
         return `${summary} — ${firstReason}`;
@@ -144,10 +154,14 @@ export async function runSync(sourceId: string, opts: RunSyncOptions): Promise<v
       syncCurrent: '',
       lastSync: Date.now(),
       error: errorMsg,
+      // [2026-05-01 Roy] 카드에서 'X 성공 · Y 실패' 명시 표시용
+      successCount: result.indexed,
+      errorCount: result.errors.length,
     });
     // [2026-05-01 Roy] setStatus의 3번째 인자가 undefined면 error를 덮어쓰는 store 동작 회피.
     // errorMsg를 명시적으로 같이 넘겨야 'error string + status' 둘 다 일관되게 유지됨.
-    dsStore.setStatus(sourceId, errorMsg ? 'error' : 'connected', errorMsg);
+    const finalStatus = isFullError ? 'error' : isPartial ? 'partial' : 'connected';
+    dsStore.setStatus(sourceId, finalStatus, errorMsg);
     // RAG 채팅에서 즉시 새 청크 인식되도록 문서 store 강제 reload
     void useDocumentStore.getState().loadFromDB({ force: true });
   } catch (e) {

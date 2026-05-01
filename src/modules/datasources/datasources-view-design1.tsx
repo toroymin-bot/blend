@@ -72,6 +72,8 @@ const copy = {
     dayAgo:       (n: number) => `${n}일 전`,
     syncing:      '동기화 중',
     error:        '오류',
+    partial:      '일부 동기화 성공',
+    syncCounts:   (ok: number, fail: number) => `✓ ${ok}개 성공 · ✕ ${fail}개 실패`,
     // P2.2 ConnectMiniModal 카피
     connectGdrive: 'Google Drive 연결',
     connectOnedrive: 'OneDrive 연결',
@@ -118,6 +120,8 @@ const copy = {
     hourAgo:      (n: number) => `${n} h ago`,
     dayAgo:       (n: number) => `${n} d ago`,
     syncing:      'Syncing',
+    partial:      'Partially synced',
+    syncCounts:   (ok: number, fail: number) => `✓ ${ok} synced · ✕ ${fail} failed`,
     error:        'Error',
     // P2.2 ConnectMiniModal copy
     connectGdrive: 'Connect Google Drive',
@@ -239,8 +243,8 @@ function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en'): { 
   // [2026-05-01 Roy] 파일 크기/메모리/토큰 사이즈 에러 — 압축 카피 (2줄 끝).
   if (/skipped.*too large|file too large|too big|larger than|exceeds.*limit|size.*exceed/.test(e)) {
     return ko
-      ? { what: '파일이 너무 커서 건너뛰었어요.', how: '25MB 이하로 나눠서 다시 업로드해주세요.' }
-      : { what: 'Skipped — file too large.', how: 'Split into pieces under 25MB and re-upload.' };
+      ? { what: '파일이 너무 커서 건너뛰었어요.', how: '50MB 이하로 나눠서 다시 업로드해주세요.' }
+      : { what: 'Skipped — file too large.', how: 'Split into pieces under 50MB and re-upload.' };
   }
   if (/maximum input length|input.*too long|context length|8192 tokens|token.*limit/.test(e)) {
     return ko
@@ -826,15 +830,19 @@ function ConnectedCard({
         <span
           className="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
           style={{
+            // [2026-05-01 Roy] 'partial'은 주황(warning) 톤 — 일부만 실패한 케이스를
+            // 빨간 'error'와 시각 구분.
             background:
               status === 'connected'           ? 'rgba(16,163,127,0.10)' :
               status === 'error'               ? 'rgba(204,68,68,0.10)' :
+              status === 'partial'             ? 'rgba(234,140,30,0.14)' :
               status === 'permission_required' ? 'rgba(204,68,68,0.10)' :
               status === 'has_updates'         ? 'rgba(241,196,15,0.14)' :
                                                  tokens.surfaceAlt,
             color:
               status === 'connected'           ? tokens.success :
               status === 'error'               ? tokens.danger :
+              status === 'partial'             ? '#b45309' :
               status === 'permission_required' ? tokens.danger :
               status === 'has_updates'         ? '#a07e0a' :
                                                  tokens.textDim,
@@ -842,13 +850,16 @@ function ConnectedCard({
           title={
             status === 'has_updates' ? t.statusUpdates :
             status === 'permission_required' ? t.permRequired :
-            undefined
+            status === 'partial' && source.successCount != null && source.errorCount != null
+              ? t.syncCounts(source.successCount, source.errorCount)
+              : undefined
           }
         >
           {
             status === 'connected'           ? t.connectedBadge :
             status === 'syncing'             ? t.syncing :
             status === 'error'               ? t.error :
+            status === 'partial'             ? t.partial :
             status === 'has_updates'         ? `🟡 ${t.statusUpdates}` :
             status === 'permission_required' ? `🔴 ${t.statusPermReq}` :
             status
@@ -859,6 +870,11 @@ function ConnectedCard({
       <div className="mt-3 text-[12px]" style={{ color: tokens.textFaint }}>
         {source.fileCount != null && t.files(source.fileCount)}
         {source.lastSync ? ` · ${t.syncedAgo(fmtRelative(source.lastSync, copy.ko))}` : ''}
+        {/* [2026-05-01 Roy] 'X개 성공 · Y개 실패' 카운트 — partial/error 시 보강 표시 */}
+        {(status === 'partial' || (status === 'error' && (source.successCount ?? 0) > 0))
+          && source.successCount != null && source.errorCount != null && (
+          <span className="ml-1.5">· {t.syncCounts(source.successCount, source.errorCount)}</span>
+        )}
       </div>
 
       {needsResel && (
@@ -867,15 +883,19 @@ function ConnectedCard({
         </div>
       )}
 
-      {/* [2026-05-01 Roy] status='error'면 카드 안에 친절한 안내 + 대처법 */}
-      {status === 'error' && source.error && (() => {
+      {/* [2026-05-01 Roy] status='error' 또는 'partial'이면 카드에 친절 안내.
+          partial은 주황(warning) 톤, error는 빨간(danger) 톤으로 시각 분리. */}
+      {(status === 'error' || status === 'partial') && source.error && (() => {
         const { what, how, openSettings } = friendlyDataSourceError(source.error, lang);
+        const isPartial = status === 'partial';
+        const bg = isPartial ? 'rgba(234,140,30,0.08)' : 'rgba(204,68,68,0.08)';
+        const headColor = isPartial ? '#b45309' : tokens.danger;
         return (
           <div
             className="mt-3 rounded-lg px-3 py-2.5 text-[12px]"
-            style={{ background: 'rgba(204,68,68,0.08)', color: tokens.text }}
+            style={{ background: bg, color: tokens.text }}
           >
-            <div className="font-medium" style={{ color: tokens.danger }}>{what}</div>
+            <div className="font-medium" style={{ color: headColor }}>{what}</div>
             <div className="mt-0.5" style={{ color: tokens.textDim }}>{how}</div>
             {openSettings && (
               <button

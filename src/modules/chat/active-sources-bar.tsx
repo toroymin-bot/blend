@@ -72,15 +72,16 @@ function categoryStatus(items: ActiveSource[]): CategoryStatus {
 const STATUS_DOT: Record<CategoryStatus, string> = {
   ready:   '#16a34a',
   syncing: '#f59e0b',
-  partial: '#f59e0b',
+  partial: '#ea8c1e', // [2026-05-01 Roy] partial은 더 진한 주황(amber-600)으로 구분
   error:   '#dc2626',
   idle:    '#9ca3af',
 };
 
 // ready/idle은 라벨 생략 (정상은 깨끗하게). syncing/partial/error만 텍스트로 명시.
+// [2026-05-01 Roy] partial 카피 명확화 — '일부 문제' → '일부 동기화 성공'.
 const STATUS_LABEL: Record<'ko' | 'en', Record<CategoryStatus, string | null>> = {
-  ko: { ready: null, syncing: '동기화 중', partial: '일부 문제', error: '오류',  idle: null },
-  en: { ready: null, syncing: 'Syncing',   partial: 'Partial',   error: 'Error', idle: null },
+  ko: { ready: null, syncing: '동기화 중', partial: '일부 동기화 성공', error: '오류',  idle: null },
+  en: { ready: null, syncing: 'Syncing',   partial: 'Partially synced', error: 'Error', idle: null },
 };
 
 export function ActiveSourcesBar({
@@ -269,6 +270,20 @@ function CategoryChip({
   const statusLabel = STATUS_LABEL[lang][status];
   const label = lang === 'ko' ? meta.ko : meta.en;
   const isError = status === 'error';
+  const isPartial = status === 'partial';
+  // [2026-05-01 Roy] error는 빨간 톤, partial은 주황 톤으로 시각 분리.
+  // 일부 성공한 케이스를 '전체 실패'로 오인하지 않게.
+  const chipBg = isError
+    ? 'rgba(220,38,38,0.08)'
+    : isPartial
+      ? 'rgba(234,140,30,0.10)'
+      : tokens.surface;
+  const chipBorder = isError
+    ? 'rgba(220,38,38,0.35)'
+    : isPartial
+      ? 'rgba(234,140,30,0.35)'
+      : tokens.border;
+  const labelColor = isError ? '#dc2626' : isPartial ? '#b45309' : tokens.textDim;
   const tooltip = lang === 'ko'
     ? `${label} · ${items.length}개${statusLabel ? ` · ${statusLabel}` : ''} — 클릭해서 항목 보기`
     : `${label} · ${items.length} item${items.length === 1 ? '' : 's'}${statusLabel ? ` · ${statusLabel}` : ''} — click to view`;
@@ -281,8 +296,8 @@ function CategoryChip({
       onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
       className="group inline-flex shrink-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors hover:opacity-90"
       style={{
-        background: isError ? 'rgba(220,38,38,0.08)' : tokens.surface,
-        border: `1px solid ${isError ? 'rgba(220,38,38,0.35)' : tokens.border}`,
+        background: chipBg,
+        border: `1px solid ${chipBorder}`,
         color: tokens.text,
         cursor: 'pointer',
         maxWidth: 280,
@@ -303,7 +318,7 @@ function CategoryChip({
       {statusLabel && (
         <span
           className="shrink-0 text-[11.5px] font-medium"
-          style={{ color: isError ? '#dc2626' : tokens.textDim }}
+          style={{ color: labelColor }}
         >
           · {statusLabel}
         </span>

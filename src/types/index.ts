@@ -107,6 +107,7 @@ export type DataSourceStatus =
   | 'idle'
   | 'syncing'
   | 'error'
+  | 'partial'             // [2026-05-01 Roy] 일부 성공/일부 실패 (큰 파일 skip 등)
   | 'connected'
   | 'has_updates'
   | 'permission_required';
@@ -164,6 +165,9 @@ export interface DataSource {
   config: DataSourceConfig;
   fileCount?: number;
   indexedCount?: number;
+  // [2026-05-01 Roy] sync 결과 카운트 — '몇 개 성공 · 몇 개 실패' 카드 표시용.
+  successCount?: number;
+  errorCount?: number;
   lastSync?: number;
   error?: string;
   // Tori 핫픽스 (2026-04-25): 채팅에서 RAG 활성화 여부 (연결 시 자동 true)

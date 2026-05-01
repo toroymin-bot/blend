@@ -243,14 +243,12 @@ export async function indexSource(
 
       try {
         const rawFile = await f.getFile();
-        // [2026-05-01 Roy] 단일 파일 사이즈 한도 — 25MB 넘으면 다운로드 직후
-        // skip해 메모리 보호 + 사용자에게 명확한 사유 (friendlyDataSourceError가
-        // 'skipped — file too large' 패턴 매칭). 이전엔 큰 파일이 임베딩 단계
-        // 까지 가서 OOM/timeout으로 generic 에러가 났음.
-        const SINGLE_FILE_MAX_BYTES = 25 * 1024 * 1024;
+        // [2026-05-01 Roy] 단일 파일 사이즈 한도 — 50MB 넘으면 다운로드 직후
+        // skip해 메모리 보호 + 사용자에게 명확한 사유.
+        const SINGLE_FILE_MAX_BYTES = 50 * 1024 * 1024;
         if (rawFile.size > SINGLE_FILE_MAX_BYTES) {
           const mb = (rawFile.size / 1024 / 1024).toFixed(1);
-          throw new Error(`Skipped — file too large (${mb}MB > 25MB limit). Split into smaller files.`);
+          throw new Error(`Skipped — file too large (${mb}MB > 50MB limit). Split into smaller files.`);
         }
         // [2026-05-01 Roy] parseDocument에 apiKey/provider/signal/onSubProgress 전달
         //   - image PDF 자동 OCR fallback (vision API)
