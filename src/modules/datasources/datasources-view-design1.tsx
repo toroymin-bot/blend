@@ -236,6 +236,29 @@ function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en'): { 
       ? { what: '폴더가 더 이상 없거나 접근할 수 없어요.', how: '폴더가 삭제됐을 수 있어요. 다시 연결해주세요.' }
       : { what: 'Folder is no longer accessible.', how: 'It may have been deleted. Reconnect to refresh.' };
   }
+  // [2026-05-01 Roy] 파일 크기/메모리/토큰 관련 사이즈 에러 — 사용자에게 명확한
+  // '이 파일이 너무 커서' + 대처법. 이전엔 generic timeout/parse 에러로 분류돼
+  // 사용자가 무엇을 해야할지 모름.
+  if (/skipped.*too large|file too large|too big|larger than|exceeds.*limit|size.*exceed/.test(e)) {
+    return ko
+      ? { what: '파일이 너무 커서 건너뛰었어요.', how: '한 파일이 25MB를 넘으면 처리하지 않아요. 큰 파일은 작은 부분으로 나눠서 다시 업로드해주세요.' }
+      : { what: 'Skipped — file too large.', how: 'Files over 25MB are skipped. Split large files into smaller parts and re-upload.' };
+  }
+  if (/maximum input length|input.*too long|context length|8192 tokens|token.*limit/.test(e)) {
+    return ko
+      ? { what: '파일 내용이 너무 길어 분석하지 못했어요.', how: '문서가 너무 길어 임베딩 한도를 넘었어요. 문서를 짧게 나누거나, 핵심 부분만 추려서 다시 업로드해주세요.' }
+      : { what: "File content too long to embed.", how: 'Document exceeds embedding token limit. Split it into smaller pieces and re-upload.' };
+  }
+  if (/out of memory|allocation failed|maximum call stack|heap.*exceeded/.test(e)) {
+    return ko
+      ? { what: '메모리 부족으로 분석 실패.', how: '큰 파일이 모바일 메모리에 안 맞아요. 데스크톱에서 시도하거나 더 작은 파일로 나눠주세요.' }
+      : { what: 'Out of memory.', how: 'Large file exceeds mobile memory. Try on desktop or split into smaller files.' };
+  }
+  if (/10분 초과|exceeded 10 min|file processing exceeded|file timeout/.test(e)) {
+    return ko
+      ? { what: '한 파일 처리에 10분이 넘었어요.', how: '파일이 너무 크거나 OCR이 매우 느린 케이스예요. 다른 파일들은 정상 처리됐고, 이 파일만 건너뛰었어요. 더 작은 파일로 나눠주세요.' }
+      : { what: 'File processing exceeded 10 minutes.', how: 'File too large or OCR very slow. Other files synced normally — only this file skipped. Split into smaller files.' };
+  }
   if (/timeout|timed out|aborted|abort/.test(e)) {
     return ko
       ? { what: '응답이 너무 느려서 중단됐어요.', how: '네트워크 상태를 확인하고 다시 시도해주세요. 큰 파일은 시간이 더 걸릴 수 있어요.' }

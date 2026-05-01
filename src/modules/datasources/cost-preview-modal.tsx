@@ -39,6 +39,9 @@ const COPY = {
     riskOptOther: '다른 폴더 선택',
     riskOptForce: '그래도 진행 (위험 인지 후 진행)',
     aboutCharge: '비용은 사용자의 OpenAI/Google API 키로 직접 청구됩니다.',
+    sizeWarnHead: '⚠️ 큰 파일 안내',
+    oversizedFile: (name: string, mb: string) => `${name} (${mb}MB) — 25MB 초과로 분석에서 제외됩니다.`,
+    largeFolderHint: (avgMb: string) => `평균 파일 크기 ${avgMb}MB — 25MB 초과 파일은 자동으로 제외됩니다. 분석에 시간이 더 걸릴 수 있어요.`,
   },
   en: {
     title: 'Review selected items',
@@ -54,6 +57,9 @@ const COPY = {
     riskOptOther: 'Choose a different folder',
     riskOptForce: 'Proceed anyway (acknowledged)',
     aboutCharge: 'Cost is charged to your OpenAI/Google API key directly.',
+    sizeWarnHead: '⚠️ Large file notice',
+    oversizedFile: (name: string, mb: string) => `${name} (${mb}MB) — exceeds 25MB, will be skipped.`,
+    largeFolderHint: (avgMb: string) => `Avg file size ${avgMb}MB — files over 25MB are auto-skipped. Analysis may take longer.`,
   },
 };
 
@@ -70,11 +76,33 @@ export function CostPreviewModal({ lang, open, selections, onClose, onConfirm, o
   const t = COPY[lang];
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const { totalFiles, totalBytes, estimate, risky } = useMemo(() => {
+  const { totalFiles, totalBytes, estimate, risky, sizeWarnings } = useMemo(() => {
     const totalFiles = selections.reduce((s, x) => s + (x.totalFileCount || 0), 0);
     const totalBytes = selections.reduce((s, x) => s + (x.approxBytes || x.totalFileCount * 50_000), 0);
     const estimate = estimateCost(totalBytes);
-    return { totalFiles, totalBytes, estimate, risky: isCostRisky(estimate.monthlyUsd) };
+    // [2026-05-01 Roy] 큰 파일 사전 경고:
+    //   - 단일 파일 selection 중 25MB 초과 → 해당 파일은 sync 단계에서 자동 skip
+    //   - 폴더 selection 중 평균 파일 크기 > 5MB → 큰 파일 다수 있을 가능성
+    const SINGLE_LIMIT = 25 * 1024 * 1024;
+    const FOLDER_AVG_HINT = 5 * 1024 * 1024;
+    const oversized: Array<{ name: string; mb: string }> = [];
+    const largeFolders: Array<{ name: string; avgMb: string }> = [];
+    for (const s of selections) {
+      if (s.kind === 'file' && (s.approxBytes ?? 0) > SINGLE_LIMIT) {
+        oversized.push({ name: s.name, mb: ((s.approxBytes ?? 0) / 1024 / 1024).toFixed(1) });
+      }
+      if (s.kind === 'folder' && s.totalFileCount > 0 && (s.approxBytes ?? 0) > 0) {
+        const avg = (s.approxBytes ?? 0) / s.totalFileCount;
+        if (avg > FOLDER_AVG_HINT) {
+          largeFolders.push({ name: s.name, avgMb: (avg / 1024 / 1024).toFixed(1) });
+        }
+      }
+    }
+    return {
+      totalFiles, totalBytes, estimate,
+      risky: isCostRisky(estimate.monthlyUsd),
+      sizeWarnings: { oversized, largeFolders },
+    };
   }, [selections]);
 
   useEffect(() => {
@@ -150,6 +178,23 @@ export function CostPreviewModal({ lang, open, selections, onClose, onConfirm, o
               </div>
             )}
           </div>
+
+          {/* [2026-05-01 Roy] 큰 파일 사전 경고 — 25MB 초과 단일 파일은 자동 skip,
+              폴더 평균 5MB 초과면 'large file may be skipped' 안내. */}
+          {(sizeWarnings.oversized.length > 0 || sizeWarnings.largeFolders.length > 0) && (
+            <div
+              className="mt-3 rounded-xl border p-3 text-[12.5px]"
+              style={{ background: tokens.warningBg, borderColor: 'rgba(146,64,14,0.18)', color: tokens.warningText }}
+            >
+              <div className="mb-1 font-medium">{t.sizeWarnHead}</div>
+              {sizeWarnings.oversized.map((f) => (
+                <div key={f.name} className="break-all">{t.oversizedFile(f.name, f.mb)}</div>
+              ))}
+              {sizeWarnings.largeFolders.map((f) => (
+                <div key={f.name} className="break-all">📁 {f.name} — {t.largeFolderHint(f.avgMb)}</div>
+              ))}
+            </div>
+          )}
 
           <div className="mt-3 text-[11.5px]" style={{ color: tokens.textFaint }}>
             {t.aboutCharge}
