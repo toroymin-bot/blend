@@ -289,6 +289,45 @@ export interface ParseDocumentOptions {
   onSubProgress?: (label: string) => void;
 }
 
+// [2026-05-01 Roy] OpenAI text-embedding-3 한도 = 8191 토큰. 한국어는
+// 1글자 ≈ 2-3 토큰이라 보수적으로 1글자 = 3토큰 가정 → 안전 한도 ~2400 chars.
+// 영어는 1글자 ≈ 0.25 토큰이라 같은 한도가 영어엔 짧지만, 안전 우선. PDF의
+// 3-페이지 그룹이나 binary garbage 청크가 8192 토큰 초과로 fail하던 문제 방지.
+const SAFE_CHUNK_CHARS = 2400;
+
+/**
+ * 청크 길이가 SAFE_CHUNK_CHARS를 넘으면 추가로 split. 임베딩 직전 안전망.
+ * splitByBoundary로 자연 경계에서 자르되, 단일 슬라이스가 너무 길면 hard cut.
+ */
+function enforceChunkLimit(chunks: DocumentChunk[]): DocumentChunk[] {
+  const result: DocumentChunk[] = [];
+  for (const c of chunks) {
+    if (c.text.length <= SAFE_CHUNK_CHARS) {
+      result.push(c);
+      continue;
+    }
+    const slices = splitByBoundary(c.text, SAFE_CHUNK_CHARS, 100);
+    // splitByBoundary가 max를 못 지키는 매우 긴 단일 단어/줄 케이스 — hard cut.
+    const safeSlices: string[] = [];
+    for (const s of slices) {
+      if (s.length <= SAFE_CHUNK_CHARS) {
+        safeSlices.push(s);
+      } else {
+        for (let i = 0; i < s.length; i += SAFE_CHUNK_CHARS) {
+          safeSlices.push(s.slice(i, i + SAFE_CHUNK_CHARS));
+        }
+      }
+    }
+    safeSlices.forEach((slice, i) => {
+      result.push({
+        text: slice,
+        source: `${c.source} [part ${i + 1}/${safeSlices.length}]`,
+      });
+    });
+  }
+  return result;
+}
+
 /** Parse a file and split into searchable chunks */
 export async function parseDocument(file: File, opts?: ParseDocumentOptions): Promise<ParsedDocument> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
@@ -301,12 +340,49 @@ export async function parseDocument(file: File, opts?: ParseDocumentOptions): Pr
     chunks = await parseCsv(file);
   } else if (ext === 'pdf') {
     chunks = await parsePdf(file, opts);
+  } else if (ext === 'docx') {
+    // [2026-05-01 Roy] DOCX는 mammoth로 텍스트 추출 후 splitByBoundary.
+    // 이전엔 parsePlainText로 fallback돼 binary가 그대로 임베딩 → 8192 토큰
+    // 초과로 fail. 이제 정상 텍스트 추출.
+    chunks = await parseDocx(file);
   } else {
     chunks = await parsePlainText(file);
   }
 
+  // [2026-05-01 Roy] 모든 chunk를 임베딩 안전 한도 안으로 강제 split.
+  chunks = enforceChunkLimit(chunks);
+
   const totalChars = chunks.reduce((sum, c) => sum + c.text.length, 0);
   return { id, name: file.name, type: ext, chunks, totalChars };
+}
+
+async function parseDocx(file: File): Promise<DocumentChunk[]> {
+  // [2026-05-01 Roy] mammoth — DOCX의 document.xml에서 plain text 추출.
+  // raw extract (이미지/포맷 무시) — RAG 임베딩에 충분.
+  const mammoth = await import('mammoth');
+  const buffer = await file.arrayBuffer();
+  let text = '';
+  try {
+    const res = await mammoth.extractRawText({ arrayBuffer: buffer });
+    text = res.value || '';
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return [{
+      text: `[DOCX-PARSE-FAILED] The file (${file.name}) could not be parsed: ${msg.slice(0, 160)}.`,
+      source: `${file.name} (DOCX parse error)`,
+    }];
+  }
+  if (!text.trim()) {
+    return [{
+      text: `[DOCX-EMPTY] The file (${file.name}) had no extractable text.`,
+      source: `${file.name} (empty DOCX)`,
+    }];
+  }
+  const parts = splitByBoundary(text, 1500, 150);
+  return parts.map((slice, i) => ({
+    text: slice,
+    source: `${file.name} (chunk ${i + 1}/${parts.length})`,
+  }));
 }
 
 async function parseExcel(file: File): Promise<DocumentChunk[]> {

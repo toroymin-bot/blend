@@ -29,6 +29,31 @@ interface Props {
   onCancel: () => void;
 }
 
+// [2026-05-01 Roy] Graph API 응답 normalize — pagination + array 형식 모두 처리.
+// 일부 환경에서 응답에 unexpected fields가 끼어들기도 해서 명시적 파싱.
+async function fetchOneDriveChildren(token: string, signal?: AbortSignal): Promise<OneDriveItem[]> {
+  // $orderby는 folder navigation property를 지원 X — 'name'만 사용. 폴더/파일
+  // 분리는 클라이언트에서 처리. $select는 필요한 것만 명시.
+  let url: string | null = 'https://graph.microsoft.com/v1.0/me/drive/root/children?$select=id,name,size,folder,file&$top=200&$orderby=name';
+  const all: OneDriveItem[] = [];
+  let safety = 10;
+  while (url && safety-- > 0) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal,
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      // 에러 텍스트를 그대로 throw — UI에서 사유 노출 가능 (이전엔 'graph 400'만 보였음)
+      throw new Error(`Graph ${res.status}: ${errText.slice(0, 200) || res.statusText}`);
+    }
+    const data: { value?: OneDriveItem[]; '@odata.nextLink'?: string } = await res.json();
+    if (Array.isArray(data.value)) all.push(...data.value);
+    url = data['@odata.nextLink'] ?? null;
+  }
+  return all;
+}
+
 const t = {
   ko: {
     title: 'OneDrive 항목 선택',
@@ -78,24 +103,23 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
 
+  // [2026-05-01 Roy] 진단 가능한 에러 메시지 — 'graph 400'이 아니라 실제 사유.
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+
   useEffect(() => {
     if (!open || !accessToken) return;
+    const ctrl = new AbortController();
     let cancelled = false;
     setLoading(true);
     setErrored(false);
+    setErrorDetail(null);
     setSelectedIds(new Set());
 
-    // [2026-05-01 Roy] $filter 제거 — folder + file 둘 다 받아 클라이언트에서 ext 필터.
-    // (Graph API의 OR 조건 filter가 복잡해 클라 필터가 단순+안정.)
-    fetch(
-      'https://graph.microsoft.com/v1.0/me/drive/root/children?$select=id,name,size,folder,file&$top=500&$orderby=folder,name',
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    )
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`graph ${r.status}`);
-        const data = (await r.json()) as { value?: OneDriveItem[] };
+    fetchOneDriveChildren(accessToken, ctrl.signal)
+      .then((all) => {
         if (cancelled) return;
-        const filtered = (data.value ?? []).filter((x) => {
+        // 폴더는 모두 통과, 파일은 ext 화이트리스트만.
+        const filtered = all.filter((x) => {
           if (x.folder) return true;
           if (x.file) return isAllowedExtension(x.name);
           return false;
@@ -103,14 +127,18 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
         setItems(filtered);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((e) => {
         if (cancelled) return;
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[OneDriveFolderModal] fetch failed:', msg);
+        setErrorDetail(msg.slice(0, 200));
         setErrored(true);
         setLoading(false);
       });
 
     return () => {
       cancelled = true;
+      ctrl.abort();
     };
   }, [open, accessToken]);
 
@@ -201,7 +229,12 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
           )}
           {!loading && errored && (
             <div className="px-4 py-8 text-center text-[13px]" style={{ color: 'var(--d1-text-dim)' }}>
-              {c.error}
+              <div>{c.error}</div>
+              {errorDetail && (
+                <div className="mt-2 text-[11px] break-all" style={{ color: 'var(--d1-text-faint)' }}>
+                  {errorDetail}
+                </div>
+              )}
             </div>
           )}
           {isEmpty && (
