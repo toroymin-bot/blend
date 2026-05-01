@@ -679,65 +679,92 @@ async function parsePdf(file: File, opts?: ParseDocumentOptions): Promise<Docume
 //
 // e-Ticket 같은 한국 항공권 image PDF, 스캔본 계약서 등에 효과적.
 
+// [2026-05-01 Roy] OCR 동시 처리 수 — 페이지 단위 병렬화.
+// 8개로 늘려 더 빠른 처리. vision API rate limit는 보통 분당 RPM 단위 (gpt-4o-
+// mini 500 RPM, gemini-flash-lite 1000 RPM) — 20페이지 동시 8개여도 한참 여유.
+const OCR_CONCURRENCY = 8;
+
+/**
+ * [2026-05-01 Roy] 한 페이지 OCR — render(canvas) → vision API → 텍스트 반환.
+ * 병렬 처리에서 단위 작업으로 추출. 에러는 throw하고 caller가 집계.
+ *
+ * 속도 최적화:
+ * - JPEG (q=0.85)로 인코딩 — PNG보다 ~50% 작아 업로드 빠름
+ * - scale 1.2 — 작은 텍스트 인식 가능 + canvas 메모리 최소화
+ * - vision API에서 OpenAI는 detail='low' (토큰 1/9), Google은 flash-lite로 처리
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ocrSinglePage(pdf: any, p: number, apiKey: string, provider: 'openai' | 'google', signal?: AbortSignal): Promise<string> {
+  if (signal?.aborted) throw new DOMException('OCR aborted', 'AbortError');
+  const page = await pdf.getPage(p);
+  const viewport = page.getViewport({ scale: 1.2 });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas 2d context unavailable');
+  await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+  // JPEG 0.85 — 텍스트 OCR 품질 충분, 페이로드 PNG 대비 ~50% ↓
+  const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  return provider === 'openai'
+    ? await ocrViaOpenAI(jpegDataUrl, apiKey, signal)
+    : await ocrViaGoogle(jpegDataUrl, apiKey, signal);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ocrPdfPages(pdf: any, fileName: string, apiKey: string, provider: 'openai' | 'google', signal?: AbortSignal, onSubProgress?: (label: string) => void): Promise<DocumentChunk[]> {
   const ocrPages = Math.min(pdf.numPages, OCR_MAX_PAGES);
   const chunks: DocumentChunk[] = [];
   let firstErr: string | undefined;
   let okPages = 0;
+  let donePages = 0;
+  let rateLimited = false;
 
-  for (let p = 1; p <= ocrPages; p++) {
+  // [2026-05-01 Roy] OCR_CONCURRENCY(5)개씩 병렬 처리 — 순차 대비 4-5배 단축.
+  // 페이지 묶음 단위로 Promise.allSettled, batch 끝나면 다음 batch.
+  // rate limit 만나면 즉시 break — 남은 페이지도 어차피 실패.
+  outer: for (let start = 1; start <= ocrPages; start += OCR_CONCURRENCY) {
     if (signal?.aborted) throw new DOMException('OCR aborted', 'AbortError');
-    // [2026-05-01 Roy] OCR 진행률을 caller에 알림 — 사용자가 화면 멈춤이 아니라
-    // 'OCR 처리 중'임을 알 수 있게. ocrPdfPages 단독으론 모르므로 caller가 file
-    // context까지 라벨에 합성. 여기선 페이지 진행만 보고.
-    onSubProgress?.(`🔍 OCR ${fileName} (${p}/${ocrPages}p)`);
-    let pngDataUrl: string;
-    try {
-      const page = await pdf.getPage(p);
-      const viewport = page.getViewport({ scale: 1.5 });
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('canvas 2d context unavailable');
-      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-      pngDataUrl = canvas.toDataURL('image/png');
-    } catch (renderErr) {
-      const msg = renderErr instanceof Error ? renderErr.message : String(renderErr);
-      console.warn(`[ocrPdfPages] page ${p} render failed:`, msg);
-      if (!firstErr) firstErr = `render: ${msg}`;
-      continue;
-    }
+    const end = Math.min(start + OCR_CONCURRENCY - 1, ocrPages);
+    onSubProgress?.(`🔍 OCR ${fileName} (${donePages}/${ocrPages}p, ${end - start + 1}개 동시 처리)`);
 
-    try {
-      const text = provider === 'openai'
-        ? await ocrViaOpenAI(pngDataUrl, apiKey, signal)
-        : await ocrViaGoogle(pngDataUrl, apiKey, signal);
-      if (text && text.trim().length > 0) {
-        chunks.push({
-          text: `[page ${p}]\n${text.trim()}`,
-          source: `${fileName} (page ${p}, OCR)`,
-        });
-        okPages++;
+    const pageNums = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    const results = await Promise.allSettled(
+      pageNums.map((p) => ocrSinglePage(pdf, p, apiKey, provider, signal)),
+    );
+
+    for (let i = 0; i < results.length; i++) {
+      const p = pageNums[i];
+      const r = results[i];
+      donePages++;
+      if (r.status === 'fulfilled') {
+        const text = r.value;
+        if (text && text.trim().length > 0) {
+          chunks.push({
+            text: `[page ${p}]\n${text.trim()}`,
+            source: `${fileName} (page ${p}, OCR)`,
+          });
+          okPages++;
+        }
+      } else {
+        const msg = r.reason instanceof Error ? r.reason.message : String(r.reason);
+        console.warn(`[ocrPdfPages] page ${p} OCR failed:`, msg);
+        if (!firstErr) firstErr = msg;
+        if (/429|quota|rate[_ ]?limit/i.test(msg)) {
+          rateLimited = true;
+        }
       }
-    } catch (apiErr) {
-      const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
-      console.warn(`[ocrPdfPages] page ${p} OCR API failed:`, msg);
-      if (!firstErr) firstErr = `api: ${msg}`;
-      // rate limit / quota는 즉시 중단 — 나머지 페이지도 어차피 실패.
-      if (/429|quota|rate[_ ]?limit/i.test(msg)) {
-        chunks.push({
-          text: `[OCR-FAILED] Stopped at page ${p} due to API rate limit. Processed ${okPages} of ${ocrPages} page(s). ${msg}`,
-          source: `${fileName} (OCR rate limited)`,
-        });
-        return chunks;
-      }
-      continue;
+    }
+    if (rateLimited) {
+      chunks.push({
+        text: `[OCR-FAILED] Stopped due to API rate limit. Processed ${okPages} of ${ocrPages} page(s). ${firstErr ?? ''}`,
+        source: `${fileName} (OCR rate limited)`,
+      });
+      break outer;
     }
   }
 
-  if (okPages === 0) {
+  if (okPages === 0 && !rateLimited) {
     chunks.push({
       text: `[OCR-FAILED] No pages produced text via OCR. First error: ${firstErr ?? 'unknown'}`,
       source: `${fileName} (OCR all failed)`,
@@ -749,7 +776,7 @@ async function ocrPdfPages(pdf: any, fileName: string, apiKey: string, provider:
 
 const OCR_PROMPT = 'Extract ALL visible text from this image, preserving the original language (Korean, English, etc.). Output only the extracted text, with no commentary or formatting markers. If the image has no text, output an empty string.';
 
-async function ocrViaOpenAI(pngDataUrl: string, apiKey: string, signal?: AbortSignal): Promise<string> {
+async function ocrViaOpenAI(imageDataUrl: string, apiKey: string, signal?: AbortSignal): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -760,10 +787,13 @@ async function ocrViaOpenAI(pngDataUrl: string, apiKey: string, signal?: AbortSi
         role: 'user',
         content: [
           { type: 'text', text: OCR_PROMPT },
-          { type: 'image_url', image_url: { url: pngDataUrl, detail: 'high' } },
+          // [2026-05-01 Roy] detail='low' — OpenAI가 이미지를 512x512로 다운스케일,
+          // 토큰 85개로 처리 (high의 9배 빠름). 텍스트 OCR은 1.2x scale 렌더 +
+          // low resize로도 충분히 인식.
+          { type: 'image_url', image_url: { url: imageDataUrl, detail: 'low' } },
         ],
       }],
-      max_tokens: 4096,
+      max_tokens: 2048,
       temperature: 0,
     }),
   });
@@ -775,11 +805,14 @@ async function ocrViaOpenAI(pngDataUrl: string, apiKey: string, signal?: AbortSi
   return (data?.choices?.[0]?.message?.content ?? '').toString();
 }
 
-async function ocrViaGoogle(pngDataUrl: string, apiKey: string, signal?: AbortSignal): Promise<string> {
-  // gemini-2.5-flash 가장 저렴한 vision-capable 모델
-  const base64 = pngDataUrl.replace(/^data:image\/png;base64,/, '');
+async function ocrViaGoogle(imageDataUrl: string, apiKey: string, signal?: AbortSignal): Promise<string> {
+  // [2026-05-01 Roy] gemini-2.5-flash-lite — 가장 빠른 vision 모델 (flash 대비
+  // ~2배 빠름). 텍스트 추출은 lite로도 충분.
+  // JPEG 입력 — ocrSinglePage가 JPEG로 인코딩.
+  const base64 = imageDataUrl.replace(/^data:image\/(jpe?g|png);base64,/, '');
+  const mimeType = imageDataUrl.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -789,14 +822,12 @@ async function ocrViaGoogle(pngDataUrl: string, apiKey: string, signal?: AbortSi
           role: 'user',
           parts: [
             { text: OCR_PROMPT },
-            { inline_data: { mime_type: 'image/png', data: base64 } },
+            { inline_data: { mime_type: mimeType, data: base64 } },
           ],
         }],
         generationConfig: {
           temperature: 0,
-          maxOutputTokens: 4096,
-          // [2026-05-01 Roy] gemini-2.5-flash thinking 비활성 (OCR엔 불필요, latency 절감)
-          thinkingConfig: { thinkingBudget: 0 },
+          maxOutputTokens: 2048,
         },
       }),
     },

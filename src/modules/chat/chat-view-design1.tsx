@@ -41,6 +41,8 @@ import { buildContext, buildFullContext, buildMetadataContext } from '@/modules/
 import { stripSourceTag } from '@/lib/source-indexer';
 // Tori 17989643 PR #1 — 첨부 파일 처리 의도 분류
 import { classifyAttachmentIntent, getModePromptHeader, getLangEnforcementHeader } from '@/modules/chat/intent-classifier';
+// [2026-05-01 Roy] Blend 정체성 — 모든 AI에 system prompt로 주입
+import { getBlendIdentityPrompt, BLEND_INTRO_QUESTION } from '@/lib/blend-identity';
 // [2026-04-28 Roy 직접 요청] AI 응답을 PDF로 자동 다운로드
 import { exportResponseAsPDF, detectPdfDownloadIntent, stripPdfDownloadIntent } from '@/lib/export/export-response-pdf';
 // [Tori 18644993 PR #1+#2+#3] Cross-Model 컨텍스트 연속성
@@ -1420,6 +1422,8 @@ The [Active...] sections below are the user's activated sources. Use them as you
     if (isTrialMode) {
       sendTrialMessage({
         messages: bridgedMessages.map(m => ({ role: m.role, content: m.content })),
+        // [2026-05-01 Roy] trial path도 Blend identity 주입 — '블렌드가 뭐냐' 답변 일관성.
+        systemPrompt: getBlendIdentityPrompt(lang),
         signal: controller.signal,
         onChunk: (text) => {
           accumulated += text;
@@ -1536,7 +1540,10 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
     // 한국어 사용자가 "Not found in the provided sources" 같은 영어 echo
     // 받는 회귀 차단.
     const langHeader = getLangEnforcementHeader(lang);
-    const systemContent = [pdfDownloadHeader, langHeader, docContext]
+    // [2026-05-01 Roy] Blend identity — 모든 AI에 'Blend 서비스' 정체성 주입.
+    // 사용자가 "너는 누구냐" / "블렌드가 뭐냐" 등 메타 질문하면 일관된 답변.
+    const blendIdentity = getBlendIdentityPrompt(lang);
+    const systemContent = [blendIdentity, pdfDownloadHeader, langHeader, docContext]
       .filter(Boolean)
       .join('\n\n---\n\n');
 
@@ -1821,6 +1828,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               voiceEnabled
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
+              onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
             />
 
             {/* Suggestions — desktop only. Sprint 2 (16384367): 6 카드 + icon + ⓘ 툴팁 */}
@@ -1923,6 +1931,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               voiceEnabled
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
+              onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
             />
           </div>
         </div>
@@ -2408,6 +2417,7 @@ function D1InputBar({
   voiceEnabled = true,
   onVoiceFallbackRecorded,
   onVoiceError,
+  onAskBlend,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2429,6 +2439,8 @@ function D1InputBar({
   voiceEnabled?: boolean;
   onVoiceFallbackRecorded?: (blob: Blob) => void;
   onVoiceError?: (msg: string) => void;
+  // [2026-05-01 Roy] '블렌드 서비스란?' 칩 — 클릭 시 BLEND_INTRO_QUESTION 자동 전송
+  onAskBlend?: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -2544,6 +2556,25 @@ function D1InputBar({
               disabled={isStreaming}
               lang={lang}
             />
+          )}
+          {/* [2026-05-01 Roy] '블렌드 서비스란?' 칩 — 음성 버튼 오른쪽.
+              클릭 시 BLEND_INTRO_QUESTION을 자동 전송해 Blend 소개 답변을 받음. */}
+          {onAskBlend && (
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); onAskBlend(); }}
+              disabled={isStreaming}
+              className="ml-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: 'var(--d1-accent-soft)',
+                color: 'var(--d1-accent)',
+                border: `1px solid var(--d1-accent-mid)`,
+              }}
+              title={lang === 'en' ? 'About Blend' : '블렌드 서비스 소개'}
+            >
+              <span aria-hidden>✦</span>
+              {lang === 'en' ? 'What is Blend?' : '블렌드란?'}
+            </button>
           )}
         </div>
         <button
