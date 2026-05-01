@@ -450,6 +450,11 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     }
 
     setPendingPicker(null);
+
+    // [2026-05-01 Roy] 연결 직후 자동 동기화 시작 — 사용자가 수동 버튼 누를 필요 없음.
+    // store에서 최신 source를 다시 가져와 selections/config가 반영된 상태로 indexSource 호출.
+    const fresh = useDataSourceStore.getState().sources.find((s) => s.id === created.id);
+    if (fresh) void runSync(fresh);
   }
 
   // [2026-04-29 Tori 19857410] 로컬 picker 결과를 비용 모달용으로 변환.
@@ -508,14 +513,16 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     updateSource(created.id, {
       selections: [selection],
       fileCount,
-      lastSync: Date.now(),
       totalCount: fileCount,
-      syncedCount: fileCount,
+      syncedCount: 0,
       localFileSnapshot: snapshot,
     });
-    setStatus(created.id, 'connected');
     setPendingLocal(null);
     setPendingPicker(null);
+
+    // [2026-05-01 Roy] 연결 직후 자동 동기화 — runSync가 status='syncing' + lastSync 갱신 처리.
+    const fresh = useDataSourceStore.getState().sources.find((s) => s.id === created.id);
+    if (fresh) void runSync(fresh);
   }
 
   return (
@@ -554,6 +561,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
                   <ConnectedCard
                     source={s}
                     t={t}
+                    lang={lang}
                     progress={syncProgress[s.id]}
                     onDisconnect={() => setConfirmDel(s.id)}
                     onSync={() => runSync(s)}
@@ -712,10 +720,11 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
 // ── Subcomponents ────────────────────────────────────────────────
 
 function ConnectedCard({
-  source, t, progress, onDisconnect, onSync, onReconnect,
+  source, t, lang, progress, onDisconnect, onSync, onReconnect,
 }: {
   source: DataSource;
   t: typeof copy[keyof typeof copy];
+  lang: 'ko' | 'en';
   progress?: IndexProgress;
   onDisconnect: () => void;
   onSync: () => void;
@@ -793,18 +802,26 @@ function ConnectedCard({
       )}
 
       {/* [2026-04-30 Roy progress] 동기화 중 — 미니멀 프로그레스 바 + 현재 파일 + % */}
-      {isSyncing && (
+      {/* [2026-05-01 Roy] stage='scanning'(파일 목록 검색)도 명시 표시 */}
+      {isSyncing && (() => {
+        const stage = progress?.stage;
+        const isScanning = stage === 'scanning' || (progress?.total ?? 0) === 0;
+        const leftLabel = isScanning
+          ? (lang === 'ko' ? '파일 목록 검색 중…' : 'Scanning files…')
+          : (progress?.current || (t.syncing + '…'));
+        const rightLabel = isScanning
+          ? (lang === 'ko' ? '잠시만요' : 'just a moment')
+          : (progress && progress.total > 0
+              ? `${progress.done} / ${progress.total} · ${pct}%`
+              : `${pct}%`);
+        return (
         <div className="mt-3" aria-live="polite">
           <div className="flex items-baseline justify-between gap-3 text-[11.5px] tabular-nums" style={{ color: tokens.textDim }}>
             <span className="truncate" title={progress?.current ?? ''}>
-              {progress?.current
-                ? progress.current
-                : (t.syncing + '…')}
+              {leftLabel}
             </span>
             <span className="shrink-0" style={{ color: tokens.text, fontWeight: 500 }}>
-              {progress && progress.total > 0
-                ? `${progress.done} / ${progress.total} · ${pct}%`
-                : `${pct}%`}
+              {rightLabel}
             </span>
           </div>
           <div
@@ -812,10 +829,10 @@ function ConnectedCard({
             style={{ background: tokens.surfaceAlt }}
           >
             <div
-              className={`h-full rounded-full transition-[width] duration-300 ease-out ${pct === 0 ? 'animate-pulse' : ''}`}
+              className={`h-full rounded-full transition-[width] duration-300 ease-out ${(isScanning || pct === 0) ? 'animate-pulse' : ''}`}
               style={{
-                // 0% 일 때 얇은 indicator (8%)로 indeterminate 느낌
-                width: `${pct === 0 ? 8 : pct}%`,
+                // scan 단계 또는 indexing 0%일 때 얇은 indicator (8%)로 indeterminate 느낌
+                width: `${(isScanning || pct === 0) ? 8 : pct}%`,
                 background: tokens.accent,
               }}
             />
@@ -826,7 +843,8 @@ function ConnectedCard({
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {status === 'permission_required' && onReconnect ? (

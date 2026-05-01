@@ -12,11 +12,15 @@ import { scanDriveFolder, downloadDriveFile, isTokenValid as googleTokenValid } 
 import { scanOneDriveFolder, downloadOneDriveFile, isTokenValid as msTokenValid } from './connectors/onedrive-connector';
 import { scanWebDAVPath, downloadWebDAVFile } from './connectors/webdav-connector';
 
+export type IndexStage = 'scanning' | 'indexing' | 'done';
+
 export type IndexProgress = {
   total: number;
   done: number;
   current: string;
   errors: string[];
+  // [2026-05-01 Roy] 단계 표시 — scan 중엔 total=0이라 % 의미 없음. UI에서 단계별 라벨.
+  stage?: IndexStage;
 };
 
 export type ProgressCallback = (p: IndexProgress) => void;
@@ -51,8 +55,11 @@ export async function indexSource(
   dirHandle?: FileSystemDirectoryHandle,
   onProgress?: ProgressCallback
 ): Promise<{ indexed: number; errors: string[] }> {
-  const progress: IndexProgress = { total: 0, done: 0, current: '', errors: [] };
+  const progress: IndexProgress = { total: 0, done: 0, current: '', errors: [], stage: 'scanning' };
   const report = () => onProgress?.(structuredClone(progress));
+  // [2026-05-01 Roy] 시작 즉시 첫 콜백 — scan 단계라도 UI가 즉시 반응 (이전엔 progress.total=0
+  // 콜백이 scan 끝난 후에만 와서 UI가 0%로 멈춰 보였음).
+  report();
 
   let files: Array<{ name: string; getFile: () => Promise<File> }> = [];
 
@@ -99,6 +106,7 @@ export async function indexSource(
   }
 
   progress.total = files.length;
+  progress.stage = 'indexing';
   report();
 
   // ── Clear previous index for this source ──────────────────────────────────
@@ -136,6 +144,10 @@ export async function indexSource(
     progress.done++;
     report();
   }
+
+  progress.stage = 'done';
+  progress.current = '';
+  report();
 
   return { indexed: progress.done - progress.errors.length, errors: progress.errors };
 }
