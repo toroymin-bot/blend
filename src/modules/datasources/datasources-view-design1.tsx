@@ -182,6 +182,12 @@ function fmtRelative(ts: number, t: typeof copy['ko']): string {
 function folderPath(source: DataSource): string {
   if (source.config.type === 'local') return source.config.label;
   if (source.config.type === 'webdav') return source.config.serverUrl ?? '';
+  // [2026-05-01 Roy] Google Drive/OneDrive는 사용자가 선택한 폴더/파일 이름 나열.
+  // 한 줄에 가로로 펼치고, CSS truncate가 화면 넘어가면 …로 자르기.
+  const sels = source.selections;
+  if (sels && sels.length > 0) {
+    return sels.map((s) => `${s.kind === 'folder' ? '📁' : '📄'} ${s.name}`).join(' · ');
+  }
   return source.name;
 }
 
