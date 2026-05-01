@@ -132,7 +132,7 @@ export function GoogleDriveFolderModal({ open, accessToken, lang, onPicked, onCa
       picked.map(async (f) => {
         try {
           const files = await scanDriveFolder(accessToken, f.id, { recursive: true });
-          const approxBytes = files.reduce((sum, x) => sum + (parseInt(x.size ?? '0', 10) || 0), 0);
+          const approxBytes = files.reduce((sum, x) => sum + (x.size ?? 0), 0);
           return { fileCount: files.length, approxBytes };
         } catch {
           return { fileCount: 0, approxBytes: 0 };
