@@ -94,18 +94,40 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
       return next;
     });
 
-  const handleDone = () => {
+  const [confirming, setConfirming] = useState(false);
+  const handleDone = async () => {
     const picked = folders.filter((f) => selectedIds.has(f.id));
-    const selections = picked.map((f) =>
+    setConfirming(true);
+    // [2026-05-01 Roy] 1단계 children fetch — folder.childCount는 폴더+파일 합쳐서라
+    // 부정확. file만 정확히 카운트하고 size 합 계산.
+    const stats = await Promise.all(
+      picked.map(async (f) => {
+        try {
+          const r = await fetch(
+            `https://graph.microsoft.com/v1.0/me/drive/items/${f.id}/children?$top=1000&$select=id,size,file,folder`,
+            { headers: { Authorization: `Bearer ${accessToken}` } },
+          );
+          if (!r.ok) return { fileCount: 0, approxBytes: 0 };
+          const data = (await r.json()) as { value?: Array<{ size?: number; file?: object; folder?: object }> };
+          const items = (data.value ?? []).filter((x) => x.file && !x.folder);
+          const approxBytes = items.reduce((sum, x) => sum + (x.size ?? 0), 0);
+          return { fileCount: items.length, approxBytes };
+        } catch {
+          return { fileCount: 0, approxBytes: 0 };
+        }
+      }),
+    );
+    const selections = picked.map((f, i) =>
       makeSelection({
         id: f.id,
         kind: 'folder',
         name: f.name,
         path: f.name,
-        fileCount: f.folder?.childCount,
-        approxBytes: f.size,
+        fileCount: stats[i].fileCount,
+        approxBytes: stats[i].approxBytes,
       }),
     );
+    setConfirming(false);
     onPicked(selections);
   };
 
@@ -193,16 +215,16 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
             <button
               type="button"
               onClick={handleDone}
-              disabled={selectedIds.size === 0}
+              disabled={selectedIds.size === 0 || confirming}
               className="rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity"
               style={{
                 background: 'var(--d1-accent)',
                 color: '#fff',
-                opacity: selectedIds.size === 0 ? 0.4 : 1,
-                cursor: selectedIds.size === 0 ? 'not-allowed' : 'pointer',
+                opacity: selectedIds.size === 0 || confirming ? 0.4 : 1,
+                cursor: selectedIds.size === 0 || confirming ? 'not-allowed' : 'pointer',
               }}
             >
-              {c.done}
+              {confirming ? (lang === 'ko' ? '확인 중…' : 'Checking…') : c.done}
             </button>
           </div>
         </div>

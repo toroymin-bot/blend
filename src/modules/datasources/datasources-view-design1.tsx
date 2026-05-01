@@ -14,7 +14,7 @@ import type { DataSource, DataSourceType, DataSourceSelection } from '@/types';
 // [2026-04-30] Google Picker SDK 제거 — 자체 폴더 모달 (OneDrive와 동일 패턴, 모바일 안정 + hex 캐시 폴더 자동 숨김)
 import { GoogleDriveFolderModal } from '@/modules/datasources/google-drive-folder-modal';
 import { OneDriveFolderModal } from '@/modules/datasources/onedrive-folder-modal';
-import { validateSelections, describeValidationError, MAX_FILES_PER_FOLDER, MAX_TOTAL_SELECTIONS } from '@/modules/datasources/pickers/picker-shared';
+import { validateSelections, describeValidationError, MAX_FILES_PER_FOLDER, MAX_TOTAL_SELECTIONS, MAX_TOTAL_BYTES_LABEL } from '@/modules/datasources/pickers/picker-shared';
 import { CostPreviewModal } from '@/modules/datasources/cost-preview-modal';
 import { subscribeGoogleDriveChanges } from '@/lib/sync/google-drive-subscribe';
 import { subscribeOneDriveChanges } from '@/lib/sync/onedrive-subscribe';
@@ -620,8 +620,8 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           {/* [2026-05-01 Roy] 연결 한도 안내 — picker-shared의 상수에서 동적 도출 */}
           <p className="mt-1.5 text-[12px]" style={{ color: tokens.textFaint }}>
             {lang === 'ko'
-              ? `폴더·파일 합쳐 최대 ${MAX_TOTAL_SELECTIONS}개 · 폴더당 ${MAX_FILES_PER_FOLDER}개까지 · PDF · DOCX · TXT · MD · CSV · XLSX 지원`
-              : `Up to ${MAX_TOTAL_SELECTIONS} folders/files (${MAX_FILES_PER_FOLDER} per folder) · PDF, DOCX, TXT, MD, CSV, XLSX`}
+              ? `폴더·파일 합쳐 최대 ${MAX_TOTAL_SELECTIONS}개 · 폴더당 ${MAX_FILES_PER_FOLDER}개까지 · 연결당 ${MAX_TOTAL_BYTES_LABEL} · PDF · DOCX · TXT · MD · CSV · XLSX 지원`
+              : `Up to ${MAX_TOTAL_SELECTIONS} folders/files (${MAX_FILES_PER_FOLDER} per folder, ${MAX_TOTAL_BYTES_LABEL} total) · PDF, DOCX, TXT, MD, CSV, XLSX`}
           </p>
         </header>
 

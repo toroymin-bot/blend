@@ -144,11 +144,19 @@ export async function listDriveFiles(
   return res.json();
 }
 
-/** Collect ALL supported files recursively under a folder. */
+/**
+ * Collect supported files in a folder.
+ * [2026-05-01] recursive 옵션 추가 — 기본 false로 1단계만 scan.
+ * 재귀 scan은 사용자가 명시적으로 includeSubfolders=true 선택했을 때만.
+ * 이전엔 무조건 재귀라 사용자 선택 폴더 안의 하위 폴더(백업/캐시 등)까지
+ * 다 들어가서 사실상 root 전체 scan과 같은 효과 → API 폭주.
+ */
 export async function scanDriveFolder(
   token: string,
-  folderId?: string
+  folderId?: string,
+  opts?: { recursive?: boolean }
 ): Promise<DriveFile[]> {
+  const recursive = opts?.recursive === true;
   const result: DriveFile[] = [];
   let pageToken: string | undefined;
 
@@ -158,9 +166,11 @@ export async function scanDriveFolder(
 
     for (const f of page.files) {
       if (f.mimeType === 'application/vnd.google-apps.folder') {
-        // Recurse into sub-folders
-        const sub = await scanDriveFolder(token, f.id);
-        result.push(...sub);
+        if (recursive) {
+          const sub = await scanDriveFolder(token, f.id, opts);
+          result.push(...sub);
+        }
+        // recursive=false면 폴더 무시 — 1단계 파일만 가져감
       } else if (SUPPORTED_MIME.has(f.mimeType)) {
         result.push(f);
       }

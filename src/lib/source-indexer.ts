@@ -94,7 +94,8 @@ export async function indexSource(
         progress.current = sel.name;
         report();
         if (sel.kind === 'folder') {
-          const folderFiles = await scanDriveFolder(cfg.accessToken, sel.id);
+          // [2026-05-01] sel.includeSubfolders 기본 false — 1단계만 scan.
+          const folderFiles = await scanDriveFolder(cfg.accessToken, sel.id, { recursive: sel.includeSubfolders === true });
           files.push(...folderFiles.map((f) => ({
             name: f.name,
             getFile: () => downloadDriveFile(cfg.accessToken!, f),
@@ -146,7 +147,8 @@ export async function indexSource(
         progress.current = sel.name;
         report();
         if (sel.kind === 'folder') {
-          const folderFiles = await scanOneDriveFolder(cfg.accessToken, sel.id);
+          // [2026-05-01] sel.includeSubfolders 기본 false — 1단계만 scan.
+          const folderFiles = await scanOneDriveFolder(cfg.accessToken, sel.id, { recursive: sel.includeSubfolders === true });
           files.push(...folderFiles.map((f) => ({
             name: f.name,
             getFile: () => downloadOneDriveFile(cfg.accessToken!, f),

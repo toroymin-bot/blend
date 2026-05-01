@@ -6,6 +6,9 @@ import type { DataSourceSelection } from '@/types';
 
 export const MAX_TOTAL_SELECTIONS = 20;
 export const MAX_FILES_PER_FOLDER = 200;
+// [2026-05-01 Roy] 한 연결당 총 용량 2GB 상한 (모든 selection의 approxBytes 합계 기준)
+export const MAX_TOTAL_BYTES = 2 * 1024 * 1024 * 1024;
+export const MAX_TOTAL_BYTES_LABEL = '2GB';
 export const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'txt', 'md', 'csv', 'xlsx'] as const;
 export type AllowedExt = typeof ALLOWED_EXTENSIONS[number];
 
@@ -22,7 +25,8 @@ export const ALLOWED_MIME_TYPES = [
 export type ValidationFailReason =
   | { kind: 'too_many'; limit: number; actual: number }
   | { kind: 'unsupported_format'; file: string }
-  | { kind: 'folder_too_large'; folder: string; actual: number; limit: number };
+  | { kind: 'folder_too_large'; folder: string; actual: number; limit: number }
+  | { kind: 'total_size_exceeded'; actualBytes: number; limitBytes: number };
 
 export type ValidationResult =
   | { ok: true }
@@ -37,6 +41,7 @@ export function validateSelections(selections: DataSourceSelection[]): Validatio
   if (selections.length > MAX_TOTAL_SELECTIONS) {
     return { ok: false, reason: { kind: 'too_many', limit: MAX_TOTAL_SELECTIONS, actual: selections.length } };
   }
+  let totalBytes = 0;
   for (const s of selections) {
     if (s.kind === 'file' && !isAllowedExtension(s.name)) {
       return { ok: false, reason: { kind: 'unsupported_format', file: s.name } };
@@ -44,8 +49,20 @@ export function validateSelections(selections: DataSourceSelection[]): Validatio
     if (s.kind === 'folder' && s.totalFileCount > MAX_FILES_PER_FOLDER) {
       return { ok: false, reason: { kind: 'folder_too_large', folder: s.name, actual: s.totalFileCount, limit: MAX_FILES_PER_FOLDER } };
     }
+    totalBytes += s.approxBytes ?? 0;
+  }
+  // [2026-05-01 Roy] 총 용량 2GB 상한
+  if (totalBytes > MAX_TOTAL_BYTES) {
+    return { ok: false, reason: { kind: 'total_size_exceeded', actualBytes: totalBytes, limitBytes: MAX_TOTAL_BYTES } };
   }
   return { ok: true };
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
 export function describeValidationError(reason: ValidationFailReason, lang: 'ko' | 'en'): string {
@@ -63,6 +80,10 @@ export function describeValidationError(reason: ValidationFailReason, lang: 'ko'
       return ko
         ? `폴더 "${reason.folder}"에 ${reason.actual}개 파일이 있어 너무 큽니다. 한도 ${reason.limit}.`
         : `Folder "${reason.folder}" has ${reason.actual} files (limit ${reason.limit}).`;
+    case 'total_size_exceeded':
+      return ko
+        ? `용량이 ${formatBytes(reason.actualBytes)}로 한도(${MAX_TOTAL_BYTES_LABEL})를 넘었어요. 더 작은 폴더를 선택해주세요.`
+        : `Total size ${formatBytes(reason.actualBytes)} exceeds limit (${MAX_TOTAL_BYTES_LABEL}). Pick smaller folders.`;
   }
 }
 

@@ -207,18 +207,28 @@ async function listChildren(
   return all;
 }
 
-/** Recursively scan a OneDrive folder for supported files. */
+/**
+ * Scan a OneDrive folder for supported files.
+ * [2026-05-01] recursive 옵션 추가 — 기본 false. 재귀는 사용자가 명시적으로
+ * includeSubfolders=true 선택했을 때만. 이전엔 무조건 재귀라 폴더 안 폴더까지
+ * 다 따라 들어가서 Microsoft Graph rate limit 침범 → 429.
+ */
 export async function scanOneDriveFolder(
   token: string,
-  folderId?: string
+  folderId?: string,
+  opts?: { recursive?: boolean }
 ): Promise<OneDriveItem[]> {
+  const recursive = opts?.recursive === true;
   const items = await listChildren(token, folderId);
   const result: OneDriveItem[] = [];
 
   for (const item of items) {
     if (item.folder) {
-      const sub = await scanOneDriveFolder(token, item.id);
-      result.push(...sub);
+      if (recursive) {
+        const sub = await scanOneDriveFolder(token, item.id, opts);
+        result.push(...sub);
+      }
+      // recursive=false면 하위 폴더 무시
     } else if (item.file) {
       const ext = item.name.split('.').pop()?.toLowerCase() ?? '';
       if (SUPPORTED_EXTS.has(ext)) result.push(item);

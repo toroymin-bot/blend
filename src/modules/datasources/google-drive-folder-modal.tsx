@@ -119,16 +119,44 @@ export function GoogleDriveFolderModal({ open, accessToken, lang, onPicked, onCa
       return next;
     });
 
-  const handleDone = () => {
+  const [confirming, setConfirming] = useState(false);
+  const handleDone = async () => {
     const picked = folders.filter((f) => selectedIds.has(f.id));
-    const selections = picked.map((f) =>
+    setConfirming(true);
+    // [2026-05-01 Roy] 각 폴더의 1단계 자식 파일 수 + size 합계를 가져와
+    // cost preview를 정확하게. 폴더 자체는 카운트 X.
+    const stats = await Promise.all(
+      picked.map(async (f) => {
+        try {
+          const params = new URLSearchParams({
+            q: `'${f.id}' in parents and trashed=false`,
+            fields: 'files(size,mimeType)',
+            pageSize: '1000',
+          });
+          const r = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (!r.ok) return { fileCount: 0, approxBytes: 0 };
+          const data = (await r.json()) as { files?: Array<{ size?: string; mimeType?: string }> };
+          const files = (data.files ?? []).filter((x) => x.mimeType !== 'application/vnd.google-apps.folder');
+          const approxBytes = files.reduce((sum, x) => sum + (parseInt(x.size ?? '0', 10) || 0), 0);
+          return { fileCount: files.length, approxBytes };
+        } catch {
+          return { fileCount: 0, approxBytes: 0 };
+        }
+      }),
+    );
+    const selections = picked.map((f, i) =>
       makeSelection({
         id: f.id,
         kind: 'folder',
         name: f.name,
         path: f.name,
+        fileCount: stats[i].fileCount,
+        approxBytes: stats[i].approxBytes,
       }),
     );
+    setConfirming(false);
     onPicked(selections);
   };
 
@@ -222,16 +250,16 @@ export function GoogleDriveFolderModal({ open, accessToken, lang, onPicked, onCa
             <button
               type="button"
               onClick={handleDone}
-              disabled={selectedIds.size === 0}
+              disabled={selectedIds.size === 0 || confirming}
               className="rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity"
               style={{
                 background: 'var(--d1-accent)',
                 color: '#fff',
-                opacity: selectedIds.size === 0 ? 0.4 : 1,
-                cursor: selectedIds.size === 0 ? 'not-allowed' : 'pointer',
+                opacity: selectedIds.size === 0 || confirming ? 0.4 : 1,
+                cursor: selectedIds.size === 0 || confirming ? 'not-allowed' : 'pointer',
               }}
             >
-              {c.done}
+              {confirming ? (lang === 'ko' ? '확인 중…' : 'Checking…') : c.done}
             </button>
           </div>
         </div>
