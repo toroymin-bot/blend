@@ -540,8 +540,38 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
       setYtUrl('');
       setAudioFile(null);
       if (audioInputRef.current) audioInputRef.current.value = '';
-    } catch {
-      setErrorMsg(t.error);
+    } catch (e) {
+      // [2026-05-01 Roy] generic catch로 묶지 않고 사유별 분기 — 사용자가 'stuck'
+      // 인지 'rate limit'인지 'JSON parse 실패'인지 알 수 있게. 이전엔 무조건
+      // '분석에 실패했어요'만 노출되어 무엇을 해야 할지 불명확.
+      const err = e as Error & { status?: number; name?: string };
+      const msg = (err?.message || '').toLowerCase();
+      const ko = lang === 'ko';
+      let detail: string;
+      if (err?.message === 'parse' || /json|parse/.test(msg)) {
+        detail = ko
+          ? 'AI가 형식에 맞는 분석을 못 만들었어요. 다른 모델로 시도해주세요 (설정 → 모델).'
+          : "AI didn't return a valid analysis format. Try a different model (Settings → Models).";
+      } else if (err?.status === 401 || /unauthorized|invalid.*key/.test(msg)) {
+        detail = ko ? 'API 키가 유효하지 않아요. 설정에서 확인해주세요.' : 'API key invalid. Check Settings.';
+      } else if (err?.status === 429 || /rate.?limit|quota|429/.test(msg)) {
+        detail = ko ? 'API 사용 한도 초과. 잠시 후 다시 시도해주세요.' : 'API rate limit exceeded. Try again shortly.';
+      } else if (/paus|일시정지|한도/.test(msg)) {
+        detail = ko ? '비용 한도 도달로 일시 정지됨. 설정에서 한도를 늘려주세요.' : 'Paused: cost limit reached. Increase limit in Settings.';
+      } else if (/trial|체험/.test(msg)) {
+        detail = ko ? '무료 체험 한도를 모두 썼어요. API 키를 설정하면 계속 쓸 수 있어요.' : 'Trial used up. Add an API key in Settings to continue.';
+      } else if (err?.name === 'AbortError') {
+        detail = ko ? '분석이 중단되었어요.' : 'Analysis aborted.';
+      } else if (/network|fetch|load failed/.test(msg)) {
+        detail = ko ? '네트워크 연결을 확인해주세요.' : 'Check your network connection.';
+      } else {
+        const raw = err?.message ? err.message.slice(0, 160) : '';
+        detail = ko
+          ? `분석에 실패했어요${raw ? ` — ${raw}` : ''}`
+          : `Analysis failed${raw ? ` — ${raw}` : ''}`;
+      }
+      console.error('[meeting] analyze failed:', err);
+      setErrorMsg(detail);
     } finally {
       setAnalyzing(false);
     }

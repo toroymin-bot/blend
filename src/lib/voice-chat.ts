@@ -47,7 +47,10 @@ export async function sttOpenAI(audioBlob: Blob, apiKey: string, language: strin
   const formData = new FormData();
   formData.append('file', audioBlob, filename);
   formData.append('model', 'whisper-1');
-  formData.append('language', language === 'ko' ? 'ko' : 'en');
+  // [2026-05-01 Roy] 'ko' / 'ko-KR' 둘 다 한국어로 매핑. 이전엔 === 비교만 해서
+  // chat의 voice-button이 'ko-KR'을 보내면 영어로 fallback → 한국어 음성을 영어로
+  // 인식 (사용자 화면: "Annyeonghaseyo"). meeting-view는 'ko' 직접 보내 정상.
+  formData.append('language', language.toLowerCase().startsWith('ko') ? 'ko' : 'en');
 
   // 2분 timeout (대용량 파일 대비)
   const ctrl = new AbortController();

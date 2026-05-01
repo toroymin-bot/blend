@@ -47,6 +47,9 @@ const copy = {
     confirmDel:   '이 파일을 삭제할까요?',
     cancel:       '취소',
     yesDelete:    '삭제',
+    deleteAll:    '모두 삭제',
+    confirmDelAll:(n: number) => `${n}개 파일을 모두 삭제할까요?`,
+    yesDeleteAll: '모두 삭제',
     sizeOver:     '파일이 너무 커요 (50MB 이하)',
     unsupported:  '지원하지 않는 형식',
     embedding:    '분석 중',
@@ -84,6 +87,9 @@ const copy = {
     confirmDel:   'Delete this file?',
     cancel:       'Cancel',
     yesDelete:    'Delete',
+    deleteAll:    'Delete all',
+    confirmDelAll:(n: number) => `Delete all ${n} file${n === 1 ? '' : 's'}?`,
+    yesDeleteAll: 'Delete all',
     sizeOver:     'File too large (max 50MB)',
     unsupported:  'Unsupported format',
     embedding:    'Analyzing',
@@ -165,6 +171,8 @@ export default function D1DocumentsView({
   const [embedStatus, setEmbedStatus]     = useState<Record<string, EmbedStatus>>({});
   const [embedProgress, setEmbedProgress] = useState<Record<string, number>>({});
   const [confirmDelId, setConfirmDelId]   = useState<string | null>(null);
+  // [2026-05-01 Roy] '모두 삭제' confirm — 사용자 명시 요청.
+  const [confirmDelAllOpen, setConfirmDelAllOpen] = useState(false);
   // P3.4 — 파일 인라인 미리보기 모달
   const [previewDocId, setPreviewDocId]   = useState<string | null>(null);
   // P2.1 — 하이브리드 탭 상태 (localStorage 영속화)
@@ -351,10 +359,19 @@ export default function D1DocumentsView({
         {/* ══ File list ══ */}
         {!isEmpty && (
           <section className="mt-6">
-            <div className="mb-3 flex items-baseline justify-between">
+            <div className="mb-3 flex items-center justify-between">
               <span className="text-[13px]" style={{ color: tokens.textDim }}>
                 {docCount} {t.counter}
               </span>
+              {/* [2026-05-01 Roy] 모두 삭제 — confirm 후 일괄 제거 */}
+              <button
+                type="button"
+                onClick={() => setConfirmDelAllOpen(true)}
+                className="rounded-md px-3 py-1 text-[12px] transition-colors hover:bg-black/5"
+                style={{ color: tokens.danger, border: `1px solid ${tokens.border}` }}
+              >
+                {t.deleteAll}
+              </button>
             </div>
 
             <ul className="space-y-2">
@@ -438,6 +455,25 @@ export default function D1DocumentsView({
             setConfirmDelId(null);
           }}
           onCancel={() => setConfirmDelId(null)}
+        />
+      )}
+
+      {/* [2026-05-01 Roy] 모두 삭제 confirm — 단순 한 단계 승인 */}
+      {confirmDelAllOpen && (
+        <ConfirmModal
+          message={t.confirmDelAll(documents.length)}
+          confirmLabel={t.yesDeleteAll}
+          cancelLabel={t.cancel}
+          onConfirm={() => {
+            // 전체 ID 스냅샷 후 순회 삭제 — 배열 변형 중 인덱스 어긋나는 것 방지.
+            const allIds = documents.map((d) => d.id);
+            for (const id of allIds) removeDocument(id);
+            // 진행 중 분석 상태도 정리해 stale UI 방지.
+            setEmbedStatus({});
+            setEmbedProgress({});
+            setConfirmDelAllOpen(false);
+          }}
+          onCancel={() => setConfirmDelAllOpen(false)}
         />
       )}
     </div>
