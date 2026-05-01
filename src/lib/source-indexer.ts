@@ -237,7 +237,9 @@ export async function indexSource(
 
       // Generate embeddings if API key available
       if (apiKey) {
-        doc = await generateEmbeddings(doc, apiKey, embeddingProvider);
+        // [2026-05-01 Roy] signal 전달 — fetch에 AbortSignal+90s timeout 적용해
+        // OpenAI/Google API hang 시 자동 abort. 이전엔 무한 대기였음.
+        doc = await generateEmbeddings(doc, apiKey, embeddingProvider, undefined, signal);
       }
 
       await saveDocument(doc);
@@ -249,7 +251,15 @@ export async function indexSource(
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      progress.errors.push(`${f.name}: ${msg}`);
+      // [2026-05-01 Roy] 모바일 디버깅용 — store.error에 stack 첫 프레임도 포함.
+      // "undefined is not a function (near '...')" 류 런타임 에러는 stack에서 진짜
+      // throw 위치(파일:줄)가 보임. 데스크톱에선 콘솔 객체로도 확인 가능.
+      console.error(`[indexSource] ${f.name} failed:`, err);
+      const stackFirstFrame = err instanceof Error && err.stack
+        ? err.stack.split('\n').slice(1, 2).join(' ').trim().slice(0, 120)
+        : '';
+      const enriched = stackFirstFrame ? `${msg} @ ${stackFirstFrame}` : msg;
+      progress.errors.push(`${f.name}: ${enriched}`);
     }
 
     progress.done++;

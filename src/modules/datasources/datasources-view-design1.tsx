@@ -193,7 +193,7 @@ function folderPath(source: DataSource, lang: 'ko' | 'en'): string {
 }
 
 // [2026-05-01 Roy] 기술적 에러 메시지 → 사용자 친화 안내 + 대처법
-function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en'): { what: string; how: string } {
+function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en'): { what: string; how: string; openSettings?: boolean } {
   const e = (raw ?? '').toLowerCase();
   const ko = lang === 'ko';
 
@@ -207,35 +207,65 @@ function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en'): { 
       ? { what: '폴더 접근 권한이 없어요.', how: '다시 연결하면서 권한을 허용해주세요.' }
       : { what: 'Folder access denied.', how: 'Reconnect and approve access.' };
   }
-  if (/unauthorized|401|api[_ ]?key/.test(e)) {
+  if (/api[_ ]?key required|api[_ ]?키.*필요/.test(e)) {
     return ko
-      ? { what: 'API 키가 잘못됐어요.', how: '설정 → API 키에서 키를 다시 입력해주세요.' }
-      : { what: 'API key is invalid.', how: 'Re-enter your key in Settings → API keys.' };
+      ? { what: '임베딩용 API 키가 필요해요.', how: '설정에서 OpenAI 또는 Google 키를 추가해주세요.', openSettings: true }
+      : { what: 'Embedding API key required.', how: 'Add an OpenAI or Google key in Settings.', openSettings: true };
+  }
+  if (/unauthorized|401|api[_ ]?key|api[_ ]?키/.test(e)) {
+    return ko
+      ? { what: 'API 키가 잘못됐어요.', how: '설정 → API 키에서 키를 다시 입력해주세요.', openSettings: true }
+      : { what: 'API key is invalid.', how: 'Re-enter your key in Settings → API keys.', openSettings: true };
   }
   if (/rate[_ ]?limit|quota|429/.test(e)) {
     return ko
       ? { what: 'API 호출 한도를 초과했어요.', how: '몇 분 후에 다시 시도해주세요.' }
       : { what: 'API rate limit exceeded.', how: 'Try again in a few minutes.' };
   }
-  if (/network|fetch|networkerror|failed to fetch/.test(e)) {
+  // [2026-05-01 Roy] iOS Safari fetch 에러 변종 추가:
+  //   - "Load failed" — Safari WebKit fetch 일반 실패 (가장 흔함)
+  //   - "The network connection was lost" — Wi-Fi/셀룰러 핸드오버
+  //   - "Could not connect to the server" — DNS/connection 실패
+  if (/network|fetch|networkerror|failed to fetch|load failed|connection was lost|could not connect/.test(e)) {
     return ko
-      ? { what: '네트워크 연결에 문제가 있어요.', how: 'Wi-Fi 또는 데이터 연결을 확인하고 다시 시도해주세요.' }
-      : { what: 'Network problem.', how: 'Check your connection and retry.' };
+      ? { what: '네트워크 연결이 잠시 끊겼어요.', how: 'Wi-Fi/데이터 연결 확인 후 [동기화] 다시 눌러주세요. 일부는 이미 동기화됐어요.' }
+      : { what: 'Network connection dropped.', how: 'Check your connection and click [Sync] again. Some files were already synced.' };
   }
   if (/missing/.test(e)) {
     return ko
       ? { what: '폴더가 더 이상 없거나 접근할 수 없어요.', how: '폴더가 삭제됐을 수 있어요. 다시 연결해주세요.' }
       : { what: 'Folder is no longer accessible.', how: 'It may have been deleted. Reconnect to refresh.' };
   }
-  if (/files? failed/.test(e)) {
+  if (/timeout|timed out|aborted|abort/.test(e)) {
+    return ko
+      ? { what: '응답이 너무 느려서 중단됐어요.', how: '네트워크 상태를 확인하고 다시 시도해주세요. 큰 파일은 시간이 더 걸릴 수 있어요.' }
+      : { what: 'Request timed out.', how: 'Check your connection and retry. Large files may take longer.' };
+  }
+  if (/quota|exceeded|storage/.test(e)) {
+    return ko
+      ? { what: '저장 공간 한도를 초과했어요.', how: '사용하지 않는 데이터 소스를 연결 해제하거나 브라우저 데이터를 정리해주세요.' }
+      : { what: 'Storage quota exceeded.', how: 'Disconnect unused data sources or clear browser data.' };
+  }
+  // [2026-05-01 Roy] '파일 실패' KO + EN 동시 매칭. — 뒤에 raw 사유가 있으면 그걸 노출.
+  const filesFailedMatch = (raw ?? '').match(/(?:파일 실패|files? failed)\s*[—-]\s*(.+)$/i);
+  if (filesFailedMatch) {
+    const reason = filesFailedMatch[1].trim();
+    return ko
+      ? { what: '일부 파일을 처리하지 못했어요.', how: `사유: ${reason}` }
+      : { what: 'Some files could not be processed.', how: `Reason: ${reason}` };
+  }
+  if (/files? failed|파일 실패/.test(e)) {
     return ko
       ? { what: '일부 파일을 처리하지 못했어요.', how: '다시 동기화하거나, 지원되지 않는 파일이 섞여 있을 수 있어요.' }
       : { what: 'Some files could not be processed.', how: 'Retry sync — unsupported files may be mixed in.' };
   }
-  // fallback — 원문 살짝 노출 (디버깅 도움)
+  // [2026-05-01 Roy] fallback — 매칭 안된 raw 에러도 사용자에게 노출. 이전엔 generic
+  // 메시지만 보여서 실제 원인(예: 'OpenAI 503', 'TypeError: Load failed')을 사용자가
+  // 영영 못 봤음. 짧게 잘라서 카드에 표시.
+  const rawShort = (raw ?? '').slice(0, 200).trim();
   return ko
-    ? { what: '동기화 중 문제가 생겼어요.', how: '다시 시도해주세요. 계속되면 연결을 해제하고 다시 연결해보세요.' }
-    : { what: 'Something went wrong during sync.', how: 'Retry, or disconnect and reconnect this source.' };
+    ? { what: '동기화 중 문제가 생겼어요.', how: rawShort ? `사유: ${rawShort}` : '다시 시도해주세요.' }
+    : { what: 'Something went wrong during sync.', how: rawShort ? `Reason: ${rawShort}` : 'Retry, or disconnect and reconnect.' };
 }
 
 // ── Main view ────────────────────────────────────────────────────
@@ -393,12 +423,16 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   // [2026-04-26] 비용 모달 [동기화 시작] 클릭 시 — addSource + Subscribe.
   async function confirmAndStartSync(opts?: { capTop200?: boolean }) {
     if (!pendingPicker) return;
+    // [2026-05-01] 더블 탭/재진입으로 같은 picker가 두 번 처리되는 걸 막기 위해 즉시 클리어.
+    // Why: addSource는 dedupe 없이 append라, 두 번 호출되면 같은 폴더가 카드로 중복 생성됨.
+    const picker = pendingPicker;
+    setPendingPicker(null);
     // [2026-04-29] 로컬은 별도 흐름 — 핸들 IDB 저장 + snapshot 동기 기록.
-    if (pendingPicker.type === 'local') {
+    if (picker.type === 'local') {
       await confirmAndStartLocalSync(opts);
       return;
     }
-    const { type, accessToken, selections } = pendingPicker;
+    const { type, accessToken, selections } = picker;
     const finalSelections = opts?.capTop200
       ? selections.map((s) => s.kind === 'folder'
           ? { ...s, fileCountCap: MAX_FILES_PER_FOLDER, totalFileCount: Math.min(s.totalFileCount, MAX_FILES_PER_FOLDER) }
@@ -406,7 +440,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
       : selections;
 
     // [2026-05-01 Roy] OneDrive는 정확한 expiry + refreshToken 사용 — pendingPicker로 전달됨.
-    const tokenExpiry = pendingPicker.expiry ?? (Date.now() + 3600_000);
+    const tokenExpiry = picker.expiry ?? (Date.now() + 3600_000);
     let created;
     if (type === 'google-drive') {
       const clientId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID!;
@@ -420,10 +454,10 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
         {
           type: 'onedrive',
           clientId,
-          tenantId: pendingPicker.tenantId,
+          tenantId: picker.tenantId,
           accessToken,
           tokenExpiry,
-          refreshToken: pendingPicker.refreshToken,
+          refreshToken: picker.refreshToken,
         },
         'OneDrive',
       );
@@ -443,8 +477,6 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     } catch (e) {
       console.warn('[datasources] subscribe failed (Webhook 비활성, polling 사용):', (e as Error).message);
     }
-
-    setPendingPicker(null);
 
     // [2026-05-01 Roy] 연결 직후 자동 동기화 시작 — 사용자가 수동 버튼 누를 필요 없음.
     // store에서 최신 source를 다시 가져와 selections/config가 반영된 상태로 indexSource 호출.
@@ -816,7 +848,7 @@ function ConnectedCard({
 
       {/* [2026-05-01 Roy] status='error'면 카드 안에 친절한 안내 + 대처법 */}
       {status === 'error' && source.error && (() => {
-        const { what, how } = friendlyDataSourceError(source.error, lang);
+        const { what, how, openSettings } = friendlyDataSourceError(source.error, lang);
         return (
           <div
             className="mt-3 rounded-lg px-3 py-2.5 text-[12px]"
@@ -824,6 +856,20 @@ function ConnectedCard({
           >
             <div className="font-medium" style={{ color: tokens.danger }}>{what}</div>
             <div className="mt-0.5" style={{ color: tokens.textDim }}>{how}</div>
+            {openSettings && (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('blend:open-settings'))}
+                className="mt-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium transition-colors"
+                style={{ background: tokens.surfaceAlt, color: tokens.text, border: `1px solid ${tokens.border}` }}
+              >
+                {lang === 'ko' ? '설정 열기' : 'Open Settings'}
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M7 17 17 7" />
+                  <path d="M7 7h10v10" />
+                </svg>
+              </button>
+            )}
           </div>
         );
       })()}

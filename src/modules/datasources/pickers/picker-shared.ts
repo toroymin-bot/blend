@@ -6,9 +6,9 @@ import type { DataSourceSelection } from '@/types';
 
 export const MAX_TOTAL_SELECTIONS = 20;
 export const MAX_FILES_PER_FOLDER = 200;
-// [2026-05-01 Roy] 한 연결당 총 용량 2GB 상한 (모든 selection의 approxBytes 합계 기준)
-export const MAX_TOTAL_BYTES = 2 * 1024 * 1024 * 1024;
-export const MAX_TOTAL_BYTES_LABEL = '2GB';
+// [2026-05-01 Roy] 한 연결당 총 용량 100MB 상한 (모든 selection의 approxBytes 합계 기준)
+export const MAX_TOTAL_BYTES = 100 * 1024 * 1024;
+export const MAX_TOTAL_BYTES_LABEL = '100MB';
 export const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'txt', 'md', 'csv', 'xlsx'] as const;
 export type AllowedExt = typeof ALLOWED_EXTENSIONS[number];
 
@@ -51,7 +51,7 @@ export function validateSelections(selections: DataSourceSelection[]): Validatio
     }
     totalBytes += s.approxBytes ?? 0;
   }
-  // [2026-05-01 Roy] 총 용량 2GB 상한
+  // [2026-05-01 Roy] 총 용량 100MB 상한
   if (totalBytes > MAX_TOTAL_BYTES) {
     return { ok: false, reason: { kind: 'total_size_exceeded', actualBytes: totalBytes, limitBytes: MAX_TOTAL_BYTES } };
   }

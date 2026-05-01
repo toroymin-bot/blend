@@ -78,47 +78,128 @@ function cosineSimilarity(a: number[], b: number[]): number {
 // ── Embedding API calls ───────────────────────────────────────────────────────
 
 const EMBED_BATCH = 100; // max inputs per API call
+// [2026-05-01 Roy] 임베딩 fetch는 90초 안에 응답 없으면 자동 abort.
+// Why: 이전엔 timeout 없어 OpenAI/Google API가 stuck 시 동기화 무한 대기.
+// 사용자 cancelSync도 fetch까지 전달 안 됨 → 진짜로 멈출 길이 없었음.
+const EMBED_FETCH_TIMEOUT_MS = 90_000;
 
-async function embedTextsOpenAI(texts: string[], apiKey: string): Promise<number[][]> {
+// [2026-05-01 Roy] AbortSignal.any/timeout는 Safari 17.4+ / Chrome 116+ — 그 이하 브라우저
+// fallback. 미지원 환경에선 timeout 없이 user signal만 사용 (멈춤 위험은 있지만 throw로
+// 전체 sync가 깨지진 않음).
+function timeoutSignal(ms: number): AbortSignal | undefined {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ms);
+  }
+  if (typeof AbortController === 'undefined') return undefined;
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(new DOMException('Timeout', 'TimeoutError')), ms);
+  return ctrl.signal;
+}
+
+function combineSignals(...signals: (AbortSignal | undefined)[]): AbortSignal | undefined {
+  const real = signals.filter((s): s is AbortSignal => !!s);
+  if (real.length === 0) return undefined;
+  if (real.length === 1) return real[0];
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+    return AbortSignal.any(real);
+  }
+  // Fallback — 어느 쪽이든 abort되면 ctrl도 abort. iOS Safari < 15.4 호환:
+  // s.reason은 15.4+, 보내지 않음 (구버전에서 undefined 인자도 silent ignore이지만
+  // 안전하게 abort() 인자 없이 호출).
+  if (typeof AbortController === 'undefined') return real[0];
+  const ctrl = new AbortController();
+  for (const s of real) {
+    if (s.aborted) { ctrl.abort(); break; }
+    try {
+      s.addEventListener('abort', () => ctrl.abort(), { once: true });
+    } catch {
+      // 매우 구버전 브라우저에서 { once: true } 옵션 미지원 시 폴백
+      s.addEventListener('abort', () => ctrl.abort());
+    }
+  }
+  return ctrl.signal;
+}
+
+// [2026-05-01 Roy] iOS WebKit(Safari/Chrome/Edge) "Load failed" 등 일시적 네트워크
+// 에러는 retry로 대부분 자동 복구 가능. 401/403/429/abort/timeout 등 명백한 거부는
+// retry 무의미 — 즉시 throw해서 사용자에게 빠르게 노출. 백오프 500ms → 1500ms.
+async function fetchEmbedWithRetry(
+  doFetch: () => Promise<Response>,
+  parseErr: (res: Response) => Promise<string>,
+  maxRetries = 2,
+): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await doFetch();
+      if (res.ok) return res;
+      // 4xx 거부는 retry 무의미 (5xx만 retry 후보)
+      if (res.status >= 400 && res.status < 500) {
+        throw new Error(await parseErr(res));
+      }
+      lastErr = new Error(await parseErr(res));
+    } catch (err) {
+      lastErr = err;
+      // AbortError/TimeoutError는 retry 무의미
+      if (err instanceof DOMException && (err.name === 'AbortError' || err.name === 'TimeoutError')) throw err;
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (/401|403|unauthorized|forbidden|api[_ ]?key/.test(msg)) throw err;
+    }
+    if (attempt < maxRetries) {
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1) + 500));
+    }
+  }
+  throw lastErr ?? new Error('Embedding fetch failed after retries');
+}
+
+async function embedTextsOpenAI(texts: string[], apiKey: string, signal?: AbortSignal): Promise<number[][]> {
   const result: number[][] = [];
   for (let i = 0; i < texts.length; i += EMBED_BATCH) {
+    if (signal?.aborted) throw new DOMException('Embedding aborted', 'AbortError');
     const batch = texts.slice(i, i + EMBED_BATCH);
-    const res = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ input: batch, model: 'text-embedding-3-small' }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `OpenAI embedding error: ${res.status}`);
-    }
+    const res = await fetchEmbedWithRetry(
+      () => fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ input: batch, model: 'text-embedding-3-small' }),
+        signal: combineSignals(signal, timeoutSignal(EMBED_FETCH_TIMEOUT_MS)),
+      }),
+      async (r) => {
+        const e = await r.json().catch(() => ({}));
+        return e.error?.message || `OpenAI embedding error: ${r.status}`;
+      },
+    );
     const json = await res.json();
     result.push(...(json.data as { embedding: number[] }[]).map((d) => d.embedding));
   }
   return result;
 }
 
-async function embedTextsGoogle(texts: string[], apiKey: string): Promise<number[][]> {
+async function embedTextsGoogle(texts: string[], apiKey: string, signal?: AbortSignal): Promise<number[][]> {
   const result: number[][] = [];
   for (let i = 0; i < texts.length; i += EMBED_BATCH) {
+    if (signal?.aborted) throw new DOMException('Embedding aborted', 'AbortError');
     const batch = texts.slice(i, i + EMBED_BATCH);
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requests: batch.map((text) => ({
-            model: 'models/text-embedding-004',
-            content: { parts: [{ text }] },
-          })),
-        }),
-      }
+    const res = await fetchEmbedWithRetry(
+      () => fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: batch.map((text) => ({
+              model: 'models/text-embedding-004',
+              content: { parts: [{ text }] },
+            })),
+          }),
+          signal: combineSignals(signal, timeoutSignal(EMBED_FETCH_TIMEOUT_MS)),
+        }
+      ),
+      async (r) => {
+        const e = await r.json().catch(() => ({}));
+        return e.error?.message || `Google embedding error: ${r.status}`;
+      },
     );
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `Google embedding error: ${res.status}`);
-    }
     const json = await res.json();
     result.push(...(json.embeddings as { values: number[] }[]).map((e) => e.values));
   }
@@ -130,7 +211,8 @@ export async function generateEmbeddings(
   doc: ParsedDocument,
   apiKey: string,
   provider: 'openai' | 'google',
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
 ): Promise<ParsedDocument> {
   // [2026-04-26 Tori 16384118 §3.8] cost store 통합 — 임베딩 시작 전 paused 체크
   if (typeof window !== 'undefined') {
@@ -152,8 +234,9 @@ export async function generateEmbeddings(
   const batchFn = provider === 'openai' ? embedTextsOpenAI : embedTextsGoogle;
 
   for (let i = 0; i < texts.length; i += 100) {
+    if (signal?.aborted) throw new DOMException('Embedding aborted', 'AbortError');
     const batch = texts.slice(i, i + 100);
-    const vectors = await batchFn(batch, apiKey);
+    const vectors = await batchFn(batch, apiKey, signal);
     result.push(...vectors);
     if (onProgress) onProgress(Math.round(((i + batch.length) / total) * 100));
   }
@@ -273,8 +356,25 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
   ).toString();
 
   const buffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
   const chunks: DocumentChunk[] = [];
+
+  // [2026-05-01 Roy] 암호 보호 PDF — getDocument()가 PasswordException throw.
+  // 파일 전체 실패시키지 말고 warning chunk만 추가하고 빈 결과 반환 (이미지 PDF와
+  // 같은 패턴). AI는 "이 파일은 암호 보호됨"으로 응답 가능.
+  let pdf;
+  try {
+    pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const name = e instanceof Error ? e.name : '';
+    if (name === 'PasswordException' || /password/i.test(msg)) {
+      return [{
+        text: `[PASSWORD-PROTECTED PDF] The file (${file.name}) is encrypted with a password. Text cannot be extracted. To make this file searchable, remove the password protection and re-upload.`,
+        source: `${file.name} (encrypted — no text)`,
+      }];
+    }
+    throw e;
+  }
 
   // [2026-04-13 00:00] BUG-008: 50페이지 초과 시 경고 청크 삽입 후 제한
   if (pdf.numPages > PDF_MAX_PAGES) {
@@ -289,20 +389,51 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
   // [2026-04-13 00:00] BUG-008: 처리 페이지를 PDF_MAX_PAGES로 제한
   const effectivePages = Math.min(pdf.numPages, PDF_MAX_PAGES);
 
+  // [2026-05-01 Roy] 페이지 parse 실패 vs 진짜 텍스트 없음 구분 — 모든 페이지가
+  // throw로 깨졌으면 parser/브라우저 호환 문제, 페이지는 잘 열렸는데 텍스트 0이면
+  // 진짜 이미지 PDF. 이전엔 둘 다 [IMAGE-ONLY PDF]로 묶어 진단 불가능했음.
+  let pagesWithText = 0;
+  let pagesEmpty = 0;
+  let pagesFailed = 0;
+  let firstPageError: string | undefined;
+
   for (let start = 1; start <= effectivePages; start += PAGE_GROUP) {
     const end = Math.min(start + PAGE_GROUP - 1, effectivePages);
     const pageTexts: string[] = [];
 
     for (let p = start; p <= end; p++) {
-      const page = await pdf.getPage(p);
-      const content = await page.getTextContent();
-      const pageText = content.items
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((item: any) => item.str ?? '')
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (pageText) pageTexts.push(`[page ${p}]\n${pageText}`);
+      // [2026-05-01 Roy] 페이지 단위 try/catch — pdfjs-dist의 getTextContent()가
+      // 특정 PDF의 특정 페이지(폰트/encoding/annotation 호환 문제)에서
+      // "undefined is not a function" 류로 깨지면, 이전엔 PDF 전체 파싱 실패.
+      // 이젠 그 페이지만 skip하고 나머지는 정상 인덱싱. iOS Safari + pdfjs
+      // 호환성 이슈에 robust.
+      let pageText = '';
+      let pageOk = false;
+      try {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        pageText = content.items
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((item: any) => item.str ?? '')
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        pageOk = true;
+      } catch (pageErr) {
+        console.warn(`[parsePdf] page ${p} skipped (parse failed):`, pageErr);
+        pagesFailed++;
+        if (!firstPageError) {
+          firstPageError = pageErr instanceof Error ? `${pageErr.name}: ${pageErr.message}` : String(pageErr);
+        }
+      }
+      if (pageOk) {
+        if (pageText) {
+          pagesWithText++;
+          pageTexts.push(`[page ${p}]\n${pageText}`);
+        } else {
+          pagesEmpty++;
+        }
+      }
     }
 
     if (pageTexts.length > 0) {
@@ -313,14 +444,28 @@ async function parsePdf(file: File): Promise<DocumentChunk[]> {
     }
   }
 
-  // [2026-04-13] BUG-009: 이미지 전용 PDF — 텍스트 레이어 없음 처리
-  // 스캔본·HEIC→PDF 변환 파일 등은 pdfjs로 텍스트 추출 불가
-  // 경고 청크를 삽입해 AI가 "이미지 PDF"임을 사용자에게 안내하도록 함
+  // [2026-04-13] BUG-009 + [2026-05-01 Roy] 분기 추가:
+  //   - pagesWithText === 0 && pagesFailed > 0  → parser 호환 문제 (브라우저 이슈)
+  //   - pagesWithText === 0 && pagesFailed === 0 → 진짜 이미지 PDF
+  //   - pagesWithText > 0 && pagesFailed > 0     → 일부 페이지만 추출됨 ([WARNING])
   const textChunks = chunks.filter((c) => !c.text.startsWith('[WARNING]'));
   if (textChunks.length === 0) {
-    chunks.push({
-      text: `[IMAGE-ONLY PDF] The file (${file.name}) is a scanned image or image-based PDF with no text layer. Text cannot be extracted; RAG search is not available. Please upload an OCR-processed or text-based document.`,
-      source: `${file.name} (image PDF — no text)`,
+    if (pagesFailed > 0 && pagesWithText === 0) {
+      chunks.push({
+        text: `[PARSE-FAILED PDF] The file (${file.name}) failed to parse on this browser — all ${pagesFailed} page(s) threw errors. First error: ${firstPageError ?? 'unknown'}. This is likely an iOS Safari + pdfjs compatibility issue, not an image PDF. Try opening on desktop or another browser.`,
+        source: `${file.name} (parse failed — ${pagesFailed} pages errored)`,
+      });
+    } else {
+      chunks.push({
+        text: `[IMAGE-ONLY PDF] The file (${file.name}) is a scanned image or image-based PDF with no text layer. Text cannot be extracted; RAG search is not available. Please upload an OCR-processed or text-based document.`,
+        source: `${file.name} (image PDF — no text)`,
+      });
+    }
+  } else if (pagesFailed > 0) {
+    // 일부 성공, 일부 실패 → 부분 추출 경고
+    chunks.unshift({
+      text: `[WARNING] ${pagesFailed} of ${effectivePages} pages failed to parse and were skipped. First error: ${firstPageError ?? 'unknown'}. Some content is missing.`,
+      source: `${file.name} (partial — ${pagesFailed} pages skipped)`,
     });
   }
 

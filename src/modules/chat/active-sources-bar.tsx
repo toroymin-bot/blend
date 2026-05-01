@@ -57,14 +57,31 @@ function categorize(s: ActiveSource, dsTypeMap: Map<string, string>): Category {
   return 'document';
 }
 
-function categoryDotColor(items: ActiveSource[]): string {
+type CategoryStatus = 'ready' | 'syncing' | 'partial' | 'error' | 'idle';
+
+// [2026-05-01 Roy] 점 + 라벨 + 배경 모두 한 status에서 파생 — 시각 일관성 보장.
+function categoryStatus(items: ActiveSource[]): CategoryStatus {
   // worst status 우선 (사용자가 문제를 즉시 인지하도록)
-  if (items.some((s) => s.status === 'error'))   return '#dc2626';
-  if (items.some((s) => s.status === 'syncing')) return '#f59e0b';
-  if (items.some((s) => s.status === 'partial')) return '#f59e0b';
-  if (items.some((s) => s.status === 'ready'))   return '#16a34a';
-  return '#9ca3af';
+  if (items.some((s) => s.status === 'error'))   return 'error';
+  if (items.some((s) => s.status === 'syncing')) return 'syncing';
+  if (items.some((s) => s.status === 'partial')) return 'partial';
+  if (items.some((s) => s.status === 'ready'))   return 'ready';
+  return 'idle';
 }
+
+const STATUS_DOT: Record<CategoryStatus, string> = {
+  ready:   '#16a34a',
+  syncing: '#f59e0b',
+  partial: '#f59e0b',
+  error:   '#dc2626',
+  idle:    '#9ca3af',
+};
+
+// ready/idle은 라벨 생략 (정상은 깨끗하게). syncing/partial/error만 텍스트로 명시.
+const STATUS_LABEL: Record<'ko' | 'en', Record<CategoryStatus, string | null>> = {
+  ko: { ready: null, syncing: '동기화 중', partial: '일부 문제', error: '오류',  idle: null },
+  en: { ready: null, syncing: 'Syncing',   partial: 'Partial',   error: 'Error', idle: null },
+};
 
 export function ActiveSourcesBar({
   lang = 'ko',
@@ -247,11 +264,14 @@ function CategoryChip({
   onDeactivateAll: () => void;
 }) {
   const meta = CATEGORY_META[category];
-  const dot = categoryDotColor(items);
+  const status = categoryStatus(items);
+  const dot = STATUS_DOT[status];
+  const statusLabel = STATUS_LABEL[lang][status];
   const label = lang === 'ko' ? meta.ko : meta.en;
+  const isError = status === 'error';
   const tooltip = lang === 'ko'
-    ? `${label} · ${items.length}개 — 클릭해서 항목 보기`
-    : `${label} · ${items.length} item${items.length === 1 ? '' : 's'} — click to view`;
+    ? `${label} · ${items.length}개${statusLabel ? ` · ${statusLabel}` : ''} — 클릭해서 항목 보기`
+    : `${label} · ${items.length} item${items.length === 1 ? '' : 's'}${statusLabel ? ` · ${statusLabel}` : ''} — click to view`;
 
   return (
     <div
@@ -261,18 +281,18 @@ function CategoryChip({
       onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
       className="group inline-flex shrink-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors hover:opacity-90"
       style={{
-        background: tokens.surface,
-        border: `1px solid ${tokens.border}`,
+        background: isError ? 'rgba(220,38,38,0.08)' : tokens.surface,
+        border: `1px solid ${isError ? 'rgba(220,38,38,0.35)' : tokens.border}`,
         color: tokens.text,
         cursor: 'pointer',
-        maxWidth: 240,
+        maxWidth: 280,
       }}
       title={tooltip}
       aria-label={tooltip}
     >
       <span
         aria-hidden
-        className="inline-block h-2 w-2 rounded-full shrink-0"
+        className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
         style={{ background: dot }}
       />
       <span aria-hidden className="shrink-0">{meta.icon}</span>
@@ -280,6 +300,14 @@ function CategoryChip({
       <span className="shrink-0 text-[12px]" style={{ color: tokens.textFaint }}>
         {items.length}
       </span>
+      {statusLabel && (
+        <span
+          className="shrink-0 text-[11.5px] font-medium"
+          style={{ color: isError ? '#dc2626' : tokens.textDim }}
+        >
+          · {statusLabel}
+        </span>
+      )}
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onDeactivateAll(); }}

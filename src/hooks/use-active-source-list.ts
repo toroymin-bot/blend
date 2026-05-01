@@ -87,10 +87,16 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         //   그 외                   → idle (키워드 fallback)
         const prog = embedProgress[d.id];
         const hasEmbedding = d.chunks.some((c) => Array.isArray(c.embedding) && c.embedding.length > 0);
-        // [Tori 17989643 PR #4] 추출 상태 검사 — 이미지 PDF / 부분 추출 → partial/error
+        // [Tori 17989643 PR #4 + 2026-05-01 Roy] 추출 상태 검사:
+        //   image_only   = 진짜 텍스트 레이어 없는 PDF
+        //   parse_failed = pdfjs/브라우저 호환 문제 (모든 페이지 throw)
+        //   partial      = 일부 페이지만 추출 / [WARNING] 마커 / 너무 짧음
+        //   empty        = chunk 0개
         const extraction = (() => {
           if (!d.chunks || d.chunks.length === 0) return 'empty' as const;
           if (d.chunks.length === 1 && d.chunks[0]?.text?.startsWith('[IMAGE-ONLY PDF]')) return 'image_only' as const;
+          if (d.chunks.length === 1 && d.chunks[0]?.text?.startsWith('[PARSE-FAILED PDF]')) return 'parse_failed' as const;
+          if (d.chunks[0]?.text?.startsWith('[PASSWORD-PROTECTED PDF]')) return 'password' as const;
           if (d.chunks.some((c) => c.text?.startsWith('[WARNING]'))) return 'partial' as const;
           if (d.totalChars > 0 && d.totalChars < 100) return 'partial' as const;
           return 'ok' as const;
@@ -104,6 +110,16 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         } else if (prog?.status === 'error') {
           status = 'error';
           errorMessage = prog.error;
+        } else if (extraction === 'parse_failed') {
+          status = 'error';
+          errorMessage = lang === 'ko'
+            ? 'PDF 파싱 실패 (브라우저 호환 문제). 데스크톱 Chrome에서 다시 시도하거나 다른 PDF로 교체해주세요.'
+            : 'PDF parse failed (browser compatibility). Try again on desktop Chrome or replace with another PDF.';
+        } else if (extraction === 'password') {
+          status = 'error';
+          errorMessage = lang === 'ko'
+            ? '암호 보호된 PDF예요. 암호를 제거하고 다시 업로드해주세요.'
+            : 'Password-protected PDF. Remove password and re-upload.';
         } else if (extraction === 'image_only' || extraction === 'empty') {
           status = 'error';
           errorMessage = lang === 'ko'

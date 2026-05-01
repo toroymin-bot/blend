@@ -120,6 +120,22 @@ export async function runSync(sourceId: string, opts: RunSyncOptions): Promise<v
       });
     }
 
+    // [2026-05-01 Roy] 1개라도 실패하면 첫 에러 사유를 항상 포함. 사용자가 진짜 원인
+    // (API 키 / rate limit / 네트워크 / PDF 파싱 등)을 즉시 알 수 있게. errors[i]
+    // 형태: "filename: <reason>" — filename: prefix 제거 후 reason만 추출.
+    const errorMsg = (() => {
+      if (result.errors.length === 0) return undefined;
+      const ko = opts.lang === 'ko';
+      const total = result.indexed + result.errors.length;
+      const summary = ko
+        ? `${result.errors.length}/${total}개 파일 실패`
+        : `${result.errors.length}/${total} files failed`;
+      if (result.errors[0]) {
+        const firstReason = result.errors[0].replace(/^[^:]+:\s*/, '').slice(0, 200);
+        return `${summary} — ${firstReason}`;
+      }
+      return summary;
+    })();
     dsStore.updateSource(sourceId, {
       fileCount: result.indexed,
       indexedCount: result.indexed,
@@ -127,11 +143,11 @@ export async function runSync(sourceId: string, opts: RunSyncOptions): Promise<v
       syncStage: 'done',
       syncCurrent: '',
       lastSync: Date.now(),
-      error: result.errors.length > 0
-        ? (opts.lang === 'ko' ? `${result.errors.length}개 파일 실패` : `${result.errors.length} files failed`)
-        : undefined,
+      error: errorMsg,
     });
-    dsStore.setStatus(sourceId, result.errors.length === 0 ? 'connected' : 'error');
+    // [2026-05-01 Roy] setStatus의 3번째 인자가 undefined면 error를 덮어쓰는 store 동작 회피.
+    // errorMsg를 명시적으로 같이 넘겨야 'error string + status' 둘 다 일관되게 유지됨.
+    dsStore.setStatus(sourceId, errorMsg ? 'error' : 'connected', errorMsg);
     // RAG 채팅에서 즉시 새 청크 인식되도록 문서 store 강제 reload
     void useDocumentStore.getState().loadFromDB({ force: true });
   } catch (e) {
