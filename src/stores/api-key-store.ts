@@ -63,10 +63,17 @@ export const useAPIKeyStore = create<APIKeyState>((set, get) => ({
       const stored = localStorage.getItem('blend:api-keys');
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Merge with defaults so new providers aren't lost when loading old data
-        set((state) => ({ keys: { ...state.keys, ...parsed } }));
+        // [2026-05-01] sanitize — 과거 zustand persist 형식(`{state:{...}, version:N}`)
+        // 잔존물 또는 잘못된 타입의 값이 들어오면 거른다. 비-string은 무시 → 페이지 전체
+        // 크래시 방지.
+        const sane: Partial<Record<string, string>> = {};
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          for (const [k, v] of Object.entries(parsed)) {
+            if (typeof v === 'string') sane[k] = v;
+          }
+        }
+        set((state) => ({ keys: { ...state.keys, ...sane } }));
       }
-    // [2026-04-18 01:00] Fix: warn instead of silently swallowing parse error
     } catch (e) {
       console.warn('[api-key-store] localStorage parse failed:', e);
     }
