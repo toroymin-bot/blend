@@ -25,6 +25,9 @@ export interface ActiveSourceBase {
 export interface ActiveDocument extends ActiveSourceBase {
   type: 'document';
   documentId: string;
+  // [2026-05-01 Roy] datasource origin tracking — 그룹화 chip에서 카테고리 분류용.
+  // d.name이 `__source:<id>/...` 형식이면 그 sourceId. 직접 업로드는 undefined.
+  originSourceId?: string;
 }
 
 export interface ActiveMeeting extends ActiveSourceBase {

@@ -1,23 +1,20 @@
 'use client';
 
-// Tori 명세 — 메인 채팅뷰 입력창 위 활성 소스 바 (Komi_Active_Sources_Bar_Unified_RAG_2026-04-25.md)
-// 가로 스크롤 + 페이드 그라데이션 + 칩 (✕ 비활성 / 본체 라이브러리 이동)
+// [2026-05-01 Roy] 메인 채팅뷰 입력창 위 활성 소스 바 — 그룹화 chip 재설계.
+// 이전: ActiveSource[] 평면 나열. 50개 넘으면 헷갈림.
+// 새: 5개 카테고리(☁️ Google Drive / 📁 OneDrive / 💾 로컬 / 📄 문서 / 🎙️ 회의)
+// 로 그룹화. chip 클릭 → 모달에서 항목 리스트.
+//
+// chip 구성: [status dot] [icon] [카테고리명] [count] [✕ 모두 비활성화]
+// 모바일: flex-wrap으로 자동 줄바꿈.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ActiveSource } from '@/types/active-source';
 import { useActiveSourceList } from '@/hooks/use-active-source-list';
 import { useDocumentStore } from '@/stores/document-store';
 import { useDataSourceStore } from '@/stores/datasource-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
-import { StatusDot } from '@/modules/chat/status-dot';
-
-// [2026-04-26] D-2 — embedProgress + 현재시각으로 남은시간 추정
-function computeEtaSec(startedAt: number, percent: number): number | null {
-  if (percent <= 0 || percent >= 100) return null;
-  const elapsed = (Date.now() - startedAt) / 1000;
-  if (elapsed <= 0) return null;
-  return Math.max(0, (elapsed * (100 - percent)) / percent);
-}
+import { SourcesModal } from '@/modules/chat/sources-modal';
 
 const tokens = {
   bg:           'var(--d1-bg)',
@@ -32,31 +29,75 @@ const tokens = {
   borderStrong: 'var(--d1-border-strong)',
 } as const;
 
+type Category = 'google-drive' | 'onedrive' | 'local' | 'document' | 'meeting';
+
+const CATEGORY_META: Record<Category, { icon: string; ko: string; en: string; order: number }> = {
+  'google-drive': { icon: '☁️',  ko: 'Google Drive', en: 'Google Drive', order: 1 },
+  'onedrive':     { icon: '📁',  ko: 'OneDrive',     en: 'OneDrive',     order: 2 },
+  'local':        { icon: '💾',  ko: '로컬',          en: 'Local',        order: 3 },
+  'document':     { icon: '📄',  ko: '문서',          en: 'Documents',    order: 4 },
+  'meeting':      { icon: '🎙️', ko: '회의',          en: 'Meetings',     order: 5 },
+};
+
+function categorize(s: ActiveSource, dsTypeMap: Map<string, string>): Category {
+  if (s.type === 'meeting') return 'meeting';
+  if (s.type === 'datasource-folder') {
+    if (s.serviceName === 'google-drive') return 'google-drive';
+    if (s.serviceName === 'onedrive') return 'onedrive';
+    return 'local';
+  }
+  // document — datasource origin이면 그 타입 카테고리, 아니면 직접 업로드 → 'document'
+  if (s.originSourceId) {
+    const t = dsTypeMap.get(s.originSourceId);
+    if (t === 'google-drive') return 'google-drive';
+    if (t === 'onedrive')     return 'onedrive';
+    if (t === 'local')        return 'local';
+    if (t === 'webdav')       return 'local';
+  }
+  return 'document';
+}
+
+function categoryDotColor(items: ActiveSource[]): string {
+  // worst status 우선 (사용자가 문제를 즉시 인지하도록)
+  if (items.some((s) => s.status === 'error'))   return '#dc2626';
+  if (items.some((s) => s.status === 'syncing')) return '#f59e0b';
+  if (items.some((s) => s.status === 'partial')) return '#f59e0b';
+  if (items.some((s) => s.status === 'ready'))   return '#16a34a';
+  return '#9ca3af';
+}
+
 export function ActiveSourcesBar({
   lang = 'ko',
-  onNavigate,
   onShowToast,
 }: {
   lang?: 'ko' | 'en';
+  /** @deprecated 그룹 chip은 모달로 열림 — onNavigate 미사용. 호환성 위해 prop 유지. */
   onNavigate?: (source: ActiveSource) => void;
   onShowToast?: (message: string) => void;
 }) {
   const sources = useActiveSourceList(lang);
-  const embedProgress = useDocumentStore((s) => s.embedProgress);
+  const dataSources = useDataSourceStore((s) => s.sources);
   const hasKey = useAPIKeyStore((s) => s.hasKey);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [showLeftFade, setShowLeftFade]   = useState(false);
-  const [showRightFade, setShowRightFade] = useState(false);
-  // [2026-04-26] D-3 — 임베딩 키 안내 dismiss 상태 (sessionStorage 1회용)
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  // [2026-04-26] D-2 — 1초마다 ETA 갱신 (syncing 칩이 하나라도 있을 때만)
-  const [, setNowTick] = useState(0);
-  const hasSyncing = sources.some((s) => s.status === 'syncing');
-  useEffect(() => {
-    if (!hasSyncing) return;
-    const id = setInterval(() => setNowTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [hasSyncing]);
+  const [openCategory, setOpenCategory] = useState<Category | null>(null);
+
+  // sourceId → datasource type 매핑 (document의 originSourceId 카테고리 분류용)
+  const dsTypeMap = useMemo(() => {
+    const m = new Map<string, string>();
+    dataSources.forEach((ds) => m.set(ds.id, ds.type));
+    return m;
+  }, [dataSources]);
+
+  // 그룹화 — CATEGORY_META.order 순서로 정렬된 [category, items][] 배열
+  const grouped = useMemo<Array<[Category, ActiveSource[]]>>(() => {
+    const map = new Map<Category, ActiveSource[]>();
+    for (const s of sources) {
+      const cat = categorize(s, dsTypeMap);
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(s);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => CATEGORY_META[a].order - CATEGORY_META[b].order);
+  }, [sources, dsTypeMap]);
 
   // [2026-04-26] D-3 — 활성 문서 idle + 임베딩 키 없음 → 안내 배너
   const showEmbeddingKeyBanner = useMemo(() => {
@@ -69,25 +110,7 @@ export function ActiveSourcesBar({
   // Tori 핫픽스 (2026-04-25) — datasource-store 마운트 시 localStorage 로딩 보장
   useEffect(() => { useDataSourceStore.getState().loadFromStorage(); }, []);
 
-  // 0개 → 영역 자체 미렌더링
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      setShowLeftFade(el.scrollLeft > 0);
-      setShowRightFade(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
-    };
-    onScroll();
-    el.addEventListener('scroll', onScroll, { passive: true });
-    const ro = new ResizeObserver(onScroll);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      ro.disconnect();
-    };
-  }, [sources.length]);
-
-  // [2026-04-26] D-3 — 칩이 없어도 배너만은 띄울 수 있도록 가드 완화
+  // 0개 → 영역 자체 미렌더링 (배너만 있는 경우 제외)
   if (sources.length === 0 && !showEmbeddingKeyBanner) return null;
 
   function handleDeactivate(source: ActiveSource) {
@@ -97,7 +120,7 @@ export function ActiveSourcesBar({
       // 비활성화만 — 연결 해제 X (사용자가 라이브러리에서 다시 활성화 가능)
       useDataSourceStore.getState().setActive(source.dataSourceId, false);
     } else if (source.type === 'meeting') {
-      // Phase 3b — d1:meetings localStorage 직접 갱신
+      // d1:meetings localStorage 직접 갱신
       try {
         const raw = localStorage.getItem('d1:meetings');
         if (raw) {
@@ -110,14 +133,17 @@ export function ActiveSourcesBar({
     }
   }
 
-  function handleClick(source: ActiveSource) {
-    // [2026-05-01 Roy] error 칩 클릭 시 navigate 대신 안내 토스트 — 사용자가
-    // 빨간 dot이 무슨 뜻인지 즉시 인지하고 대처(OCR 처리 등)할 수 있게.
-    if (source.status === 'error' && source.errorMessage && onShowToast) {
-      onShowToast(source.errorMessage);
+  function handleDeactivateCategory(items: ActiveSource[]) {
+    items.forEach(handleDeactivate);
+  }
+
+  function handleCategoryClick(cat: Category, items: ActiveSource[]) {
+    // 항목이 1개 + error면 navigate 대신 안내 토스트 (image-only PDF 등)
+    if (items.length === 1 && items[0].status === 'error' && items[0].errorMessage && onShowToast) {
+      onShowToast(items[0].errorMessage);
       return;
     }
-    if (onNavigate) onNavigate(source);
+    setOpenCategory(cat);
   }
 
   const bannerCopy = lang === 'ko'
@@ -134,6 +160,11 @@ export function ActiveSourcesBar({
         close: 'Dismiss',
       };
 
+  // 모달용 — store 변경 시 자동 갱신
+  const openItems = openCategory
+    ? (grouped.find(([c]) => c === openCategory)?.[1] ?? [])
+    : [];
+
   return (
     <div
       className="relative w-full"
@@ -145,157 +176,82 @@ export function ActiveSourcesBar({
           style={{ background: tokens.accentSoft, borderColor: tokens.border, color: tokens.text }}
           role="alert"
         >
-          <span aria-hidden style={{ fontSize: 14, lineHeight: 1, marginTop: 1 }}>🔑</span>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium" style={{ color: tokens.text }}>
-              {bannerCopy.title}
-            </div>
-            <div className="mt-0.5" style={{ color: tokens.textDim }}>
-              {bannerCopy.body}
-            </div>
+          <div className="flex-1">
+            <div className="font-medium">{bannerCopy.title}</div>
+            <div className="mt-0.5" style={{ color: tokens.textDim }}>{bannerCopy.body}</div>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('d1:nav-to', { detail: { view: 'settings' } }))}
+              className="mt-1 text-[12px] underline"
+              style={{ color: tokens.accent }}
+            >
+              {bannerCopy.cta}
+            </button>
           </div>
           <button
             type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('blend:open-settings', { detail: { section: 'api' } }));
-              }
-            }}
-            className="shrink-0 rounded-md px-2.5 py-1 text-[12px] font-medium"
-            style={{ background: tokens.accent, color: '#fff' }}
-          >
-            {bannerCopy.cta}
-          </button>
-          <button
-            type="button"
             onClick={() => setBannerDismissed(true)}
-            className="shrink-0 px-1.5 py-1 text-[12px]"
-            style={{ color: tokens.textFaint }}
             aria-label={bannerCopy.close}
+            className="shrink-0 text-[12px]"
+            style={{ color: tokens.textDim }}
           >
             ✕
           </button>
         </div>
       )}
-      {showLeftFade && (
-        <div
-          className="pointer-events-none absolute top-0 bottom-0 left-0 w-8 z-10"
-          style={{ background: `linear-gradient(to right, ${tokens.bg}, transparent)` }}
-        />
-      )}
-      <div
-        ref={scrollRef}
-        className="flex gap-2 px-4 py-2.5"
-        style={{
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          whiteSpace: 'nowrap',
-          scrollBehavior: 'smooth',
-          scrollbarWidth: 'none',
-        }}
-      >
-        {sources.map((s) => {
-          let eta: number | null = null;
-          if (s.status === 'syncing' && s.type === 'document') {
-            const prog = embedProgress[s.documentId];
-            if (prog?.status === 'embedding') {
-              eta = computeEtaSec(prog.startedAt, prog.percent);
-            }
-          }
-          return (
-            <ActiveSourceChip
-              key={s.id}
-              source={s}
-              onClick={() => handleClick(s)}
-              onDeactivate={() => handleDeactivate(s)}
-              etaSeconds={eta}
+
+      {/* 카테고리 chip — flex-wrap으로 모바일에서 자동 줄바꿈 */}
+      {grouped.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-4 py-2.5">
+          {grouped.map(([cat, items]) => (
+            <CategoryChip
+              key={cat}
+              category={cat}
+              items={items}
               lang={lang}
+              onClick={() => handleCategoryClick(cat, items)}
+              onDeactivateAll={() => handleDeactivateCategory(items)}
             />
-          );
-        })}
-      </div>
-      {showRightFade && (
-        <div
-          className="pointer-events-none absolute top-0 bottom-0 right-0 w-8 z-10"
-          style={{ background: `linear-gradient(to left, ${tokens.bg}, transparent)` }}
+          ))}
+        </div>
+      )}
+
+      {/* 카테고리 상세 모달 */}
+      {openCategory && (
+        <SourcesModal
+          open
+          icon={CATEGORY_META[openCategory].icon}
+          title={lang === 'ko' ? CATEGORY_META[openCategory].ko : CATEGORY_META[openCategory].en}
+          items={openItems}
+          lang={lang}
+          onClose={() => setOpenCategory(null)}
+          onDeactivate={(s) => {
+            handleDeactivate(s);
+            // 마지막 항목이면 모달 닫기
+            if (openItems.length <= 1) setOpenCategory(null);
+          }}
+          onDeactivateAll={() => handleDeactivateCategory(openItems)}
         />
       )}
-      <style jsx>{`
-        div[ref]::-webkit-scrollbar { display: none; }
-        div::-webkit-scrollbar { display: none; }
-      `}</style>
     </div>
   );
 }
 
-// [2026-04-26] D-2 — 초 → "Ns" / "Nm Ns" / "Nh Nm" 식으로 짧게
-function formatEta(sec: number): string {
-  if (sec < 60) return `${Math.round(sec)}s`;
-  if (sec < 3600) {
-    const m = Math.floor(sec / 60);
-    const s = Math.round(sec % 60);
-    return s > 0 ? `${m}m ${s}s` : `${m}m`;
-  }
-  const h = Math.floor(sec / 3600);
-  const m = Math.round((sec % 3600) / 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-// [2026-04-26] D-2 — progress가 0~100 percent로 들어올 때 "NN%" 식 라벨,
-// 그 외 (current/total)는 "current/total" 식으로 표시
-function progressLabel(p: ActiveSource['progress']): string {
-  if (!p || p.total <= 0) return '';
-  if (p.total === 100) return `${Math.round(p.current)}%`;
-  return `${p.current}/${p.total}`;
-}
-
-// [2026-04-26 Tori 16384118 §1.3] hover 툴팁 카피 — 상태별 풍부한 정보
-function buildTooltip(
-  source: ActiveSource,
-  etaSeconds: number | null | undefined,
-  lang: 'ko' | 'en',
-): string {
-  const ko = lang === 'ko';
-  const baseTitle = source.subtitle ? `${source.title} · ${source.subtitle}` : source.title;
-  const indexed = source.chunkCount;
-  const progress = source.progress;
-
-  if (source.status === 'error') {
-    if (source.errorMessage) return `${baseTitle} — ${source.errorMessage}`;
-    return ko
-      ? `${baseTitle} — 검색 문제. 칩의 ⚠️ 클릭으로 해결`
-      : `${baseTitle} — search issue. Click ⚠️ to resolve`;
-  }
-  if (source.status === 'syncing' && progress && progress.total > 0) {
-    const cur = progress.current;
-    const tot = progress.total;
-    const pct = tot === 100 ? Math.round(cur) : Math.round((cur / tot) * 100);
-    const etaSegment = etaSeconds != null && etaSeconds > 0 ? ` · ${ko ? '약' : '~'} ${formatEta(etaSeconds)}` : '';
-    return ko
-      ? `동기화 중 · ${cur}/${tot} (${pct}%)${etaSegment}`
-      : `Syncing · ${cur}/${tot} (${pct}%)${etaSegment}`;
-  }
-  // ready / idle — 검색 가능
-  return ko
-    ? `검색 가능 · ${indexed}개 인덱싱됨`
-    : `Searchable · ${indexed} indexed`;
-}
-
-function ActiveSourceChip({
-  source, onClick, onDeactivate, etaSeconds, lang,
+function CategoryChip({
+  category, items, lang, onClick, onDeactivateAll,
 }: {
-  source: ActiveSource;
-  onClick: () => void;
-  onDeactivate: () => void;
-  etaSeconds?: number | null;
+  category: Category;
+  items: ActiveSource[];
   lang: 'ko' | 'en';
+  onClick: () => void;
+  onDeactivateAll: () => void;
 }) {
-  const baseTitle = source.subtitle
-    ? `${source.title} · ${source.subtitle}`
-    : source.title;
-  const pLabel = progressLabel(source.progress);
-  const displayText = pLabel ? `${baseTitle} · ${pLabel}` : baseTitle;
-  const tooltip = buildTooltip(source, etaSeconds, lang);
+  const meta = CATEGORY_META[category];
+  const dot = categoryDotColor(items);
+  const label = lang === 'ko' ? meta.ko : meta.en;
+  const tooltip = lang === 'ko'
+    ? `${label} · ${items.length}개 — 클릭해서 항목 보기`
+    : `${label} · ${items.length} item${items.length === 1 ? '' : 's'} — click to view`;
 
   return (
     <div
@@ -303,7 +259,7 @@ function ActiveSourceChip({
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
-      className="group inline-flex shrink-0 items-center rounded-md px-2.5 py-1.5 text-[13px] transition-colors"
+      className="group inline-flex shrink-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors hover:opacity-90"
       style={{
         background: tokens.surface,
         border: `1px solid ${tokens.border}`,
@@ -314,15 +270,22 @@ function ActiveSourceChip({
       title={tooltip}
       aria-label={tooltip}
     >
-      <StatusDot status={source.status} />
-      <span className="shrink-0 mr-1.5">{source.icon}</span>
-      <span className="truncate mr-1.5" style={{ maxWidth: 180 }}>{displayText}</span>
+      <span
+        aria-hidden
+        className="inline-block h-2 w-2 rounded-full shrink-0"
+        style={{ background: dot }}
+      />
+      <span aria-hidden className="shrink-0">{meta.icon}</span>
+      <span className="truncate" style={{ maxWidth: 140 }}>{label}</span>
+      <span className="shrink-0 text-[12px]" style={{ color: tokens.textFaint }}>
+        {items.length}
+      </span>
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); onDeactivate(); }}
-        className="flex h-4 w-4 shrink-0 items-center justify-center rounded transition-colors"
+        onClick={(e) => { e.stopPropagation(); onDeactivateAll(); }}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors hover:bg-black/5"
         style={{ color: tokens.textFaint, background: 'transparent' }}
-        aria-label={lang === 'ko' ? '비활성화' : 'deactivate'}
+        aria-label={lang === 'ko' ? '모두 비활성화' : 'Deactivate all'}
       >
         <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 6L6 18M6 6l12 12" />

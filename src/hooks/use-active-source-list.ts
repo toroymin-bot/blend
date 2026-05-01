@@ -119,6 +119,8 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         } else {
           status = 'idle';
         }
+        // [2026-05-01 Roy] sourceId 추출 — 그룹화 chip에서 카테고리 매핑용
+        const originSourceId = d.name.match(/^__source:([^/]+)\//)?.[1];
         result.push({
           id: `doc:${d.id}`,
           type: 'document',
@@ -130,6 +132,7 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
           status,
           progress,
           errorMessage,
+          originSourceId,
         });
       });
 
