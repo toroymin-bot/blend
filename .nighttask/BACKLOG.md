@@ -588,3 +588,20 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 - **Confluence**: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/21594135
 - **Dev 시트**: row 132
 - **GAS 이메일**: 인증 차단 (기존 GAS-AUTH 이슈 동일, Roy 재인증 필요)
+
+---
+
+## 2026-05-02 — blend-daily-dev nighttask
+
+### [x] CLEAN-QUEUE-02 — 새 dev 작업 없음 + 시스템 헬스 체크 통과 ✅ 2026-05-02
+- **결과**: Improvement Approved 대기 0, Bug Fix Requested 0, TC Fail 미수정 0, TC 487/487 100%
+- **Roy 활동**: 어제 이후 5개 commit 추가 (datasources 50MB 한도/partial status, OCR 5-10x 가속, Blend identity 자동 주입 + '블렌드란?' 버튼). 모두 main에 머지되어 production 4 URL 200 응답
+- **헬스 체크**: production 4 URL 모두 200, i18n 937 키 완전 동기, REG-01 회귀 0 hit, TypeScript 통과, blend-identity.ts(76 lines) 무결성 확인
+- **신규 발견 (회귀 carry-over)**: BUG-005 fix 이후 추가된 3개 store가 raw `localStorage.setItem` 사용 — `d1-cost-store.ts:53`, `d1-chat-store.ts:160` (fallback), `use-datasource-queue-polling.ts:51`. 모두 자체 try/catch 있어 silent fail로 즉각 위험은 낮음. 영구 정책 통일 위해 `safeSetItem`으로 교체 권장 → 다음 nighttask 후보
+
+### [ ] BUG-005-REGRESSION — d1-cost-store / d1-chat-store / queue-polling safeSetItem 통일 (carry-over)
+- **위치**: `src/stores/d1-cost-store.ts:53`, `src/stores/d1-chat-store.ts:160`, `src/hooks/use-datasource-queue-polling.ts:51`
+- **현재**: 각자 try/catch silent fail (queue-polling) 또는 outer fallback에서만 quota event dispatch (d1-chat-store는 inner err 미캡처)
+- **통일안**: `import { safeSetItem } from '@/lib/safe-storage'` + `safeSetItem(STORAGE_KEY, JSON.stringify(state), 'd1-cost')` 등으로 교체. 사용자가 quota toast로 인지 가능
+- **risk**: 낮음 (silent fail 그대로 두는 것보다 명시적 알림이 안전). 단, d1-chat-store는 IDB primary + LS fallback 구조라 fallback도 실패하면 사용자 데이터 손실 → toast 노출이 더 적합
+- **다음 nighttask에서 처리**
