@@ -152,8 +152,8 @@ function isTextChatModel(id: string): boolean {
  * 점수 = family bonus + 버전. gpt-image 시리즈 = +100, dall-e 시리즈 = +0
  *   → gpt-image-1(=101) > dall-e-3(=3)이 되어 gpt-image 시리즈 항상 우선.
  */
-export function isImageGenModel(modelId: string): boolean {
-  return /^(dall-e|gpt-image)-\d/.test(modelId);
+export function isImageGenModel(modelId: string | null | undefined): boolean {
+  return typeof modelId === 'string' && /^(dall-e|gpt-image)-\d/.test(modelId);
 }
 
 function imageModelScore(id: string): number {
