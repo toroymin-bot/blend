@@ -19,8 +19,9 @@ SPACE_ID = "5079095"
 PARENT_PAGE_ID = "9371649"
 
 # Map: filename → page title
+# Keep only today's draft to avoid re-updating prior days every nighttask.
 PAGES = [
-    ("2026-05-01-dev-log.md", "Blend 개발일지 — 2026-05-01 (새벽 nighttask)"),
+    ("2026-05-02-dev-log.md", "Blend 개발일지 — 2026-05-02 (새벽 nighttask)"),
 ]
 
 

@@ -599,6 +599,15 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 - **헬스 체크**: production 4 URL 모두 200, i18n 937 키 완전 동기, REG-01 회귀 0 hit, TypeScript 통과, blend-identity.ts(76 lines) 무결성 확인
 - **신규 발견 (회귀 carry-over)**: BUG-005 fix 이후 추가된 3개 store가 raw `localStorage.setItem` 사용 — `d1-cost-store.ts:53`, `d1-chat-store.ts:160` (fallback), `use-datasource-queue-polling.ts:51`. 모두 자체 try/catch 있어 silent fail로 즉각 위험은 낮음. 영구 정책 통일 위해 `safeSetItem`으로 교체 권장 → 다음 nighttask 후보
 
+### [ ] PUBLISH-PY-IMPROVE — Confluence publish.py 견고성 개선 (carry-over, 우선순위 ↑)
+- **배경**: 오늘 nighttask 시작 시 publish.py가 hardcoded PAGES만 처리해 인자로 넘긴 5월 2일 파일을 무시하고 5월 1일 페이지를 5월 2일 내용으로 덮어씀 (즉시 복원 완료)
+- **개선안**:
+  1. `sys.argv` 받으면 해당 파일만 publish (안전한 fallback)
+  2. 또는 디렉토리 스캔 + 파일명 `YYYY-MM-DD-dev-log.md` 패턴 + `--date` 인자 또는 mtime 기반 1개만 처리
+  3. 첫 줄 H1 헤더에서 제목 자동 추출 (`# Blend Daily Dev Log — 2026-05-02` → 제목)
+- **현재 워크어라운드**: 매 nighttask마다 PAGES 리스트를 오늘 항목 1개로 수동 교체 (오늘 적용 완료)
+- **위치**: `.nighttask/confluence-drafts/publish.py`
+
 ### [ ] BUG-005-REGRESSION — d1-cost-store / d1-chat-store / queue-polling safeSetItem 통일 (carry-over)
 - **위치**: `src/stores/d1-cost-store.ts:53`, `src/stores/d1-chat-store.ts:160`, `src/hooks/use-datasource-queue-polling.ts:51`
 - **현재**: 각자 try/catch silent fail (queue-polling) 또는 outer fallback에서만 quota event dispatch (d1-chat-store는 inner err 미캡처)
