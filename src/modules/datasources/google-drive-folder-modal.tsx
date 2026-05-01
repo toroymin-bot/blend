@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { makeSelection } from '@/modules/datasources/pickers/picker-shared';
+import { scanDriveFolder } from '@/lib/connectors/google-drive-connector';
 import type { DataSourceSelection } from '@/types';
 
 interface DriveFolder {
@@ -122,23 +123,15 @@ export function GoogleDriveFolderModal({ open, accessToken, lang, onPicked, onCa
 
   const handleDone = async () => {
     const picked = folders.filter((f) => selectedIds.has(f.id));
+    if (!accessToken) return;
     setConfirming(true);
-    // [2026-05-01 Roy] 각 폴더의 1단계 자식 파일 수 + size 합계를 가져와
-    // cost preview를 정확하게. 폴더 자체는 카운트 X.
+    // [2026-05-01 Roy] 재귀 동기화에 맞춘 정확한 cost preview — OneDrive와 동일.
+    // sync 시점에 호출되는 scanDriveFolder({ recursive: true })를 그대로 사용 →
+    // picker 카운트와 실제 인덱싱 결과 일치 보장.
     const stats = await Promise.all(
       picked.map(async (f) => {
         try {
-          const params = new URLSearchParams({
-            q: `'${f.id}' in parents and trashed=false`,
-            fields: 'files(size,mimeType)',
-            pageSize: '1000',
-          });
-          const r = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (!r.ok) return { fileCount: 0, approxBytes: 0 };
-          const data = (await r.json()) as { files?: Array<{ size?: string; mimeType?: string }> };
-          const files = (data.files ?? []).filter((x) => x.mimeType !== 'application/vnd.google-apps.folder');
+          const files = await scanDriveFolder(accessToken, f.id, { recursive: true });
           const approxBytes = files.reduce((sum, x) => sum + (parseInt(x.size ?? '0', 10) || 0), 0);
           return { fileCount: files.length, approxBytes };
         } catch {
