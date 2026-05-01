@@ -816,32 +816,13 @@ function ConnectedCard({
   const isLocal = source.config.type === 'local';
   const needsResel = isLocal && (source.config as { needsReselection?: boolean }).needsReselection === true;
   // [2026-04-30 Roy progress] 동기화 중일 때 0~100% 진행률
+  // [2026-05-01 Roy] scan 단계도 selections.length 기반 정확한 % (fake 시간 기반 제거).
   const isSyncing = status === 'syncing';
-  const indexingPct = progress && progress.total > 0
+  const stage = progress?.stage;
+  const isScanning = stage === 'scanning';
+  const pct = progress && progress.total > 0
     ? Math.round((progress.done / progress.total) * 100)
     : (typeof source.syncProgress === 'number' ? source.syncProgress : 0);
-
-  // [2026-05-01 Roy] scan 단계는 progress.total=0이라 % 측정 불가 — 시간 기반 부드러운
-  // 진행률 (0→90%까지 점진적 ease-out). 90%에서 멈추고 indexing 시작 시 0→100% 갱신.
-  const stage = progress?.stage;
-  const isScanning = stage === 'scanning' || (isSyncing && (progress?.total ?? 0) === 0);
-  const [scanPct, setScanPct] = useState(0);
-  useEffect(() => {
-    if (!isScanning) { setScanPct(0); return; }
-    const startedAt = Date.now();
-    const id = setInterval(() => {
-      const elapsed = (Date.now() - startedAt) / 1000;
-      let p = 0;
-      if (elapsed < 5) p = (elapsed / 5) * 30;            // 0→30% in 5s
-      else if (elapsed < 15) p = 30 + ((elapsed - 5) / 10) * 40;  // 30→70% in 10s
-      else if (elapsed < 30) p = 70 + ((elapsed - 15) / 15) * 20; // 70→90% in 15s
-      else p = 90;                                         // hold at 90%
-      setScanPct(Math.min(90, Math.round(p)));
-    }, 200);
-    return () => clearInterval(id);
-  }, [isScanning]);
-
-  const pct = isScanning ? scanPct : indexingPct;
   return (
     <div
       className="rounded-2xl border p-5"
@@ -925,15 +906,15 @@ function ConnectedCard({
           <div className="flex items-baseline justify-between gap-3 text-[11.5px] tabular-nums" style={{ color: tokens.textDim }}>
             <span className="truncate" title={progress?.current ?? ''}>
               {isScanning
-                ? (lang === 'ko' ? '파일 목록 검색 중…' : 'Scanning files…')
+                ? (lang === 'ko'
+                    ? `📁 ${progress?.current || '폴더'} 검색 중…`
+                    : `Scanning 📁 ${progress?.current || 'folder'}…`)
                 : (progress?.current || (t.syncing + '…'))}
             </span>
             <span className="shrink-0" style={{ color: tokens.text, fontWeight: 500 }}>
-              {isScanning
-                ? `${pct}%`
-                : (progress && progress.total > 0
-                    ? `${progress.done} / ${progress.total} · ${pct}%`
-                    : `${pct}%`)}
+              {progress && progress.total > 0
+                ? `${progress.done} / ${progress.total} · ${pct}%`
+                : `${pct}%`}
             </span>
           </div>
           <div

@@ -80,11 +80,52 @@ export async function indexSource(
     if (!cfg.accessToken || !googleTokenValid(cfg.tokenExpiry)) {
       throw new Error('Google Drive access token has expired. Please reconnect.');
     }
-    const driveFiles = await scanDriveFolder(cfg.accessToken, cfg.folderId);
-    files = driveFiles.map((f) => ({
-      name: f.name,
-      getFile: () => downloadDriveFile(cfg.accessToken!, f),
-    }));
+    // [2026-05-01 Roy] source.selections를 사용해 사용자가 선택한 폴더만 scan.
+    // 이전엔 cfg.folderId(자체 picker는 설정 안 함)가 undefined여서 root 전체 scan.
+    const sels = source.selections ?? [];
+    if (sels.length > 0) {
+      progress.total = sels.length;
+      progress.stage = 'scanning';
+      report();
+      for (const sel of sels) {
+        if (signal?.aborted) {
+          return { indexed: progress.done - progress.errors.length, errors: progress.errors, cancelled: true };
+        }
+        progress.current = sel.name;
+        report();
+        if (sel.kind === 'folder') {
+          const folderFiles = await scanDriveFolder(cfg.accessToken, sel.id);
+          files.push(...folderFiles.map((f) => ({
+            name: f.name,
+            getFile: () => downloadDriveFile(cfg.accessToken!, f),
+          })));
+        } else {
+          // file selection — id로 metadata 한 번 fetch 후 download
+          files.push({
+            name: sel.name,
+            getFile: async () => {
+              const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${sel.id}?fields=id,name,mimeType,size`, {
+                headers: { Authorization: `Bearer ${cfg.accessToken}` },
+              });
+              if (!metaRes.ok) throw new Error(`Drive metadata fetch failed: ${sel.name}`);
+              const meta = await metaRes.json();
+              return downloadDriveFile(cfg.accessToken!, meta);
+            },
+          });
+        }
+        progress.done++;
+        report();
+      }
+      progress.done = 0; // indexing 단계에서 0부터 다시 카운트
+    } else if (cfg.folderId) {
+      // legacy compat: selections 없는 기존 source는 cfg.folderId 사용
+      const driveFiles = await scanDriveFolder(cfg.accessToken, cfg.folderId);
+      files = driveFiles.map((f) => ({
+        name: f.name,
+        getFile: () => downloadDriveFile(cfg.accessToken!, f),
+      }));
+    }
+    // selections 비어 있고 folderId도 없으면 빈 배열 (root 전체 scan 절대 X)
   }
 
   else if (source.type === 'onedrive') {
@@ -92,11 +133,48 @@ export async function indexSource(
     if (!cfg.accessToken || !msTokenValid(cfg.tokenExpiry)) {
       throw new Error('OneDrive access token has expired. Please reconnect.');
     }
-    const odFiles = await scanOneDriveFolder(cfg.accessToken, cfg.folderId);
-    files = odFiles.map((f) => ({
-      name: f.name,
-      getFile: () => downloadOneDriveFile(cfg.accessToken!, f),
-    }));
+    // [2026-05-01 Roy] source.selections 우선 — root 전체 scan으로 인한 Graph API 429 방지.
+    const sels = source.selections ?? [];
+    if (sels.length > 0) {
+      progress.total = sels.length;
+      progress.stage = 'scanning';
+      report();
+      for (const sel of sels) {
+        if (signal?.aborted) {
+          return { indexed: progress.done - progress.errors.length, errors: progress.errors, cancelled: true };
+        }
+        progress.current = sel.name;
+        report();
+        if (sel.kind === 'folder') {
+          const folderFiles = await scanOneDriveFolder(cfg.accessToken, sel.id);
+          files.push(...folderFiles.map((f) => ({
+            name: f.name,
+            getFile: () => downloadOneDriveFile(cfg.accessToken!, f),
+          })));
+        } else {
+          files.push({
+            name: sel.name,
+            getFile: async () => {
+              const metaRes = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${sel.id}`, {
+                headers: { Authorization: `Bearer ${cfg.accessToken}` },
+              });
+              if (!metaRes.ok) throw new Error(`OneDrive metadata fetch failed: ${sel.name}`);
+              const meta = await metaRes.json();
+              return downloadOneDriveFile(cfg.accessToken!, meta);
+            },
+          });
+        }
+        progress.done++;
+        report();
+      }
+      progress.done = 0;
+    } else if (cfg.folderId) {
+      const odFiles = await scanOneDriveFolder(cfg.accessToken, cfg.folderId);
+      files = odFiles.map((f) => ({
+        name: f.name,
+        getFile: () => downloadOneDriveFile(cfg.accessToken!, f),
+      }));
+    }
   }
 
   else if (source.type === 'webdav') {
