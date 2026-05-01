@@ -94,8 +94,11 @@ export async function indexSource(
         progress.current = sel.name;
         report();
         if (sel.kind === 'folder') {
-          // [2026-05-01] sel.includeSubfolders 기본 false — 1단계만 scan.
-          const folderFiles = await scanDriveFolder(cfg.accessToken, sel.id, { recursive: sel.includeSubfolders === true });
+          // [2026-05-01 Roy] 폴더 선택 시 하위 폴더 모두 재귀 동기화 — 사용자 명시 요청.
+          // 이전엔 비재귀 default였으나 사용자가 폴더 선택 = '안의 모든 것 검색 가능'을
+          // 기대. picker 모달의 cost preview는 1단계만 카운트하므로 실제 인덱싱 결과가
+          // 더 많을 수 있음(trade-off). 폭증 방지는 파일 size별 안전장치에 위임.
+          const folderFiles = await scanDriveFolder(cfg.accessToken, sel.id, { recursive: true });
           files.push(...folderFiles.map((f) => ({
             name: f.name,
             getFile: () => downloadDriveFile(cfg.accessToken!, f),
@@ -147,8 +150,8 @@ export async function indexSource(
         progress.current = sel.name;
         report();
         if (sel.kind === 'folder') {
-          // [2026-05-01] sel.includeSubfolders 기본 false — 1단계만 scan.
-          const folderFiles = await scanOneDriveFolder(cfg.accessToken, sel.id, { recursive: sel.includeSubfolders === true });
+          // [2026-05-01 Roy] 폴더 선택 시 하위 폴더 모두 재귀 동기화 — Google Drive와 동일 처리.
+          const folderFiles = await scanOneDriveFolder(cfg.accessToken, sel.id, { recursive: true });
           files.push(...folderFiles.map((f) => ({
             name: f.name,
             getFile: () => downloadOneDriveFile(cfg.accessToken!, f),
