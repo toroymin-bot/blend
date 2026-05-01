@@ -156,7 +156,7 @@ export function GoogleDriveFolderModal({ open, accessToken, lang, onPicked, onCa
   return (
     <div
       className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4"
-      onClick={onCancel}
+      onClick={() => { if (!confirming) onCancel(); }}
     >
       <div
         className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
