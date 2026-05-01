@@ -16,6 +16,14 @@ export interface ParsedDocument {
   embeddingModel?: 'openai' | 'google'; // set after generateEmbeddings()
 }
 
+// [2026-05-01] datasource-synced 문서는 internal naming `__source:<id>/<file>`로
+// 저장됨 (source-indexer.ts:sourceTag). LLM 컨텍스트에 raw로 흘러가면 AI가
+// "이게 무슨 ID지?"라고 혼란 → 답변 품질 저하. source-indexer에서 import하면
+// 순환 (source-indexer가 이 파일을 import 중) → inline 정의.
+function stripSourceTag(name: string): string {
+  return name.replace(/^__source:[^/]+\//, '');
+}
+
 // ── Stopwords (Korean + English) ──────────────────────────────────────────────
 
 const STOPWORDS = new Set([
@@ -582,7 +590,7 @@ export async function buildContext(
   if (fastPathDocs.length > 0) {
     const lines = fastPathDocs.map((d) => {
       const fullText = d.chunks.map((c) => c.text).join('\n').slice(0, FAST_PATH_CHAR_LIMIT);
-      return `[source: ${d.name}]\n${fullText}`;
+      return `[source: ${stripSourceTag(d.name)}]\n${fullText}`;
     });
     fastPathBlock =
       `[Fast-path documents — full text injected without embedding search]\n` +
@@ -666,7 +674,7 @@ export async function buildContext(
 
   // ── Build context block ───────────────────────────────────────────────────
   const method = usedSemantic ? 'hybrid search (vector 0.7 + BM25 0.3)' : 'keyword search';
-  const lines = relevant.map((c) => `[source: ${c.source}]\n${c.text}`).join('\n\n---\n\n');
+  const lines = relevant.map((c) => `[source: ${stripSourceTag(c.source)}]\n${c.text}`).join('\n\n---\n\n');
   return (
     `[Document search results: ${relevant.length} chunks (${method})]\n` +
     `Answer based only on the content below. Do not speculate or answer with information not found in the document.\n\n` +
@@ -735,7 +743,7 @@ export function buildFullContext(docs: ParsedDocument[]): FullContextResult {
   if (totalChars <= FULL_CONTEXT_INLINE_CHAR_LIMIT) {
     const blocks = docs.map((d) => {
       const fullText = d.chunks.map((c) => c.text).join('\n');
-      return `[source: ${d.name}]\n${fullText}`;
+      return `[source: ${stripSourceTag(d.name)}]\n${fullText}`;
     });
     const context =
       `[Active sources — full text inlined for whole-file processing]\n` +
@@ -749,7 +757,7 @@ export function buildFullContext(docs: ParsedDocument[]): FullContextResult {
     const flat: Array<{ source: string; text: string }> = [];
     for (const d of docs) {
       for (const c of d.chunks) {
-        flat.push({ source: d.name, text: c.text });
+        flat.push({ source: stripSourceTag(d.name), text: c.text });
       }
     }
     return {
@@ -771,7 +779,7 @@ export function buildMetadataContext(docs: ParsedDocument[]): string {
   const lines = docs.map((d) => {
     const charCount = d.totalChars;
     const chunkCount = d.chunks.length;
-    return `- ${d.name}
+    return `- ${stripSourceTag(d.name)}
   type: ${d.type}
   total characters: ${charCount.toLocaleString()}
   chunks: ${chunkCount}
@@ -779,7 +787,9 @@ export function buildMetadataContext(docs: ParsedDocument[]): string {
   });
   return (
     `[Active sources — metadata]\n` +
-    `Body content is not loaded in this mode. Use only this metadata to answer.\n\n` +
+    `These are the file names and metadata of all currently active documents. ` +
+    `When the user asks "what files are there" or similar listing questions, ` +
+    `answer with this list directly. Body content is not loaded in this mode.\n\n` +
     lines.join('\n')
   );
 }

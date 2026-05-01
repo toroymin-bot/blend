@@ -33,6 +33,12 @@ const METADATA_KEYWORDS_KO = [
   '파일 크기', '파일크기', '용량', '몇 KB', '몇 MB', 'KB', 'MB',
   '언제 만들', '언제 작성', '작성일', '생성일', '수정일',
   '파일 형식', '파일형식', '확장자', '몇 개의 파일', '파일이 몇',
+  // [2026-05-01] file/document listing intent — "어떤 파일들이 있어?" 류
+  '어떤 파일', '무슨 파일', '파일 목록', '파일 리스트',
+  '파일들이 있', '파일이 있',
+  '어떤 문서', '무슨 문서', '문서 목록', '문서 리스트',
+  '문서들이 있', '문서가 있',
+  '뭐가 있', '뭐 있',
 ];
 
 const METADATA_KEYWORDS_EN = [
@@ -40,6 +46,10 @@ const METADATA_KEYWORDS_EN = [
   'file size', 'file size of', 'how big', 'kb', 'mb',
   'when was', 'when did', 'creation date', 'created on', 'modified on',
   'file type', 'file format', 'extension', 'how many files',
+  // [2026-05-01] file/document listing intent
+  'what files', 'which files', 'list files', 'list of files', 'file list',
+  'what documents', 'which documents', 'list documents', 'list of documents',
+  'what\'s in', 'whats in', 'show files', 'show documents',
 ];
 
 function matchesAny(text: string, keywords: string[]): boolean {
