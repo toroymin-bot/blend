@@ -90,9 +90,17 @@ function OneDriveForm({ onAdd }: { onAdd: (cfg: OneDriveConfig, name: string) =>
     if (!ONEDRIVE_CLIENT_ID) { setErr(t('datasources.onedrive_no_client_id')); return; }
     setErr(''); setBusy(true);
     try {
-      const token = await requestOneDriveAccessToken(ONEDRIVE_CLIENT_ID, 'common');
+      // [2026-05-01 Roy] requestOneDriveAccessToken이 객체 반환 — refresh_token + 정확한 expiry 포함
+      const auth = await requestOneDriveAccessToken(ONEDRIVE_CLIENT_ID, 'common');
       onAdd(
-        { type: 'onedrive', clientId: ONEDRIVE_CLIENT_ID, tenantId: 'common', accessToken: token, tokenExpiry: Date.now() + 3600_000 },
+        {
+          type: 'onedrive',
+          clientId: ONEDRIVE_CLIENT_ID,
+          tenantId: auth.tenantId,
+          accessToken: auth.token,
+          tokenExpiry: auth.expiry,
+          refreshToken: auth.refreshToken,
+        },
         'OneDrive'
       );
     } catch (e: unknown) {
