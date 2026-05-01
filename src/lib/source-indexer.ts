@@ -46,6 +46,8 @@ export async function clearSourceDocs(sourceId: string): Promise<void> {
  * @param embeddingProvider - Which provider to use for embeddings
  * @param dirHandle - Required for 'local' type; the FileSystemDirectoryHandle
  * @param onProgress - Optional progress callback
+ * @param signal - Optional AbortSignal — when aborted, the loop stops at the
+ *                 next safe point and the function returns partial results.
  * @returns Number of successfully indexed files
  */
 export async function indexSource(
@@ -53,8 +55,9 @@ export async function indexSource(
   apiKey: string,
   embeddingProvider: 'openai' | 'google',
   dirHandle?: FileSystemDirectoryHandle,
-  onProgress?: ProgressCallback
-): Promise<{ indexed: number; errors: string[] }> {
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal,
+): Promise<{ indexed: number; errors: string[]; cancelled?: boolean }> {
   const progress: IndexProgress = { total: 0, done: 0, current: '', errors: [], stage: 'scanning' };
   const report = () => onProgress?.(structuredClone(progress));
   // [2026-05-01 Roy] 시작 즉시 첫 콜백 — scan 단계라도 UI가 즉시 반응 (이전엔 progress.total=0
@@ -114,6 +117,9 @@ export async function indexSource(
 
   // ── Parse + embed + save each file ───────────────────────────────────────
   for (const f of files) {
+    if (signal?.aborted) {
+      return { indexed: progress.done - progress.errors.length, errors: progress.errors, cancelled: true };
+    }
     progress.current = f.name;
     report();
 

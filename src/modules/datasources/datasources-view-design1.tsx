@@ -7,7 +7,7 @@
  * 기존 useDataSourceStore + OAuth 모듈 재사용.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDataSourceStore } from '@/stores/datasource-store';
 import type { DataSource, DataSourceType, DataSourceSelection } from '@/types';
 // [2026-04-26 Tori 16384118 §3] Picker + Cost preview + Subscribe
@@ -185,6 +185,52 @@ function folderPath(source: DataSource): string {
   return source.name;
 }
 
+// [2026-05-01 Roy] 기술적 에러 메시지 → 사용자 친화 안내 + 대처법
+function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en'): { what: string; how: string } {
+  const e = (raw ?? '').toLowerCase();
+  const ko = lang === 'ko';
+
+  if (/token has expired|reconnect|invalid_grant|invalid_token/.test(e)) {
+    return ko
+      ? { what: '계정 연결이 만료됐어요.', how: "'연결 해제' 후 다시 연결해주세요." }
+      : { what: 'Account connection expired.', how: 'Disconnect and reconnect this source.' };
+  }
+  if (/permission|forbidden|403/.test(e)) {
+    return ko
+      ? { what: '폴더 접근 권한이 없어요.', how: '다시 연결하면서 권한을 허용해주세요.' }
+      : { what: 'Folder access denied.', how: 'Reconnect and approve access.' };
+  }
+  if (/unauthorized|401|api[_ ]?key/.test(e)) {
+    return ko
+      ? { what: 'API 키가 잘못됐어요.', how: '설정 → API 키에서 키를 다시 입력해주세요.' }
+      : { what: 'API key is invalid.', how: 'Re-enter your key in Settings → API keys.' };
+  }
+  if (/rate[_ ]?limit|quota|429/.test(e)) {
+    return ko
+      ? { what: 'API 호출 한도를 초과했어요.', how: '몇 분 후에 다시 시도해주세요.' }
+      : { what: 'API rate limit exceeded.', how: 'Try again in a few minutes.' };
+  }
+  if (/network|fetch|networkerror|failed to fetch/.test(e)) {
+    return ko
+      ? { what: '네트워크 연결에 문제가 있어요.', how: 'Wi-Fi 또는 데이터 연결을 확인하고 다시 시도해주세요.' }
+      : { what: 'Network problem.', how: 'Check your connection and retry.' };
+  }
+  if (/missing/.test(e)) {
+    return ko
+      ? { what: '폴더가 더 이상 없거나 접근할 수 없어요.', how: '폴더가 삭제됐을 수 있어요. 다시 연결해주세요.' }
+      : { what: 'Folder is no longer accessible.', how: 'It may have been deleted. Reconnect to refresh.' };
+  }
+  if (/files? failed/.test(e)) {
+    return ko
+      ? { what: '일부 파일을 처리하지 못했어요.', how: '다시 동기화하거나, 지원되지 않는 파일이 섞여 있을 수 있어요.' }
+      : { what: 'Some files could not be processed.', how: 'Retry sync — unsupported files may be mixed in.' };
+  }
+  // fallback — 원문 살짝 노출 (디버깅 도움)
+  return ko
+    ? { what: '동기화 중 문제가 생겼어요.', how: '다시 시도해주세요. 계속되면 연결을 해제하고 다시 연결해보세요.' }
+    : { what: 'Something went wrong during sync.', how: 'Retry, or disconnect and reconnect this source.' };
+}
+
 // ── Main view ────────────────────────────────────────────────────
 export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const t = copy[lang];
@@ -225,6 +271,8 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const [reconnectTargetId, setReconnectTargetId] = useState<string | null>(null);
   // [2026-04-30 Roy progress] 동기화 진행률 (sourceId → IndexProgress)
   const [syncProgress, setSyncProgress] = useState<Record<string, IndexProgress>>({});
+  // [2026-05-01 Roy cancel] 동기화 중 취소 — sourceId → AbortController
+  const abortControllers = useRef<Map<string, AbortController>>(new Map());
   const getKey = useAPIKeyStore((s) => s.getKey);
   const getHandle = useDataSourceStore((s) => s.getHandle);
   const reloadDocs = useDocumentStore((s) => s.loadFromDB);
@@ -262,11 +310,17 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
 
   // [2026-04-30 Roy] 동기화 — scan만 X. 실제 indexSource()로 download → parse → embed → save.
   // 프로그레스 콜백으로 0~100% 실시간 업데이트.
+  // [2026-05-01 Roy cancel] AbortController로 중간 취소 가능.
   async function runSync(source: DataSource) {
+    // 같은 source에 이전 진행 있으면 abort
+    abortControllers.current.get(source.id)?.abort();
+    const ctrl = new AbortController();
+    abortControllers.current.set(source.id, ctrl);
+
     setStatus(source.id, 'syncing');
     setSyncProgress((prev) => ({
       ...prev,
-      [source.id]: { total: 0, done: 0, current: '', errors: [] },
+      [source.id]: { total: 0, done: 0, current: '', errors: [], stage: 'scanning' },
     }));
 
     try {
@@ -301,7 +355,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
         dirHandle = handle;
       }
 
-      const { indexed, errors } = await indexSource(
+      const result = await indexSource(
         source,
         embeddingKey,
         embeddingProvider,
@@ -317,7 +371,15 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
             });
           }
         },
+        ctrl.signal,
       );
+      const { indexed, errors } = result;
+
+      // 사용자 취소면 idle로 복귀하고 종료
+      if (result.cancelled) {
+        setStatus(source.id, 'idle');
+        return;
+      }
 
       // 로컬은 snapshot도 갱신 (변경 감지 baseline)
       if (source.config.type === 'local' && dirHandle) {
@@ -343,11 +405,21 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
       const msg = e instanceof Error ? e.message : 'Sync failed';
       setStatus(source.id, 'error', msg);
     } finally {
+      abortControllers.current.delete(source.id);
       // 완료 후 800ms 뒤 progress 모달 정리 (사용자가 100% 잠시 인지)
       setTimeout(() => {
         setSyncProgress((prev) => { const next = { ...prev }; delete next[source.id]; return next; });
       }, 800);
     }
+  }
+
+  // [2026-05-01 Roy cancel] 진행 중 동기화 취소
+  function cancelSync(sourceId: string) {
+    const ctrl = abortControllers.current.get(sourceId);
+    if (ctrl) ctrl.abort();
+    abortControllers.current.delete(sourceId);
+    setStatus(sourceId, 'idle');
+    setSyncProgress((prev) => { const next = { ...prev }; delete next[sourceId]; return next; });
   }
 
   // [2026-04-29 Tori 19857410] 로컬 권한 만료 후 재연결 — 같은 source.id 유지하면서
@@ -565,6 +637,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
                     progress={syncProgress[s.id]}
                     onDisconnect={() => setConfirmDel(s.id)}
                     onSync={() => runSync(s)}
+                    onCancel={() => cancelSync(s.id)}
                     onReconnect={s.config.type === 'local' ? () => runReconnectLocal(s) : undefined}
                   />
                 </li>
@@ -720,7 +793,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
 // ── Subcomponents ────────────────────────────────────────────────
 
 function ConnectedCard({
-  source, t, lang, progress, onDisconnect, onSync, onReconnect,
+  source, t, lang, progress, onDisconnect, onSync, onCancel, onReconnect,
 }: {
   source: DataSource;
   t: typeof copy[keyof typeof copy];
@@ -728,6 +801,7 @@ function ConnectedCard({
   progress?: IndexProgress;
   onDisconnect: () => void;
   onSync: () => void;
+  onCancel: () => void;
   onReconnect?: () => void;
 }) {
   const icon = ICON_BY_TYPE[source.type] ?? '📁';
@@ -737,9 +811,31 @@ function ConnectedCard({
   const needsResel = isLocal && (source.config as { needsReselection?: boolean }).needsReselection === true;
   // [2026-04-30 Roy progress] 동기화 중일 때 0~100% 진행률
   const isSyncing = status === 'syncing';
-  const pct = progress && progress.total > 0
+  const indexingPct = progress && progress.total > 0
     ? Math.round((progress.done / progress.total) * 100)
     : (typeof source.syncProgress === 'number' ? source.syncProgress : 0);
+
+  // [2026-05-01 Roy] scan 단계는 progress.total=0이라 % 측정 불가 — 시간 기반 부드러운
+  // 진행률 (0→90%까지 점진적 ease-out). 90%에서 멈추고 indexing 시작 시 0→100% 갱신.
+  const stage = progress?.stage;
+  const isScanning = stage === 'scanning' || (isSyncing && (progress?.total ?? 0) === 0);
+  const [scanPct, setScanPct] = useState(0);
+  useEffect(() => {
+    if (!isScanning) { setScanPct(0); return; }
+    const startedAt = Date.now();
+    const id = setInterval(() => {
+      const elapsed = (Date.now() - startedAt) / 1000;
+      let p = 0;
+      if (elapsed < 5) p = (elapsed / 5) * 30;            // 0→30% in 5s
+      else if (elapsed < 15) p = 30 + ((elapsed - 5) / 10) * 40;  // 30→70% in 10s
+      else if (elapsed < 30) p = 70 + ((elapsed - 15) / 15) * 20; // 70→90% in 15s
+      else p = 90;                                         // hold at 90%
+      setScanPct(Math.min(90, Math.round(p)));
+    }, 200);
+    return () => clearInterval(id);
+  }, [isScanning]);
+
+  const pct = isScanning ? scanPct : indexingPct;
   return (
     <div
       className="rounded-2xl border p-5"
@@ -801,27 +897,37 @@ function ConnectedCard({
         </div>
       )}
 
-      {/* [2026-04-30 Roy progress] 동기화 중 — 미니멀 프로그레스 바 + 현재 파일 + % */}
-      {/* [2026-05-01 Roy] stage='scanning'(파일 목록 검색)도 명시 표시 */}
-      {isSyncing && (() => {
-        const stage = progress?.stage;
-        const isScanning = stage === 'scanning' || (progress?.total ?? 0) === 0;
-        const leftLabel = isScanning
-          ? (lang === 'ko' ? '파일 목록 검색 중…' : 'Scanning files…')
-          : (progress?.current || (t.syncing + '…'));
-        const rightLabel = isScanning
-          ? (lang === 'ko' ? '잠시만요' : 'just a moment')
-          : (progress && progress.total > 0
-              ? `${progress.done} / ${progress.total} · ${pct}%`
-              : `${pct}%`);
+      {/* [2026-05-01 Roy] status='error'면 카드 안에 친절한 안내 + 대처법 */}
+      {status === 'error' && source.error && (() => {
+        const { what, how } = friendlyDataSourceError(source.error, lang);
         return (
+          <div
+            className="mt-3 rounded-lg px-3 py-2.5 text-[12px]"
+            style={{ background: 'rgba(204,68,68,0.08)', color: tokens.text }}
+          >
+            <div className="font-medium" style={{ color: tokens.danger }}>{what}</div>
+            <div className="mt-0.5" style={{ color: tokens.textDim }}>{how}</div>
+          </div>
+        );
+      })()}
+
+      {/* [2026-04-30 Roy] 동기화 중 — 진행률 바 + 라벨 + 취소 버튼.
+          [2026-05-01 Roy] scan 단계(stage='scanning')는 시간 기반 0→90% 부드러운 진행
+          + indexing 단계는 done/total 기반 정확한 %. */}
+      {isSyncing && (
         <div className="mt-3" aria-live="polite">
           <div className="flex items-baseline justify-between gap-3 text-[11.5px] tabular-nums" style={{ color: tokens.textDim }}>
             <span className="truncate" title={progress?.current ?? ''}>
-              {leftLabel}
+              {isScanning
+                ? (lang === 'ko' ? '파일 목록 검색 중…' : 'Scanning files…')
+                : (progress?.current || (t.syncing + '…'))}
             </span>
             <span className="shrink-0" style={{ color: tokens.text, fontWeight: 500 }}>
-              {rightLabel}
+              {isScanning
+                ? `${pct}%`
+                : (progress && progress.total > 0
+                    ? `${progress.done} / ${progress.total} · ${pct}%`
+                    : `${pct}%`)}
             </span>
           </div>
           <div
@@ -829,10 +935,9 @@ function ConnectedCard({
             style={{ background: tokens.surfaceAlt }}
           >
             <div
-              className={`h-full rounded-full transition-[width] duration-300 ease-out ${(isScanning || pct === 0) ? 'animate-pulse' : ''}`}
+              className="h-full rounded-full transition-[width] duration-300 ease-out"
               style={{
-                // scan 단계 또는 indexing 0%일 때 얇은 indicator (8%)로 indeterminate 느낌
-                width: `${(isScanning || pct === 0) ? 8 : pct}%`,
+                width: `${pct}%`,
                 background: tokens.accent,
               }}
             />
@@ -843,8 +948,7 @@ function ConnectedCard({
             </div>
           )}
         </div>
-        );
-      })()}
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {status === 'permission_required' && onReconnect ? (
@@ -856,15 +960,24 @@ function ConnectedCard({
           >
             {t.reconnect}
           </button>
+        ) : isSyncing ? (
+          // [2026-05-01 Roy] 동기화 중엔 [동기화 취소] 버튼 노출
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md px-3 py-1.5 text-[12px] transition-colors hover:bg-black/5"
+            style={{ background: tokens.surfaceAlt, color: tokens.danger }}
+          >
+            {lang === 'ko' ? '동기화 취소' : 'Cancel sync'}
+          </button>
         ) : (
           <button
             type="button"
             onClick={onSync}
-            disabled={isSyncing}
             className="rounded-md px-3 py-1.5 text-[12px] transition-colors"
-            style={{ background: tokens.surfaceAlt, color: tokens.text, opacity: isSyncing ? 0.5 : 1, cursor: isSyncing ? 'not-allowed' : 'pointer' }}
+            style={{ background: tokens.surfaceAlt, color: tokens.text }}
           >
-            {isSyncing ? `${t.syncing}…` : t.sync}
+            {t.sync}
           </button>
         )}
         <button
