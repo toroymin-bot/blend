@@ -49,13 +49,17 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    // [2026-05-01 Roy] 라이트 모드 only — iOS status bar 라이트 톤. 'default'는
+    // 시스템 라이트 (검은 글씨, 흰 배경) — 라이트 테마와 일치.
+    statusBarStyle: "default",
     title: "Blend",
   },
+  // [2026-05-01 Roy] 라이트 모드 only — iOS status bar / 브라우저 toolbar 색상도
+  // 라이트로. 이전엔 dark(#0f1117)였는데 layout이 라이트로 렌더되며 'dark→light
+  // flash' 유발했음. theme-color는 라이트 배경(#fafaf9)과 일치.
   other: {
     "mobile-web-app-capable": "yes",
-    "theme-color": "#0f1117",
-    // KO description for SEO crawlers that read meta name="description:ko"
+    "theme-color": "#fafaf9",
     "description:ko": SITE_DESC_KO,
   },
 };
@@ -74,7 +78,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="dark"
+      // [2026-05-01 Roy] 라이트 모드 only — SSR HTML에 light로 박아 dark→light
+      // flash 제거. 이전 'dark'는 ThemeProvider useEffect가 늦게 light로 바꿔서
+      // 첫 페인트 직후 잠깐 다크 보이는 문제 있었음.
+      data-theme="light"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >

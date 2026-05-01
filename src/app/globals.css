@@ -1,29 +1,31 @@
 @import "tailwindcss";
 @import "highlight.js/styles/github-dark.css";
 
-/* Roy 결정 (2026-04-25): 테마 폐기 — 라이트 모드 강제. 시스템 다크 모드 무시. */
+/* Roy 결정 (2026-04-25): 테마 폐기 — 라이트 모드 only.
+ * [2026-05-01 Roy] dark default 제거 — :root에 라이트 색상값을 박아 SSR 첫 페인트
+ * 부터 라이트로 렌더. 이전엔 :root가 다크 색상 + ThemeProvider useEffect가 늦게
+ * light 적용 → 'dark→light flash' 유발. 이제 SSR/CSR/시스템 다크 모드 모두 라이트.
+ * [data-theme="dark"] 블록 완전 제거. [data-theme="light"]은 backward compat 유지. */
 :root {
   color-scheme: light;
-}
 
-:root {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #252525;
-  --bg-tertiary: #333333;
-  --text-primary: #ebebeb;
-  --text-secondary: #8a8a8e;
-  --accent: #4a90e2;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f4f6;
+  --bg-tertiary: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --accent: #2563eb;
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
 
-  /* Design token CSS variables (dark default) */
-  --surface: #1a1a1a;
-  --surface-2: #252525;
-  --on-surface: #ebebeb;
-  --on-surface-muted: #adadb2;
-  --border: #3a3a3a;
-  --accent-token: #4a90e2;
+  /* Design token CSS variables (light) */
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --on-surface: #111827;
+  --on-surface-muted: #6b7280;
+  --border: #e5e7eb;
+  --accent-token: #2563eb;
 
-  /* D1 design tokens — light defaults (data-theme 미설정 시 fallback) */
+  /* D1 design tokens — Tori 라이트 (운영 중 토큰) */
   --d1-bg:           #fafaf9;
   --d1-surface:      #ffffff;
   --d1-surface-alt:  #f5f4f2;
@@ -46,47 +48,8 @@
   --d1-overlay-modal:  rgba(10, 10, 10, 0.32);
 }
 
-/* Dark theme (default) */
-[data-theme="dark"] {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #252525;
-  --bg-tertiary: #333333;
-  --text-primary: #ebebeb;
-  --text-secondary: #adadb2;
-  --accent: #4a90e2;
-
-  /* Design token CSS variables */
-  --surface: #1a1a1a;
-  --surface-2: #252525;
-  --on-surface: #ebebeb;
-  --on-surface-muted: #adadb2;
-  --border: #3a3a3a;
-  --accent-token: #4a90e2;
-
-  /* D1 design tokens — Tori 명세 (Claude.ai 따뜻한 다크 + 블렌드 정합) */
-  --d1-bg:           #1a1816;
-  --d1-surface:      #252321;
-  --d1-surface-alt:  #2f2c29;
-  --d1-surface2:     #2f2c29;
-  --d1-text:         #f5f4f2;
-  --d1-text-dim:     #a8a49b;
-  --d1-text-faint:   #6b6862;
-  --d1-accent:       #e87a5c;
-  --d1-accent-soft:  rgba(232, 122, 92, 0.12);
-  --d1-accent-mid:   rgba(232, 122, 92, 0.20);
-  --d1-border:       rgba(255, 255, 255, 0.08);
-  --d1-border-mid:   rgba(255, 255, 255, 0.12);
-  --d1-border-strong:rgba(255, 255, 255, 0.14);
-  --d1-danger:       #ef4444;
-  --d1-danger-soft:  rgba(239, 68, 68, 0.12);
-  --d1-success:      #2dd4a8;
-  --d1-shadow-card:    none;
-  --d1-shadow-dropdown:0 8px 24px rgba(0, 0, 0, 0.4);
-  --d1-shadow-modal:   0 24px 80px rgba(0, 0, 0, 0.6);
-  --d1-overlay-modal:  rgba(0, 0, 0, 0.6);
-}
-
-/* Light theme */
+/* [2026-05-01 Roy] [data-theme="light"]은 :root와 동일 — backward compat 유지.
+ * (외부 코드가 [data-theme="light"] selector를 직접 참조할 수 있으므로 안전.) */
 [data-theme="light"] {
   --bg-primary: #ffffff;
   --bg-secondary: #f3f4f6;
@@ -94,16 +57,12 @@
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --accent: #2563eb;
-
-  /* Design token CSS variables */
   --surface: #ffffff;
   --surface-2: #f3f4f6;
   --on-surface: #111827;
   --on-surface-muted: #6b7280;
   --border: #e5e7eb;
   --accent-token: #2563eb;
-
-  /* D1 design tokens — Tori 라이트 (운영 중 토큰 그대로) */
   --d1-bg:           #fafaf9;
   --d1-surface:      #ffffff;
   --d1-surface-alt:  #f5f4f2;

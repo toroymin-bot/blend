@@ -8,7 +8,7 @@ import { useUsageStore } from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { AIProvider } from '@/types';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Check, X, Key, Download, Upload, Sun, Moon, BookMarked, Plus, Cpu, Trash2, ExternalLink, Loader, AlertCircle, HelpCircle, Globe } from 'lucide-react';
+import { Eye, EyeOff, Check, X, Key, Download, Upload, BookMarked, Plus, Cpu, Trash2, ExternalLink, Loader, AlertCircle, HelpCircle, Globe } from 'lucide-react';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 import { useTranslation } from '@/lib/i18n';
 
@@ -496,34 +496,9 @@ export function SettingsView() {
           )}
         </section>
 
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-on-surface mb-4">{t('settings.theme')}</h2>
-          <div className="bg-surface-2 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-on-surface">{t('settings.color_theme')}</span>
-              <div className="flex gap-1">
-                {(['light', 'dark', 'system'] as const).map((theme) => (
-                  <button
-                    key={theme}
-                    onClick={() => updateSettings({ theme })}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      settings.theme === theme
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'
-                    }`}
-                  >
-                    {theme === 'light' && <Sun size={12} />}
-                    {theme === 'dark' && <Moon size={12} />}
-                    {theme === 'light' ? t('settings.light') : theme === 'dark' ? t('settings.dark') : t('settings.system')}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <p className="text-xs text-on-surface-muted">
-              {settings.theme === 'system' ? t('settings.theme_system') : settings.theme === 'light' ? t('settings.theme_light') : t('settings.theme_dark')}
-            </p>
-          </div>
-        </section>
+        {/* [2026-05-01 Roy] Theme 섹션 제거 — 라이트 모드 only (design1과 일관성).
+         * dark/system 옵션 폐기. 'theme' 키는 settings store에 남아있을 수 있지만
+         * 사용자에게 노출되는 토글 UI는 제거. */}
 
         {/* ── Language Selector ── */}
         <section className="mb-8">
