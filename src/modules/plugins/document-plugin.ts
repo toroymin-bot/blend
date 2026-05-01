@@ -277,11 +277,16 @@ export async function generateEmbeddings(
  * [2026-05-01 Roy] parseDocument 옵션 — 이미지 PDF/parse 실패 시 OCR fallback에
  * 쓸 API 키. 동일한 키로 임베딩도 생성. 파라미터는 모두 optional이라 기존 호출자
  * (`parseDocument(file)`)는 깨지지 않음.
+ *
+ * onSubProgress: PDF 페이지 parsing/OCR 등 파일 내부 단계 진행을 caller에게 알림.
+ *   sync-runner의 syncCurrent 라벨을 갱신해 사용자에게 'OCR 중'을 즉시 보여줌.
+ *   이전엔 파일 단위만 갱신돼 OCR 동안 화면이 멈춰 보였음.
  */
 export interface ParseDocumentOptions {
   apiKey?: string;
   provider?: 'openai' | 'google';
   signal?: AbortSignal;
+  onSubProgress?: (label: string) => void;
 }
 
 /** Parse a file and split into searchable chunks */
@@ -539,7 +544,7 @@ async function parsePdf(file: File, opts?: ParseDocumentOptions): Promise<Docume
 
     if (ocrAvailable) {
       try {
-        const ocrChunks = await ocrPdfPages(pdf, file.name, opts!.apiKey!, opts!.provider!, opts?.signal);
+        const ocrChunks = await ocrPdfPages(pdf, file.name, opts!.apiKey!, opts!.provider!, opts?.signal, opts?.onSubProgress);
         if (ocrChunks.length > 0 && ocrChunks.some((c) => !c.text.startsWith('[OCR-FAILED]'))) {
           // OCR 성공 — 일부라도 텍스트 추출됨.
           chunks.push(...ocrChunks);
@@ -596,7 +601,7 @@ async function parsePdf(file: File, opts?: ParseDocumentOptions): Promise<Docume
 // e-Ticket 같은 한국 항공권 image PDF, 스캔본 계약서 등에 효과적.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function ocrPdfPages(pdf: any, fileName: string, apiKey: string, provider: 'openai' | 'google', signal?: AbortSignal): Promise<DocumentChunk[]> {
+async function ocrPdfPages(pdf: any, fileName: string, apiKey: string, provider: 'openai' | 'google', signal?: AbortSignal, onSubProgress?: (label: string) => void): Promise<DocumentChunk[]> {
   const ocrPages = Math.min(pdf.numPages, OCR_MAX_PAGES);
   const chunks: DocumentChunk[] = [];
   let firstErr: string | undefined;
@@ -604,6 +609,10 @@ async function ocrPdfPages(pdf: any, fileName: string, apiKey: string, provider:
 
   for (let p = 1; p <= ocrPages; p++) {
     if (signal?.aborted) throw new DOMException('OCR aborted', 'AbortError');
+    // [2026-05-01 Roy] OCR 진행률을 caller에 알림 — 사용자가 화면 멈춤이 아니라
+    // 'OCR 처리 중'임을 알 수 있게. ocrPdfPages 단독으론 모르므로 caller가 file
+    // context까지 라벨에 합성. 여기선 페이지 진행만 보고.
+    onSubProgress?.(`🔍 OCR ${fileName} (${p}/${ocrPages}p)`);
     let pngDataUrl: string;
     try {
       const page = await pdf.getPage(p);

@@ -1,18 +1,24 @@
 'use client';
 
-// OneDrive 폴더 선택 모달 — Microsoft Graph API 기반 자체 picker UI.
+// OneDrive 폴더+파일 선택 모달 — Microsoft Graph API 기반 자체 picker UI.
 // popup picker SDK가 모바일에서 불안정해 자체 모달로 대체.
-// 사용자 OneDrive 루트의 1단계 폴더를 fetch해 다중 선택.
+// 사용자 OneDrive 루트의 1단계 폴더와 지원 파일을 fetch해 다중 선택.
+//
+// [2026-05-01 Roy] 폴더만이 아니라 파일도 선택 가능 — 사용자 명시 요청.
 
-import { useEffect, useState } from 'react';
-import { makeSelection } from '@/modules/datasources/pickers/picker-shared';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  isAllowedExtension,
+  makeSelection,
+} from '@/modules/datasources/pickers/picker-shared';
 import type { DataSourceSelection } from '@/types';
 
-interface OneDriveFolder {
+interface OneDriveItem {
   id: string;
   name: string;
   size?: number;
   folder?: { childCount?: number };
+  file?: { mimeType?: string };
 }
 
 interface Props {
@@ -25,32 +31,48 @@ interface Props {
 
 const t = {
   ko: {
-    title: 'OneDrive 폴더 선택',
-    desc: 'AI가 참고할 폴더를 골라주세요. 여러 개 선택할 수 있어요.',
-    loading: '폴더를 불러오고 있어요…',
-    empty: 'OneDrive에 폴더가 없어요. 먼저 OneDrive에서 폴더를 만들어주세요.',
-    error: '폴더를 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
+    title: 'OneDrive 항목 선택',
+    desc: 'AI가 참고할 폴더 또는 파일을 골라주세요. 여러 개 선택할 수 있어요.',
+    loading: '불러오고 있어요…',
+    empty: 'OneDrive에 항목이 없어요. (지원: PDF · DOCX · TXT · MD · CSV · XLSX)',
+    error: '항목을 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
     cancel: '취소',
     done: '선택 완료',
     selected: (n: number) => `${n}개 선택`,
     files: (n: number) => `${n}개 파일`,
+    sectionFolders: '폴더',
+    sectionFiles: '파일',
   },
   en: {
-    title: 'Choose OneDrive folders',
-    desc: 'Pick folders for AI to reference. You can select multiple.',
-    loading: 'Loading folders…',
-    empty: 'No folders found in OneDrive. Create a folder in OneDrive first.',
-    error: 'Could not load folders. Please try again in a moment.',
+    title: 'Choose OneDrive items',
+    desc: 'Pick folders or files for AI to reference. You can select multiple.',
+    loading: 'Loading…',
+    empty: 'Nothing found in OneDrive. (Supported: PDF · DOCX · TXT · MD · CSV · XLSX)',
+    error: 'Could not load items. Please try again in a moment.',
     cancel: 'Cancel',
     done: 'Done',
     selected: (n: number) => `${n} selected`,
     files: (n: number) => `${n} files`,
+    sectionFolders: 'Folders',
+    sectionFiles: 'Files',
   },
 };
 
+function fmtBytes(n?: number): string {
+  if (!n || isNaN(n)) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function extOf(name: string): string {
+  return name.split('.').pop()?.toLowerCase() ?? '';
+}
+
 export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCancel }: Props) {
   const c = t[lang];
-  const [folders, setFolders] = useState<OneDriveFolder[]>([]);
+  const [items, setItems] = useState<OneDriveItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errored, setErrored] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -63,15 +85,22 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
     setErrored(false);
     setSelectedIds(new Set());
 
+    // [2026-05-01 Roy] $filter 제거 — folder + file 둘 다 받아 클라이언트에서 ext 필터.
+    // (Graph API의 OR 조건 filter가 복잡해 클라 필터가 단순+안정.)
     fetch(
-      'https://graph.microsoft.com/v1.0/me/drive/root/children?$select=id,name,size,folder&$filter=folder ne null&$top=200',
+      'https://graph.microsoft.com/v1.0/me/drive/root/children?$select=id,name,size,folder,file&$top=500&$orderby=folder,name',
       { headers: { Authorization: `Bearer ${accessToken}` } },
     )
       .then(async (r) => {
         if (!r.ok) throw new Error(`graph ${r.status}`);
-        const data = (await r.json()) as { value?: OneDriveFolder[] };
+        const data = (await r.json()) as { value?: OneDriveItem[] };
         if (cancelled) return;
-        setFolders(data.value ?? []);
+        const filtered = (data.value ?? []).filter((x) => {
+          if (x.folder) return true;
+          if (x.file) return isAllowedExtension(x.name);
+          return false;
+        });
+        setItems(filtered);
         setLoading(false);
       })
       .catch(() => {
@@ -85,6 +114,13 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
     };
   }, [open, accessToken]);
 
+  const { folders, files } = useMemo(() => {
+    return {
+      folders: items.filter((x) => !!x.folder),
+      files: items.filter((x) => !x.folder && !!x.file),
+    };
+  }, [items]);
+
   if (!open) return null;
 
   const toggle = (id: string) =>
@@ -96,15 +132,15 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
     });
 
   const handleDone = async () => {
-    const picked = folders.filter((f) => selectedIds.has(f.id));
+    const picked = items.filter((f) => selectedIds.has(f.id));
     if (!accessToken) return;
     setConfirming(true);
-    // [2026-05-01 Roy v2] 1단계 children만 fetch — 재귀 scan은 모바일에서 너무 오래 걸려
-    // picker가 멈춘 것처럼 보이고 사용자가 답답해 화면 이탈 → 빈 화면 인지.
-    // 정확한 카운트는 trade-off로 포기 (cost preview에 '하위 폴더 포함 시 더 많을 수 있음'
-    // 안내). 재귀 sync는 source-indexer.ts에서 그대로 동작.
+    // 폴더는 1단계 children만 fetch해서 stats 추정. 파일은 자체 size.
     const stats = await Promise.all(
       picked.map(async (f) => {
+        if (!f.folder) {
+          return { fileCount: 1, approxBytes: f.size ?? 0 };
+        }
         try {
           const r = await fetch(
             `https://graph.microsoft.com/v1.0/me/drive/items/${f.id}/children?$top=1000&$select=id,size,file,folder`,
@@ -112,9 +148,9 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
           );
           if (!r.ok) return { fileCount: 0, approxBytes: 0 };
           const data = (await r.json()) as { value?: Array<{ size?: number; file?: object; folder?: object }> };
-          const items = (data.value ?? []).filter((x) => x.file && !x.folder);
-          const approxBytes = items.reduce((sum, x) => sum + (x.size ?? 0), 0);
-          return { fileCount: items.length, approxBytes };
+          const child = (data.value ?? []).filter((x) => x.file && !x.folder);
+          const approxBytes = child.reduce((sum, x) => sum + (x.size ?? 0), 0);
+          return { fileCount: child.length, approxBytes };
         } catch {
           return { fileCount: 0, approxBytes: 0 };
         }
@@ -123,7 +159,7 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
     const selections = picked.map((f, i) =>
       makeSelection({
         id: f.id,
-        kind: 'folder',
+        kind: f.folder ? 'folder' : 'file',
         name: f.name,
         path: f.name,
         fileCount: stats[i].fileCount,
@@ -133,6 +169,8 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
     setConfirming(false);
     onPicked(selections);
   };
+
+  const isEmpty = !loading && !errored && folders.length === 0 && files.length === 0;
 
   return (
     <div
@@ -166,39 +204,91 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
               {c.error}
             </div>
           )}
-          {!loading && !errored && folders.length === 0 && (
+          {isEmpty && (
             <div className="px-4 py-8 text-center text-[13px]" style={{ color: 'var(--d1-text-dim)' }}>
               {c.empty}
             </div>
           )}
-          {!loading && !errored && folders.length > 0 && (
-            <ul className="divide-y" style={{ borderColor: 'var(--d1-border)' }}>
-              {folders.map((f) => {
-                const checked = selectedIds.has(f.id);
-                return (
-                  <li key={f.id}>
-                    <label
-                      className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-black/5"
-                      style={{ borderColor: 'var(--d1-border)' }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggle(f.id)}
-                        className="h-4 w-4"
-                      />
-                      <span aria-hidden>📁</span>
-                      <span className="flex-1 truncate text-[14px]">{f.name}</span>
-                      {typeof f.folder?.childCount === 'number' && (
-                        <span className="text-[12px]" style={{ color: 'var(--d1-text-faint)' }}>
-                          {c.files(f.folder.childCount)}
-                        </span>
-                      )}
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
+          {!loading && !errored && (folders.length > 0 || files.length > 0) && (
+            <div>
+              {folders.length > 0 && (
+                <>
+                  <div
+                    className="px-4 py-1.5 text-[11px] font-medium uppercase tracking-[0.05em]"
+                    style={{ background: 'var(--d1-surface-alt)', color: 'var(--d1-text-faint)' }}
+                  >
+                    {c.sectionFolders} · {folders.length}
+                  </div>
+                  <ul className="divide-y" style={{ borderColor: 'var(--d1-border)' }}>
+                    {folders.map((f) => {
+                      const checked = selectedIds.has(f.id);
+                      return (
+                        <li key={f.id}>
+                          <label className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-black/5">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggle(f.id)}
+                              className="h-4 w-4"
+                            />
+                            <span aria-hidden>📁</span>
+                            <span className="flex-1 truncate text-[14px]">{f.name}</span>
+                            {typeof f.folder?.childCount === 'number' && (
+                              <span className="text-[12px]" style={{ color: 'var(--d1-text-faint)' }}>
+                                {c.files(f.folder.childCount)}
+                              </span>
+                            )}
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+              {files.length > 0 && (
+                <>
+                  <div
+                    className="px-4 py-1.5 text-[11px] font-medium uppercase tracking-[0.05em]"
+                    style={{ background: 'var(--d1-surface-alt)', color: 'var(--d1-text-faint)' }}
+                  >
+                    {c.sectionFiles} · {files.length}
+                  </div>
+                  <ul className="divide-y" style={{ borderColor: 'var(--d1-border)' }}>
+                    {files.map((f) => {
+                      const checked = selectedIds.has(f.id);
+                      const ext = extOf(f.name);
+                      return (
+                        <li key={f.id}>
+                          <label className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-black/5">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggle(f.id)}
+                              className="h-4 w-4"
+                            />
+                            <span aria-hidden>📄</span>
+                            <span className="flex-1 truncate text-[14px]">{f.name}</span>
+                            {ext && (
+                              <span
+                                className="rounded-md px-1.5 py-0.5 text-[10px] font-medium uppercase"
+                                style={{ background: 'var(--d1-accent-soft)', color: 'var(--d1-accent)' }}
+                              >
+                                {ext}
+                              </span>
+                            )}
+                            {f.size && (
+                              <span className="text-[11px] tabular-nums" style={{ color: 'var(--d1-text-faint)' }}>
+                                {fmtBytes(f.size)}
+                              </span>
+                            )}
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+            </div>
           )}
         </div>
 

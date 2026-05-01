@@ -229,31 +229,54 @@ export async function indexSource(
     report();
 
     try {
-      const rawFile = await f.getFile();
-      // [2026-05-01 Roy] parseDocument에 apiKey/provider/signal 전달 — image PDF
-      // 자동 OCR fallback (vision API). 같은 임베딩 키 재사용해 추가 키 없음.
-      let doc: ParsedDocument = await parseDocument(rawFile, {
-        apiKey,
-        provider: embeddingProvider,
-        signal,
-      });
+      // [2026-05-01 Roy] file-level hard timeout — 한 파일이 300초(5분) 넘게
+      // 처리되면 abort. 이전엔 OCR 무한 대기 / 임베딩 hang으로 sync 전체가
+      // 멈춘 것처럼 보임. AbortController 생성해 user signal과 합성 →
+      // timeout 시 그 파일만 error로 기록하고 다음 파일로 진행.
+      const FILE_TIMEOUT_MS = 300_000;
+      const fileCtrl = new AbortController();
+      const tid = setTimeout(() => fileCtrl.abort(new DOMException('File processing exceeded 5 min', 'TimeoutError')), FILE_TIMEOUT_MS);
+      // user signal abort 시 file ctrl도 abort.
+      const onUserAbort = () => fileCtrl.abort();
+      signal?.addEventListener('abort', onUserAbort, { once: true });
 
-      // Prefix the doc name with source tag so we can identify it later
-      doc = { ...doc, name: `${sourceTag(source.id)}/${f.name}` };
+      try {
+        const rawFile = await f.getFile();
+        // [2026-05-01 Roy] parseDocument에 apiKey/provider/signal/onSubProgress 전달
+        //   - image PDF 자동 OCR fallback (vision API)
+        //   - OCR 페이지별 진행률을 progress.current에 즉시 반영해 UI 멈춤 방지
+        let doc: ParsedDocument = await parseDocument(rawFile, {
+          apiKey,
+          provider: embeddingProvider,
+          signal: fileCtrl.signal,
+          onSubProgress: (label) => {
+            progress.current = label;
+            report();
+          },
+        });
 
-      // Generate embeddings if API key available
-      if (apiKey) {
-        // [2026-05-01 Roy] signal 전달 — fetch에 AbortSignal+90s timeout 적용해
-        // OpenAI/Google API hang 시 자동 abort. 이전엔 무한 대기였음.
-        doc = await generateEmbeddings(doc, apiKey, embeddingProvider, undefined, signal);
-      }
+        // Prefix the doc name with source tag so we can identify it later
+        doc = { ...doc, name: `${sourceTag(source.id)}/${f.name}` };
 
-      await saveDocument(doc);
-      // [2026-04-13] BUG-010: datasource 동기화 후 activeDocIds에 추가 누락 → RAG 검색 안 됨
-      // saveDocument()만 호출하면 IndexedDB에 저장되지만 active 목록에는 없어서 buildContext()가 무시
-      const currentActive = await getActiveDocIds();
-      if (!currentActive.includes(doc.id)) {
-        await setActiveDocIds([...currentActive, doc.id]);
+        // Generate embeddings if API key available
+        if (apiKey) {
+          // [2026-05-01 Roy] file-level fileCtrl.signal 사용 — 한 파일 5분
+          // timeout이 임베딩 fetch에도 적용되어 hang 방지.
+          progress.current = `🧮 임베딩 ${f.name}`;
+          report();
+          doc = await generateEmbeddings(doc, apiKey, embeddingProvider, undefined, fileCtrl.signal);
+        }
+
+        await saveDocument(doc);
+        // [2026-04-13] BUG-010: datasource 동기화 후 activeDocIds에 추가 누락 → RAG 검색 안 됨
+        // saveDocument()만 호출하면 IndexedDB에 저장되지만 active 목록에는 없어서 buildContext()가 무시
+        const currentActive = await getActiveDocIds();
+        if (!currentActive.includes(doc.id)) {
+          await setActiveDocIds([...currentActive, doc.id]);
+        }
+      } finally {
+        clearTimeout(tid);
+        signal?.removeEventListener('abort', onUserAbort);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -264,8 +287,12 @@ export async function indexSource(
       const stackFirstFrame = err instanceof Error && err.stack
         ? err.stack.split('\n').slice(1, 2).join(' ').trim().slice(0, 120)
         : '';
-      const enriched = stackFirstFrame ? `${msg} @ ${stackFirstFrame}` : msg;
-      progress.errors.push(`${f.name}: ${enriched}`);
+      // [2026-05-01 Roy] TimeoutError는 명확한 사유 표시 — '5분 초과' 메시지로
+      // 사용자가 stuck인지 timeout인지 구분 가능.
+      const reason = err instanceof DOMException && err.name === 'TimeoutError'
+        ? '5분 초과 — 파일이 너무 크거나 OCR이 느림 (skip하고 다음 파일 진행)'
+        : (stackFirstFrame ? `${msg} @ ${stackFirstFrame}` : msg);
+      progress.errors.push(`${f.name}: ${reason}`);
     }
 
     progress.done++;
