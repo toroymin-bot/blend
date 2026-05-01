@@ -134,8 +134,30 @@ export async function indexSource(
 
   else if (source.type === 'onedrive') {
     const cfg = source.config as OneDriveConfig;
+    // [2026-05-01 Roy] 토큰 만료 시 자동 refresh — refresh_token 있으면 새 access_token
+    // 받아서 store 업데이트 + 진행. 사용자에게 "동기화 → 오류 → 동기화 → 오류" 사이클
+    // 차단. refresh 실패 또는 refresh_token 없으면 명확한 안내 throw (재연결 유도).
     if (!cfg.accessToken || !msTokenValid(cfg.tokenExpiry)) {
-      throw new Error('OneDrive access token has expired. Please reconnect.');
+      if (cfg.refreshToken) {
+        try {
+          const { refreshOneDriveToken } = await import('@/lib/connectors/onedrive-connector');
+          const refreshed = await refreshOneDriveToken(cfg.refreshToken, cfg.clientId, cfg.tenantId);
+          // Microsoft는 refresh_token도 회전 — 응답에 새 것 있으면 그 것을 저장.
+          const newRefreshToken = refreshed.refreshToken ?? cfg.refreshToken;
+          cfg.accessToken = refreshed.token;
+          cfg.tokenExpiry = refreshed.expiry;
+          cfg.refreshToken = newRefreshToken;
+          // store 영구 갱신 — 다음 sync도 새 token 사용. dynamic import로 의존성 격리.
+          const { useDataSourceStore } = await import('@/stores/datasource-store');
+          useDataSourceStore.getState().updateSource(source.id, {
+            config: { ...cfg },
+          });
+        } catch {
+          throw new Error('OneDrive 연결이 만료됐어요. 데이터 소스 페이지에서 다시 연결해주세요.');
+        }
+      } else {
+        throw new Error('OneDrive 연결이 만료됐어요. 데이터 소스 페이지에서 다시 연결해주세요.');
+      }
     }
     // [2026-05-01 Roy] source.selections 우선 — root 전체 scan으로 인한 Graph API 429 방지.
     const sels = source.selections ?? [];

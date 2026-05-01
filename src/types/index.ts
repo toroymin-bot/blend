@@ -135,6 +135,9 @@ export interface OneDriveConfig {
   tenantId?: string; // 'common' for personal/multi-tenant
   accessToken?: string;
   tokenExpiry?: number;
+  // [2026-05-01 Roy] offline_access scope에서 받은 refresh_token. 토큰 만료 시
+  // 자동 갱신용. sync-runner가 만료 감지 시 refreshOneDriveToken 호출.
+  refreshToken?: string;
   folderId?: string;
   folderName?: string;
 }

@@ -260,10 +260,15 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const [connectErr, setConnectErr]       = useState<string | null>(null);
 
   // [2026-04-26 Tori 16384118 §3] Picker → 비용 미리보기 → Subscribe 흐름
+  // [2026-05-01 Roy] OneDrive refresh_token/expiry/tenantId 옵셔널 추가 — addSource
+  // 시 OneDriveConfig에 저장 → sync-runner가 토큰 만료 시 자동 refresh.
   const [pendingPicker, setPendingPicker] = useState<{
     type: DataSourceType;
     accessToken: string;
     selections: DataSourceSelection[];
+    refreshToken?: string;
+    expiry?: number;
+    tenantId?: string;
   } | null>(null);
 
   // [2026-04-29 Tori 19857410] Local drive — modal 단계와 비용 미리보기 단계가 분리됨.
@@ -271,6 +276,12 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   const [pendingLocal, setPendingLocal] = useState<LocalPickerResult | null>(null);
   // [2026-04-30 OneDrive/Google] popup picker SDK 대신 자체 폴더 모달 사용
   const [oneDriveAccessToken, setOneDriveAccessToken] = useState<string | null>(null);
+  // [2026-05-01 Roy] OneDrive 인증 부가 정보 — pendingPicker로 전달 후 OneDriveConfig 저장.
+  const [oneDriveAuthExtra, setOneDriveAuthExtra] = useState<{
+    refreshToken?: string;
+    expiry: number;
+    tenantId: string;
+  } | null>(null);
   const [showOneDriveFolderModal, setShowOneDriveFolderModal] = useState(false);
   const [googleDriveAccessToken, setGoogleDriveAccessToken] = useState<string | null>(null);
   const [showGoogleDriveFolderModal, setShowGoogleDriveFolderModal] = useState(false);
@@ -354,8 +365,14 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
         // OAuth 토큰만 받고, 폴더 선택은 OneDriveFolderModal에서 Graph API로 처리.
         const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID;
         if (!clientId) { setConnectErr(t.connectErrMissingId); return; }
-        const accessToken = await requestOneDriveAccessToken(clientId);
-        setOneDriveAccessToken(accessToken);
+        // [2026-05-01 Roy] requestOneDriveAccessToken이 객체 반환 — refresh_token + 정확한 expiry 포함
+        const auth = await requestOneDriveAccessToken(clientId);
+        setOneDriveAccessToken(auth.token);
+        setOneDriveAuthExtra({
+          refreshToken: auth.refreshToken,
+          expiry: auth.expiry,
+          tenantId: auth.tenantId,
+        });
         setShowOneDriveFolderModal(true);
         setConnectTarget(null);
         return;
@@ -388,7 +405,8 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           : s)
       : selections;
 
-    const tokenExpiry = Date.now() + 3600_000;
+    // [2026-05-01 Roy] OneDrive는 정확한 expiry + refreshToken 사용 — pendingPicker로 전달됨.
+    const tokenExpiry = pendingPicker.expiry ?? (Date.now() + 3600_000);
     let created;
     if (type === 'google-drive') {
       const clientId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID!;
@@ -399,7 +417,14 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
     } else {
       const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID!;
       created = addSource(
-        { type: 'onedrive', clientId, accessToken, tokenExpiry },
+        {
+          type: 'onedrive',
+          clientId,
+          tenantId: pendingPicker.tenantId,
+          accessToken,
+          tokenExpiry,
+          refreshToken: pendingPicker.refreshToken,
+        },
         'OneDrive',
       );
     }
@@ -685,8 +710,16 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
             setOneDriveAccessToken(null);
             return;
           }
-          setPendingPicker({ type: 'onedrive', accessToken: oneDriveAccessToken, selections: picked });
+          setPendingPicker({
+            type: 'onedrive',
+            accessToken: oneDriveAccessToken,
+            selections: picked,
+            refreshToken: oneDriveAuthExtra?.refreshToken,
+            expiry: oneDriveAuthExtra?.expiry,
+            tenantId: oneDriveAuthExtra?.tenantId,
+          });
           setOneDriveAccessToken(null);
+          setOneDriveAuthExtra(null);
         }}
       />
     </div>

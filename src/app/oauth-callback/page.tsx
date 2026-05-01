@@ -54,8 +54,14 @@ export default function OAuthCallback() {
         try {
           // Dynamic import to keep this page light
           const { exchangeOneDriveCode } = await import('@/lib/connectors/onedrive-connector');
-          const { token, expiry } = await exchangeOneDriveCode(code);
-          deliver({ type: 'OAUTH_TOKEN', provider: 'onedrive', token, expiry });
+          // [2026-05-01 Roy] refresh_token도 함께 전달 — 메인 탭에서 OneDriveConfig에
+          // 저장하면 sync-runner가 토큰 만료 시 자동 refresh 가능. clientId/tenantId도
+          // 함께 전달해야 refresh 호출 시 사용 가능.
+          const { token, expiry, refreshToken, clientId, tenantId } = await exchangeOneDriveCode(code);
+          deliver({
+            type: 'OAUTH_TOKEN', provider: 'onedrive',
+            token, expiry, refreshToken, clientId, tenantId,
+          });
         } catch (e) {
           const msg = e instanceof Error ? e.message : 'Token exchange failed';
           setStatus(`Error: ${msg}`);

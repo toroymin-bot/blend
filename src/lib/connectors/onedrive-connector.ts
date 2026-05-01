@@ -44,10 +44,21 @@ function base64urlEncode(buffer: Uint8Array): string {
 
 // ── OAuth PKCE helpers ────────────────────────────────────────────────────────
 
+// [2026-05-01 Roy] requestOneDriveAccessToken 반환을 객체로 — token 외 refreshToken,
+// expiry, clientId, tenantId 모두 호출자에 전달. OneDriveConfig에 저장해두면
+// sync-runner가 토큰 만료 감지 시 refreshOneDriveToken 호출 가능.
+export interface OneDriveAuthResult {
+  token: string;
+  expiry: number;
+  refreshToken?: string;
+  clientId: string;
+  tenantId: string;
+}
+
 export function requestOneDriveAccessToken(
   clientId: string,
   tenantId = 'common'
-): Promise<string> {
+): Promise<OneDriveAuthResult> {
   return new Promise(async (resolve, reject) => {
     const redirectUri = `${window.location.origin}/oauth-callback`;
 
@@ -85,19 +96,28 @@ export function requestOneDriveAccessToken(
 
     let settled = false;
 
-    const done = (token: string) => {
+    const done = (result: OneDriveAuthResult) => {
       if (settled) return; settled = true;
-      cleanup(); resolve(token);
+      cleanup(); resolve(result);
     };
     const fail = (msg: string) => {
       if (settled) return; settled = true;
       cleanup(); reject(new Error(msg));
     };
 
+    // 메시지 → AuthResult 추출 헬퍼. clientId/tenantId는 요청 시점 값으로 fallback.
+    const extractResult = (data: { token: string; expiry: number; refreshToken?: string; clientId?: string; tenantId?: string }): OneDriveAuthResult => ({
+      token: data.token,
+      expiry: data.expiry,
+      refreshToken: data.refreshToken,
+      clientId: data.clientId ?? clientId,
+      tenantId: data.tenantId ?? tenantId,
+    });
+
     // 1. window.message (desktop browsers)
     const msgHandler = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
-      if (e.data?.type === 'OAUTH_TOKEN' && e.data?.provider === 'onedrive') done(e.data.token as string);
+      if (e.data?.type === 'OAUTH_TOKEN' && e.data?.provider === 'onedrive') done(extractResult(e.data));
       if (e.data?.type === 'OAUTH_ERROR' && e.data?.provider === 'onedrive') fail(e.data.error);
     };
     window.addEventListener('message', msgHandler);
@@ -107,7 +127,7 @@ export function requestOneDriveAccessToken(
     try {
       bc = new BroadcastChannel('oauth_callback');
       bc.onmessage = (e) => {
-        if (e.data?.type === 'OAUTH_TOKEN' && e.data?.provider === 'onedrive') done(e.data.token as string);
+        if (e.data?.type === 'OAUTH_TOKEN' && e.data?.provider === 'onedrive') done(extractResult(e.data));
         if (e.data?.type === 'OAUTH_ERROR' && e.data?.provider === 'onedrive') fail(e.data.error);
       };
     } catch {}
@@ -122,7 +142,7 @@ export function requestOneDriveAccessToken(
           if (age < 30_000) {
             if (data.type === 'OAUTH_TOKEN' && data.provider === 'onedrive') {
               try { localStorage.removeItem('blend:oauth_result'); } catch {}
-              done(data.token as string); return;
+              done(extractResult(data)); return;
             }
             if (data.type === 'OAUTH_ERROR' && data.provider === 'onedrive') {
               try { localStorage.removeItem('blend:oauth_result'); } catch {}
@@ -149,8 +169,15 @@ export function requestOneDriveAccessToken(
 
 // ── Token exchange (called from oauth-callback page) ─────────────────────────
 
-/** Exchange authorization code for access token using PKCE code_verifier. */
-export async function exchangeOneDriveCode(code: string): Promise<{ token: string; expiry: number }> {
+/** Exchange authorization code for access token using PKCE code_verifier.
+ *  refresh_token은 offline_access scope 요청한 경우 함께 반환됨. */
+export async function exchangeOneDriveCode(code: string): Promise<{
+  token: string;
+  expiry: number;
+  refreshToken?: string;
+  clientId: string;
+  tenantId: string;
+}> {
   const raw = localStorage.getItem('blend:onedrive_pkce');
   if (!raw) throw new Error('PKCE state missing — please try again.');
   const { codeVerifier, clientId, tenantId } = JSON.parse(raw) as {
@@ -179,6 +206,45 @@ export async function exchangeOneDriveCode(code: string): Promise<{ token: strin
   return {
     token: data.access_token as string,
     expiry: Date.now() + (parseInt(data.expires_in ?? '3600', 10) * 1000),
+    refreshToken: data.refresh_token as string | undefined,
+    clientId,
+    tenantId,
+  };
+}
+
+/**
+ * [2026-05-01 Roy] refresh_token으로 새 access_token 받기 — 토큰 만료 시 자동 갱신.
+ * sync-runner가 동기화 시작 전 호출. 실패 시 throw → 사용자에게 재연결 안내.
+ *
+ * Microsoft OAuth는 refresh_token도 회전될 수 있음 → 응답에 새 refresh_token 있으면
+ * 그것을 저장해야 함 (호출자가 처리).
+ */
+export async function refreshOneDriveToken(
+  refreshToken: string,
+  clientId: string,
+  tenantId: string = 'common'
+): Promise<{ token: string; expiry: number; refreshToken?: string }> {
+  const body = new URLSearchParams({
+    client_id: clientId,
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    scope: 'Files.Read offline_access',
+  });
+
+  const res = await fetch(
+    `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+    { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const desc = (err as { error_description?: string })?.error_description ?? `Refresh failed: ${res.status}`;
+    throw new Error(`refresh_failed: ${desc}`);
+  }
+  const data = await res.json();
+  return {
+    token: data.access_token as string,
+    expiry: Date.now() + (parseInt(data.expires_in ?? '3600', 10) * 1000),
+    refreshToken: data.refresh_token as string | undefined, // 회전된 새 refresh_token (있으면)
   };
 }
 
