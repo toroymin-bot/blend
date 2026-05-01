@@ -1797,6 +1797,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                     : 'documents';
                   window.dispatchEvent(new CustomEvent('d1:nav-to', { detail: { view } }));
                 }}
+                onShowToast={showToast}
               />
             </div>
             <D1InputBar
@@ -1899,6 +1900,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
             <ActiveSourcesBar
               lang={lang}
               onNavigate={() => window.dispatchEvent(new CustomEvent('d1:nav-documents'))}
+              onShowToast={showToast}
             />
             <D1InputBar
               value={value}

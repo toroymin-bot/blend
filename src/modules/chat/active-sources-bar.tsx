@@ -35,9 +35,11 @@ const tokens = {
 export function ActiveSourcesBar({
   lang = 'ko',
   onNavigate,
+  onShowToast,
 }: {
   lang?: 'ko' | 'en';
   onNavigate?: (source: ActiveSource) => void;
+  onShowToast?: (message: string) => void;
 }) {
   const sources = useActiveSourceList(lang);
   const embedProgress = useDocumentStore((s) => s.embedProgress);
@@ -109,6 +111,12 @@ export function ActiveSourcesBar({
   }
 
   function handleClick(source: ActiveSource) {
+    // [2026-05-01 Roy] error 칩 클릭 시 navigate 대신 안내 토스트 — 사용자가
+    // 빨간 dot이 무슨 뜻인지 즉시 인지하고 대처(OCR 처리 등)할 수 있게.
+    if (source.status === 'error' && source.errorMessage && onShowToast) {
+      onShowToast(source.errorMessage);
+      return;
+    }
     if (onNavigate) onNavigate(source);
   }
 
