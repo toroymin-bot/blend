@@ -310,7 +310,9 @@ export default function D1ChatView({
   const [showTrialExhausted, setShowTrialExhausted] = useState(false);
   const [showKeyRequired, setShowKeyRequired] = useState<{ providerName: string } | null>(null);
 
-  const hasAnyUserKey = Object.values(keys).some((k) => k && k.trim().length > 0);
+  // [2026-05-01] defensive — corrupt localStorage(과거 버전 zustand persist 형식 등)에서
+  // keys 값이 객체로 들어와 .trim() throw → 페이지 전체 crash. typeof 가드로 안전화.
+  const hasAnyUserKey = Object.values(keys).some((k) => typeof k === 'string' && k.trim().length > 0);
   const isTrialMode   = !hasAnyUserKey && TRIAL_KEY_AVAILABLE;
 
   const [messages, setMessages] = useState<Message[]>([]);
