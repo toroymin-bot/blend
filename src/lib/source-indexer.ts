@@ -229,13 +229,14 @@ export async function indexSource(
     report();
 
     try {
-      // [2026-05-01 Roy] file-level hard timeout — 한 파일이 300초(5분) 넘게
-      // 처리되면 abort. 이전엔 OCR 무한 대기 / 임베딩 hang으로 sync 전체가
-      // 멈춘 것처럼 보임. AbortController 생성해 user signal과 합성 →
-      // timeout 시 그 파일만 error로 기록하고 다음 파일로 진행.
-      const FILE_TIMEOUT_MS = 300_000;
+      // [2026-05-01 Roy] file-level hard timeout — 한 파일이 600초(10분) 넘게
+      // 처리되면 abort. 이전 5분은 10MB PDF + OCR 20페이지 케이스에서 부족
+      // (페이지당 vision API 5초 × 20 = 100s + 임베딩). 10분으로 여유.
+      // AbortController가 user signal과 합성 → timeout 시 그 파일만 error로
+      // 기록하고 다음 파일로 진행.
+      const FILE_TIMEOUT_MS = 600_000;
       const fileCtrl = new AbortController();
-      const tid = setTimeout(() => fileCtrl.abort(new DOMException('File processing exceeded 5 min', 'TimeoutError')), FILE_TIMEOUT_MS);
+      const tid = setTimeout(() => fileCtrl.abort(new DOMException('File processing exceeded 10 min', 'TimeoutError')), FILE_TIMEOUT_MS);
       // user signal abort 시 file ctrl도 abort.
       const onUserAbort = () => fileCtrl.abort();
       signal?.addEventListener('abort', onUserAbort, { once: true });
@@ -287,10 +288,9 @@ export async function indexSource(
       const stackFirstFrame = err instanceof Error && err.stack
         ? err.stack.split('\n').slice(1, 2).join(' ').trim().slice(0, 120)
         : '';
-      // [2026-05-01 Roy] TimeoutError는 명확한 사유 표시 — '5분 초과' 메시지로
-      // 사용자가 stuck인지 timeout인지 구분 가능.
+      // [2026-05-01 Roy] TimeoutError는 명확한 사유 표시 — '10분 초과'.
       const reason = err instanceof DOMException && err.name === 'TimeoutError'
-        ? '5분 초과 — 파일이 너무 크거나 OCR이 느림 (skip하고 다음 파일 진행)'
+        ? '10분 초과 — 파일이 너무 크거나 OCR이 매우 느림 (skip하고 다음 파일 진행)'
         : (stackFirstFrame ? `${msg} @ ${stackFirstFrame}` : msg);
       progress.errors.push(`${f.name}: ${reason}`);
     }

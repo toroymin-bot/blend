@@ -436,12 +436,15 @@ async function parseCsv(file: File): Promise<DocumentChunk[]> {
   return chunks;
 }
 
-// [2026-04-13 00:00] BUG-008: 대용량 PDF OOM 방지 — 50페이지 제한
-// [2026-05-01 Roy] iOS는 메모리 더 작아서 30페이지로 강화. 데스크톱은 50 유지.
-const PDF_MAX_PAGES_DESKTOP = 50;
-const PDF_MAX_PAGES_IOS = 30;
-// OCR 대상 페이지 — vision API 비용 보호 (gpt-4o-mini ≈ $0.0002/page)
-const OCR_MAX_PAGES = 10;
+// [2026-04-13 00:00] BUG-008: 대용량 PDF OOM 방지.
+// [2026-05-01 Roy] 한도 상향 — 10MB PDF (보통 텍스트 50-200페이지)도 끊김 없이
+// 처리. 데스크톱은 200, iOS는 OOM 방지 위해 100. 텍스트 추출은 페이지당 메모리
+// 사용 작아 안전. OCR은 페이지당 vision API 호출이라 비용 보호 위해 별도 제한.
+const PDF_MAX_PAGES_DESKTOP = 200;
+const PDF_MAX_PAGES_IOS = 100;
+// OCR 대상 페이지 — vision API 비용 보호 (gpt-4o-mini ≈ $0.0002/page).
+// 10MB image PDF도 거의 다 처리하되, 비용 폭발 방지로 20페이지 cap.
+const OCR_MAX_PAGES = 20;
 // pdfjs 버전 — package.json과 일치해야 CDN URL이 유효함.
 const PDFJS_VERSION = '5.6.205';
 
