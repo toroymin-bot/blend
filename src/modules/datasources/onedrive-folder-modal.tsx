@@ -6,7 +6,6 @@
 
 import { useEffect, useState } from 'react';
 import { makeSelection } from '@/modules/datasources/pickers/picker-shared';
-import { scanOneDriveFolder } from '@/lib/connectors/onedrive-connector';
 import type { DataSourceSelection } from '@/types';
 
 interface OneDriveFolder {
@@ -100,15 +99,20 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
     const picked = folders.filter((f) => selectedIds.has(f.id));
     if (!accessToken) return;
     setConfirming(true);
-    // [2026-05-01 Roy] 재귀 동기화에 맞춘 정확한 cost preview — 하위 폴더까지
-    // 모두 scan해서 실제 indexable 파일 수와 size 합 계산. 이전엔 1단계만 봐서
-    // sync 후 결과가 picker preview와 mismatch (사용자 혼란).
-    // connector의 scanOneDriveFolder({ recursive: true })를 그대로 사용 — sync
-    // 시점에 호출되는 함수와 동일 결과 보장.
+    // [2026-05-01 Roy v2] 1단계 children만 fetch — 재귀 scan은 모바일에서 너무 오래 걸려
+    // picker가 멈춘 것처럼 보이고 사용자가 답답해 화면 이탈 → 빈 화면 인지.
+    // 정확한 카운트는 trade-off로 포기 (cost preview에 '하위 폴더 포함 시 더 많을 수 있음'
+    // 안내). 재귀 sync는 source-indexer.ts에서 그대로 동작.
     const stats = await Promise.all(
       picked.map(async (f) => {
         try {
-          const items = await scanOneDriveFolder(accessToken, f.id, { recursive: true });
+          const r = await fetch(
+            `https://graph.microsoft.com/v1.0/me/drive/items/${f.id}/children?$top=1000&$select=id,size,file,folder`,
+            { headers: { Authorization: `Bearer ${accessToken}` } },
+          );
+          if (!r.ok) return { fileCount: 0, approxBytes: 0 };
+          const data = (await r.json()) as { value?: Array<{ size?: number; file?: object; folder?: object }> };
+          const items = (data.value ?? []).filter((x) => x.file && !x.folder);
           const approxBytes = items.reduce((sum, x) => sum + (x.size ?? 0), 0);
           return { fileCount: items.length, approxBytes };
         } catch {
