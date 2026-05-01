@@ -9,17 +9,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAPIKeyStore } from '@/stores/api-key-store';
-import { sendChatRequest } from '@/modules/chat/chat-api';
-import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
+import { TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { useTrialStore } from '@/stores/trial-store';
 import { getFeaturedModels } from '@/data/available-models';
 import type { AIProvider } from '@/types';
-// v3 회귀 복구: 음성 파일 업로드 + STT + 화자 분리 (Tori 명세)
-import { sttOpenAI, sttGoogle } from '@/lib/voice-chat';
-import { diarizeSpeakers } from '@/modules/meeting/meeting-plugin';
 // P1.3 Export
 import { exportMeetingPDF } from '@/lib/export/export-meeting-pdf';
 import { exportMeetingDocx } from '@/lib/export/export-meeting-docx';
+// [2026-05-01 Roy] background-safe 분석 — module-level runner + zustand store.
+// 컴포넌트가 unmount돼도 분석 계속, 다시 마운트되면 store에서 자연 복원.
+import { startAnalyze } from '@/lib/meeting-runner';
+import { useMeetingJobStore } from '@/stores/meeting-job-store';
+// [2026-05-01 Roy] 타입은 lib/meeting-types로 추출 — view, runner, store 공유.
+import type { ActionItem, MeetingResult, TranscriptSegment } from '@/lib/meeting-types';
 
 // ── Tokens ───────────────────────────────────────────────────────
 const tokens = {
@@ -35,29 +37,6 @@ const tokens = {
   borderStrong: 'var(--d1-border-strong)',
   danger:       'var(--d1-danger)',
 } as const;
-
-// ── Types ────────────────────────────────────────────────────────
-type ActionItem = { owner?: string; task: string; dueDate?: string; done?: boolean };
-
-type TranscriptSegment = { speaker?: string; text: string };
-
-// Phase 3b (Tori 명세) — 활성 소스 칩 표시용 isActive 필드 추가
-type MeetingResult = {
-  id: string;
-  createdAt: number;
-  title: string;
-  duration?: string;
-  participants?: number;
-  summary: string[];
-  actionItems: ActionItem[];
-  decisions: string[];
-  topics: string[];
-  fullSummary: string;
-  // Phase 3b — 활성 소스 칩 표시 (채팅 RAG)
-  isActive?: boolean;
-  // [2026-04-26] STT/diarization 원본 보존 — Result 화면 + PDF/Word export 용
-  transcript?: TranscriptSegment[];
-};
 
 const STORAGE_KEY = 'd1:meetings';
 
@@ -294,37 +273,8 @@ function buildSystemPrompt(lang: 'ko' | 'en'): string {
 }`;
 }
 
-function tryParseJson(s: string): any | null {
-  // Strip markdown fences if any
-  const cleaned = s.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-  try { return JSON.parse(cleaned); } catch {}
-  // Try first {...} blob
-  const m = cleaned.match(/\{[\s\S]*\}/);
-  if (m) {
-    try { return JSON.parse(m[0]); } catch {}
-  }
-  return null;
-}
-
-function inferProvider(modelId: string): AIProvider {
-  const lc = modelId.toLowerCase();
-  if (lc.startsWith('gemini') || lc.startsWith('gemma')) return 'google';
-  if (lc.startsWith('claude'))   return 'anthropic';
-  if (lc.startsWith('deepseek')) return 'deepseek';
-  if (lc.includes('llama') || lc.includes('mixtral')) return 'groq';
-  return 'openai';
-}
-
-async function fetchYoutubeTranscript(url: string): Promise<string> {
-  const res = await fetch('/api/youtube-transcript', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
-  });
-  if (!res.ok) throw new Error('YouTube transcript failed');
-  const data = await res.json();
-  return data.transcript ?? data.text ?? '';
-}
+// [2026-05-01 Roy] tryParseJson / inferProvider / fetchYoutubeTranscript는
+// meeting-runner.ts로 이동 (분석 로직과 함께 module-level). 여기선 미사용 → 제거.
 
 // ── Main view ───────────────────────────────────────────────────
 export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
@@ -332,17 +282,22 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
 
   const [text, setText]               = useState('');
   const [ytUrl, setYtUrl]             = useState('');
-  const [analyzing, setAnalyzing]     = useState(false);
   const [phase, setPhase]             = useState<'input' | 'result'>('input');
   const [active, setActive]           = useState<MeetingResult | null>(null);
   const [history, setHistory]         = useState<MeetingResult[]>([]);
   const [errorMsg, setErrorMsg]       = useState<string | null>(null);
   const [confirmDelId, setConfirmDel] = useState<string | null>(null);
-  // v3 회귀 복구: 음성 파일 + STT 진행 상태 (Tori 명세)
+  // v3 회귀 복구: 음성 파일 (STT 상태는 module-level runner가 store로 관리)
   const [audioFile, setAudioFile]     = useState<File | null>(null);
-  const [transcribing, setTranscribing] = useState(false);
-  const [diarizing, setDiarizing]     = useState(false);
   const audioInputRef                 = useRef<HTMLInputElement>(null);
+
+  // [2026-05-01 Roy] 분석 진행 상태 — 컴포넌트 lifecycle과 분리된 module-level
+  // runner가 zustand store에 갱신. 다른 메뉴로 이동했다 와도 store에서 복원.
+  const job = useMeetingJobStore((s) => s.job);
+  const clearJob = useMeetingJobStore((s) => s.clearJob);
+  const transcribing = job?.stage === 'transcribing';
+  const diarizing    = job?.stage === 'diarizing';
+  const analyzing    = job?.stage === 'analyzing';
 
   const { hasKey, getKey } = useAPIKeyStore();
   const trialDailyCount = useTrialStore((s) => s.dailyCount);
@@ -356,6 +311,36 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
       if (idbResults.length > 0) setHistory(idbResults);
     });
   }, []);
+
+  // [2026-05-01 Roy] runner가 분석 완료/실패 시 store.job을 갱신 — 그 이벤트를
+  // 받아 history/active/phase/errorMsg 업데이트. unmount된 사이 완료된 결과도
+  // 다시 마운트 시 useEffect가 실행돼 자연스레 반영됨.
+  useEffect(() => {
+    if (!job) return;
+    if (job.stage === 'done' && job.result) {
+      const result = job.result;
+      setHistory((prev) => {
+        // 같은 id 중복 방지 (재마운트 시 useEffect 재실행 가능성).
+        if (prev.some((r) => r.id === result.id)) return prev;
+        const next = [result, ...prev].slice(0, 30);
+        saveResults(next);
+        return next;
+      });
+      setActive(result);
+      setPhase('result');
+      setText('');
+      setYtUrl('');
+      setAudioFile(null);
+      if (audioInputRef.current) audioInputRef.current.value = '';
+      setErrorMsg(null);
+      clearJob();
+    } else if (job.stage === 'error') {
+      setErrorMsg(job.errorMsg ?? t.error);
+      clearJob();
+    }
+    // t는 lang 변경 시만 바뀌어 안정적, eslint 제거.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job, clearJob]);
 
   function pickModel(): { id: string; provider: AIProvider; usingTrial: boolean } {
     // Prefer Google for long docs; fallback to first available BYOK
@@ -375,206 +360,37 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
     return { id: '', provider: 'openai', usingTrial: false };
   }
 
+  // [2026-05-01 Roy] runAnalyze는 module-level runner에 위임 — 분석 진행 중에
+  // 사용자가 다른 메뉴로 이동해도(컴포넌트 unmount) 분석은 백그라운드에서 계속.
+  // 진행 상태/결과는 zustand store에 갱신되어 다시 마운트 시 자연스레 복원.
+  // (새로고침은 JS 메모리 reset이라 끊김 — 모든 SPA 동일.)
   async function runAnalyze() {
-    setErrorMsg(null);
-
-    let inputText = text.trim();
-    // [2026-04-26] 원본 보존 — 화자 분리 결과가 있으면 segments, 없으면 단일 chunk
-    let transcriptSegments: TranscriptSegment[] | undefined;
-
-    // 1) 음성 파일 STT (Tori 명세 단계별 에러 분기)
-    if (!inputText && audioFile) {
-      // 1-1. 검증
-      const SUPPORTED = ['mp3','wav','m4a','webm','ogg','mp4','flac','aac'];
-      const ext = (audioFile.name.split('.').pop() || '').toLowerCase();
-      if (audioFile.size > 25 * 1024 * 1024) {
-        setErrorMsg(t.errFileSize);
-        return;
-      }
-      if (ext && !SUPPORTED.includes(ext)) {
-        setErrorMsg(t.errFileFormat);
-        return;
-      }
-
-      const openaiKey = getKey('openai') || '';
-      const googleKey = getKey('google') || '';
-      if (!openaiKey && !googleKey) {
-        setErrorMsg(t.errSttKey);
-        return;
-      }
-
-      // 1-2. STT
-      let transcribed = '';
-      try {
-        setTranscribing(true);
-        // CRITICAL (2026-04-27 v3): Whisper API는 ISO-639-1 ('ko', 'en')만 받음.
-        // 'ko-KR'을 보내면 sttOpenAI 내부에서 ===' ko' 비교 실패 → 'en' fallback →
-        // 한국어 음성을 영어로 transcribe → 사용자가 영어 transcript 보게 됨.
-        // sttGoogle은 BCP-47('ko-KR')을 받지만 sttOpenAI 인터페이스에 맞춰 통일.
-        const sttLang = lang === 'ko' ? 'ko' : 'en';
-        transcribed = openaiKey
-          ? await sttOpenAI(audioFile, openaiKey, sttLang)
-          : await sttGoogle(audioFile, googleKey, sttLang);
-        setTranscribing(false);
-        if (!transcribed.trim()) {
-          setErrorMsg(t.errSttFail);
-          return;
-        }
-      } catch (e) {
-        setTranscribing(false);
-        const err = e as Error & { status?: number; name?: string };
-        if (err.status === 401)              setErrorMsg(t.errSttInvalid);
-        else if (err.status === 429)         setErrorMsg(t.errSttRate);
-        else if (err.name === 'AbortError')  setErrorMsg(t.errSttTimeout);
-        else                                  setErrorMsg(t.errSttFail);
-        return;
-      }
-
-      // 1-3. 화자 분리 (실패 시 fallback — 사용자에게 안 알림)
-      setDiarizing(true);
-      const diarizeProvider = openaiKey ? 'openai' : 'anthropic';
-      const diarizeKey      = openaiKey || (getKey('anthropic') || '');
-      if (diarizeKey) {
-        try {
-          const segments = await diarizeSpeakers(transcribed, diarizeKey, diarizeProvider, lang);
-          inputText = segments.map((s) => `${s.speaker}: ${s.text}`).join('\n');
-          transcriptSegments = segments.map((s) => ({ speaker: s.speaker, text: s.text }));
-        } catch {
-          inputText = transcribed;
-          transcriptSegments = [{ text: transcribed }];
-        }
-      } else {
-        inputText = transcribed;
-        transcriptSegments = [{ text: transcribed }];
-      }
-      setDiarizing(false);
-    }
-
-    // 2) YouTube 자막 (기존)
-    if (!inputText && ytUrl.trim()) {
-      try {
-        setAnalyzing(true);
-        inputText = await fetchYoutubeTranscript(ytUrl.trim());
-        if (inputText) transcriptSegments = [{ text: inputText }];
-      } catch {
-        setErrorMsg(t.error);
-        setAnalyzing(false);
-        return;
-      }
-    }
-
-    // 3) 텍스트 paste — 화자 정보 없는 단일 chunk로 보존
-    if (!transcriptSegments && inputText) {
-      transcriptSegments = [{ text: inputText }];
-    }
-
-    if (!inputText) {
-      setErrorMsg(t.needContent);
+    if (job?.stage && job.stage !== 'idle' && job.stage !== 'done' && job.stage !== 'error') {
+      // 이미 진행 중이면 무시 — 사용자가 같은 input으로 두 번 누른 경우.
       return;
     }
+    setErrorMsg(null);
 
     const picked = pickModel();
     if (!picked.id) {
       setErrorMsg(t.needKey);
       return;
     }
-
-    setAnalyzing(true);
-    let raw = '';
-
-    try {
-      const systemPrompt = buildSystemPrompt(lang);
-      const messages = [{ role: 'user' as const, content: inputText }];
-
-      if (picked.usingTrial) {
-        await new Promise<void>((resolve, reject) => {
-          sendTrialMessage({
-            messages,
-            systemPrompt,
-            onChunk: (c) => { raw += c; },
-            onDone:  () => resolve(),
-            onError: (e) => reject(e),
-          });
-        });
-        useTrialStore.getState().useTrial();
-      } else {
-        const apiKey = getKey(picked.provider) || '';
-        await new Promise<void>((resolve, reject) => {
-          sendChatRequest({
-            messages: [{ role: 'system', content: systemPrompt }, ...messages],
-            apiKey,
-            provider: picked.provider,
-            model: picked.id,
-            onChunk: (c) => { raw += c; },
-            onDone:  () => resolve(),
-            onError: (e) => reject(new Error(e)),
-          });
-        });
-      }
-
-      const parsed = tryParseJson(raw);
-      if (!parsed) throw new Error('parse');
-
-      const result: MeetingResult = {
-        id: Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
-        createdAt: Date.now(),
-        title:        parsed.title || t.title,
-        duration:     parsed.duration || '',
-        participants: typeof parsed.participants === 'number' ? parsed.participants : 0,
-        summary:      Array.isArray(parsed.summary)      ? parsed.summary      : [],
-        actionItems:  Array.isArray(parsed.actionItems)  ? parsed.actionItems.map((a: any) => ({ ...a, done: false })) : [],
-        decisions:    Array.isArray(parsed.decisions)    ? parsed.decisions    : [],
-        topics:       Array.isArray(parsed.topics)       ? parsed.topics       : [],
-        fullSummary:  String(parsed.fullSummary || ''),
-        // Phase 3b — 분석 완료 시 자동 활성화 (채팅에서 즉시 활용)
-        isActive: true,
-        transcript: transcriptSegments,
-      };
-
-      const next = [result, ...history].slice(0, 30);
-      setHistory(next);
-      saveResults(next);
-      setActive(result);
-      setPhase('result');
-      setText('');
-      setYtUrl('');
-      setAudioFile(null);
-      if (audioInputRef.current) audioInputRef.current.value = '';
-    } catch (e) {
-      // [2026-05-01 Roy] generic catch로 묶지 않고 사유별 분기 — 사용자가 'stuck'
-      // 인지 'rate limit'인지 'JSON parse 실패'인지 알 수 있게. 이전엔 무조건
-      // '분석에 실패했어요'만 노출되어 무엇을 해야 할지 불명확.
-      const err = e as Error & { status?: number; name?: string };
-      const msg = (err?.message || '').toLowerCase();
-      const ko = lang === 'ko';
-      let detail: string;
-      if (err?.message === 'parse' || /json|parse/.test(msg)) {
-        detail = ko
-          ? 'AI가 형식에 맞는 분석을 못 만들었어요. 다른 모델로 시도해주세요 (설정 → 모델).'
-          : "AI didn't return a valid analysis format. Try a different model (Settings → Models).";
-      } else if (err?.status === 401 || /unauthorized|invalid.*key/.test(msg)) {
-        detail = ko ? 'API 키가 유효하지 않아요. 설정에서 확인해주세요.' : 'API key invalid. Check Settings.';
-      } else if (err?.status === 429 || /rate.?limit|quota|429/.test(msg)) {
-        detail = ko ? 'API 사용 한도 초과. 잠시 후 다시 시도해주세요.' : 'API rate limit exceeded. Try again shortly.';
-      } else if (/paus|일시정지|한도/.test(msg)) {
-        detail = ko ? '비용 한도 도달로 일시 정지됨. 설정에서 한도를 늘려주세요.' : 'Paused: cost limit reached. Increase limit in Settings.';
-      } else if (/trial|체험/.test(msg)) {
-        detail = ko ? '무료 체험 한도를 모두 썼어요. API 키를 설정하면 계속 쓸 수 있어요.' : 'Trial used up. Add an API key in Settings to continue.';
-      } else if (err?.name === 'AbortError') {
-        detail = ko ? '분석이 중단되었어요.' : 'Analysis aborted.';
-      } else if (/network|fetch|load failed/.test(msg)) {
-        detail = ko ? '네트워크 연결을 확인해주세요.' : 'Check your network connection.';
-      } else {
-        const raw = err?.message ? err.message.slice(0, 160) : '';
-        detail = ko
-          ? `분석에 실패했어요${raw ? ` — ${raw}` : ''}`
-          : `Analysis failed${raw ? ` — ${raw}` : ''}`;
-      }
-      console.error('[meeting] analyze failed:', err);
-      setErrorMsg(detail);
-    } finally {
-      setAnalyzing(false);
+    if (!text.trim() && !audioFile && !ytUrl.trim()) {
+      setErrorMsg(t.needContent);
+      return;
     }
+
+    void startAnalyze({
+      text: text.trim() || undefined,
+      ytUrl: ytUrl.trim() || undefined,
+      audioFile,
+      lang,
+      getKey,
+      hasKey,
+      picked,
+      systemPrompt: buildSystemPrompt(lang),
+    });
   }
 
   function toggleAction(idx: number) {
