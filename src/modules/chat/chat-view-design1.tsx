@@ -31,7 +31,7 @@ import type { ShareMessage } from '@/lib/share-encoder';
 import { exportD1Chat, type D1ExportFormat } from '@/modules/chat/export-utils-design1';
 // v3 회귀 복구 (Tori P0.2-0.5): 음성 / 이미지 / 비전 / 웹검색
 import { VoiceButton } from '@/modules/chat/voice-button';
-import { sttOpenAI } from '@/lib/voice-chat';
+import { sttOpenAI, sttGeminiAudio } from '@/lib/voice-chat';
 import { generateImage, extractImagePrompt } from '@/modules/plugins/image-gen';
 import { detectCategory } from '@/lib/model-router';
 import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } from '@/modules/plugins/web-search';
@@ -619,21 +619,31 @@ export default function D1ChatView({
     setAttachedImages((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  // v3 P0.2: Web Speech 미지원 브라우저 fallback — Whisper STT
+  // v3 P0.2: Web Speech 미지원 브라우저 fallback (iOS Safari 강제 포함)
   // [2026-04-26 Tori 16220538 §1] STT 성공 시 즉시 자동 전송 + input 리셋.
-  // - 빈 input + 음성: 음성만 단독 전송
-  // - 텍스트 있는 input + 음성: "기존 + 음성" 결합 후 전송
-  // - STT 실패/빈 결과: input 그대로, 토스트만
+  // [2026-05-01] 키 우선순위 로직 — 사용자가 가진 키에 맞춰 STT 자동 선택.
+  //   1. OpenAI 키 → Whisper (가장 정확, mp4/m4a 지원)
+  //   2. Google 키 → Gemini multimodal STT (사용자 키, mp4 지원)
+  //   3. 트라이얼 모드 → Gemini multimodal STT (NEXT_PUBLIC 트라이얼 키)
+  //   4. 모든 키 없음 + 트라이얼 비활성 → "API 키 설정" 토스트
   async function handleVoiceFallbackRecorded(blob: Blob) {
     const openaiKey = getKey('openai') || '';
-    if (!openaiKey) {
-      setToastMsg(t.noApiKey);
-      return;
-    }
+    const googleKey = getKey('google') || '';
+    const trialKey = process.env.NEXT_PUBLIC_BLEND_TRIAL_GEMINI_KEY || '';
+
     let text = '';
     try {
-      const sttLang = lang === 'ko' ? 'ko-KR' : 'en-US';
-      text = await sttOpenAI(blob, openaiKey, sttLang);
+      if (openaiKey) {
+        const sttLang = lang === 'ko' ? 'ko-KR' : 'en-US';
+        text = await sttOpenAI(blob, openaiKey, sttLang);
+      } else if (googleKey) {
+        text = await sttGeminiAudio(blob, googleKey, lang);
+      } else if (trialKey && TRIAL_KEY_AVAILABLE) {
+        text = await sttGeminiAudio(blob, trialKey, lang);
+      } else {
+        setToastMsg(t.noApiKey);
+        return;
+      }
     } catch {
       setToastMsg(lang === 'ko' ? '음성 변환 실패' : 'Voice transcription failed');
       return;
@@ -646,7 +656,7 @@ export default function D1ChatView({
     const combined = existing ? `${existing} ${text.trim()}` : text.trim();
     // input 리셋 — 다음 음성 시 누적 방지 (이슈 2)
     setValue('');
-    // 자동 전송 — handleSend는 다음 render에서 value=''를 봄. override로 직접 전달.
+    // 자동 전송 — handleSend가 BYOK 키 또는 트라이얼 모드 자동 분기.
     handleSend(combined);
   }
 

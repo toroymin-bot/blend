@@ -218,13 +218,15 @@ export function VoiceButton({ onTranscript, onFallbackRecorded, onError, disable
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // iOS Safari는 audio/mp4만 지원. Android Chrome은 audio/webm. 둘 다 시도.
+      // [2026-05-01] mp4 우선 — Gemini STT가 webm 미지원이라 트라이얼/Google 키
+      // 사용자도 작동하도록. iOS Safari는 mp4만 지원, Android Chrome은 mp4 미지원
+      // 시 webm로 자동 폴백.
       const preferredMimes = [
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4',
         'audio/webm;codecs=opus',
         'audio/webm',
         'audio/ogg;codecs=opus',
-        'audio/mp4;codecs=mp4a.40.2',
-        'audio/mp4',
       ];
       const mimeType = preferredMimes.find((m) => MediaRecorder.isTypeSupported(m)) || '';
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);

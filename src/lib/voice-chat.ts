@@ -135,6 +135,83 @@ export async function sttGoogle(audioBlob: Blob, apiKey: string, language: strin
   return data.results?.[0]?.alternatives?.[0]?.transcript ?? '';
 }
 
+/**
+ * Transcribe audio blob using Gemini multimodal API (gemini-2.5-flash).
+ * Accepts audio/mp4, audio/m4a, audio/aac, audio/wav, audio/mp3, audio/ogg, audio/flac.
+ *
+ * Use cases:
+ *   1. User has Google API key but not OpenAI — use their key here
+ *   2. Trial users with no keys — pass NEXT_PUBLIC_BLEND_TRIAL_GEMINI_KEY
+ *
+ * Why Gemini and not Google Cloud Speech (sttGoogle)?
+ *   - sttGoogle requires Google Cloud Speech API enabled — most user keys don't
+ *     have this. Gemini API is enabled by default on the same key.
+ *   - sttGoogle rejects mp4/aac (iOS Safari recordings) — Gemini accepts them.
+ */
+export async function sttGeminiAudio(audioBlob: Blob, apiKey: string, language: 'ko' | 'en'): Promise<string> {
+  // Chunked base64 encoding — String.fromCharCode(...largeArray) overflows
+  const arrayBuffer = await audioBlob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  const base64 = btoa(binary);
+
+  // Normalize blob mime to a Gemini-supported audio mimeType
+  const raw = audioBlob.type.toLowerCase();
+  let mimeType = 'audio/mp4'; // safe default for iOS Safari recordings
+  if (raw.includes('mp4') || raw.includes('m4a') || raw.includes('aac')) mimeType = 'audio/mp4';
+  else if (raw.includes('ogg') || raw.includes('opus')) mimeType = 'audio/ogg';
+  else if (raw.includes('mp3') || raw.includes('mpeg')) mimeType = 'audio/mpeg';
+  else if (raw.includes('wav')) mimeType = 'audio/wav';
+  else if (raw.includes('flac')) mimeType = 'audio/flac';
+  // Note: audio/webm not in Gemini's official supported list — Android Chrome
+  // typically uses Web Speech API path so doesn't reach here. If it does,
+  // the call will likely fail and the caller's catch will surface a friendly toast.
+
+  const prompt = language === 'ko'
+    ? '이 음성을 한국어 텍스트로 정확하게 옮겨 적어줘. 텍스트만 반환하고 다른 설명은 하지 마.'
+    : 'Transcribe this audio to English text accurately. Return only the text, no other explanation.';
+
+  const body = {
+    contents: [{
+      role: 'user',
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: base64 } },
+      ],
+    }],
+  };
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 120_000);
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      },
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    const e = new Error(`Gemini STT ${res.status}: ${errText.slice(0, 200)}`) as Error & { status?: number };
+    e.status = res.status;
+    throw e;
+  }
+  const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+}
+
 // ── TTS: Text → Speech ────────────────────────────────────────────────────────
 
 export type OpenAITTSVoice = 'alloy' | 'nova' | 'shimmer' | 'echo' | 'fable' | 'onyx';
