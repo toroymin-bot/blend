@@ -176,14 +176,18 @@ function fmtRelative(ts: number, t: typeof copy['ko']): string {
   return t.dayAgo(Math.floor(diff / 86_400_000));
 }
 
-function folderPath(source: DataSource): string {
+function folderPath(source: DataSource, lang: 'ko' | 'en'): string {
   if (source.config.type === 'local') return source.config.label;
   if (source.config.type === 'webdav') return source.config.serverUrl ?? '';
-  // [2026-05-01 Roy] Google Drive/OneDrive는 사용자가 선택한 폴더/파일 이름 나열.
-  // 한 줄에 가로로 펼치고, CSS truncate가 화면 넘어가면 …로 자르기.
+  // [2026-05-01 Roy] 1개면 그대로 표시, 2개 이상이면 첫 항목 + "외 N개" / "+N more".
+  // 모든 selection을 ' · '로 join하면 카드가 길어져 truncate에 잘림.
   const sels = source.selections;
   if (sels && sels.length > 0) {
-    return sels.map((s) => `${s.kind === 'folder' ? '📁' : '📄'} ${s.name}`).join(' · ');
+    const first = sels[0];
+    const firstLabel = `${first.kind === 'folder' ? '📁' : '📄'} ${first.name}`;
+    if (sels.length === 1) return firstLabel;
+    const more = sels.length - 1;
+    return lang === 'ko' ? `${firstLabel} · 외 ${more}개` : `${firstLabel} · +${more} more`;
   }
   return source.name;
 }
@@ -729,7 +733,7 @@ function ConnectedCard({
               {source.name}
             </div>
             <div className="mt-0.5 text-[12px] truncate" style={{ color: tokens.textDim }}>
-              {folderPath(source)}
+              {folderPath(source, lang)}
             </div>
           </div>
         </div>

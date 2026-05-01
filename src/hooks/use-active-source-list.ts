@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDocumentStore } from '@/stores/document-store';
 import { useDataSourceStore } from '@/stores/datasource-store';
+import { stripSourceTag } from '@/lib/source-indexer';
 import type { ActiveSource } from '@/types/active-source';
 
 // Phase 3b — d1:meetings localStorage 폴링형 reactive
@@ -121,7 +122,7 @@ export function useActiveSourceList(lang: 'ko' | 'en' = 'ko'): ActiveSource[] {
         result.push({
           id: `doc:${d.id}`,
           type: 'document',
-          title: d.name,
+          title: stripSourceTag(d.name),
           icon: '📄',
           navigateTo: `/design1/${lang}`,
           chunkCount: d.chunks.length,

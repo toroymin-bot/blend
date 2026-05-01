@@ -13,6 +13,7 @@ import { useDocumentStore } from '@/stores/document-store';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { parseDocument, generateEmbeddings } from '@/modules/plugins/document-plugin';
 import type { ParsedDocument } from '@/modules/plugins/document-plugin';
+import { stripSourceTag } from '@/lib/source-indexer';
 
 // ── Design tokens ────────────────────────────────────────────────
 const tokens = {
@@ -483,7 +484,7 @@ function ChatTab({
                   style={{ background: tokens.surface, borderColor: tokens.border, color: tokens.text }}
                   title={lang === 'ko' ? '비활성으로 전환' : 'Toggle off'}
                 >
-                  <span className="truncate">{doc.name}</span>
+                  <span className="truncate">{stripSourceTag(doc.name)}</span>
                   <span className="shrink-0 text-[11px]" style={{ color: tokens.accent }}>✓</span>
                 </button>
               </li>
@@ -506,7 +507,7 @@ function ChatTab({
                     className="flex w-full items-center justify-between gap-2 rounded-lg border-dashed px-3 py-1.5 text-left text-[12.5px] transition-colors hover:bg-black/5"
                     style={{ borderColor: tokens.border, color: tokens.textDim }}
                   >
-                    <span className="truncate">{doc.name}</span>
+                    <span className="truncate">{stripSourceTag(doc.name)}</span>
                     <span className="shrink-0 text-[11px]">+</span>
                   </button>
                 </li>
@@ -623,7 +624,7 @@ function FileCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
             <span className="text-[14px] font-medium truncate" style={{ color: tokens.text }}>
-              {doc.name}
+              {stripSourceTag(doc.name)}
             </span>
           </div>
           <div className="mt-0.5 text-[12px]" style={{ color: tokens.textFaint }}>
@@ -709,7 +710,7 @@ function PreviewModal({
         >
           <div className="min-w-0">
             <div className="text-[15px] font-medium truncate" style={{ color: tokens.text }}>
-              {doc.name}
+              {stripSourceTag(doc.name)}
             </div>
             <div className="text-[12px]" style={{ color: tokens.textFaint }}>
               {doc.totalChars.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US')} {t.chars} · {doc.chunks.length} {t.chunks}

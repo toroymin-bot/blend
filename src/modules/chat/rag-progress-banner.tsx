@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDocumentStore } from '@/stores/document-store';
+import { stripSourceTag } from '@/lib/source-indexer';
 
 const tokens = {
   surface:    'var(--d1-surface)',
@@ -77,7 +78,7 @@ export function D1RagProgressBanner({ lang }: { lang: 'ko' | 'en' }) {
     if (prog.status === 'embedding' || prog.status === 'error') {
       items.push({
         id: doc.id,
-        name: doc.name,
+        name: stripSourceTag(doc.name),
         percent: Math.round(prog.percent ?? 0),
         startedAt: prog.startedAt ?? Date.now(),
         status: prog.status,

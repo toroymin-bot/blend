@@ -38,6 +38,7 @@ import { performWebSearch, extractSearchQuery, formatSearchResultsAsContext } fr
 // P3.3 — RAG (활성 문서 컨텍스트) + CitationBlock
 import { useDocumentStore } from '@/stores/document-store';
 import { buildContext, buildFullContext, buildMetadataContext } from '@/modules/plugins/document-plugin';
+import { stripSourceTag } from '@/lib/source-indexer';
 // Tori 17989643 PR #1 — 첨부 파일 처리 의도 분류
 import { classifyAttachmentIntent, getModePromptHeader, getLangEnforcementHeader } from '@/modules/chat/intent-classifier';
 // [2026-04-28 Roy 직접 요청] AI 응답을 PDF로 자동 다운로드
@@ -1048,10 +1049,10 @@ export default function D1ChatView({
       const docStoreState = (await import('@/stores/document-store')).useDocumentStore.getState();
       syncingDocs = activeDocs
         .filter((d) => docStoreState.embedProgress[d.id]?.status === 'embedding')
-        .map((d) => ({ name: d.name, percent: Math.round(docStoreState.embedProgress[d.id]?.percent ?? 0) }));
+        .map((d) => ({ name: stripSourceTag(d.name), percent: Math.round(docStoreState.embedProgress[d.id]?.percent ?? 0) }));
       errorDocs = activeDocs
         .filter((d) => docStoreState.embedProgress[d.id]?.status === 'error')
-        .map((d) => ({ name: d.name, error: docStoreState.embedProgress[d.id]?.error }));
+        .map((d) => ({ name: stripSourceTag(d.name), error: docStoreState.embedProgress[d.id]?.error }));
       if (activeDocs.length > 0) {
         // Tori 17989643 PR #1 — 의도 분류 + 모드 분기
         const intent = classifyAttachmentIntent(content, lang);
