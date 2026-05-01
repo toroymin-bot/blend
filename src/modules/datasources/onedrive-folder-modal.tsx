@@ -54,6 +54,7 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
   const [loading, setLoading] = useState(false);
   const [errored, setErrored] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (!open || !accessToken) return;
@@ -94,7 +95,6 @@ export function OneDriveFolderModal({ open, accessToken, lang, onPicked, onCance
       return next;
     });
 
-  const [confirming, setConfirming] = useState(false);
   const handleDone = async () => {
     const picked = folders.filter((f) => selectedIds.has(f.id));
     setConfirming(true);

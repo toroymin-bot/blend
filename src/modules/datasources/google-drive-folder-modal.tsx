@@ -63,6 +63,7 @@ export function GoogleDriveFolderModal({ open, accessToken, lang, onPicked, onCa
   const [errored, setErrored] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (!open || !accessToken) return;
@@ -119,7 +120,6 @@ export function GoogleDriveFolderModal({ open, accessToken, lang, onPicked, onCa
       return next;
     });
 
-  const [confirming, setConfirming] = useState(false);
   const handleDone = async () => {
     const picked = folders.filter((f) => selectedIds.has(f.id));
     setConfirming(true);
