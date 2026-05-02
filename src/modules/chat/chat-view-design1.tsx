@@ -2270,7 +2270,23 @@ function D1AssistantMessage({
               </button>
             )}
             {onTryAnother && (
-              <div ref={pickerRef} className="relative ml-auto">
+              <div ref={pickerRef} className="relative ml-auto flex items-center gap-2">
+                {/* [2026-05-02 Roy] 답변한 AI 모델명 표시 — '다른 AI로' 버튼 왼쪽.
+                    Auto 라우팅 시 사용자가 어떤 AI가 답변했는지 즉시 인지 가능. */}
+                {modelUsed && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[11.5px]"
+                    style={{ color: tokens.textFaint }}
+                    title={lang === 'ko' ? '이 답변을 생성한 AI' : 'AI that generated this response'}
+                  >
+                    <span
+                      aria-hidden
+                      className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
+                      style={{ background: modelInfo ? (BRAND_COLORS[modelInfo.brand] ?? tokens.accent) : tokens.accent }}
+                    />
+                    {modelInfo?.name ?? modelUsed}
+                  </span>
+                )}
                 <button
                   onClick={() => setShowModelPicker((v) => !v)}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] opacity-0 transition-opacity duration-150 hover:!opacity-100 group-hover:opacity-60"
