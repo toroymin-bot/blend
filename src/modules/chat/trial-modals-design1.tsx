@@ -242,3 +242,69 @@ export function D1KeyRequiredModal({
     </D1ModalShell>
   );
 }
+
+// ============================================================
+// TTS quality first-time modal — 사용자가 처음 음성 답변 사용할 때.
+// [2026-05-02 Roy] 둘 중 하나 선택 — '프리미엄' (Chirp3-HD, 사람 같은 음성) /
+// '표준' (Neural2 + OpenAI gpt-4o-mini-tts). default = 표준 (안전한 시작).
+// 한 번 선택하면 localStorage에 저장 — 변경은 설정에서.
+// ============================================================
+export function D1TtsQualityModal({
+  lang,
+  onChoose,
+  onClose,
+}: {
+  lang: 'ko' | 'en';
+  onChoose: (quality: 'premium' | 'standard') => void;
+  onClose: () => void;
+}) {
+  const c = lang === 'ko'
+    ? {
+        title: '음성 답변 품질을 선택하세요',
+        subtitle: '나중에 설정 → 음성에서 변경 가능합니다.',
+        premiumTitle: '프리미엄',
+        premiumDesc: '사람 같은 자연스러운 음성 (Google Chirp3-HD)',
+        standardTitle: '표준',
+        standardDesc: '자연스러운 AI 음성 (Google Neural2 / OpenAI)',
+      }
+    : {
+        title: 'Choose voice quality',
+        subtitle: 'You can change this later in Settings → Voice.',
+        premiumTitle: 'Premium',
+        premiumDesc: 'Human-like natural voice (Google Chirp3-HD)',
+        standardTitle: 'Standard',
+        standardDesc: 'Natural AI voice (Google Neural2 / OpenAI)',
+      };
+
+  return (
+    <D1ModalShell
+      lang={lang}
+      title={c.title}
+      subtitle={c.subtitle}
+      onClose={onClose}
+    >
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={() => { onChoose('standard'); onClose(); }}
+          className="flex flex-col items-start gap-1 rounded-[12px] p-4 text-left transition-transform hover:-translate-y-px"
+          style={{ background: tokens.text, color: tokens.bg }}
+        >
+          <span className="text-[14px] font-medium">{c.standardTitle}</span>
+          <span className="text-[12px] opacity-70">{c.standardDesc}</span>
+        </button>
+        <button
+          onClick={() => { onChoose('premium'); onClose(); }}
+          className="flex flex-col items-start gap-1 rounded-[12px] p-4 text-left transition-colors hover:bg-black/5"
+          style={{
+            background: 'transparent',
+            color: tokens.text,
+            border: `1px solid ${tokens.borderStrong}`,
+          }}
+        >
+          <span className="text-[14px] font-medium">{c.premiumTitle}</span>
+          <span className="text-[12px]" style={{ color: tokens.textDim }}>{c.premiumDesc}</span>
+        </button>
+      </div>
+    </D1ModalShell>
+  );
+}

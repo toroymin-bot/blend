@@ -46,6 +46,78 @@ async function getAudioDurationSec(blob: Blob): Promise<number> {
   }
 }
 
+// [2026-05-02 Roy] TTS 언어 자동 감지 + 품질별 voice 선택.
+// 사용자가 매번 voice ID 고를 필요 없음 — 답변 텍스트 분석 후 자동 매칭.
+export type DetectedLang =
+  | 'ko' | 'en' | 'ja' | 'zh' | 'fil' | 'vi' | 'th'
+  | 'es' | 'fr' | 'de' | 'pt' | 'hi' | 'ar' | 'id';
+
+export function detectLanguageFromText(text: string): DetectedLang {
+  const t = text.slice(0, 500); // 첫 500자만 분석 (성능)
+  // CJK 우선 (확실한 시그널)
+  if (/[가-힯ᄀ-ᇿ㄰-㆏]/.test(t)) return 'ko';     // Hangul
+  if (/[぀-ゟ゠-ヿ]/.test(t)) return 'ja';                  // Hiragana/Katakana
+  if (/[一-鿿]/.test(t)) return 'zh';                               // Han (중국어, ja에 없으면)
+  if (/[฀-๿]/.test(t)) return 'th';                               // Thai
+  if (/[ऀ-ॿ]/.test(t)) return 'hi';                               // Devanagari
+  if (/[؀-ۿ]/.test(t)) return 'ar';                               // Arabic
+  // 라틴 문자 — 키워드 휴리스틱 (uncommon scripts 부재 시)
+  if (/\b(ako|nga|hindi|mga|sino|ano|bakit|paano|kayo|niya|nila|tayo|sila|salamat|kumusta|kailan)\b/i.test(t)) return 'fil';
+  if (/[áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ]/i.test(t)) return 'vi';
+  if (/\b(yo|tu|el|ella|nosotros|porque|gracias|hola|adios|por\s+favor)\b/i.test(t) || /[ñ¿¡]/.test(t)) return 'es';
+  if (/\b(je|tu|il|elle|nous|vous|merci|bonjour|s'il\s+vous\s+plaît|pourquoi)\b/i.test(t) || /[œ]/.test(t)) return 'fr';
+  if (/[äöüß]/i.test(t) || /\b(ich|du|er|sie|wir|warum|danke|hallo|bitte)\b/i.test(t)) return 'de';
+  if (/\b(você|obrigado|ola|por\s+favor|porque|aqui|nao)\b/i.test(t) || /[ãõç]/i.test(t)) return 'pt';
+  if (/\b(saya|anda|kamu|terima\s+kasih|halo|kenapa|bagaimana)\b/i.test(t)) return 'id';
+  return 'en';
+}
+
+// Chirp3-HD voice IDs (2025 GA) — 21개 언어 지원. 가장 사람 같은 음성.
+// $60 / 1M chars (premium tier).
+const CHIRP3_HD_VOICE: Partial<Record<DetectedLang, string>> = {
+  ko: 'ko-KR-Chirp3-HD-Achird',
+  en: 'en-US-Chirp3-HD-Charon',
+  ja: 'ja-JP-Chirp3-HD-Achird',
+  zh: 'cmn-CN-Chirp3-HD-Achird',
+  vi: 'vi-VN-Chirp3-HD-Achird',
+  th: 'th-TH-Chirp3-HD-Achird',
+  hi: 'hi-IN-Chirp3-HD-Achird',
+  es: 'es-ES-Chirp3-HD-Achird',
+  fr: 'fr-FR-Chirp3-HD-Achird',
+  de: 'de-DE-Chirp3-HD-Achird',
+  pt: 'pt-BR-Chirp3-HD-Achird',
+  ar: 'ar-XA-Chirp3-HD-Achird',
+  id: 'id-ID-Chirp3-HD-Achird',
+  // fil 미지원 → fallback
+};
+
+// 표준 품질 — Wavenet/Neural2. $16 / 1M chars.
+const STANDARD_GOOGLE_VOICE: Record<DetectedLang, string> = {
+  ko: 'ko-KR-Neural2-A',
+  en: 'en-US-Neural2-J',
+  ja: 'ja-JP-Neural2-B',
+  zh: 'cmn-CN-Wavenet-A',
+  fil: 'fil-PH-Wavenet-A',
+  vi: 'vi-VN-Neural2-A',
+  th: 'th-TH-Neural2-C',
+  hi: 'hi-IN-Neural2-A',
+  es: 'es-ES-Neural2-A',
+  fr: 'fr-FR-Neural2-A',
+  de: 'de-DE-Neural2-A',
+  pt: 'pt-BR-Neural2-A',
+  ar: 'ar-XA-Wavenet-A',
+  id: 'id-ID-Wavenet-A',
+};
+
+// 언어 코드 매핑 — Google TTS API용 (BCP-47).
+const LANG_TO_BCP47: Record<DetectedLang, string> = {
+  ko: 'ko-KR', en: 'en-US', ja: 'ja-JP', zh: 'cmn-CN', fil: 'fil-PH',
+  vi: 'vi-VN', th: 'th-TH', hi: 'hi-IN', es: 'es-ES', fr: 'fr-FR',
+  de: 'de-DE', pt: 'pt-BR', ar: 'ar-XA', id: 'id-ID',
+};
+
+export type TTSQuality = 'premium' | 'standard';
+
 export type VoiceProvider = 'openai' | 'google';
 
 export interface VoiceProviderConfig {
@@ -310,8 +382,12 @@ export async function sttGeminiAudio(audioBlob: Blob, apiKey: string, language: 
 
 // ── TTS: Text → Speech ────────────────────────────────────────────────────────
 
-export type OpenAITTSVoice = 'alloy' | 'nova' | 'shimmer' | 'echo' | 'fable' | 'onyx';
-export type GoogleTTSVoice = 'ko-KR-Wavenet-A' | 'ko-KR-Wavenet-B' | 'en-US-Wavenet-D' | 'en-US-Neural2-J';
+// [2026-05-02 Roy] gpt-4o-mini-tts 추가 — 멀티링구얼 자동 (영어 voice가 한국어
+// 발음도 자연스럽게 처리). $15/1M chars. 표준 품질 OpenAI fallback에 사용.
+export type OpenAITTSVoice =
+  | 'alloy' | 'nova' | 'shimmer' | 'echo' | 'fable' | 'onyx'
+  | 'coral' | 'verse' | 'ballad' | 'ash' | 'sage';                  // gpt-4o-mini-tts 신규 voice
+export type GoogleTTSVoice = string;                                  // Chirp3-HD/Neural2/Wavenet 동적 — 자유 형식
 
 export interface TTSOptions {
   voice?: OpenAITTSVoice | GoogleTTSVoice;
@@ -321,13 +397,17 @@ export interface TTSOptions {
 /**
  * Generate speech audio URL using OpenAI TTS API.
  * Returns an object URL that should be revoked after playback.
+ * [2026-05-02 Roy] 표준 품질 default = gpt-4o-mini-tts + 'coral' voice (멀티링구얼,
+ * 한국어/영어 모두 자연스러움). tts-1보다 자연스럽고 가격 비슷.
  */
 export async function ttsOpenAI(
   text: string,
   apiKey: string,
   options: TTSOptions = {},
 ): Promise<string> {
-  const voice = (options.voice as OpenAITTSVoice) || 'nova';
+  const voice = (options.voice as OpenAITTSVoice) || 'coral';
+  // gpt-4o-mini-tts 우선 — 더 자연스러움. 실패 시 tts-1 fallback (구 voice도 호환).
+  const model = 'gpt-4o-mini-tts';
   const res = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {
@@ -335,21 +415,45 @@ export async function ttsOpenAI(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'tts-1',
+      model,
       input: text.slice(0, 4096),
       voice,
       speed: options.speed ?? 1.0,
     }),
   });
   if (!res.ok) {
+    // gpt-4o-mini-tts 미지원 계정/region이면 tts-1로 fallback
+    if (res.status === 404 || res.status === 400) {
+      const r2 = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'tts-1',
+          input: text.slice(0, 4096),
+          voice: ['alloy', 'nova', 'shimmer', 'echo', 'fable', 'onyx'].includes(voice) ? voice : 'nova',
+          speed: options.speed ?? 1.0,
+        }),
+      });
+      if (!r2.ok) {
+        const err = await r2.json().catch(() => ({}));
+        throw new Error((err as { error?: { message?: string } })?.error?.message || `OpenAI TTS error: ${r2.status}`);
+      }
+      const blob2 = await r2.blob();
+      recordApiUsage({
+        provider: 'openai', model: 'tts-1',
+        inputTokens: text.length, outputTokens: 0,
+        cost: text.slice(0, 4096).length * PRICE.ttsOpenaiStandard,
+      });
+      return URL.createObjectURL(blob2);
+    }
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: { message?: string } })?.error?.message || `OpenAI TTS error: ${res.status}`);
   }
   const blob = await res.blob();
-  // 성공 시 추적 — chars 단위 비례 비용 (tts-1: $15/M chars).
+  // 성공 시 추적 — chars 단위 비례 비용 (gpt-4o-mini-tts ≈ $15/M chars).
   recordApiUsage({
     provider: 'openai',
-    model: 'tts-1',
+    model,
     inputTokens: text.length, // chars (token 단위 아님 — Billing 표시용 근사)
     outputTokens: 0,
     cost: text.slice(0, 4096).length * PRICE.ttsOpenaiStandard,
@@ -359,16 +463,24 @@ export async function ttsOpenAI(
 
 /**
  * Generate speech audio URL using Google Text-to-Speech REST API.
- * Returns a data URL (base64 MP3).
+ * [2026-05-02 Roy] explicitVoiceId 우선 — Chirp3-HD/Neural2/Wavenet 자유 지정.
+ * 미지정 시 language 기반 fallback (구버전 호환).
  */
 export async function ttsGoogle(
   text: string,
   apiKey: string,
   language: 'ko' | 'en',
   options: TTSOptions = {},
+  explicitVoiceId?: string,
+  langCodeOverride?: string,
 ): Promise<string> {
-  const langCode = language === 'ko' ? 'ko-KR' : 'en-US';
-  const voiceName = (options.voice as GoogleTTSVoice) || (language === 'ko' ? 'ko-KR-Wavenet-A' : 'en-US-Neural2-J');
+  const langCode = langCodeOverride ?? (language === 'ko' ? 'ko-KR' : 'en-US');
+  const voiceName = explicitVoiceId
+    ?? (options.voice as GoogleTTSVoice)
+    ?? (language === 'ko' ? 'ko-KR-Neural2-A' : 'en-US-Neural2-J');
+  // 가격 책정 — Chirp3-HD voice면 $60/M, 그 외(Neural2/Wavenet) $16/M.
+  const isChirp3HD = /Chirp3-HD/.test(voiceName);
+  const pricePerChar = isChirp3HD ? 60 / 1_000_000 : PRICE.googleTtsWavenet;
 
   const body = {
     input: { text: text.slice(0, 5000) },
@@ -388,13 +500,13 @@ export async function ttsGoogle(
   const data = await res.json() as { audioContent?: string };
   const b64 = data.audioContent;
   if (!b64) throw new Error('Google TTS: no audio content returned');
-  // 성공 시 추적 (WaveNet voice: $16/M chars).
+  // 성공 시 추적 (Chirp3-HD: $60/M, Neural2/Wavenet: $16/M).
   recordApiUsage({
     provider: 'google',
-    model: voiceName, // ko-KR-Wavenet-A 등
+    model: voiceName, // ko-KR-Chirp3-HD-Achird / ko-KR-Neural2-A 등
     inputTokens: text.length,
     outputTokens: 0,
-    cost: text.slice(0, 5000).length * PRICE.googleTtsWavenet,
+    cost: text.slice(0, 5000).length * pricePerChar,
   });
   return `data:audio/mp3;base64,${b64}`;
 }
@@ -415,6 +527,50 @@ export async function speakText(
   }
   if (config.tts === 'openai' && openaiKey) {
     return ttsOpenAI(text, openaiKey, options);
+  }
+  throw new Error('No TTS API key available');
+}
+
+// [2026-05-02 Roy] 품질 + 답변 텍스트 기반 자동 voice/provider 선택 dispatcher.
+// 사용자는 'premium' 또는 'standard'만 고르면 됨 — 나머지는 모두 자동:
+//   1. 답변 언어 자동 감지 (한국어/영어/필리핀/일본 등)
+//   2. premium → Google Chirp3-HD (해당 언어 voice). 미지원 언어/키 없음 → standard로 fallback
+//   3. standard → Google Neural2/Wavenet 우선, Google 키 없거나 401 → OpenAI gpt-4o-mini-tts
+// 비용 추적은 ttsGoogle/ttsOpenAI 내부에서 자동.
+export async function synthesizeTTS(
+  rawText: string,
+  quality: TTSQuality,
+  openaiKey: string | null,
+  googleKey: string | null,
+): Promise<string> {
+  const detected = detectLanguageFromText(rawText);
+  const langCode = LANG_TO_BCP47[detected];
+
+  // Premium 시도 — Chirp3-HD 사용
+  if (quality === 'premium' && googleKey) {
+    const chirpVoice = CHIRP3_HD_VOICE[detected];
+    if (chirpVoice) {
+      try {
+        return await ttsGoogle(rawText, googleKey, detected === 'en' ? 'en' : detected === 'ko' ? 'ko' : 'en', {}, chirpVoice, langCode);
+      } catch (e) {
+        // Chirp3-HD 실패 (해당 region 미출시 등) → standard로 fallback
+        if (typeof window !== 'undefined') console.warn('[TTS] Chirp3-HD failed, fallback to standard:', e);
+      }
+    }
+  }
+
+  // Standard — Google 우선, OpenAI fallback
+  if (googleKey) {
+    try {
+      const stdVoice = STANDARD_GOOGLE_VOICE[detected];
+      return await ttsGoogle(rawText, googleKey, detected === 'en' ? 'en' : detected === 'ko' ? 'ko' : 'en', {}, stdVoice, langCode);
+    } catch (e) {
+      // Google Cloud TTS API 권한 없거나 키 잘못된 경우 → OpenAI fallback
+      if (typeof window !== 'undefined') console.warn('[TTS] Google failed, fallback to OpenAI:', e);
+    }
+  }
+  if (openaiKey) {
+    return ttsOpenAI(rawText, openaiKey, { voice: 'coral' });
   }
   throw new Error('No TTS API key available');
 }

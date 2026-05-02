@@ -49,13 +49,15 @@ const SHOW_ANALYTICS_SECTION = false;
 
 // ── Nav sections ──────────────────────────────────────────────────
 // Roy 결정 2026-04-25: Theme 섹션 제거 (라이트 모드 only). 'theme' SectionId는 호환 유지.
-type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'analytics' | 'language' | 'data' | 'info';
+// [2026-05-02 Roy] 'voice' 섹션 추가 — TTS 품질 변경.
+type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'analytics' | 'language' | 'voice' | 'data' | 'info';
 
 const SECTIONS: { id: SectionId; labelKey: string }[] = [
   { id: 'api',      labelKey: 'settings.api_keys' },
   { id: 'models',   labelKey: 'settings.custom_models' },
   { id: 'prompt',   labelKey: 'settings.system_prompt' },
   { id: 'language', labelKey: 'settings.language' },
+  { id: 'voice',    labelKey: 'settings.voice' },
   { id: 'data',     labelKey: 'settings.data_storage' },
   { id: 'info',     labelKey: 'settings.info' },
 ];
@@ -822,6 +824,17 @@ export function D1SettingsView() {
             </Card>
           </section>
 
+          {/* ── 5b. Voice (TTS quality) ─────────────────────────── */}
+          {/* [2026-05-02 Roy] 음성 답변 품질 — '프리미엄' (Chirp3-HD) / '표준'
+              (Neural2/OpenAI). localStorage 'd1:tts-quality'. */}
+          <section style={{ display: visible('voice') ? undefined : 'none' }}>
+            <SectionH id="voice" label={t('settings.voice')} />
+            <p className="mb-4 text-[13px]" style={{ color: tokens.textDim }}>
+              {t('settings.voice_desc')}
+            </p>
+            <D1VoiceQualitySelector lang={lang} t={t} />
+          </section>
+
           {/* ── 6. Data ───────────────────────────────────────── */}
           <section style={{ display: visible('data') ? undefined : 'none' }}>
             <SectionH id="data" label={t('settings.data_storage')} />
@@ -952,6 +965,55 @@ export function D1SettingsView() {
         </div>
       )}
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// D1VoiceQualitySelector — TTS 품질 선택 (2026-05-02 Roy)
+// localStorage 'd1:tts-quality'에 저장. 첫 사용 모달에서도 같은 키 갱신.
+// ════════════════════════════════════════════════════════════════
+function D1VoiceQualitySelector({ lang, t }: { lang: 'ko' | 'en'; t: (k: string) => string }) {
+  const [quality, setQuality] = useState<'premium' | 'standard'>('standard');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem('d1:tts-quality');
+    if (stored === 'premium' || stored === 'standard') setQuality(stored);
+  }, []);
+  function pick(q: 'premium' | 'standard') {
+    setQuality(q);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('d1:tts-quality', q);
+      localStorage.setItem('d1:tts-quality-chosen', 'true');
+    }
+  }
+  void lang;
+  return (
+    <Card>
+      <div className="flex flex-col gap-2 p-4">
+        {(['standard', 'premium'] as const).map((q) => (
+          <button
+            key={q}
+            onClick={() => pick(q)}
+            className="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors"
+            style={{
+              background: quality === q ? tokens.accentSoft : 'transparent',
+              borderColor: quality === q ? tokens.accent : tokens.borderMid,
+            }}
+          >
+            <div className="mt-0.5 h-4 w-4 shrink-0 rounded-full border-2"
+                 style={{ borderColor: quality === q ? tokens.accent : tokens.borderMid, background: quality === q ? tokens.accent : 'transparent' }} />
+            <div className="flex flex-col">
+              <span className="text-[14px] font-medium" style={{ color: tokens.text }}>
+                {t(`settings.voice_quality_${q}`)}
+              </span>
+              <span className="mt-0.5 text-[12.5px]" style={{ color: tokens.textDim }}>
+                {t(`settings.voice_quality_${q}_desc`)}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </Card>
   );
 }
 

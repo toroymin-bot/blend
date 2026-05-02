@@ -19,7 +19,7 @@ import { sendChatRequest } from '@/modules/chat/chat-api';
 import type { AIProvider } from '@/types';
 import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
-import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
+import { D1TrialExhaustedModal, D1KeyRequiredModal, D1TtsQualityModal } from '@/modules/chat/trial-modals-design1';
 import { AVAILABLE_MODELS, getFeaturedModels, getAutoFallbackChain, getBestImageModel, isImageGenModel, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
 import { trackEvent } from '@/lib/analytics';
 // [2026-05-02 Roy] trackUsage / calculateCost 호출 제거 — chat-api.ts가 자체적으로
@@ -341,6 +341,118 @@ export default function D1ChatView({
   // [2026-05-02 Roy] AI 도구 사용 indicator — streaming 중에 '🔧 weather 도구
   // 사용 중' 식 표시. 사용자가 stuck/처리 중 구분.
   const [activeToolName, setActiveToolName] = useState<string | null>(null);
+
+  // [2026-05-02 Roy] TTS — 답변 음성 재생 (Roy 결정 기반 B+C 모드).
+  //   B (자동): 사용자가 마이크로 입력 → 답변 음성 자동 재생
+  //   C (수동): 텍스트 입력 → 답변에 🔊 버튼, 클릭 시 재생
+  //   master toggle: 헤더 🔊/🔇 ON/OFF (default ON, OFF면 둘 다 비활성)
+  //   품질: 'premium' (Chirp3-HD) / 'standard' (Neural2 + OpenAI gpt-4o-mini-tts)
+  //   limit: 채팅마다 50회. 새 채팅 시작 시 리셋. 카운터 헤더 노출.
+  //   첫 사용 시 D1TtsQualityModal로 품질 선택 (default 'standard').
+  const TTS_LIMIT = 50;
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
+  const [ttsQuality, setTtsQuality] = useState<'premium' | 'standard'>('standard');
+  const [ttsQualityChosen, setTtsQualityChosen] = useState<boolean>(false);
+  const [ttsCount, setTtsCount] = useState<number>(0);
+  const [showTtsQualityModal, setShowTtsQualityModal] = useState<boolean>(false);
+  const lastUserSourceRef = useRef<'voice' | 'text'>('text');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ttsEn = localStorage.getItem('d1:tts-enabled');
+    if (ttsEn !== null) setTtsEnabled(ttsEn === 'true');
+    const q = localStorage.getItem('d1:tts-quality');
+    if (q === 'premium' || q === 'standard') setTtsQuality(q);
+    const chosen = localStorage.getItem('d1:tts-quality-chosen');
+    if (chosen === 'true') setTtsQualityChosen(true);
+    audioRef.current = new Audio();
+    audioRef.current.preload = 'auto';
+  }, []);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('d1:tts-enabled', String(ttsEnabled));
+    }
+    if (!ttsEnabled && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  }, [ttsEnabled]);
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('d1:tts-quality', ttsQuality);
+  }, [ttsQuality]);
+
+  function setTtsQualityAndPersist(q: 'premium' | 'standard'): void {
+    setTtsQuality(q);
+    setTtsQualityChosen(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('d1:tts-quality', q);
+      localStorage.setItem('d1:tts-quality-chosen', 'true');
+    }
+  }
+
+  // 답변 텍스트를 TTS에 보낼 때 마크다운/이미지/코드블록 제거 + 길이 제한.
+  // 첫 1500자만 (~30초 음성). 사용자가 클릭/자동재생 시 30초로 충분.
+  function cleanForTTS(raw: string): string {
+    return raw
+      .replace(/!\[.*?\]\(.*?\)/g, '')
+      .replace(/\[([^\]]*)\]\([^)]+\)/g, '$1')
+      .replace(/```[\s\S]*?```/g, '코드 블록.')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/[*_~#>]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 1500);
+  }
+
+  /** 외부에서 호출되는 TTS 핵심 — 자동/수동 모두 이 함수 통과 */
+  async function playTTS(text: string): Promise<void> {
+    if (!ttsEnabled) return;
+    if (ttsCount >= TTS_LIMIT) {
+      setToastMsg(lang === 'ko'
+        ? `이번 채팅 음성 한도(${TTS_LIMIT}회) 도달. 새 채팅 시작하면 리셋돼요.`
+        : `Voice limit (${TTS_LIMIT}) reached for this chat. Start a new chat to reset.`);
+      return;
+    }
+    const cleaned = cleanForTTS(text);
+    if (!cleaned) return;
+
+    // 첫 TTS 사용 시 품질 선택 모달 — 한 번만
+    if (!ttsQualityChosen) {
+      setShowTtsQualityModal(true);
+      return;
+    }
+
+    try {
+      const { synthesizeTTS } = await import('@/lib/voice-chat');
+      const openaiKey = getKey('openai') || null;
+      const googleKey = getKey('google') || null;
+      if (!openaiKey && !googleKey) {
+        setToastMsg(lang === 'ko'
+          ? '🔑 OpenAI 또는 Google 키를 설정 → API 키 관리에 등록하면 음성 답변 들을 수 있어요.'
+          : '🔑 Register an OpenAI or Google key in Settings → API Keys to enable voice playback.');
+        return;
+      }
+      const url = await synthesizeTTS(cleaned, ttsQuality, openaiKey, googleKey);
+      setTtsCount((c) => c + 1);
+      if (audioRef.current) {
+        audioRef.current.src = url;
+        await audioRef.current.play().catch(() => {
+          setToastMsg(lang === 'ko'
+            ? '🔊 음성 재생을 위해 한 번 화면을 탭해주세요'
+            : '🔊 Tap the screen once to enable audio playback');
+        });
+      }
+    } catch (e) {
+      if (typeof window !== 'undefined') console.warn('[TTS] failed:', e);
+      setToastMsg(lang === 'ko' ? `🔇 음성 재생 실패: ${(e as Error).message}` : `🔇 TTS failed: ${(e as Error).message}`);
+    }
+  }
+
+  /** B 모드 자동 재생 — 입력 source가 voice였을 때만 */
+  async function maybeAutoPlay(text: string, source: 'voice' | 'text'): Promise<void> {
+    if (source !== 'voice') return;
+    await playTTS(text);
+  }
 
   const t = copy[lang] ?? copy.en;
   const hasMessages = messages.length > 0 || isStreaming;
@@ -933,6 +1045,8 @@ export default function D1ChatView({
     if (!content && (!attachedImages || attachedImages.length === 0)) return;
     const images  = attachedImages;
 
+    // [2026-05-02 Roy] 입력 source 캡처는 performSend 내부에서 처리 (onDone 스코프 일치).
+
     // v3 P0.3 — /image 명령: DALL-E 3로 이미지 생성, 응답에 markdown 이미지 인라인
     const imgPrompt = extractImagePrompt(content);
 
@@ -1127,6 +1241,11 @@ export default function D1ChatView({
     if (messages.length === 0) {
       trackEvent('first_message_sent', { lang });
     }
+
+    // [2026-05-02 Roy] 이번 send의 입력 source 캡처 (performSend 내부 스코프).
+    // onDone 클로저에서 sourceForThisMessage로 참조 — 'voice'면 자동 TTS 재생 (B 모드).
+    const sourceForThisMessage: 'voice' | 'text' = lastUserSourceRef.current;
+    lastUserSourceRef.current = 'text';
 
     // Consume any model override set by "Try another AI" — use ref so it survives the closure
     const effectiveModel = nextModelOverrideRef.current ?? currentModel;
@@ -1583,6 +1702,8 @@ The [Active...] sections below are the user's activated sources. Use them as you
           if (wantsPdfDownload && fullText.trim()) {
             triggerPdfDownload(content, fullText, docSources, lang);
           }
+          // [2026-05-02 Roy] B 모드 — 음성 입력이었으면 답변 자동 재생
+          maybeAutoPlay(fullText, sourceForThisMessage);
         },
         onError: (err) => {
           setMessages(prev => [...prev, {
@@ -1758,6 +1879,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         if (wantsPdfDownload && fullText.trim()) {
           triggerPdfDownload(content, fullText, docSources, lang);
         }
+        // [2026-05-02 Roy] B 모드 — 음성 입력이었으면 답변 자동 재생
+        maybeAutoPlay(fullText, sourceForThisMessage);
       },
       onError: (err) => {
         setMessages(prev => [...prev, {
@@ -1852,12 +1975,38 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           })()}
         </div>
         <div className="flex items-center gap-1">
+          {/* [2026-05-02 Roy] TTS 마스터 토글 + 카운터 — 클릭 시 ON/OFF.
+              ON일 때 옆에 작게 카운터 (예: 3/50). 50 도달 시 회색 비활성. */}
+          <button
+            type="button"
+            onClick={() => setTtsEnabled((v) => !v)}
+            disabled={ttsCount >= TTS_LIMIT}
+            title={
+              ttsCount >= TTS_LIMIT
+                ? (lang === 'ko' ? `이번 채팅 음성 한도 도달 (${TTS_LIMIT}/${TTS_LIMIT})` : `Voice limit reached (${TTS_LIMIT}/${TTS_LIMIT})`)
+                : ttsEnabled
+                  ? (lang === 'ko' ? '음성 답변 끄기' : 'Turn off voice')
+                  : (lang === 'ko' ? '음성 답변 켜기' : 'Turn on voice')
+            }
+            className="inline-flex items-center gap-1 rounded-full border bg-transparent px-2.5 py-1 text-[12px] transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ borderColor: tokens.borderStrong, color: tokens.textDim }}
+          >
+            {ttsEnabled ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
+            {ttsEnabled && (
+              <span className="text-[11px] tabular-nums" style={{ color: tokens.textFaint }}>
+                {ttsCount}/{TTS_LIMIT}
+              </span>
+            )}
+          </button>
           <D1IconButton
             title={lang === 'ko' ? '새 채팅' : 'New chat'}
             onClick={() => {
               setActiveChatId(null);
               setMessages([]);
               setValue('');
+              // [2026-05-02 Roy] 새 채팅 시 TTS 카운터 리셋 (50회/채팅 한도)
+              setTtsCount(0);
+              if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
             }}
           >
             <PlusIcon />
@@ -1926,6 +2075,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                 onTryAnother={(newModel?: string) => regenerateAssistantMessage(msg.id, newModel)}
                 onFork={msg.role === 'assistant' ? () => forkChatAtMessage(msg.id) : undefined}
                 onShare={msg.role === 'assistant' ? () => setShareOpen(true) : undefined}
+                ttsEnabled={ttsEnabled}
+                onPlayTTS={msg.role === 'assistant' ? (text) => playTTS(text) : undefined}
               />
             ))}
             {isStreaming && streamingContent && (
@@ -2018,6 +2169,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
               onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
+              onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; }}
             />
 
             {/* Suggestions — desktop only. Sprint 2 (16384367): 6 카드 + icon + ⓘ 툴팁 */}
@@ -2121,6 +2273,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
               onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
+              onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; }}
             />
           </div>
         </div>
@@ -2151,6 +2304,15 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           onSwitchToGemini={() => setCurrentModel('gemini-2.5-flash')}
           onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))}
           onClose={() => setShowKeyRequired(null)}
+        />
+      )}
+
+      {/* [2026-05-02 Roy] TTS 품질 첫 사용 모달 — '프리미엄' / '표준' 선택 */}
+      {showTtsQualityModal && (
+        <D1TtsQualityModal
+          lang={lang}
+          onChoose={(q) => setTtsQualityAndPersist(q)}
+          onClose={() => setShowTtsQualityModal(false)}
         />
       )}
 
@@ -2241,7 +2403,13 @@ type CopyObj = {
   tryAnother: string;
 };
 
-function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: { message: Message; lang: Lang; t: CopyObj; onTryAnother: (newModel?: string) => void; onFork?: () => void; onShare?: () => void }) {
+function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare, ttsEnabled, onPlayTTS }: {
+  message: Message; lang: Lang; t: CopyObj;
+  onTryAnother: (newModel?: string) => void;
+  onFork?: () => void; onShare?: () => void;
+  ttsEnabled?: boolean;
+  onPlayTTS?: (text: string) => void;
+}) {
   if (message.role === 'user') {
     return <D1UserMessage content={message.content} lang={lang} />;
   }
@@ -2259,6 +2427,8 @@ function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: { mes
       onTryAnother={onTryAnother}
       onFork={onFork}
       onShare={onShare}
+      ttsEnabled={ttsEnabled}
+      onPlayTTS={onPlayTTS}
     />
   );
 }
@@ -2302,6 +2472,8 @@ function D1AssistantMessage({
   onTryAnother,
   onFork,
   onShare,
+  ttsEnabled,
+  onPlayTTS,
 }: {
   content: string;
   streaming?: boolean;
@@ -2316,6 +2488,10 @@ function D1AssistantMessage({
   onTryAnother?: (newModel?: string) => void;
   onFork?: () => void;
   onShare?: () => void;
+  // [2026-05-02 Roy] TTS — ttsEnabled true일 때만 🔊 버튼 노출. 클릭 시 onPlayTTS
+  // 호출해 부모가 비용·카운터·품질 라우팅 처리.
+  ttsEnabled?: boolean;
+  onPlayTTS?: (text: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -2390,6 +2566,20 @@ function D1AssistantMessage({
             </button>
             {/* [2026-05-02 Roy] '다시 생성' 버튼 제거 — 불필요한 기능. '다른 AI로'
                 재생성 + 자동 fallback이 같은 역할을 더 똑똑하게 처리. */}
+
+            {/* [2026-05-02 Roy] per-message TTS 버튼 (C 모드) — 텍스트 입력 답변에도
+                듣고 싶을 때 클릭. ttsEnabled=true일 때만 노출. */}
+            {ttsEnabled && onPlayTTS && (
+              <button
+                onClick={() => onPlayTTS(content)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
+                style={{ color: 'inherit' }}
+                title={lang === 'ko' ? '음성으로 듣기' : 'Listen'}
+              >
+                <SpeakerOnIcon />
+                {lang === 'ko' ? '듣기' : 'Listen'}
+              </button>
+            )}
 
             {/* [2026-04-26] Sprint 3 (16384367) — Share button */}
             {onShare && (
@@ -2614,6 +2804,7 @@ function D1InputBar({
   onVoiceFallbackRecorded,
   onVoiceError,
   onAskBlend,
+  onVoiceUsed,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2637,6 +2828,9 @@ function D1InputBar({
   onVoiceError?: (msg: string) => void;
   // [2026-05-01 Roy] '블렌드 서비스란?' 칩 — 클릭 시 BLEND_INTRO_QUESTION 자동 전송
   onAskBlend?: () => void;
+  // [2026-05-02 Roy] 마이크로 음성 입력될 때 신호 — 부모가 lastUserSourceRef='voice'로
+  // 표시. 다음 답변 끝나면 자동 TTS 재생 트리거 (B 모드).
+  onVoiceUsed?: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -2671,6 +2865,8 @@ function D1InputBar({
     if (isFinal) {
       // 최종 결과를 base에 누적, 다음 interim의 base로 사용
       voiceBaseRef.current = next + ' ';
+      // [2026-05-02 Roy] 부모에 voice 입력 사용 시그널 — 답변 끝나면 자동 TTS.
+      onVoiceUsed?.();
     }
   }
 
@@ -3092,3 +3288,6 @@ function StopIcon()     { return <svg {...iconProps}><rect x="6" y="6" width="12
 function CopyIcon()     { return <svg {...iconProps} width={13} height={13}><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>; }
 function CheckIcon()    { return <svg {...iconProps} width={13} height={13} style={{ color: tokens.accent }}><path d="M20 6 9 17l-5-5" /></svg>; }
 function RefreshIcon()  { return <svg {...iconProps} width={13} height={13}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M3 21v-5h5" /></svg>; }
+// [2026-05-02 Roy] TTS toggle icons — speaker ON / OFF (이모지 사용 금지 결정).
+function SpeakerOnIcon() { return <svg {...iconProps} width={14} height={14}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /></svg>; }
+function SpeakerOffIcon() { return <svg {...iconProps} width={14} height={14}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="22" y1="9" x2="16" y2="15" /><line x1="16" y1="9" x2="22" y2="15" /></svg>; }
