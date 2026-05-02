@@ -2373,9 +2373,11 @@ function D1AssistantMessage({
           // 데스크톱 모델명 중복 제거.
           // 이전: opacity-0 + group-hover:opacity-100 → hover 없는 모바일에서 영구 invisible.
           // 신규: 항상 회색(textFaint)으로 표시, hover 시 약간 진하게.
-          // 표시 항목(요청): 복사, 다시 생성, 공유, 답변 AI(우측), 다른 AI로
-          //   ↳ 이전엔 좌측 'Message meta footer'(모델·토큰·비용) + 우측 modelUsed 가
-          //     같은 모델명을 두 번 노출하던 회귀 → 좌측 footer 제거, 우측만 유지.
+          // 표시 항목: 복사, 공유, 답변 AI(우측), 다른 AI로
+          //   ↳ '다시 생성' 버튼은 2026-05-02 Roy 결정으로 제거 — '다른 AI로' +
+          //     자동 fallback이 동일 역할을 더 똑똑하게 처리.
+          //   ↳ 좌측 'Message meta footer'(모델·토큰·비용) + 우측 modelUsed 모델명
+          //     중복 회귀 → 좌측 footer 제거, 우측만 유지.
           <div className="mt-3 flex flex-wrap items-center gap-1" style={{ color: tokens.textFaint }}>
             <button
               onClick={handleCopy}
@@ -2386,15 +2388,8 @@ function D1AssistantMessage({
               {copied ? <CheckIcon /> : <CopyIcon />}
               {copied ? t.copied : t.copy}
             </button>
-            <button
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
-              style={{ color: 'inherit' }}
-              title={t.regenerate}
-              onClick={() => onTryAnother?.()}
-            >
-              <RefreshIcon />
-              {t.regenerate}
-            </button>
+            {/* [2026-05-02 Roy] '다시 생성' 버튼 제거 — 불필요한 기능. '다른 AI로'
+                재생성 + 자동 fallback이 같은 역할을 더 똑똑하게 처리. */}
 
             {/* [2026-04-26] Sprint 3 (16384367) — Share button */}
             {onShare && (
