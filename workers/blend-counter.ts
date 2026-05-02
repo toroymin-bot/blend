@@ -108,6 +108,110 @@ export default {
       }
     }
 
+    // ═══ /track-usage — AI 사용 비용 추적 (2026-05-02 Roy) ═══
+    // 채팅 응답 1회마다 client가 호출. KV에 시간/일별 + 국가/OS/owner별 누적.
+    // 비용은 client에서 계산해 받음 (registry pricing이 client에 있음).
+    // 키 설계 (TTL 90일):
+    //   daily:YYYY-MM-DD:usage:total:{cost,tokens,requests}
+    //   daily:YYYY-MM-DD:usage:provider:{p}:{cost,tokens,requests}
+    //   daily:YYYY-MM-DD:usage:model:{m}:{cost,tokens,requests}
+    //   daily:YYYY-MM-DD:usage:hour:HH:{cost,requests}        ← KST 시간
+    //   daily:YYYY-MM-DD:usage:owner:{cost,tokens,requests}
+    //   daily:YYYY-MM-DD:usage:owner:provider:{p}:cost
+    //   daily:YYYY-MM-DD:usage:others:{cost,tokens,requests}  ← Roy 제외
+    //   daily:YYYY-MM-DD:usage:country:{cc}:{cost,requests}    ← Roy 제외
+    //   daily:YYYY-MM-DD:usage:os:{os}:{cost,requests}         ← Roy 제외
+    if (url.pathname === '/track-usage' && req.method === 'POST') {
+      try {
+        const body = (await req.json()) as {
+          provider?: string;
+          model?: string;
+          inputTokens?: number;
+          outputTokens?: number;
+          cost?: number;
+          isOwner?: boolean;
+          os?: string;
+        };
+
+        const provider = String(body.provider ?? '').slice(0, 32) || 'unknown';
+        const model = String(body.model ?? '').slice(0, 64) || 'unknown';
+        const inputTokens = Math.max(0, Math.round(Number(body.inputTokens) || 0));
+        const outputTokens = Math.max(0, Math.round(Number(body.outputTokens) || 0));
+        const cost = Math.max(0, Number(body.cost) || 0);
+        const tokens = inputTokens + outputTokens;
+        const isOwner = body.isOwner === true;
+        const os = String(body.os ?? 'other').slice(0, 16);
+        const country = (req.headers.get('CF-IPCountry') ?? 'XX').slice(0, 3);
+
+        if (cost === 0 && tokens === 0) {
+          return new Response('OK', { status: 200, headers: corsHeaders });
+        }
+
+        const today = kstDate();
+        // KST 시간 (HH 00~23)
+        const kstHour = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours();
+        const HH = String(kstHour).padStart(2, '0');
+
+        // 부동소수점 누적 → 정밀도 손실 방지: 마이크로센트 정수로 저장 (cost*1_000_000)
+        // 읽을 때 / 1_000_000으로 복원. 연 1$ 사용해도 1e6 정수, 안전.
+        const costMicro = Math.round(cost * 1_000_000);
+
+        // 직렬 합산 helper — 호출 폭주 시 race condition 위험 있으나
+        // KV는 eventually-consistent이라 부정확한 +1/+2 손실은 수용 (집계용도).
+        const incr = async (key: string, by: number) => {
+          if (by === 0) return;
+          const cur = parseInt((await env.STATS.get(key)) || '0', 10);
+          await env.STATS.put(key, String(cur + by), { expirationTtl: TTL_90D });
+        };
+
+        const base = `daily:${today}:usage`;
+
+        // 전체
+        await incr(`${base}:total:cost`, costMicro);
+        await incr(`${base}:total:tokens`, tokens);
+        await incr(`${base}:total:requests`, 1);
+
+        // 시간대별 (전체 — Roy 포함)
+        await incr(`${base}:hour:${HH}:cost`, costMicro);
+        await incr(`${base}:hour:${HH}:requests`, 1);
+
+        // 프로바이더별
+        await incr(`${base}:provider:${provider}:cost`, costMicro);
+        await incr(`${base}:provider:${provider}:tokens`, tokens);
+        await incr(`${base}:provider:${provider}:requests`, 1);
+
+        // 모델별
+        await incr(`${base}:model:${model}:cost`, costMicro);
+        await incr(`${base}:model:${model}:tokens`, tokens);
+        await incr(`${base}:model:${model}:requests`, 1);
+
+        if (isOwner) {
+          // Roy 본인
+          await incr(`${base}:owner:cost`, costMicro);
+          await incr(`${base}:owner:tokens`, tokens);
+          await incr(`${base}:owner:requests`, 1);
+          await incr(`${base}:owner:provider:${provider}:cost`, costMicro);
+          await incr(`${base}:owner:provider:${provider}:tokens`, tokens);
+          await incr(`${base}:owner:provider:${provider}:requests`, 1);
+          await incr(`${base}:owner:hour:${HH}:cost`, costMicro);
+          await incr(`${base}:owner:hour:${HH}:requests`, 1);
+        } else {
+          // Roy 제외 — 국가/OS 분포
+          await incr(`${base}:others:cost`, costMicro);
+          await incr(`${base}:others:tokens`, tokens);
+          await incr(`${base}:others:requests`, 1);
+          await incr(`${base}:country:${country}:cost`, costMicro);
+          await incr(`${base}:country:${country}:requests`, 1);
+          await incr(`${base}:os:${os}:cost`, costMicro);
+          await incr(`${base}:os:${os}:requests`, 1);
+        }
+
+        return new Response('OK', { status: 200, headers: corsHeaders });
+      } catch {
+        return new Response('Error', { status: 500, headers: corsHeaders });
+      }
+    }
+
     // ═══ /track — 이벤트 추적 ═══
     if (url.pathname === '/track' && req.method === 'POST') {
       try {

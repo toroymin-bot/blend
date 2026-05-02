@@ -112,3 +112,85 @@ export function setAnalyticsDisabled(disabled: boolean): void {
 export function isAnalyticsDisabled(): boolean {
   return isDisabled();
 }
+
+// ──────────────────────────────────────────────────────────────────
+// AI 사용 비용 추적 (2026-05-02 Roy)
+// 채팅 응답 완료 시마다 호출 → Cloudflare counter가 시간/일별 + 국가/OS/owner
+// 별로 KV에 집계 → daily-telegram-report.mjs가 새 섹션으로 append.
+//
+// 용량 부담: usage_record는 모델 응답마다 1회 호출되므로 빈도 높음. props 최소화
+// (provider/model/in/out/cost) + keepalive로 페이지 떠나도 발송 보장.
+//
+// Owner 식별: localStorage 'blend:is-owner'='true' (Roy가 본인 기기 한 번 콘솔에서
+// 세팅). 그 외 사용자는 익명 분포(country/os)로만 집계 — 서버에 PII 저장 X.
+// ──────────────────────────────────────────────────────────────────
+
+const OWNER_FLAG_KEY = 'blend:is-owner';
+
+function isOwner(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(OWNER_FLAG_KEY) === 'true';
+}
+
+/** Roy 본인 기기 한 번 콘솔에서 호출: setBlendOwner(true) */
+export function setBlendOwner(owner: boolean): void {
+  if (typeof window === 'undefined') return;
+  if (owner) localStorage.setItem(OWNER_FLAG_KEY, 'true');
+  else localStorage.removeItem(OWNER_FLAG_KEY);
+}
+
+if (typeof window !== 'undefined') {
+  // 디버그/세팅 편의 — `setBlendOwner(true)` 콘솔에서 직접 호출 가능.
+  (window as unknown as { setBlendOwner?: typeof setBlendOwner }).setBlendOwner = setBlendOwner;
+}
+
+export interface UsageEventInput {
+  provider: string;        // 'openai' | 'anthropic' | 'google' | 'deepseek' | 'groq'
+  model: string;           // resolved model id
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;            // USD
+}
+
+/**
+ * AI 호출 1회 분 사용량을 Cloudflare counter로 push.
+ * - 비용은 서버 측에서 다시 계산하지 않고 client에서 받은 값을 그대로 누적
+ *   (registry pricing 자체가 client에 있어 server에 중복 둘 이유 X).
+ * - country는 CF가 헤더로 자동 주입(CF-IPCountry) → worker에서 처리.
+ * - os는 navigator.userAgent에서 client가 추출해 전달.
+ */
+export function trackUsage(usage: UsageEventInput): void {
+  if (isDisabled()) return;
+  if (typeof window === 'undefined') return;
+  if (!COUNTER_ENDPOINT) return;
+  // 0 cost / 0 token은 의미 없음 — 노이즈 차단
+  if (usage.cost <= 0 && usage.inputTokens === 0 && usage.outputTokens === 0) return;
+
+  const ua = navigator.userAgent ?? '';
+  let os = 'other';
+  if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/Mac OS X|Macintosh/i.test(ua)) os = 'macOS';
+  else if (/Windows/i.test(ua)) os = 'Windows';
+  else if (/Linux/i.test(ua)) os = 'Linux';
+
+  const body = {
+    provider: String(usage.provider).slice(0, 32),
+    model: String(usage.model).slice(0, 64),
+    inputTokens: Math.max(0, Math.round(usage.inputTokens)),
+    outputTokens: Math.max(0, Math.round(usage.outputTokens)),
+    cost: Math.max(0, usage.cost),
+    isOwner: isOwner(),
+    os,
+    // 시간 bucket은 worker에서 KST 변환해서 결정 (클라이언트 시계 신뢰 X)
+  };
+
+  try {
+    fetch(`${COUNTER_ENDPOINT}/track-usage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {}
+}

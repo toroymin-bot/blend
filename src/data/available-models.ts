@@ -64,24 +64,29 @@ export const FEATURED_PROVIDER_ORDER: ProviderId[] = [
  * slot — but fallbacks are only used when the preferred one is missing from
  * the registry (e.g. model retired, API not yet exposing new alias).
  */
+// [2026-05-02 Roy] PICK_FROM_PROVIDER 라이브 버전 추적 — 최신 모델을 chain 앞쪽에.
+// 사용자 불만: "API 키 관리 페이지의 모델 라벨이 채팅창 최신 모델과 안 맞음".
+// 양쪽 다 getFeaturedModels()를 쓰지만 chain 앞쪽이 outdated였음 (gpt-5.4 fixed).
+// 해결: 알려진 최신(5.5/4.7/3.1-pro)을 head, 이전 세대는 fallback.
+// 다음 세대(5.6, 4.8 등) 출시되면 chain 앞에 추가만 하면 됨.
 const PICK_FROM_PROVIDER: Record<ProviderId, string[][]> = {
   google: [
     ['gemini-2.5-flash'],                                                    // trial/free
     ['gemini-3.1-pro', 'gemini-3.1-pro-preview', 'gemini-3-pro', 'gemini-3-pro-preview', 'gemini-2.5-pro'],
   ],
   anthropic: [
-    ['claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5'],
+    ['claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5-20251101', 'claude-opus-4-5'],
     ['claude-sonnet-4-6', 'claude-sonnet-4-5-20250929'],
     ['claude-haiku-4-5', 'claude-haiku-4-5-20251001'],
   ],
   openai: [
-    ['gpt-5.4', 'gpt-5.3', 'gpt-4o'],
-    ['gpt-5.4-mini', 'gpt-4o-mini'],
+    ['gpt-5.5-pro', 'gpt-5.4-pro', 'gpt-5.4', 'gpt-5.3', 'gpt-4o'],
+    ['gpt-5.5', 'gpt-5.4-mini', 'gpt-5-mini', 'gpt-4o-mini'],
     ['gpt-5.2', 'o3', 'o1'],
   ],
   deepseek: [
-    ['deepseek-chat', 'deepseek-v4-pro'],
-    ['deepseek-reasoner', 'deepseek-v4-flash'],
+    ['deepseek-v4-pro', 'deepseek-chat'],
+    ['deepseek-v4-flash', 'deepseek-reasoner'],
   ],
   groq: [
     ['llama-3.3-70b-versatile'],

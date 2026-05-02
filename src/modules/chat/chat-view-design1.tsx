@@ -21,7 +21,8 @@ import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
 import { AVAILABLE_MODELS, getFeaturedModels, getAutoFallbackChain, getBestImageModel, isImageGenModel, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
-import { trackEvent } from '@/lib/analytics';
+import { trackEvent, trackUsage } from '@/lib/analytics';
+import { calculateCost as calcModelCost, getModelById as getRegistryModel } from '@/modules/models/model-registry';
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
@@ -830,7 +831,9 @@ export default function D1ChatView({
   // [2026-04-28] AI 호출 실패 시 사용자 친화 메시지 변환.
   // raw error 문자열을 그대로 보여주면 "Error: 401 Unauthorized" 같은
   // 기술적 메시지가 노출되어 사용자 입장에서 무엇을 해야 할지 모름.
-  function friendlyError(err: unknown): string {
+  // [2026-05-02 Roy] provider 인자 추가 — 어떤 AI 키를 어디에서 발급받아야 하는지
+  // 정확히 알려주기 위함. '키 등록했는데 왜 안 됨' 혼란 차단.
+  function friendlyError(err: unknown, provider?: AIProvider): string {
     const raw = String(
       err instanceof Error ? err.message :
       typeof err === 'string' ? err :
@@ -839,35 +842,73 @@ export default function D1ChatView({
     const lower = raw.toLowerCase();
     const isKo = lang === 'ko';
 
+    // 프로바이더별 발급/콘솔 URL — 메시지에 직접 링크
+    const PROVIDER_INFO: Record<AIProvider, { name: string; keyUrl: string; consoleKo: string; consoleEn: string }> = {
+      openai:    { name: 'OpenAI',         keyUrl: 'https://platform.openai.com/api-keys',         consoleKo: 'OpenAI Platform', consoleEn: 'OpenAI Platform' },
+      anthropic: { name: 'Anthropic',      keyUrl: 'https://console.anthropic.com/settings/keys',  consoleKo: 'Anthropic Console', consoleEn: 'Anthropic Console' },
+      google:    { name: 'Google Gemini',  keyUrl: 'https://aistudio.google.com/app/apikey',       consoleKo: 'Google AI Studio', consoleEn: 'Google AI Studio' },
+      deepseek:  { name: 'DeepSeek',       keyUrl: 'https://platform.deepseek.com/api_keys',       consoleKo: 'DeepSeek Platform', consoleEn: 'DeepSeek Platform' },
+      groq:      { name: 'Groq',           keyUrl: 'https://console.groq.com/keys',                consoleKo: 'Groq Console', consoleEn: 'Groq Console' },
+      custom:    { name: 'Custom',         keyUrl: '',                                              consoleKo: '', consoleEn: '' },
+    };
+    const info = provider ? PROVIDER_INFO[provider] : null;
+    const providerLabel = info?.name ?? (isKo ? '선택한 AI' : 'the selected AI');
+
     // AbortError = 사용자가 중단한 경우 또는 timeout
     if (/abort/.test(lower)) {
       return isKo
         ? '⏱ 응답이 중단되었어요. 다시 시도하시겠어요?'
         : '⏱ The response was stopped. Try again?';
     }
-    // 401 / invalid key / unauthorized
+    // 401 / invalid key / unauthorized — 프로바이더 명시
     if (/401|invalid.*key|unauthorized|api key/i.test(raw)) {
+      if (info) {
+        return isKo
+          ? `🔑 **${info.name}** API 키가 유효하지 않아요.\n\n` +
+            `해결 방법:\n` +
+            `1. [${info.consoleKo}](${info.keyUrl})에서 키가 살아있는지(또는 만료/삭제됐는지) 확인\n` +
+            `2. 필요하면 새 키 발급 → 복사 (앞뒤 공백 없이)\n` +
+            `3. **설정 → API 키 관리 → ${info.name}** 칸에 붙여넣고 [테스트] 버튼으로 검증\n\n` +
+            `ℹ️ Blend는 키를 브라우저에만 저장합니다. 외부로 전송하지 않아요.`
+          : `🔑 Your **${info.name}** API key isn't valid.\n\n` +
+            `How to fix:\n` +
+            `1. Open [${info.consoleEn}](${info.keyUrl}) and confirm the key still exists\n` +
+            `2. Issue a new key if needed and copy it (no leading/trailing spaces)\n` +
+            `3. Paste it into **Settings → API Keys → ${info.name}** and click [Test]\n\n` +
+            `ℹ️ Blend stores your key only in this browser — it's never sent anywhere else.`;
+      }
       return isKo
         ? '🔑 API 키가 유효하지 않아요.\n설정 → API 키에서 다시 확인해주세요.'
         : '🔑 Your API key is invalid.\nPlease check it in Settings → API Keys.';
     }
+    // 404 / model not found — 키는 OK인데 해당 모델 접근 불가
+    if (/404|not[\s_-]?found|does not exist|model.*not.*available/i.test(raw)) {
+      const inner = info
+        ? (isKo
+            ? `${info.name} 계정에 이 모델 접근 권한이 없거나, 모델이 아직 출시 전일 수 있어요.\n다른 모델을 선택하거나 [${info.consoleKo}](${info.keyUrl})에서 모델 활성화를 확인해주세요.`
+            : `Your ${info.name} account may not have access to this model, or the model isn't released yet.\nPick a different model or check [${info.consoleEn}](${info.keyUrl}).`)
+        : (isKo
+            ? '계정에서 이 모델에 접근할 수 없어요. 다른 모델을 선택해주세요.'
+            : "Your account can't access this model. Pick a different one.");
+      return isKo ? `🔍 ${inner}` : `🔍 ${inner}`;
+    }
     // 403 / forbidden / quota / billing
     if (/403|forbidden|insufficient.*quota|billing|payment/i.test(raw)) {
       return isKo
-        ? '🚫 모델 사용 권한 또는 결제 한도 문제예요.\n프로바이더 콘솔에서 확인하시거나 다른 모델을 시도해주세요.'
-        : '🚫 Permission or billing issue with this model.\nCheck your provider console, or try a different model.';
+        ? `🚫 ${providerLabel}에서 모델 사용 권한 또는 결제 한도 문제가 발생했어요.\n프로바이더 콘솔에서 결제 상태를 확인하거나 다른 모델을 시도해주세요.`
+        : `🚫 ${providerLabel} returned a permission or billing issue.\nCheck your provider console, or try a different model.`;
     }
     // 429 / rate limit
     if (/429|rate.*limit|too many|quota.*exceed/i.test(raw)) {
       return isKo
-        ? '⏳ 요청 한도를 초과했어요.\n잠시 후 다시 시도하거나 다른 모델을 선택해주세요.'
-        : '⏳ Rate limit reached.\nWait a moment, or pick a different model.';
+        ? `⏳ ${providerLabel} 요청 한도를 초과했어요.\n잠시 후 다시 시도하거나 다른 모델을 선택해주세요.`
+        : `⏳ ${providerLabel} rate limit reached.\nWait a moment, or pick a different model.`;
     }
     // 5xx / server error
     if (/5\d{2}|server.*error|internal|service.*unavailable|bad gateway|timeout/i.test(raw)) {
       return isKo
-        ? '🌐 AI 서비스에 일시적 문제가 있어요. 잠시 후 다시 시도해주세요.'
-        : '🌐 The AI service is having a hiccup. Try again in a moment.';
+        ? `🌐 ${providerLabel} 서비스에 일시적 문제가 있어요. 잠시 후 다시 시도해주세요.`
+        : `🌐 ${providerLabel} is having a hiccup. Try again in a moment.`;
     }
     // network / fetch failed
     if (/fetch|network|failed to fetch|enotfound|econnrefused/i.test(lower)) {
@@ -877,8 +918,8 @@ export default function D1ChatView({
     }
     // 정확한 원인 모름 — raw message는 보여주되 안내 추가
     return isKo
-      ? `❌ 답변을 가져오지 못했어요.\n자세한 내용: ${raw.slice(0, 160)}\n문제가 계속되면 설정에서 API 키를 확인해주세요.`
-      : `❌ Couldn't get a response.\nDetails: ${raw.slice(0, 160)}\nIf this keeps happening, check your API key in Settings.`;
+      ? `❌ ${providerLabel}에서 답변을 가져오지 못했어요.\n자세한 내용: ${raw.slice(0, 160)}\n문제가 계속되면 설정 → API 키에서 키를 다시 확인해주세요.`
+      : `❌ Couldn't get a response from ${providerLabel}.\nDetails: ${raw.slice(0, 160)}\nIf this keeps happening, check your API key in Settings.`;
   }
 
   // [2026-04-26 Tori 16220538 §1] override — 음성 자동 전송용
@@ -973,7 +1014,7 @@ export default function D1ChatView({
           setMessages((prev) => [...prev, {
             id: Date.now().toString() + '_err',
             role: 'assistant',
-            content: friendlyError(err),
+            content: friendlyError(err, 'openai'),
           }]);
         })
         .finally(() => {
@@ -1479,6 +1520,7 @@ The [Active...] sections below are the user's activated sources. Use them as you
           setMessages(prev => [...prev, {
             id: Date.now().toString() + '_err',
             role: 'assistant',
+            // trial path는 Gemini 사용 — 실패해도 사용자 키와 무관하므로 provider 안 전달
             content: friendlyError(err),
           }]);
           setIsStreaming(false);
@@ -1626,7 +1668,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         setStreamingContent(accumulated);
         setActiveToolName(null); // 텍스트 chunk 도착하면 도구 indicator 해제
       },
-      onDone: (fullText) => {
+      onDone: (fullText, usage) => {
         setMessages(prev => [...prev, {
           id: Date.now().toString() + '_ai',
           role: 'assistant',
@@ -1640,6 +1682,20 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         setStreamingContent('');
         setActiveToolName(null);
         abortRef.current = null;
+        // [2026-05-02 Roy] AI 사용량 추적 — Cloudflare counter로 push.
+        // chat-api가 onDone에 usage{input,output} 전달. 비용은 model-registry의
+        // calculateCost(input·USD/M + output·USD/M)로 산출. usage 없으면 silent skip.
+        if (usage && (usage.input > 0 || usage.output > 0)) {
+          const m = getRegistryModel(resolvedModelId);
+          const cost = m ? calcModelCost(m, usage.input, usage.output) : 0;
+          trackUsage({
+            provider: resolvedProvider,
+            model: resolvedModelId,
+            inputTokens: usage.input,
+            outputTokens: usage.output,
+            cost,
+          });
+        }
         // P3.2 자동 제목 — 첫 응답 직후만 트리거
         if (messages.length === 0) triggerAutoTitle(content, fullText);
         // [2026-04-28 Roy] PDF 다운로드 자동화
@@ -1651,7 +1707,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         setMessages(prev => [...prev, {
           id: Date.now().toString() + '_err',
           role: 'assistant',
-          content: friendlyError(err),
+          // [2026-05-02 Roy] resolvedProvider 전달 — 어떤 AI 키 문제인지 정확히 안내.
+          content: friendlyError(err, resolvedProvider),
         }]);
         setIsStreaming(false);
         setStreamingContent('');
@@ -2176,8 +2233,11 @@ function D1AssistantMessage({
   content,
   streaming = false,
   modelUsed,
-  totalTokens,
-  cost,
+  // [2026-05-02 Roy] totalTokens/cost는 props로 유지(상위 호출 호환)하지만
+  // 현재 UI에서는 미사용. 좌측 'Message meta footer' 제거하면서 정리.
+  // 별도 패널에서 다시 노출할 가능성 있어 prop 시그니처 유지.
+  totalTokens: _totalTokens,
+  cost: _cost,
   sources,
   bridgeApplied,
   bridgeFromCache,
@@ -2216,8 +2276,6 @@ function D1AssistantMessage({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showModelPicker]);
-  const tokensStr = formatTokens(totalTokens, lang);
-  const costStr   = formatKRW(cost, lang);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -2255,11 +2313,18 @@ function D1AssistantMessage({
         </div>
 
         {!streaming && (
-          <div className="mt-3 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          // [2026-05-02 Roy] 모바일 액션 바 가시성 수정 +
+          // 데스크톱 모델명 중복 제거.
+          // 이전: opacity-0 + group-hover:opacity-100 → hover 없는 모바일에서 영구 invisible.
+          // 신규: 항상 회색(textFaint)으로 표시, hover 시 약간 진하게.
+          // 표시 항목(요청): 복사, 다시 생성, 공유, 답변 AI(우측), 다른 AI로
+          //   ↳ 이전엔 좌측 'Message meta footer'(모델·토큰·비용) + 우측 modelUsed 가
+          //     같은 모델명을 두 번 노출하던 회귀 → 좌측 footer 제거, 우측만 유지.
+          <div className="mt-3 flex flex-wrap items-center gap-1" style={{ color: tokens.textFaint }}>
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
-              style={{ color: tokens.textDim }}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5 hover:text-current"
+              style={{ color: 'inherit' }}
               title={t.copy}
             >
               {copied ? <CheckIcon /> : <CopyIcon />}
@@ -2267,8 +2332,9 @@ function D1AssistantMessage({
             </button>
             <button
               className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
-              style={{ color: tokens.textDim }}
+              style={{ color: 'inherit' }}
               title={t.regenerate}
+              onClick={() => onTryAnother?.()}
             >
               <RefreshIcon />
               {t.regenerate}
@@ -2279,7 +2345,7 @@ function D1AssistantMessage({
               <button
                 onClick={onShare}
                 className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
-                style={{ color: tokens.textDim }}
+                style={{ color: 'inherit' }}
                 title={lang === 'ko' ? '공유' : 'Share'}
               >
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
@@ -2291,19 +2357,6 @@ function D1AssistantMessage({
                 </svg>
                 {lang === 'ko' ? '공유' : 'Share'}
               </button>
-            )}
-
-            {/* Message meta footer */}
-            {modelInfo && (
-              <span className="ml-2 flex items-center gap-1.5 text-[11px]" style={{ color: tokens.textFaint }}>
-                <span
-                  className="inline-block h-1.5 w-1.5 rounded-full"
-                  style={{ background: BRAND_COLORS[modelInfo.brand] ?? tokens.accent }}
-                />
-                {modelInfo.name}
-                {tokensStr && <><span>·</span><span>{tokensStr}</span></>}
-                {costStr   && <><span>·</span><span>{costStr}</span></>}
-              </span>
             )}
 
             {/* [Tori 18644993 PR #5] Cross-Model Bridge Badge — 이전 대화 참조 시 표시 */}
@@ -2343,7 +2396,7 @@ function D1AssistantMessage({
                 {modelUsed && (
                   <span
                     className="inline-flex items-center gap-1 text-[11.5px]"
-                    style={{ color: tokens.textFaint }}
+                    style={{ color: 'inherit' }}
                     title={lang === 'ko' ? '이 답변을 생성한 AI' : 'AI that generated this response'}
                   >
                     <span
@@ -2356,8 +2409,8 @@ function D1AssistantMessage({
                 )}
                 <button
                   onClick={() => setShowModelPicker((v) => !v)}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] opacity-0 transition-opacity duration-150 hover:!opacity-100 group-hover:opacity-60"
-                  style={{ color: tokens.textDim }}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
+                  style={{ color: 'inherit' }}
                   title={t.tryAnother}
                 >
                   ↻ {t.tryAnother}
