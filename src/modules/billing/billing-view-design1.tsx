@@ -324,8 +324,26 @@ export default function D1BillingView({
   const getByModel      = useUsageStore((s) => s.getCostByModel);
   const loadFromStorage = useUsageStore((s) => s.loadFromStorage);
 
+  // [2026-05-02 Roy] Cloudflare KV 통합 뷰 — 모든 디바이스(Mac/iPhone/PC) 합산.
+  // localStorage는 per-device, KV는 cross-device. KV 응답은 1분 캐시되므로
+  // 약간의 지연 OK. 실패 시 silent fallback (localStorage만 표시).
+  const [kvSummary, setKvSummary] = useState<null | {
+    yesterday: { totalCost: number; totalRequests: number };
+    week: { totalCost: number; totalRequests: number; providers: Record<string, { cost: number; requests: number }> };
+    month: { totalCost: number; totalRequests: number };
+    all: { totalCost: number; totalRequests: number; providers: Record<string, { cost: number; requests: number }> };
+  }>(null);
+
   useEffect(() => {
     loadFromStorage();
+    // KV 통합 뷰 fetch — Cloudflare counter endpoint
+    const counterUrl = process.env.NEXT_PUBLIC_BLEND_COUNTER_URL;
+    if (counterUrl) {
+      fetch(`${counterUrl}/usage-summary`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data) setKvSummary(data); })
+        .catch(() => {});
+    }
   }, [loadFromStorage]);
 
   const monthCostUsd  = getThisMonth();
@@ -432,6 +450,49 @@ export default function D1BillingView({
         {mode === 'savings' && !hasUsage && (
           <EmptyState lang={lang} />
         )}
+
+        {/* [2026-05-02 Roy] 모든 디바이스 통합 뷰 — Cloudflare KV에서 모든 단말이
+            푸시한 사용량 합산. localStorage(이 디바이스만)와 별도로 표시. */}
+        {mode === 'savings' && kvSummary && kvSummary.all.totalCost > 0 && (
+          <section className="mb-12">
+            <div
+              className="rounded-2xl border p-6 md:p-8"
+              style={{ background: tokens.surface, borderColor: tokens.border }}
+            >
+              <div className="mb-4 flex items-center gap-2">
+                <span className="text-[13px]" style={{ color: tokens.textDim }}>
+                  {lang === 'ko' ? '☁️ 모든 디바이스 합산 (Mac · iPhone · PC)' : '☁️ All devices combined'}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <KvCol label={lang === 'ko' ? '어제' : 'Yesterday'}    cost={kvSummary.yesterday.totalCost} reqs={kvSummary.yesterday.totalRequests} lang={lang} />
+                <KvCol label={lang === 'ko' ? '이번 주(7일)' : 'This week'}   cost={kvSummary.week.totalCost}      reqs={kvSummary.week.totalRequests}      lang={lang} />
+                <KvCol label={lang === 'ko' ? '전체 누적' : 'All time'}    cost={kvSummary.all.totalCost}       reqs={kvSummary.all.totalRequests}       lang={lang} />
+              </div>
+              {Object.keys(kvSummary.all.providers).length > 0 && (
+                <div className="mt-5 pt-4 border-t text-[13px]" style={{ borderColor: tokens.border, color: tokens.textDim }}>
+                  <div className="mb-2">{lang === 'ko' ? 'AI 회사별 (전체 누적)' : 'By provider (all time)'}</div>
+                  <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+                    {Object.entries(kvSummary.all.providers)
+                      .sort((a, b) => b[1].cost - a[1].cost)
+                      .map(([p, v]) => (
+                        <span key={p}>
+                          <span style={{ background: BRAND_COLORS[p] ?? tokens.accent, display: 'inline-block', width: 8, height: 8, borderRadius: '50%', marginRight: 6 }} />
+                          {p}: {fmtMoney(v.cost, lang)} · {v.requests}건
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              )}
+              <div className="mt-3 text-[11px]" style={{ color: tokens.textFaint }}>
+                {lang === 'ko'
+                  ? '아래는 이 디바이스 기록만. 위는 모든 디바이스 합산 (Cloudflare KV).'
+                  : 'Below: this device only. Above: all devices combined (Cloudflare KV).'}
+              </div>
+            </div>
+          </section>
+        )}
+
         {mode === 'savings' && hasUsage && (
           <>
             {/* ══ Section 1 — Usage summary ══ */}
@@ -988,6 +1049,21 @@ function PaymentStubModal({
 }
 
 // ── Subcomponents ────────────────────────────────────────────────
+
+// [2026-05-02 Roy] KV 통합 뷰 컬럼 — 어제/이번주/전체 누적 표시.
+function KvCol({ label, cost, reqs, lang }: { label: string; cost: number; reqs: number; lang: 'ko' | 'en' }) {
+  return (
+    <div>
+      <div className="text-[12px] mb-1" style={{ color: tokens.textDim }}>{label}</div>
+      <div className="text-[20px] font-medium" style={{ color: tokens.text }}>
+        {cost > 0 ? (lang === 'ko' ? `₩${Math.round(cost * KRW_PER_USD).toLocaleString('ko-KR')}` : `$${cost.toFixed(cost < 0.01 ? 4 : 2)}`) : (lang === 'ko' ? '₩0' : '$0')}
+      </div>
+      <div className="text-[11px]" style={{ color: tokens.textFaint }}>
+        {reqs}{lang === 'ko' ? '건' : ' requests'}
+      </div>
+    </div>
+  );
+}
 
 function EmptyState({ lang }: { lang: 'ko' | 'en' }) {
   const t = copy[lang];

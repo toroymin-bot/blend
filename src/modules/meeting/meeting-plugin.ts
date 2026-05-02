@@ -2,13 +2,36 @@
 // Speaker diarization, topic/action-item extraction, summarization via LLM
 
 import { TranscriptSegment, ActionItem } from '@/types';
+import { recordApiUsage } from '@/lib/analytics';
+import { calculateCost, getModelById } from '@/modules/models/model-registry';
 
 type Provider = 'openai' | 'anthropic';
+
+// [2026-05-02 Roy] meeting-plugin이 sendChatRequest 우회해 직접 fetch했었음 →
+// 회의 분석 토큰 비용이 어디에도 추적 안 되던 회귀. callOpenAI/callAnthropic
+// 응답에서 usage 추출 후 recordApiUsage 호출 — Billing 화면 + 텔레그램 리포트
+// 자동 반영. (sendChatRequest로 migrate하는 것이 이상적이지만 회의 plugin은
+// streaming 미사용·json_object format 등 비-streaming 호출이라 inline 추적이 더
+// 단순.)
+function trackLLM(provider: Provider, model: string, inputTokens: number, outputTokens: number): void {
+  if (typeof window === 'undefined') return;
+  if (inputTokens === 0 && outputTokens === 0) return;
+  const m = getModelById(model);
+  const cost = m ? calculateCost(m, inputTokens, outputTokens) : 0;
+  recordApiUsage({
+    provider,
+    model,
+    inputTokens,
+    outputTokens,
+    cost,
+  });
+}
 
 // ── LLM call helpers ──────────────────────────────────────────────────────────
 
 // [2026-04-18 01:00] Fix: added optional format param — mindmap needs 'text', JSON calls use 'json_object'
 async function callOpenAI(systemPrompt: string, userContent: string, apiKey: string, format: 'json_object' | 'text' = 'json_object'): Promise<string> {
+  const model = 'gpt-4o-mini';
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -16,7 +39,7 @@ async function callOpenAI(systemPrompt: string, userContent: string, apiKey: str
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent },
@@ -30,11 +53,13 @@ async function callOpenAI(systemPrompt: string, userContent: string, apiKey: str
     throw new Error(err.error?.message || `OpenAI error: ${res.status}`);
   }
   const data = await res.json();
+  trackLLM('openai', model, data.usage?.prompt_tokens ?? 0, data.usage?.completion_tokens ?? 0);
   return data.choices?.[0]?.message?.content ?? '{}';
 }
 
 // [2026-04-18 01:00] Fix: added optional format param — only strip markdown JSON blocks in json_object mode
 async function callAnthropic(systemPrompt: string, userContent: string, apiKey: string, format: 'json_object' | 'text' = 'json_object'): Promise<string> {
+  const model = 'claude-haiku-4-5-20251001';
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -44,7 +69,7 @@ async function callAnthropic(systemPrompt: string, userContent: string, apiKey: 
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model,
       max_tokens: 2048,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
@@ -56,6 +81,7 @@ async function callAnthropic(systemPrompt: string, userContent: string, apiKey: 
     throw new Error(err.error?.message || `Anthropic error: ${res.status}`);
   }
   const data = await res.json();
+  trackLLM('anthropic', model, data.usage?.input_tokens ?? 0, data.usage?.output_tokens ?? 0);
   const text = data.content?.[0]?.text ?? '{}';
   if (format === 'json_object') {
     // Extract JSON from markdown code block wrapper if present

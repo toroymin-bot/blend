@@ -5,6 +5,47 @@
 //   en → OpenAI Whisper / OpenAI tts-1 (fallback: Google STT / Google TTS)
 // [2026-04-16] New feature
 
+import { recordApiUsage } from '@/lib/analytics';
+
+// [2026-05-02 Roy] Voice 가격표 (USD) — 사용량 추적용.
+// Whisper STT: $0.006 / 분 → 초 단위로 산출.
+// OpenAI tts-1: $15 / 1M chars (tts-1-hd: $30/M).
+// Google Cloud STT: 무료 60분/월 후 $0.024/분.
+// Google TTS WaveNet: $16/M chars (Standard: $4/M).
+const PRICE = {
+  whisperPerMin: 0.006,
+  ttsOpenaiStandard: 15 / 1_000_000,    // per char
+  ttsOpenaiHd:       30 / 1_000_000,
+  googleSttPerMin:   0.024,             // 무료 60분 무시 — 보수적 추정
+  googleTtsWavenet:  16 / 1_000_000,    // per char
+} as const;
+
+// Blob 길이(초) 측정 — Audio 객체 metadata 로드. 실패 시 fallback (1MB ≈ 60초 추정).
+async function getAudioDurationSec(blob: Blob): Promise<number> {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio();
+    audio.preload = 'metadata';
+    audio.src = url;
+    await new Promise<void>((resolve, reject) => {
+      audio.onloadedmetadata = () => resolve();
+      audio.onerror = () => reject(new Error('audio metadata load failed'));
+      // 5초 timeout — 어떤 브라우저는 metadata 안 줌
+      setTimeout(() => resolve(), 5000);
+    });
+    URL.revokeObjectURL(url);
+    const dur = audio.duration;
+    if (!isFinite(dur) || dur <= 0) {
+      // fallback: 16kHz mono ≈ 32KB/sec 가정
+      return Math.round(blob.size / 32000);
+    }
+    return dur;
+  } catch {
+    return Math.round(blob.size / 32000);
+  }
+}
+
 export type VoiceProvider = 'openai' | 'google';
 
 export interface VoiceProviderConfig {
@@ -82,6 +123,19 @@ export async function sttOpenAI(audioBlob: Blob, apiKey: string, language: strin
     throw e;
   }
   const data = await res.json();
+  // [2026-05-02 Roy] Whisper 사용량 추적 — 초 단위 비례 비용.
+  // duration metadata 로드는 best-effort (실패 시 size 기반 추정).
+  getAudioDurationSec(audioBlob).then((sec) => {
+    if (sec > 0) {
+      recordApiUsage({
+        provider: 'openai',
+        model: 'whisper-1',
+        inputTokens: 0,
+        outputTokens: 0,
+        cost: (sec / 60) * PRICE.whisperPerMin,
+      });
+    }
+  }).catch(() => {});
   return (data as { text?: string }).text ?? '';
 }
 
@@ -141,6 +195,18 @@ export async function sttGoogle(audioBlob: Blob, apiKey: string, language: strin
     throw new Error(`Google STT error: ${res.status} — ${JSON.stringify(err)}`);
   }
   const data = await res.json() as { results?: { alternatives?: { transcript?: string }[] }[] };
+  // 사용량 추적 (Google Cloud Speech)
+  getAudioDurationSec(audioBlob).then((sec) => {
+    if (sec > 0) {
+      recordApiUsage({
+        provider: 'google',
+        model: 'cloud-speech-v1',
+        inputTokens: 0,
+        outputTokens: 0,
+        cost: (sec / 60) * PRICE.googleSttPerMin,
+      });
+    }
+  }).catch(() => {});
   return data.results?.[0]?.alternatives?.[0]?.transcript ?? '';
 }
 
@@ -221,7 +287,24 @@ export async function sttGeminiAudio(audioBlob: Blob, apiKey: string, language: 
     e.status = res.status;
     throw e;
   }
-  const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const data = await res.json() as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+  };
+  // Gemini 2.5 Flash 가격 (audio input): $0.30/M input + $2.50/M output (대략).
+  // usage 있으면 그대로, 없으면 audio 길이 기반 추정.
+  const inTok = data.usageMetadata?.promptTokenCount ?? 0;
+  const outTok = data.usageMetadata?.candidatesTokenCount ?? 0;
+  if (inTok > 0 || outTok > 0) {
+    const cost = (inTok * 0.30 + outTok * 2.50) / 1_000_000;
+    recordApiUsage({
+      provider: 'google',
+      model: 'gemini-2.5-flash',
+      inputTokens: inTok,
+      outputTokens: outTok,
+      cost,
+    });
+  }
   return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
 }
 
@@ -263,6 +346,14 @@ export async function ttsOpenAI(
     throw new Error((err as { error?: { message?: string } })?.error?.message || `OpenAI TTS error: ${res.status}`);
   }
   const blob = await res.blob();
+  // 성공 시 추적 — chars 단위 비례 비용 (tts-1: $15/M chars).
+  recordApiUsage({
+    provider: 'openai',
+    model: 'tts-1',
+    inputTokens: text.length, // chars (token 단위 아님 — Billing 표시용 근사)
+    outputTokens: 0,
+    cost: text.slice(0, 4096).length * PRICE.ttsOpenaiStandard,
+  });
   return URL.createObjectURL(blob);
 }
 
@@ -297,6 +388,14 @@ export async function ttsGoogle(
   const data = await res.json() as { audioContent?: string };
   const b64 = data.audioContent;
   if (!b64) throw new Error('Google TTS: no audio content returned');
+  // 성공 시 추적 (WaveNet voice: $16/M chars).
+  recordApiUsage({
+    provider: 'google',
+    model: voiceName, // ko-KR-Wavenet-A 등
+    inputTokens: text.length,
+    outputTokens: 0,
+    cost: text.slice(0, 5000).length * PRICE.googleTtsWavenet,
+  });
   return `data:audio/mp3;base64,${b64}`;
 }
 

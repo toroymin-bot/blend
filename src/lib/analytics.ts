@@ -146,6 +146,32 @@ export interface UsageEventInput {
 }
 
 /**
+ * AI 호출 1회 통합 추적 — chat-api 외 경로(이미지/STT/TTS/회의 등)에서 사용.
+ * - localStorage 'blend:usage' (Billing 화면 + 한도 enforcement)
+ * - Cloudflare KV (Telegram 비즈니스 리포트)
+ * 두 곳 다 한 번에 기록. 토큰 기반(chat) 또는 flat-cost(이미지/오디오) 모두 OK.
+ */
+export function recordApiUsage(usage: UsageEventInput): void {
+  if (typeof window === 'undefined') return;
+  // 0/0/0 노이즈 방지
+  if (usage.cost <= 0 && usage.inputTokens === 0 && usage.outputTokens === 0) return;
+  // 1) Cloudflare KV (텔레그램 리포트)
+  trackUsage(usage);
+  // 2) localStorage (Billing 화면)
+  import('@/stores/usage-store').then(({ useUsageStore }) => {
+    useUsageStore.getState().addRecord({
+      timestamp: Date.now(),
+      model: usage.model,
+      provider: usage.provider,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cost: usage.cost,
+      chatId: 'api',
+    });
+  }).catch(() => {});
+}
+
+/**
  * AI 호출 1회 분 사용량을 Cloudflare counter로 push.
  * - 비용은 서버 측에서 다시 계산하지 않고 client에서 받은 값을 그대로 누적
  *   (registry pricing 자체가 client에 있어 server에 중복 둘 이유 X).

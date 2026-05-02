@@ -2,6 +2,19 @@
 
 // Blend - Image Generation Plugin (DALL-E 3)
 
+import { recordApiUsage } from '@/lib/analytics';
+
+// [2026-05-02 Roy] OpenAI 이미지 생성 가격표 — 1024x1024 기준.
+// 토큰 단위 모델이 아니라 1회 generation 당 flat cost. 사용량 추적용.
+// 가격 출처: platform.openai.com/docs/pricing (2026-05).
+function imageCostUSD(modelId: string): number {
+  if (/^gpt-image-2/.test(modelId)) return 0.040;          // 1024x1024 standard
+  if (/^gpt-image-1/.test(modelId)) return 0.040;
+  if (/^dall-e-3/.test(modelId))    return 0.040;          // standard 1024x1024 ($0.080 HD)
+  if (/^dall-e-2/.test(modelId))    return 0.020;          // 1024x1024
+  return 0.04; // 기본 보수적 추정
+}
+
 export interface ImageGenResult {
   url?: string;
   error?: string;
@@ -48,6 +61,16 @@ async function generateImageOnce(prompt: string, apiKey: string, modelId: string
     }
     const data = await res.json() as { data?: { url?: string; b64_json?: string }[] };
     const item = data.data?.[0];
+    // [2026-05-02 Roy] 성공 시 사용량 추적 — 토큰 단위가 아니라 flat cost(per image).
+    // chat 토큰 모델과 같은 store에 기록하기 위해 inputTokens=0, outputTokens=0,
+    // cost=imageCostUSD()로 push. Billing 화면 + 텔레그램 리포트 둘 다 자동 반영.
+    recordApiUsage({
+      provider: 'openai',
+      model: modelId,
+      inputTokens: 0,
+      outputTokens: 0,
+      cost: imageCostUSD(modelId),
+    });
     if (item?.b64_json) {
       return { url: `data:image/png;base64,${item.b64_json}`, modelUsed: modelId };
     }

@@ -208,6 +208,141 @@ export default {
       }
     }
 
+    // ═══ /usage-summary — KV 누적 사용량 조회 (2026-05-02 Roy) ═══
+    // Billing 화면이 GET 요청 → 어제/이번주/이번달/전체(90일) 합계 + provider별
+    // 합계 반환. localStorage(per-device)와 다르게 모든 디바이스(Mac/iPhone/PC)에서
+    // 푸시한 데이터의 통합 뷰. CORS 허용 (브라우저 직접 호출).
+    if (url.pathname === '/usage-summary' && req.method === 'GET') {
+      try {
+        const today = kstDate();
+        const yesterdayKstDate = (() => {
+          const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+          d.setUTCDate(d.getUTCDate() - 1);
+          return d.toISOString().slice(0, 10);
+        })();
+
+        // 윈도우 정의 (KST)
+        const sevenDaysAgo = (() => {
+          const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+          d.setUTCDate(d.getUTCDate() - 6);
+          return d.toISOString().slice(0, 10);
+        })();
+        const monthStart = today.slice(0, 7) + '-01';
+
+        // KV listing — daily:* 모든 prefix 가진 키 + 사용량 키만 골라서 날짜 추출
+        const list = await env.STATS.list({ prefix: 'daily:', limit: 1000 });
+        const dates = new Set<string>();
+        for (const k of list.keys) {
+          const m = k.name.match(/^daily:(\d{4}-\d{2}-\d{2}):usage:/);
+          if (m) dates.add(m[1]);
+        }
+        const allDates = [...dates].sort();
+
+        // 한 날짜의 buckets 읽기 (최소 키만 — total + provider)
+        const sumKeys = ['total:cost', 'total:tokens', 'total:requests'];
+        const fetchDay = async (date: string) => {
+          const keys = await env.STATS.list({ prefix: `daily:${date}:usage:`, limit: 200 });
+          const bucket: Record<string, number> = {};
+          await Promise.all(keys.keys.map(async (k) => {
+            const v = await env.STATS.get(k.name);
+            const sub = k.name.replace(`daily:${date}:usage:`, '');
+            bucket[sub] = parseInt(v || '0', 10) || 0;
+          }));
+          return bucket;
+        };
+
+        const inWindow = (date: string, start: string, end: string) =>
+          date >= start && date <= end;
+
+        const sumDates = (filterFn: (d: string) => boolean) => {
+          return allDates.filter(filterFn);
+        };
+
+        const yesterdayDates = sumDates((d) => d === yesterdayKstDate);
+        const weekDates = sumDates((d) => inWindow(d, sevenDaysAgo, yesterdayKstDate));
+        const monthDates = sumDates((d) => inWindow(d, monthStart, today));
+        const allDatesArr = allDates;
+
+        const sumBuckets = (buckets: Array<Record<string, number>>) => {
+          const out: Record<string, number> = {};
+          for (const b of buckets) {
+            for (const [k, v] of Object.entries(b)) {
+              out[k] = (out[k] || 0) + v;
+            }
+          }
+          return out;
+        };
+
+        const [yBuckets, wBuckets, mBuckets, aBuckets] = await Promise.all([
+          Promise.all(yesterdayDates.map(fetchDay)),
+          Promise.all(weekDates.map(fetchDay)),
+          Promise.all(monthDates.map(fetchDay)),
+          Promise.all(allDatesArr.map(fetchDay)),
+        ]);
+
+        const ySum = sumBuckets(yBuckets);
+        const wSum = sumBuckets(wBuckets);
+        const mSum = sumBuckets(mBuckets);
+        const aSum = sumBuckets(aBuckets);
+
+        const microToUsd = (m: number) => (m || 0) / 1_000_000;
+        const summarize = (sum: Record<string, number>) => {
+          const providers: Record<string, { cost: number; tokens: number; requests: number }> = {};
+          const models: Record<string, { cost: number; tokens: number; requests: number }> = {};
+          for (const [k, v] of Object.entries(sum)) {
+            const pm = k.match(/^provider:([^:]+):(cost|tokens|requests)$/);
+            if (pm) {
+              if (!providers[pm[1]]) providers[pm[1]] = { cost: 0, tokens: 0, requests: 0 };
+              if (pm[2] === 'cost') providers[pm[1]].cost = microToUsd(v);
+              else if (pm[2] === 'tokens') providers[pm[1]].tokens = v;
+              else providers[pm[1]].requests = v;
+              continue;
+            }
+            const mm = k.match(/^model:([^:]+):(cost|tokens|requests)$/);
+            if (mm) {
+              if (!models[mm[1]]) models[mm[1]] = { cost: 0, tokens: 0, requests: 0 };
+              if (mm[2] === 'cost') models[mm[1]].cost = microToUsd(v);
+              else if (mm[2] === 'tokens') models[mm[1]].tokens = v;
+              else models[mm[1]].requests = v;
+            }
+          }
+          return {
+            totalCost: microToUsd(sum['total:cost']),
+            totalTokens: sum['total:tokens'] || 0,
+            totalRequests: sum['total:requests'] || 0,
+            providers,
+            models,
+          };
+        };
+
+        const body = {
+          generatedAt: new Date().toISOString(),
+          dateRange: allDates.length > 0
+            ? { from: allDates[0], to: allDates[allDates.length - 1] }
+            : null,
+          yesterday: summarize(ySum),
+          week: summarize(wSum),
+          month: summarize(mSum),
+          all: summarize(aSum),
+        };
+
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+            // 1분 캐시 — Billing 화면 새로고침 시 worker 부하 완화
+            'Cache-Control': 'public, max-age=60',
+          },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
+
     // ═══ /track — 이벤트 추적 ═══
     if (url.pathname === '/track' && req.method === 'POST') {
       try {
