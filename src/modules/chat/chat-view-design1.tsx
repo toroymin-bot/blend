@@ -1991,10 +1991,58 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         maybeAutoPlay(fullText, sourceForThisMessage);
       },
       onError: (err) => {
+        // [2026-05-02 Roy] 자동 fallback to trial Gemini — 사용자 키 401/403/404
+        // (실제 만료/잘못된 키)면 등록된 키 의심하지 말고 무료 Gemini로 자동 전환.
+        // "블렌드 핵심 원칙: 모든 질문에 끊김없이 답변" 지킴.
+        // - TRIAL_KEY_AVAILABLE = NEXT_PUBLIC_BLEND_TRIAL_GEMINI_KEY 등록된 경우만
+        // - 실패 시에만 friendlyError로 사용자 안내
+        const errStr = String((err as unknown as Error)?.message ?? err);
+        const isAuthError = /401|403|404|invalid.*key|unauthorized|api key|not[\s_-]?found/i.test(errStr);
+        if (isAuthError && TRIAL_KEY_AVAILABLE && !isTrialMode) {
+          // trial Gemini로 재시도 — 사용자에게 자동 전환 안내
+          const fallbackNote = lang === 'ko'
+            ? `> 🔄 ${resolvedProvider} 키 문제로 무료 Gemini로 자동 전환했어요.\n\n`
+            : `> 🔄 ${resolvedProvider} key issue — auto-switched to free Gemini.\n\n`;
+          let fbAccumulated = '';
+          sendTrialMessage({
+            messages: bridgedMessages.map(m => ({ role: m.role, content: m.content })),
+            systemPrompt: blendIdentity,
+            signal: controller.signal,
+            onChunk: (text) => {
+              fbAccumulated += text;
+              setStreamingContent(fallbackNote + fbAccumulated);
+            },
+            onDone: (fullText) => {
+              setMessages(prev => [...prev, {
+                id: Date.now().toString() + '_ai',
+                role: 'assistant',
+                content: fallbackNote + fullText,
+                modelUsed: 'gemini-2.5-flash',
+              }]);
+              setIsStreaming(false);
+              setStreamingContent('');
+              abortRef.current = null;
+              if (messages.length === 0) triggerAutoTitle(content, fullText);
+              maybeAutoPlay(fullText, sourceForThisMessage);
+            },
+            onError: (fbErr) => {
+              // trial도 실패 → 그제야 friendly error
+              setMessages(prev => [...prev, {
+                id: Date.now().toString() + '_err',
+                role: 'assistant',
+                content: friendlyError(fbErr, resolvedProvider),
+              }]);
+              setIsStreaming(false);
+              setStreamingContent('');
+              abortRef.current = null;
+            },
+          });
+          return;
+        }
+        // 인증 오류 외 (network, 5xx 등) 또는 trial 미가용 → friendlyError
         setMessages(prev => [...prev, {
           id: Date.now().toString() + '_err',
           role: 'assistant',
-          // [2026-05-02 Roy] resolvedProvider 전달 — 어떤 AI 키 문제인지 정확히 안내.
           content: friendlyError(err, resolvedProvider),
         }]);
         setIsStreaming(false);
