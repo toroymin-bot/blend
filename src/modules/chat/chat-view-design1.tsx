@@ -936,11 +936,18 @@ export default function D1ChatView({
               }]);
               return;
             }
+            // [2026-05-02 Roy] verification fallback 발동 시 사용자에게 알림.
+            // 'gpt-image-2 인증 필요 → DALL-E 3로 자동 전환됨' 메시지 + 이미지.
+            const fallbackNote = res.fallbackFrom
+              ? (lang === 'ko'
+                  ? `> ℹ️ ${res.fallbackFrom}는 OpenAI 조직 인증이 필요한 신규 모델이라, ${res.modelUsed ?? 'DALL-E 3'}로 자동 전환했어요. 인증하려면 [OpenAI 설정](https://platform.openai.com/settings/organization/general)에서 [Verify Organization] 클릭.\n\n`
+                  : `> ℹ️ ${res.fallbackFrom} requires OpenAI organization verification — auto-switched to ${res.modelUsed ?? 'DALL-E 3'}. To verify: [OpenAI settings](https://platform.openai.com/settings/organization/general) → [Verify Organization].\n\n`)
+              : '';
             setMessages((prev) => [...prev, {
               id: Date.now().toString() + '_img',
               role: 'assistant',
-              content: `![${finalImgPrompt.slice(0, 80)}](${res.url})`,
-              modelUsed: imageModel,
+              content: `${fallbackNote}![${finalImgPrompt.slice(0, 80)}](${res.url})`,
+              modelUsed: res.modelUsed ?? imageModel,
               bridgeApplied: adapt.bridgeApplied,
               bridgeFromCache: adapt.fromCache,
             }]);
