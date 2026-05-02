@@ -99,12 +99,14 @@ const PROVIDER_LABELS = {
   groq:      'Groq',
 };
 
+// [2026-05-02 Roy] '얼마나 청구됐나' 보여주는 빌링/사용량 페이지로 직링크.
+// 각 회사 콘솔에서 ALL keys (조직 단위) 합산 청구액이 표시되는 곳.
 const PROVIDER_USAGE_URLS = {
-  openai:    'https://platform.openai.com/usage',
-  anthropic: 'https://console.anthropic.com/settings/usage',
-  google:    'https://aistudio.google.com/usage',
-  deepseek:  'https://platform.deepseek.com/usage',
-  groq:      'https://console.groq.com/settings/usage',
+  openai:    'https://platform.openai.com/settings/organization/usage',     // org 전체 사용량 + cost
+  anthropic: 'https://console.anthropic.com/settings/usage',                // workspace 전체 사용량 + spend
+  google:    'https://aistudio.google.com/app/usage',                       // AI Studio 전체 사용량
+  deepseek:  'https://platform.deepseek.com/usage',                         // 잔액 + 사용 history
+  groq:      'https://console.groq.com/settings/billing',                   // billing (free-tier도 표시)
 };
 
 const COUNTRY_LABELS = {
@@ -307,12 +309,12 @@ async function buildUsageSection(targetDate) {
   }
   if (providerRows.length > 0) {
     providerRows.sort((x, y) => y.a - x.a); // 전체 누적 큰 순
-    lines.push('*AI 회사별 합계 (추정값)*');
+    lines.push('*AI 회사별 합계 (추정값, 모든 API 키 통합)*');
     providerRows.forEach((r) => {
       const label = PROVIDER_LABELS[r.p] || r.p;
       const url = PROVIDER_USAGE_URLS[r.p];
-      // Telegram Markdown 링크 형식 — 라벨에 [회사명](URL).
-      // 콘솔 클릭 → 실 청구액 확인 가능.
+      // Telegram Markdown 링크 형식 — 라벨에 [회사명](빌링 URL).
+      // 클릭 → 그 회사 콘솔의 사용량/청구액 페이지 (조직 전체 모든 키 합산)
       lines.push(url ? `[${label}](${url})` : label);
       lines.push(`  어제 ${fmtCost(r.d)} · 이번주 ${fmtCost(r.w)} · 전체 ${fmtCost(r.a)}`);
     });
@@ -320,17 +322,27 @@ async function buildUsageSection(targetDate) {
   }
 
   // [2026-05-02 Roy] OpenAI 실 청구액 (admin key 있으면 자동) ─────
+  // /v1/organization/costs는 organization 단위 API → 모든 API 키(admin/standard/
+  // restricted) 합산 청구액. Roy가 본인 + 다른 곳 등록한 모든 키 통합.
   const realCosts = await fetchOpenAIRealCosts(targetDate);
   if (realCosts) {
-    lines.push('💵 *OpenAI 실 청구액 (자동)*');
+    lines.push('💵 *OpenAI 실 청구액 (자동, 모든 API 키 통합)*');
     lines.push(`어제          ${fmtCostBoth(realCosts.day)}`);
     lines.push(`이번 주(7일)  ${fmtCostBoth(realCosts.week)}`);
     lines.push(`전체(90일)    ${fmtCostBoth(realCosts.all)}`);
-    lines.push(`[OpenAI Usage 콘솔](${PROVIDER_USAGE_URLS.openai})`);
+    lines.push(`[💳 OpenAI Usage 콘솔 열기](${PROVIDER_USAGE_URLS.openai})`);
     lines.push('');
   }
-  lines.push('💡 *기타 AI 실 청구액*: 위 회사명 클릭 → 각 콘솔에서 직접 확인');
-  lines.push('  (Anthropic / Google / DeepSeek / Groq는 공개 API 미제공 → 콘솔 수동 확인)');
+
+  // 다른 AI 회사 빌링 페이지 직링크 — 클릭하면 모든 API 키 합산 청구액 표시
+  lines.push('💳 *각 회사 빌링 페이지 (모든 API 키 통합)*');
+  ['anthropic', 'google', 'deepseek', 'groq'].forEach((p) => {
+    const label = PROVIDER_LABELS[p];
+    const url = PROVIDER_USAGE_URLS[p];
+    lines.push(`[${label}](${url})`);
+  });
+  lines.push('');
+  lines.push('💡 OpenAI 외 회사는 공개 usage API 미제공 → 위 링크 클릭해 직접 확인');
   lines.push('');
 
   // 윈도우별 세부 — 데이터 있는 윈도우만 출력
