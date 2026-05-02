@@ -36,12 +36,17 @@ interface D1HistoryOverlayProps {
   onTogglePin?: (chatId: string) => void;
   chats: ChatSummary[];
   lang: 'ko' | 'en';
+  // [2026-05-02 Roy] '이전 세션 기억하기' 멀티 선택 — 현재 세션 컨텍스트로 주입.
+  // 새 세션에선 자동 초기화. 노란 highlight로 선택 표시.
+  selectedMemoryIds?: string[];
+  onToggleMemory?: (chatId: string) => void;
 }
 
 type FilterRange = 'today' | 'week' | 'month' | 'all';
 
 export function D1HistoryOverlay({
   open, onClose, onSelect, onDelete, onTogglePin, chats, lang,
+  selectedMemoryIds = [], onToggleMemory,
 }: D1HistoryOverlayProps) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterRange>('all');
@@ -231,6 +236,31 @@ export function D1HistoryOverlay({
                   <span>{L.msgs(c.messageCount)}</span>
                 </div>
               </button>
+              {/* [2026-05-02 Roy] 이전 세션 기억하기 토글 — 멀티 선택. 선택 시
+                  연노랑 highlight + 채워진 아이콘. 클릭 시 부모가 selectedMemoryIds
+                  관리. 행 hover 시 노출. */}
+              {onToggleMemory && (() => {
+                const selected = selectedMemoryIds.includes(c.id);
+                return (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onToggleMemory(c.id); }}
+                    className="shrink-0 rounded-md p-1 transition-opacity hover:bg-black/5"
+                    style={{
+                      opacity: selected ? 1 : undefined,
+                      background: selected ? '#FEF3C7' : 'transparent',
+                      color: selected ? '#854D0E' : tokens.textFaint,
+                    }}
+                    title={selected
+                      ? (lang === 'ko' ? '기억에서 제외' : 'Remove from memory')
+                      : (lang === 'ko' ? '이 세션 기억하기' : 'Remember this session')}
+                  >
+                    {/* brain/bookmark style icon */}
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill={selected ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={selected ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}>
+                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                    </svg>
+                  </button>
+                );
+              })()}
               {/* P3.1 — 핀 토글 */}
               {onTogglePin && (
                 <button

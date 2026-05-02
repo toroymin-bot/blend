@@ -579,6 +579,27 @@ export default function D1ChatView({
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatCreatedAt, setChatCreatedAt] = useState<number>(() => Date.now());
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // [2026-05-02 Roy] '이전 세션 기억하기' — 멀티 선택, 현재 세션의 system prompt에
+  // 컨텍스트 주입. 새 페이지 로드 / 새 채팅 시작 시 자동 초기화 (default = 빈 배열).
+  // useState로만 보관 (localStorage X) → 의도적으로 매번 다시 선택해야 함.
+  const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
+  // 선택된 chat의 요약 캐시 — 매 메시지마다 재요약 안 하도록. chatId → 요약 텍스트.
+  const memorySummaryCache = useRef<Map<string, string>>(new Map());
+
+  function toggleMemoryChat(chatId: string): void {
+    setSelectedMemoryIds((cur) => {
+      if (cur.includes(chatId)) {
+        memorySummaryCache.current.delete(chatId);
+        return cur.filter((id) => id !== chatId);
+      }
+      if (cur.length >= 5) {
+        setToastMsg(lang === 'ko' ? '최대 5개 세션만 동시 기억 가능' : 'Up to 5 sessions can be remembered at once');
+        return cur;
+      }
+      return [...cur, chatId];
+    });
+  }
   const [exportOpen, setExportOpen] = useState(false);
   // [2026-04-26] Sprint 3 (16384367) — Share modal
   const [shareOpen, setShareOpen] = useState(false);
@@ -1848,7 +1869,41 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
     // [2026-05-01 Roy] Blend identity — 모든 AI에 'Blend 서비스' 정체성 주입.
     // 사용자가 "너는 누구냐" / "블렌드가 뭐냐" 등 메타 질문하면 일관된 답변.
     const blendIdentity = getBlendIdentityPrompt(lang);
-    const systemContent = [blendIdentity, pdfDownloadHeader, langHeader, docContext]
+
+    // [2026-05-02 Roy] 선택된 이전 세션 메모리 컨텍스트 — system prompt에 주입.
+    // 각 chat을 1회만 요약 (memorySummaryCache) → 후속 메시지는 캐시 재사용.
+    // 길이 제한: 각 세션 800자 이하 + 헤더 + 5개 max → 토큰 부담 관리.
+    let memoryContext = '';
+    if (selectedMemoryIds.length > 0) {
+      try {
+        const summaries = await Promise.all(selectedMemoryIds.map(async (chatId) => {
+          if (memorySummaryCache.current.has(chatId)) {
+            return memorySummaryCache.current.get(chatId)!;
+          }
+          const chat = useD1ChatStore.getState().chats.find((c) => c.id === chatId);
+          if (!chat || chat.messages.length === 0) return '';
+          // 첫 user message + 마지막 assistant message + 중간 길이 한정 압축
+          // (Haiku 요약은 비용 발생하니 일단 단순 truncate, 향후 Haiku 추가 가능)
+          const transcript = chat.messages.slice(0, 30).map((m) => {
+            const txt = typeof m.content === 'string' ? m.content : '';
+            return `${m.role}: ${txt.slice(0, 200)}`;
+          }).join('\n').slice(0, 800);
+          const summary = `[${chat.title || 'Untitled'}]\n${transcript}`;
+          memorySummaryCache.current.set(chatId, summary);
+          return summary;
+        }));
+        const combined = summaries.filter(Boolean).join('\n\n---\n\n');
+        if (combined) {
+          memoryContext = lang === 'ko'
+            ? `[이전 세션 컨텍스트 — 사용자가 명시적으로 선택해 가져온 ${selectedMemoryIds.length}개 대화입니다]\n\n${combined}\n\n[위 내용을 참조해 답변하세요. 사용자가 직접 언급하지 않으면 명시적으로 인용하지 마세요.]`
+            : `[Previous session context — ${selectedMemoryIds.length} chats explicitly selected by the user]\n\n${combined}\n\n[Refer to the above when answering. Don't quote unless the user mentions it explicitly.]`;
+        }
+      } catch (e) {
+        if (typeof window !== 'undefined') console.warn('[memory] summary build failed:', e);
+      }
+    }
+
+    const systemContent = [blendIdentity, memoryContext, pdfDownloadHeader, langHeader, docContext]
       .filter(Boolean)
       .join('\n\n---\n\n');
 
@@ -2006,6 +2061,9 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               // [2026-05-02 Roy] 새 채팅 시 TTS 카운터 리셋 (50회/채팅 한도)
               setTtsCount(0);
               if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+              // [2026-05-02 Roy] 메모리 선택 자동 초기화 — 새 채팅마다 다시 선택해야 함
+              setSelectedMemoryIds([]);
+              memorySummaryCache.current.clear();
             }}
           >
             <PlusIcon />
@@ -2144,6 +2202,15 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                 onShowToast={showToast}
               />
             </div>
+            {selectedMemoryIds.length > 0 && (
+              <D1MemoryChipsBar
+                lang={lang}
+                selectedIds={selectedMemoryIds}
+                chats={chatSummaries}
+                onRemove={toggleMemoryChat}
+                onClearAll={() => { setSelectedMemoryIds([]); memorySummaryCache.current.clear(); }}
+              />
+            )}
             <D1InputBar
               value={value}
               onChange={setValue}
@@ -2252,6 +2319,17 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onNavigate={() => window.dispatchEvent(new CustomEvent('d1:nav-documents'))}
               onShowToast={showToast}
             />
+            {/* [2026-05-02 Roy] 선택된 이전 세션 chips — 입력바 바로 위. 새 세션
+                시작 시 자동 비워짐. × 클릭으로 개별 제거. */}
+            {selectedMemoryIds.length > 0 && (
+              <D1MemoryChipsBar
+                lang={lang}
+                selectedIds={selectedMemoryIds}
+                chats={chatSummaries}
+                onRemove={toggleMemoryChat}
+                onClearAll={() => { setSelectedMemoryIds([]); memorySummaryCache.current.clear(); }}
+              />
+            )}
             <D1InputBar
               value={value}
               onChange={setValue}
@@ -2344,6 +2422,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         onTogglePin={(id) => useD1ChatStore.getState().togglePin(id)}
         chats={chatSummaries}
         lang={lang}
+        selectedMemoryIds={selectedMemoryIds}
+        onToggleMemory={toggleMemoryChat}
       />
 
       {/* Global styles */}
@@ -2407,6 +2487,61 @@ type CopyObj = {
   history: string; share: string; attachFile: string; voiceInput: string; send: string;
   tryAnother: string;
 };
+
+// [2026-05-02 Roy] 선택된 이전 세션 chips — 입력바 위에 작은 행으로 표시.
+// 사용자가 history-overlay에서 선택한 chat들의 제목을 보여주고 × 클릭으로 개별 제거.
+// '모두 지우기' 버튼으로 한 번에 정리 가능. 새 채팅 시작 시 자동 비워짐 (부모 reset).
+function D1MemoryChipsBar({
+  lang,
+  selectedIds,
+  chats,
+  onRemove,
+  onClearAll,
+}: {
+  lang: 'ko' | 'en';
+  selectedIds: string[];
+  chats: ChatSummary[];
+  onRemove: (id: string) => void;
+  onClearAll: () => void;
+}) {
+  const items = selectedIds
+    .map((id) => chats.find((c) => c.id === id))
+    .filter((c): c is ChatSummary => !!c);
+  if (items.length === 0) return null;
+  return (
+    <div className="mx-auto mb-2 flex w-full max-w-[720px] flex-wrap items-center gap-1.5 px-1">
+      <span className="text-[12px]" style={{ color: tokens.textDim }}>
+        {lang === 'ko' ? '🧠 기억 중:' : '🧠 Remembering:'}
+      </span>
+      {items.map((c) => (
+        <span
+          key={c.id}
+          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px]"
+          style={{ background: '#FEF3C7', borderColor: '#FCD34D', color: '#854D0E' }}
+        >
+          <span className="max-w-[180px] truncate">{c.title || (lang === 'ko' ? '제목 없음' : 'Untitled')}</span>
+          <button
+            onClick={() => onRemove(c.id)}
+            className="ml-0.5 rounded-full px-1 transition-opacity hover:opacity-70"
+            aria-label="remove"
+            style={{ color: '#854D0E' }}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      {items.length > 1 && (
+        <button
+          onClick={onClearAll}
+          className="text-[11.5px] underline transition-opacity hover:opacity-70"
+          style={{ color: tokens.textFaint }}
+        >
+          {lang === 'ko' ? '모두 지우기' : 'Clear all'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: {
   message: Message; lang: Lang; t: CopyObj;
@@ -2952,9 +3087,11 @@ function D1InputBar({
               disabled={isStreaming || (ttsCount !== undefined && ttsCount >= ttsLimit!)}
               className="ml-0.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
-                background: ttsActive ? 'var(--d1-accent-soft)' : 'transparent',
-                color: ttsActive ? 'var(--d1-accent)' : 'var(--d1-text-dim)',
-                border: ttsActive ? `1px solid var(--d1-accent-mid)` : `1px solid var(--d1-border-strong)`,
+                // [2026-05-02 Roy] ON일 때 연노랑(soft yellow) — accent 컬러와 시각 구분.
+                // 다른 입력 바 chip(블렌드란?)이 accent라서 음성 토글은 다른 색으로.
+                background: ttsActive ? '#FEF3C7' : 'transparent',
+                color:      ttsActive ? '#854D0E' : 'var(--d1-text-dim)',
+                border:     ttsActive ? '1px solid #FCD34D' : '1px solid var(--d1-border-strong)',
               }}
               title={
                 ttsCount !== undefined && ttsCount >= ttsLimit!
