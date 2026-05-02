@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-30T19:40:56.725Z",
+  "generatedAt": "2026-05-02T07:51:45.314Z",
   "providers": [
     "anthropic",
     "openai",
@@ -536,6 +536,18 @@
       "supportsStreaming": true
     },
     {
+      "id": "o3-pro",
+      "provider": "openai",
+      "displayName": "O3 Pro",
+      "description_ko": "가장 깊이 추론해요",
+      "description_en": "Deepest reasoning power",
+      "tier": "flagship",
+      "createdAt": 1748475349,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
       "id": "gpt-5.2",
       "provider": "openai",
       "displayName": "GPT-5.2",
@@ -579,6 +591,30 @@
       "description_en": "Deeper reasoning",
       "tier": "reasoning",
       "createdAt": 1744225308,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "o3-deep-research",
+      "provider": "openai",
+      "displayName": "O3 Deep Research",
+      "description_ko": "깊이 있는 연구를 해요",
+      "description_en": "Deep research and analysis",
+      "tier": "reasoning",
+      "createdAt": 1749840121,
+      "deprecated": false,
+      "supportsVision": true,
+      "supportsStreaming": true
+    },
+    {
+      "id": "o4-mini-deep-research",
+      "provider": "openai",
+      "displayName": "O4 Mini Deep Research",
+      "description_ko": "심층 연구에 특화됐어요",
+      "description_en": "Specialized in deep research",
+      "tier": "reasoning",
+      "createdAt": 1749685485,
       "deprecated": false,
       "supportsVision": true,
       "supportsStreaming": true

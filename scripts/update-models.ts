@@ -226,6 +226,25 @@ const META_OVERRIDES: Record<string, Partial<NormalizedModel>> = {
   },
 
   // ===== AUTO-APPEND BELOW (do not delete this line) =====
+  'o3-pro': {
+    displayName: "O3 Pro",
+    description_ko: "가장 깊이 추론해요",
+    description_en: "Deepest reasoning power",
+    tier: "flagship",
+  },  // auto-generated 2026-05-02
+  'o4-mini-deep-research': {
+    displayName: "O4 Mini Deep Research",
+    description_ko: "심층 연구에 특화됐어요",
+    description_en: "Specialized in deep research",
+    tier: "reasoning",
+  },  // auto-generated 2026-05-02
+  'o3-deep-research': {
+    displayName: "O3 Deep Research",
+    description_ko: "깊이 있는 연구를 해요",
+    description_en: "Deep research and analysis",
+    tier: "reasoning",
+  },  // auto-generated 2026-05-02
+
   'tts-1-hd': {
     displayName: "TTS-1-HD",
     description_ko: "고품질 음성 합성을 해요",
