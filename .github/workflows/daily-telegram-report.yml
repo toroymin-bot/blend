@@ -24,4 +24,7 @@ jobs:
           CF_ACCOUNT_ID:      ${{ secrets.CF_ACCOUNT_ID }}
           CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
           CF_API_TOKEN:       ${{ secrets.CF_API_TOKEN }}
+          # [2026-05-02 Roy] OpenAI organization-level 실 청구액 자동 가져오기.
+          # 미설정 시 스크립트가 silent skip — 추정값만 표시됨.
+          OPENAI_ADMIN_KEY:   ${{ secrets.OPENAI_ADMIN_KEY }}
         run: node scripts/daily-telegram-report.mjs

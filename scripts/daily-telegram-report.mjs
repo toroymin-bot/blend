@@ -177,6 +177,66 @@ function topByPattern(merged, pattern, valueSuffix = ':cost', topN = 10) {
   return result.slice(0, topN);
 }
 
+// [2026-05-02 Roy] OpenAI organization-level 실 청구액 자동 가져오기.
+// admin key 필요 (https://platform.openai.com/settings/organization/admin-keys).
+// /v1/organization/costs 엔드포인트 — start_time 부터의 일별 cost. 어제/이번주/전체.
+//
+// API: bucket_width='1d' / start_time(unix sec) / end_time(unix sec) / limit
+// 응답: { data: [{ start_time, end_time, results: [{ amount: { value, currency } }] }, ... ] }
+//
+// 실패해도 본문 발송 차단 X — try/catch로 감싸 silent fallback (추정값만 표시).
+async function fetchOpenAIRealCosts(targetDate) {
+  const adminKey = process.env.OPENAI_ADMIN_KEY;
+  if (!adminKey) return null; // 미설정 — silent skip
+
+  // 시간 범위 계산 (UTC 기준)
+  const yesterdayUTC = new Date(targetDate + 'T00:00:00Z');
+  const yesterdayEnd = new Date(yesterdayUTC.getTime() + 24 * 60 * 60 * 1000);
+  const weekStart = new Date(yesterdayUTC.getTime() - 6 * 24 * 60 * 60 * 1000);
+  // 전체는 지난 90일 (KV TTL과 일치)
+  const allStart = new Date(yesterdayUTC.getTime() - 89 * 24 * 60 * 60 * 1000);
+
+  const fetchCosts = async (startDate, endDate) => {
+    const url = new URL('https://api.openai.com/v1/organization/costs');
+    url.searchParams.set('start_time', String(Math.floor(startDate.getTime() / 1000)));
+    url.searchParams.set('end_time', String(Math.floor(endDate.getTime() / 1000)));
+    url.searchParams.set('bucket_width', '1d');
+    url.searchParams.set('limit', '180');
+    const r = await fetch(url, {
+      headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+    });
+    if (!r.ok) {
+      console.warn(`[openai-costs] ${r.status} ${await r.text().catch(() => '')}`);
+      return null;
+    }
+    const json = await r.json();
+    let total = 0;
+    for (const bucket of json.data ?? []) {
+      for (const result of bucket.results ?? []) {
+        total += Number(result.amount?.value ?? 0);
+      }
+    }
+    return total;
+  };
+
+  try {
+    const [dayCost, weekCost, allCost] = await Promise.all([
+      fetchCosts(yesterdayUTC, yesterdayEnd),
+      fetchCosts(weekStart, yesterdayEnd),
+      fetchCosts(allStart, yesterdayEnd),
+    ]);
+    if (dayCost === null && weekCost === null && allCost === null) return null;
+    return {
+      day: dayCost ?? 0,
+      week: weekCost ?? 0,
+      all: allCost ?? 0,
+    };
+  } catch (e) {
+    console.warn('[openai-costs] fetch failed:', e?.message ?? e);
+    return null;
+  }
+}
+
 async function buildUsageSection(targetDate) {
   // [2026-05-02 Roy] 시간 윈도우: 어제 / 이번 주(7일) / 전체 누적(90일)
   // - 어제: targetDate 단일
@@ -247,7 +307,7 @@ async function buildUsageSection(targetDate) {
   }
   if (providerRows.length > 0) {
     providerRows.sort((x, y) => y.a - x.a); // 전체 누적 큰 순
-    lines.push('*AI 회사별 합계*');
+    lines.push('*AI 회사별 합계 (추정값)*');
     providerRows.forEach((r) => {
       const label = PROVIDER_LABELS[r.p] || r.p;
       const url = PROVIDER_USAGE_URLS[r.p];
@@ -257,9 +317,21 @@ async function buildUsageSection(targetDate) {
       lines.push(`  어제 ${fmtCost(r.d)} · 이번주 ${fmtCost(r.w)} · 전체 ${fmtCost(r.a)}`);
     });
     lines.push('');
-    lines.push('💵 *실 청구액*: 위 회사명 클릭 → 각 콘솔에서 직접 확인');
+  }
+
+  // [2026-05-02 Roy] OpenAI 실 청구액 (admin key 있으면 자동) ─────
+  const realCosts = await fetchOpenAIRealCosts(targetDate);
+  if (realCosts) {
+    lines.push('💵 *OpenAI 실 청구액 (자동)*');
+    lines.push(`어제          ${fmtCostBoth(realCosts.day)}`);
+    lines.push(`이번 주(7일)  ${fmtCostBoth(realCosts.week)}`);
+    lines.push(`전체(90일)    ${fmtCostBoth(realCosts.all)}`);
+    lines.push(`[OpenAI Usage 콘솔](${PROVIDER_USAGE_URLS.openai})`);
     lines.push('');
   }
+  lines.push('💡 *기타 AI 실 청구액*: 위 회사명 클릭 → 각 콘솔에서 직접 확인');
+  lines.push('  (Anthropic / Google / DeepSeek / Groq는 공개 API 미제공 → 콘솔 수동 확인)');
+  lines.push('');
 
   // 윈도우별 세부 — 데이터 있는 윈도우만 출력
   // [helper] 한 sum에 대해 breakdown 4종(provider/model/hour/country/OS)을 lines에 push
