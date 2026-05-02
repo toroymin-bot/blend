@@ -393,30 +393,46 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                         {c.pinned && <span aria-hidden style={{ marginRight: 4, color: tokens.accent }}>📌</span>}
                         {c.title || (lang === 'ko' ? '(제목 없음)' : '(Untitled)')}
                       </button>
-                      {/* [2026-05-02 Roy] 채팅 기억하기 — 항상 회색으로 살짝 보임,
-                          호버 시 진해지고 선택 시 노란색. 텍스트 X, 아이콘만. */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const ok = useD1MemoryStore.getState().toggle(c.id);
-                          if (!ok) {
-                            // limit reached — 토스트 dispatch
+                      {/* [2026-05-02 Roy] 채팅 기억하기 — 즉시 표시 커스텀 툴팁 +
+                          모바일 탭 시 토스트로 액션 확인. 텍스트 추가 X, 아이콘만. */}
+                      <div className="relative shrink-0 group/tip">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const before = useD1MemoryStore.getState().selectedIds.includes(c.id);
+                            const ok = useD1MemoryStore.getState().toggle(c.id);
+                            if (!ok) {
+                              window.dispatchEvent(new CustomEvent('d1:toast', {
+                                detail: lang === 'ko' ? `최대 ${D1_MEMORY_LIMIT}개 채팅만` : `Up to ${D1_MEMORY_LIMIT} chats`,
+                              }));
+                              return;
+                            }
+                            // 모바일/데스크톱 공통 — 액션 결과 토스트로 자가 학습 ('learn by doing')
                             window.dispatchEvent(new CustomEvent('d1:toast', {
-                              detail: lang === 'ko' ? `최대 ${D1_MEMORY_LIMIT}개 채팅만` : `Up to ${D1_MEMORY_LIMIT} chats`,
+                              detail: before
+                                ? (lang === 'ko' ? '기억에서 제외했어요' : 'Removed from memory')
+                                : (lang === 'ko' ? '✓ 이 채팅을 기억할게요' : '✓ Remembering this chat'),
                             }));
-                          }
-                        }}
-                        className="shrink-0 rounded-md p-1 transition-all hover:bg-black/5"
-                        style={{
-                          background: memorySelected ? '#FEF3C7' : 'transparent',
-                          color: memorySelected ? '#854D0E' : tokens.textFaint,
-                        }}
-                        title={memorySelected ? (lang === 'ko' ? '기억에서 제외' : 'Remove from memory') : (lang === 'ko' ? '채팅 기억하기' : 'Remember this chat')}
-                      >
-                        <svg width={12} height={12} viewBox="0 0 24 24" fill={memorySelected ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: memorySelected ? 1 : 0.45 }} className="transition-opacity group-hover:!opacity-100">
-                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                        </svg>
-                      </button>
+                          }}
+                          className="rounded-md p-1 transition-all hover:bg-black/5"
+                          style={{
+                            background: memorySelected ? '#FEF3C7' : 'transparent',
+                            color: memorySelected ? '#854D0E' : tokens.textFaint,
+                          }}
+                          aria-label={memorySelected ? (lang === 'ko' ? '기억에서 제외' : 'Remove from memory') : (lang === 'ko' ? '채팅 기억하기' : 'Remember this chat')}
+                        >
+                          <svg width={12} height={12} viewBox="0 0 24 24" fill={memorySelected ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: memorySelected ? 1 : 0.45 }} className="transition-opacity group-hover:!opacity-100">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                          </svg>
+                        </button>
+                        <span
+                          className="pointer-events-none absolute right-0 top-full z-50 mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[11px] opacity-0 transition-none group-hover/tip:opacity-100"
+                          style={{ background: 'rgba(20,20,20,0.92)', color: '#fff' }}
+                          role="tooltip"
+                        >
+                          {memorySelected ? (lang === 'ko' ? '기억에서 제외' : 'Remove from memory') : (lang === 'ko' ? '채팅 기억하기' : 'Remember this chat')}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}

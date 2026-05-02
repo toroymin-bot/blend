@@ -486,6 +486,19 @@ export default function D1ChatView({
   const [isModelChanging, setIsModelChanging] = useState(false);
   const [inputGlowing, setInputGlowing] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  // [2026-05-02 Roy] 외부 dispatch 'd1:toast' → toast 표시 (사이드바·히스토리 등에서
+  // 발화). 액션 결과 즉시 피드백으로 모바일 발견율 ↑.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === 'string' && detail) {
+        setToastMsg(detail);
+        setTimeout(() => setToastMsg(null), 2200);
+      }
+    };
+    window.addEventListener('d1:toast', handler);
+    return () => window.removeEventListener('d1:toast', handler);
+  }, []);
   // v3 회귀 복구 (P0.4 비전): 첨부 이미지 base64 data URL 배열
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   // P3.3 + Tori 통합 RAG — race-safe 활성 문서 로딩 보장
@@ -3084,11 +3097,11 @@ function D1InputBar({
               disabled={isStreaming || (ttsCount !== undefined && ttsCount >= ttsLimit!)}
               className="ml-0.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
-                // [2026-05-02 Roy] ON일 때 연한 파랑(soft blue, sky-100) — 메모리(노랑)와
-                // 시각 구분. accent(orange)와도 구분. 음성 = 파랑, 메모리 = 노랑 의미 분리.
-                background: ttsActive ? '#DBEAFE' : 'transparent',
+                // [2026-05-02 Roy] ON일 때 더 연한 파랑(blue-50) — 첫 시도 sky-100이 너무
+                // 진했음. blue-50으로 연하게. 메모리(노랑)와 음성(파랑) 의미 분리 유지.
+                background: ttsActive ? '#EFF6FF' : 'transparent',
                 color:      ttsActive ? '#1E40AF' : 'var(--d1-text-dim)',
-                border:     ttsActive ? '1px solid #93C5FD' : '1px solid var(--d1-border-strong)',
+                border:     ttsActive ? '1px solid #BFDBFE' : '1px solid var(--d1-border-strong)',
               }}
               title={
                 ttsCount !== undefined && ttsCount >= ttsLimit!

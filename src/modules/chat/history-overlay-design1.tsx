@@ -52,6 +52,10 @@ export function D1HistoryOverlay({
   const [filter, setFilter] = useState<FilterRange>('all');
   const [highlightIdx, setHighlightIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  // [2026-05-02 Roy] 첫 1회 코치마크 — '북마크 클릭 → 채팅 기억하기' 안내.
+  // localStorage 'd1:memory-coachmark-seen' 가드. 사용자가 어느 한 곳에서 한 번
+  // 보면 영구 안 나옴. 4초 후 자동 dismiss.
+  const [showCoachmark, setShowCoachmark] = useState(false);
 
   // Reset + focus on open
   useEffect(() => {
@@ -60,7 +64,21 @@ export function D1HistoryOverlay({
       setFilter('all');
       setHighlightIdx(0);
       const id = setTimeout(() => inputRef.current?.focus(), 50);
+      // 코치마크 — 채팅 1+ 있고, 메모리 토글 prop 있고, 처음 열 때만
+      if (typeof window !== 'undefined' && onToggleMemory && chats.length > 0) {
+        const seen = localStorage.getItem('d1:memory-coachmark-seen') === 'true';
+        if (!seen) {
+          setShowCoachmark(true);
+          // 4초 후 자동 dismiss + 영구 가드
+          setTimeout(() => {
+            setShowCoachmark(false);
+            localStorage.setItem('d1:memory-coachmark-seen', 'true');
+          }, 4000);
+        }
+      }
       return () => clearTimeout(id);
+    } else {
+      setShowCoachmark(false);
     }
   }, [open]);
 
@@ -242,35 +260,58 @@ export function D1HistoryOverlay({
               {/* [2026-05-02 Roy 결정 'A'] 발견율 ↑ — hover 의존 제거. 모든 행에
                   살짝 보이는 회색 북마크 → hover 시 진해지고 선택 시 노란색.
                   시각 노이즈 미미하면서 사용자가 "이게 뭐지?" 인지 가능. */}
+              {/* [2026-05-02 Roy] 커스텀 즉시-표시 툴팁 + 모바일 탭 토스트 안내. */}
               {onToggleMemory && (() => {
                 const selected = selectedMemoryIds.includes(c.id);
+                const tipText = selected
+                  ? (lang === 'ko' ? '기억에서 제외' : 'Remove from memory')
+                  : (lang === 'ko' ? '채팅 기억하기' : 'Remember this chat');
                 return (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onToggleMemory(c.id); }}
-                    className="shrink-0 rounded-md p-1 transition-all hover:bg-black/5"
-                    style={{
-                      background: selected ? '#FEF3C7' : 'transparent',
-                      color: selected ? '#854D0E' : tokens.textFaint,
-                    }}
-                    title={selected
-                      ? (lang === 'ko' ? '기억에서 제외' : 'Remove from memory')
-                      : (lang === 'ko' ? '채팅 기억하기' : 'Remember this chat')}
-                  >
-                    <svg
-                      width={14}
-                      height={14}
-                      viewBox="0 0 24 24"
-                      fill={selected ? 'currentColor' : 'none'}
-                      stroke="currentColor"
-                      strokeWidth={1.6}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{ opacity: selected ? 1 : 0.45 }}
-                      className="transition-opacity group-hover:!opacity-100"
+                  <div className="relative shrink-0 group/tip">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const wasSelected = selected;
+                        onToggleMemory(c.id);
+                        // 모바일/데스크톱 — 액션 토스트로 결과 확인
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('d1:toast', {
+                            detail: wasSelected
+                              ? (lang === 'ko' ? '기억에서 제외했어요' : 'Removed from memory')
+                              : (lang === 'ko' ? '✓ 이 채팅을 기억할게요' : '✓ Remembering this chat'),
+                          }));
+                        }
+                      }}
+                      className="rounded-md p-1 transition-all hover:bg-black/5"
+                      style={{
+                        background: selected ? '#FEF3C7' : 'transparent',
+                        color: selected ? '#854D0E' : tokens.textFaint,
+                      }}
+                      aria-label={tipText}
                     >
-                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                    </svg>
-                  </button>
+                      <svg
+                        width={14}
+                        height={14}
+                        viewBox="0 0 24 24"
+                        fill={selected ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        strokeWidth={1.6}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ opacity: selected ? 1 : 0.45 }}
+                        className="transition-opacity group-hover:!opacity-100"
+                      >
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </button>
+                    <span
+                      className="pointer-events-none absolute right-0 top-full z-50 mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[11px] opacity-0 transition-none group-hover/tip:opacity-100"
+                      style={{ background: 'rgba(20,20,20,0.92)', color: '#fff' }}
+                      role="tooltip"
+                    >
+                      {tipText}
+                    </span>
+                  </div>
                 );
               })()}
               {/* P3.1 — 핀 토글 */}
@@ -334,6 +375,34 @@ export function D1HistoryOverlay({
           animation: 'd1-rise 240ms cubic-bezier(0.16,1,0.3,1) both',
         }}
       >
+        {/* [2026-05-02 Roy] 첫 1회 코치마크 — 채팅 행에 어떤 기능이 있는지 안내.
+            4초 후 자동 사라지고 localStorage 가드로 영구 안 보임. */}
+        {showCoachmark && (
+          <div
+            className="absolute right-4 top-[68px] z-20 flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] shadow-lg"
+            style={{
+              background: '#FEF3C7',
+              color: '#854D0E',
+              border: '1px solid #FCD34D',
+              animation: 'd1-rise 220ms ease-out both',
+            }}
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>{lang === 'ko' ? '북마크 클릭 → 채팅 기억하기' : 'Click bookmark → remember chat'}</span>
+            <button
+              onClick={() => {
+                setShowCoachmark(false);
+                if (typeof window !== 'undefined') localStorage.setItem('d1:memory-coachmark-seen', 'true');
+              }}
+              aria-label="dismiss"
+              className="ml-1 opacity-60 transition-opacity hover:opacity-100"
+            >
+              ×
+            </button>
+          </div>
+        )}
         {/* Search */}
         <div className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: tokens.border }}>
           <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: tokens.textFaint }}>
