@@ -295,6 +295,19 @@ async function handleGoogle(
     ? { responseModalities: ['TEXT', 'IMAGE'] }
     : undefined;
 
+  // [2026-05-02 Roy] Gemini Grounding (Google Search) — 자연스러운 자동 검색.
+  // 사용자가 '오늘 환율', '최신 뉴스', '어제 경기 결과' 같은 실시간 정보 물으면
+  // Gemini가 자체 판단으로 Google 검색 → 답변 + 출처. 별도 메뉴/명령어 없이
+  // chat에 자연 통합. 비용은 BYOK ($0.035/1k grounded responses, 사용자 부담).
+  // Gemini 2.5+ 모델만 지원 — 다른 모델/이미지 모델은 비활성.
+  const supportsGrounding =
+    !isImageModel &&
+    /^gemini-2\.5|^gemini-3/.test(model) &&
+    !/embedding|tts|imagen|veo|lyria/i.test(model);
+  const tools = supportsGrounding
+    ? [{ google_search: {} }]
+    : undefined;
+
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -302,6 +315,7 @@ async function handleGoogle(
       contents,
       systemInstruction: systemMsg ? { parts: [{ text: typeof systemMsg.content === 'string' ? systemMsg.content : '' }] } : undefined,
       ...(generationConfig ? { generationConfig } : {}),
+      ...(tools ? { tools } : {}),
     }),
     signal,
   });
