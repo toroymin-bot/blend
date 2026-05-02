@@ -2,6 +2,7 @@
 // Handles streaming responses from OpenAI, Anthropic, Google
 
 import { AIProvider } from '@/types';
+import { executeAITool, toOpenAITools, toAnthropicTools, toGeminiFunctionDeclarations } from '@/lib/ai-tools';
 
 // Multimodal content: either plain text or an array of text/image parts
 export interface MultimodalPart {
@@ -28,7 +29,17 @@ interface ChatRequest {
   onDone?: (fullText: string, usage?: { input: number; output: number }) => void;
   onError?: (error: string) => void;
   signal?: AbortSignal;
+  /** [2026-05-02 Roy] AI 도구 자동 사용 (시간/날씨/환율/계산기). default true.
+   *  사용자가 별도 명령어 없이 "오늘 날씨 어때?" 묻기만 해도 모델이 자체 판단으로
+   *  도구 호출. BYOK이라 추가 turn에 따른 LLM 비용은 사용자 부담.
+   *  image-gen 모델 / embedding 모델 등 tool 미지원은 caller가 false로 명시. */
+  enableTools?: boolean;
+  /** Tool execution 진행 알림 — 'weather' 도구 사용 중 → UI indicator */
+  onToolUse?: (toolName: string) => void;
 }
+
+/** Tool call recursion 한도 — 무한 루프 방지. 사용자 한 메시지에 도구 3번까지. */
+const MAX_TOOL_TURNS = 3;
 
 // ── Helpers to convert internal format to provider-specific format ────────────
 
@@ -78,16 +89,28 @@ const ENDPOINTS: Record<AIProvider, string> = {
   custom: '',
 };
 
+/** Tool 사용 가능 여부 — image-gen, embedding, audio 등은 chat completion API X */
+function supportsTools(provider: AIProvider, model: string): boolean {
+  if (/image|embedding|tts|whisper|audio|imagen|veo|lyria/i.test(model)) return false;
+  // OpenAI: gpt-3.5+, gpt-4*, gpt-5*, o1/o3 모두 tool 지원
+  // Anthropic: Claude 3+ 모두 지원
+  // Google: gemini 1.5+ / 2.x / 3.x 지원
+  if (provider === 'google' && /^gemini-(1\.0|2\.0)/.test(model)) return false;
+  return ['openai', 'anthropic', 'google', 'deepseek', 'groq'].includes(provider);
+}
+
 export async function sendChatRequest(req: ChatRequest) {
-  const { messages, model, provider, apiKey, baseUrl, stream = true, onChunk, onDone, onError, signal } = req;
+  const { messages, model, provider, apiKey, baseUrl, stream = true, onChunk, onDone, onError, signal, enableTools = true, onToolUse } = req;
+  // [2026-05-02 Roy] enableTools=true (default) + 모델/provider가 지원하면 tool 활성.
+  const useTools = enableTools && supportsTools(provider, model);
 
   try {
     if (provider === 'openai') {
-      await handleOpenAI(messages, model, apiKey, stream, onChunk, onDone, signal);
+      await handleOpenAI(messages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse);
     } else if (provider === 'anthropic') {
-      await handleAnthropic(messages, model, apiKey, stream, onChunk, onDone, signal);
+      await handleAnthropic(messages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse);
     } else if (provider === 'google') {
-      await handleGoogle(messages, model, apiKey, stream, onChunk, onDone, signal);
+      await handleGoogle(messages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse);
     } else if (provider === 'deepseek') {
       await handleOpenAICompat(messages, model, apiKey, ENDPOINTS.deepseek, stream, onChunk, onDone, signal);
     } else if (provider === 'groq') {
@@ -108,20 +131,39 @@ async function handleOpenAI(
   stream: boolean,
   onChunk?: (text: string) => void,
   onDone?: (fullText: string, usage?: { input: number; output: number }) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  useTools = false,
+  onToolUse?: (toolName: string) => void,
+  toolTurn = 0,
 ) {
+  // [2026-05-02 Roy] tools 활성 시 OpenAI tools array 추가. tool_choice='auto'.
+  // 모델이 호출 결정 시 tool_calls가 stream으로 옴 → 누적 → execute → 재 stream.
+  const body: Record<string, unknown> = {
+    model,
+    // OpenAI는 'tool' role 메시지를 지원 — caller가 tool_call_id를 가진 메시지를
+    // messages에 push했을 때도 그대로 통과.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: messages.map((m: any) => {
+      // tool_calls가 있으면 그대로 전달 (assistant + tool_calls 형태)
+      if (m.tool_calls) return { role: m.role, content: m.content, tool_calls: m.tool_calls };
+      if (m.role === 'tool') return { role: 'tool', content: m.content, tool_call_id: m.tool_call_id };
+      return { role: m.role, content: toOpenAIContent(m.content) };
+    }),
+    stream,
+    stream_options: stream ? { include_usage: true } : undefined,
+  };
+  if (useTools && toolTurn < MAX_TOOL_TURNS) {
+    body.tools = toOpenAITools();
+    body.tool_choice = 'auto';
+  }
+
   const res = await fetch(ENDPOINTS.openai, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      messages: messages.map((m) => ({ role: m.role, content: toOpenAIContent(m.content) })),
-      stream,
-      stream_options: stream ? { include_usage: true } : undefined,
-    }),
+    body: JSON.stringify(body),
     signal,
   });
 
@@ -133,6 +175,9 @@ async function handleOpenAI(
   if (stream && res.body) {
     let fullText = '';
     let usage: { input: number; output: number } | undefined;
+    let finishReason: string | undefined;
+    // tool_calls 누적 — index별로 id/name/arguments delta를 merge.
+    const toolCallsAccum: Array<{ id?: string; name?: string; arguments?: string }> = [];
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let lineBuffer = '';
@@ -152,22 +197,83 @@ async function handleOpenAI(
         if (data === '[DONE]') continue;
         try {
           const json = JSON.parse(data);
-          const content = json.choices?.[0]?.delta?.content;
+          const choice = json.choices?.[0];
+          const content = choice?.delta?.content;
           if (content) {
             fullText += content;
             onChunk?.(content);
           }
+          // [2026-05-02 Roy] tool_calls delta merge — index별 id/name/arguments 누적.
+          const tc = choice?.delta?.tool_calls;
+          if (Array.isArray(tc)) {
+            for (const t of tc) {
+              const idx = t.index ?? 0;
+              if (!toolCallsAccum[idx]) toolCallsAccum[idx] = {};
+              if (t.id) toolCallsAccum[idx].id = t.id;
+              if (t.function?.name) toolCallsAccum[idx].name = t.function.name;
+              if (t.function?.arguments) {
+                toolCallsAccum[idx].arguments = (toolCallsAccum[idx].arguments ?? '') + t.function.arguments;
+              }
+            }
+          }
+          if (choice?.finish_reason) finishReason = choice.finish_reason;
           if (json.usage) {
             usage = { input: json.usage.prompt_tokens, output: json.usage.completion_tokens };
           }
         } catch {}
       }
     }
+
+    // tool_calls 처리 — execute → result 메시지 → 재 stream.
+    if (finishReason === 'tool_calls' && toolCallsAccum.length > 0 && toolTurn < MAX_TOOL_TURNS) {
+      const newMessages: ChatRequestMessage[] = [
+        ...messages,
+        // assistant turn with tool_calls
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'assistant', content: fullText || '', tool_calls: toolCallsAccum.map((t) => ({
+          id: t.id,
+          type: 'function',
+          function: { name: t.name, arguments: t.arguments ?? '{}' },
+        })) } as any,
+      ];
+      // 각 tool 실행 후 'tool' role 메시지로 result append
+      for (const t of toolCallsAccum) {
+        if (!t.name || !t.id) continue;
+        onToolUse?.(t.name);
+        let parsedArgs: Record<string, unknown> = {};
+        try { parsedArgs = JSON.parse(t.arguments ?? '{}'); } catch {}
+        const result = await executeAITool(t.name, parsedArgs);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        newMessages.push({ role: 'tool', tool_call_id: t.id, content: JSON.stringify(result) } as any);
+      }
+      // 재 stream — 이번 turn은 toolTurn+1
+      return handleOpenAI(newMessages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse, toolTurn + 1);
+    }
+
     onDone?.(fullText, usage);
   } else {
     const json = await res.json();
-    const content = json.choices?.[0]?.message?.content || '';
+    const message = json.choices?.[0]?.message;
+    const content = message?.content || '';
     const usage = json.usage ? { input: json.usage.prompt_tokens, output: json.usage.completion_tokens } : undefined;
+    // non-stream tool_calls 처리
+    if (useTools && Array.isArray(message?.tool_calls) && message.tool_calls.length > 0 && toolTurn < MAX_TOOL_TURNS) {
+      const newMessages: ChatRequestMessage[] = [
+        ...messages,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'assistant', content, tool_calls: message.tool_calls } as any,
+      ];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const t of message.tool_calls as any[]) {
+        onToolUse?.(t.function?.name);
+        let parsedArgs: Record<string, unknown> = {};
+        try { parsedArgs = JSON.parse(t.function?.arguments ?? '{}'); } catch {}
+        const result = await executeAITool(t.function?.name, parsedArgs);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        newMessages.push({ role: 'tool', tool_call_id: t.id, content: JSON.stringify(result) } as any);
+      }
+      return handleOpenAI(newMessages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse, toolTurn + 1);
+    }
     onDone?.(content, usage);
   }
 }
@@ -179,8 +285,16 @@ async function handleAnthropic(
   stream: boolean,
   onChunk?: (text: string) => void,
   onDone?: (fullText: string, usage?: { input: number; output: number }) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  // [2026-05-02 Roy] 시그니처 통일 — Anthropic tool 본격 처리는 다음 commit.
+  // useTools/onToolUse 받아도 무시 (Anthropic SSE input_json_delta + tool_use
+  // content_block 분기가 OpenAI 대비 복잡, 별도 sprint).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _useTools = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _onToolUse?: (toolName: string) => void,
 ) {
+  void toAnthropicTools; // 다음 commit에서 사용 — import 보존
   const systemMsg = messages.find((m) => m.role === 'system');
   const userMsgs = messages.filter((m) => m.role !== 'system');
 
@@ -277,8 +391,16 @@ async function handleGoogle(
   stream: boolean,
   onChunk?: (text: string) => void,
   onDone?: (fullText: string, usage?: { input: number; output: number }) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  // [2026-05-02 Roy] 시그니처 통일. Gemini는 tools array에 google_search OR
+  // function_declarations 둘 중 하나만 — 동시 X. grounding 우선 유지, function
+  // calling은 별도 commit에서 처리.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _useTools = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _onToolUse?: (toolName: string) => void,
 ) {
+  void toGeminiFunctionDeclarations; // import 보존
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${stream ? 'streamGenerateContent' : 'generateContent'}?key=${apiKey}${stream ? '&alt=sse' : ''}`;
 
   const systemMsg = messages.find((m) => m.role === 'system');
