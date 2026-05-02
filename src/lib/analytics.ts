@@ -285,4 +285,31 @@ export async function migrateBlendUsage(daysBack = 90): Promise<{
 if (typeof window !== 'undefined') {
   // Roy 콘솔 편의 — `migrateBlendUsage()` 호출 가능
   (window as unknown as { migrateBlendUsage?: typeof migrateBlendUsage }).migrateBlendUsage = migrateBlendUsage;
+
+  // [2026-05-02 Roy] URL hash trigger — iPhone Safari 등 콘솔 접근 어려운
+  // 디바이스용. 사용자가 `blend.ai4min.com/...#migrate-usage` URL 접속하면
+  // 자동으로 마이그레이션 실행 + 결과 alert + 해시 클리어(refresh 시 재실행 방지).
+  // 중복 가드는 migrateBlendUsage 내부의 'blend:usage-migrated'로 처리됨.
+  const triggerHash = '#migrate-usage';
+  if (window.location.hash === triggerHash) {
+    // 페이지 마운트 직후 한 박자 두고 실행 — analytics.ts가 import되는 시점이
+    // 너무 빨라서 React mount 전이면 fetch 실패 가능성 있음.
+    setTimeout(() => {
+      migrateBlendUsage().then((result) => {
+        const msg =
+          `✅ 마이그레이션 완료\n\n` +
+          `• 푸시 성공: ${result.migrated}건\n` +
+          `• 건너뜀: ${result.skipped}건\n` +
+          `• 실패: ${result.failed}건\n\n` +
+          (result.migrated === 0
+            ? '이 디바이스에 누적된 사용 기록이 없거나, 이미 마이그레이션 완료한 디바이스예요.'
+            : '텔레그램 비즈니스 리포트에 반영됐어요.');
+        alert(msg);
+        // 해시 제거 — 새로고침/북마크로 재실행 방지
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }).catch((e) => {
+        alert(`마이그레이션 실패: ${e?.message ?? e}`);
+      });
+    }, 1500);
+  }
 }

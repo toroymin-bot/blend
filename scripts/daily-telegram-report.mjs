@@ -88,6 +88,16 @@ const ALL_MENUS = [
 // daily:YYYY-MM-DD:usage:total:cost (×1_000_000 = USD)
 // 1$ → KRW 환율은 ~1370 (변동, 단순화)
 const KRW_PER_USD = 1370;
+
+// [2026-05-02 Roy] provider id → 사람 친화적 회사+제품명. Telegram 표시 가독성.
+const PROVIDER_LABELS = {
+  openai:    'OpenAI (GPT)',
+  anthropic: 'Anthropic (Claude)',
+  google:    'Google (Gemini)',
+  deepseek:  'DeepSeek',
+  groq:      'Groq',
+};
+
 const COUNTRY_LABELS = {
   KR: '🇰🇷 한국', US: '🇺🇸 미국', JP: '🇯🇵 일본',  CN: '🇨🇳 중국',
   TW: '🇹🇼 대만', HK: '🇭🇰 홍콩', SG: '🇸🇬 싱가포르', VN: '🇻🇳 베트남',
@@ -159,32 +169,38 @@ function topByPattern(merged, pattern, valueSuffix = ':cost', topN = 10) {
 }
 
 async function buildUsageSection(targetDate) {
+  // [2026-05-02 Roy] 시간 윈도우: 어제 / 이번 주(7일) / 전체 누적(90일)
+  // - 어제: targetDate 단일
+  // - 이번 주: 어제 포함 7일
+  // - 전체 누적: KV TTL 90일치 전부 (`daily:` prefix 모든 날짜 합산)
   const today = await loadDateBucket(targetDate);
   const todaySum = sumBuckets([today]);
 
-  // 일주일치 (어제부터 7일 전까지)
   const weekDates = [];
   for (let i = 0; i < 7; i++) weekDates.push(dateOffset(targetDate, -i));
   const weekBuckets = await Promise.all(weekDates.map(loadDateBucket));
   const weekSum = sumBuckets(weekBuckets);
 
-  // 이번 달 (targetDate 기준 1일~targetDate)
-  const [yy, mm] = targetDate.split('-');
-  const monthStart = `${yy}-${mm}-01`;
-  const monthDates = [];
-  let cursor = monthStart;
-  while (cursor <= targetDate) {
-    monthDates.push(cursor);
-    cursor = dateOffset(cursor, 1);
+  // 전체 누적 — KV에서 daily:YYYY-MM-DD:usage:* prefix 가진 모든 날짜 키 listing
+  // 후 모두 로드. listKVKeys는 prefix 검색이라 'daily:'로 받은 뒤 ':usage:'
+  // 포함 키만 골라 날짜 추출.
+  const allUsageKeys = await listKVKeys('daily:');
+  const allUsageDateSet = new Set();
+  for (const k of allUsageKeys) {
+    const m = k.match(/^daily:(\d{4}-\d{2}-\d{2}):usage:/);
+    if (m) allUsageDateSet.add(m[1]);
   }
-  const monthBuckets = await Promise.all(monthDates.map(loadDateBucket));
-  const monthSum = sumBuckets(monthBuckets);
+  const allDates = [...allUsageDateSet].sort();
+  const allBuckets = await Promise.all(allDates.map(loadDateBucket));
+  const allSum = sumBuckets(allBuckets);
+  const allDateRange = allDates.length > 0
+    ? (allDates.length === 1 ? allDates[0] : `${allDates[0]} ~ ${allDates[allDates.length - 1]}`)
+    : null;
 
-  // 데이터 0이면 섹션 자체 skip
   const totalToday = microToUsd(todaySum['total:cost']);
   const totalWeek = microToUsd(weekSum['total:cost']);
-  const totalMonth = microToUsd(monthSum['total:cost']);
-  if (totalToday === 0 && totalWeek === 0 && totalMonth === 0) {
+  const totalAll = microToUsd(allSum['total:cost']);
+  if (totalToday === 0 && totalWeek === 0 && totalAll === 0) {
     return null;
   }
 
@@ -193,81 +209,126 @@ async function buildUsageSection(targetDate) {
   lines.push('💰 *AI 사용 비용*');
   lines.push('');
 
-  // ─────── 전체 합계 (어제/이번주/이번달) ───────
-  lines.push('*전체 (Roy + 다른 사용자)*');
+  // ─────── 합계 (어제/이번 주/전체 누적) ───────
+  lines.push('*합계*');
   lines.push(`어제          ${fmtCostBoth(totalToday)}  · ${todaySum['total:requests'] || 0}건 · ${fmtTokens(todaySum['total:tokens'])}토큰`);
-  lines.push(`이번 주(7일)  ${fmtCostBoth(totalWeek)}  · ${weekSum['total:requests'] || 0}건`);
-  lines.push(`이번 달       ${fmtCostBoth(totalMonth)}  · ${monthSum['total:requests'] || 0}건`);
+  lines.push(`이번 주(7일)  ${fmtCostBoth(totalWeek)}  · ${weekSum['total:requests'] || 0}건 · ${fmtTokens(weekSum['total:tokens'])}토큰`);
+  lines.push(`전체 누적     ${fmtCostBoth(totalAll)}  · ${allSum['total:requests'] || 0}건 · ${fmtTokens(allSum['total:tokens'])}토큰`);
+  if (allDateRange) lines.push(`             (${allDateRange})`);
   lines.push('');
 
-  // ─────── 프로바이더별 (어제) ───────
-  const providerToday = topByPattern(todaySum, 'provider:([^:]+)', ':cost', 10);
-  if (providerToday.length > 0) {
-    lines.push('*프로바이더별 (어제)*');
-    providerToday.forEach((row) => {
-      const usd = microToUsd(row.value);
-      const reqs = todaySum[`provider:${row.key}:requests`] || 0;
-      const tok = todaySum[`provider:${row.key}:tokens`] || 0;
-      lines.push(`${row.key}  ${fmtCost(usd)}  · ${reqs}건 · ${fmtTokens(tok)}토큰`);
+  // ─────── AI 회사별 합계 (3 윈도우 한눈에) ───────
+  // [2026-05-02 Roy] 회사별 비교 가독성 — 각 회사가 어제/이번주/전체에서 얼마 썼는지
+  // 한 표에. 하나라도 데이터 있으면 한 줄, 없으면 skip.
+  const allProviders = new Set();
+  ['openai', 'anthropic', 'google', 'deepseek', 'groq'].forEach((p) => allProviders.add(p));
+  for (const sum of [todaySum, weekSum, allSum]) {
+    for (const k of Object.keys(sum)) {
+      const m = k.match(/^provider:([^:]+):cost$/);
+      if (m) allProviders.add(m[1]);
+    }
+  }
+  const providerRows = [];
+  for (const p of allProviders) {
+    const d = microToUsd(todaySum[`provider:${p}:cost`]);
+    const w = microToUsd(weekSum[`provider:${p}:cost`]);
+    const a = microToUsd(allSum[`provider:${p}:cost`]);
+    if (d === 0 && w === 0 && a === 0) continue;
+    providerRows.push({ p, d, w, a });
+  }
+  if (providerRows.length > 0) {
+    providerRows.sort((x, y) => y.a - x.a); // 전체 누적 큰 순
+    lines.push('*AI 회사별 합계*');
+    providerRows.forEach((r) => {
+      const label = PROVIDER_LABELS[r.p] || r.p;
+      lines.push(`${label}`);
+      lines.push(`  어제 ${fmtCost(r.d)} · 이번주 ${fmtCost(r.w)} · 전체 ${fmtCost(r.a)}`);
     });
     lines.push('');
   }
 
-  // ─────── 모델별 Top 5 (이번 달) ───────
-  const modelMonth = topByPattern(monthSum, 'model:([^:]+)', ':cost', 5);
-  if (modelMonth.length > 0) {
-    lines.push('*모델별 Top 5 (이번 달)*');
-    modelMonth.forEach((row) => {
-      const usd = microToUsd(row.value);
-      const reqs = monthSum[`model:${row.key}:requests`] || 0;
-      lines.push(`${row.key}  ${fmtCost(usd)}  · ${reqs}건`);
-    });
-    lines.push('');
-  }
+  // 윈도우별 세부 — 데이터 있는 윈도우만 출력
+  // [helper] 한 sum에 대해 breakdown 4종(provider/model/hour/country/OS)을 lines에 push
+  const renderBreakdown = (label, sum) => {
+    const total = microToUsd(sum['total:cost']);
+    if (total === 0) return false;
 
-  // ─────── 시간대별 분포 (어제, 텍스트 히트맵) ───────
-  const hourRows = [];
-  for (let h = 0; h < 24; h++) {
-    const HH = String(h).padStart(2, '0');
-    const cost = microToUsd(todaySum[`hour:${HH}:cost`]);
-    if (cost > 0) hourRows.push({ hour: HH, cost });
-  }
-  if (hourRows.length > 0) {
-    const maxCost = Math.max(...hourRows.map((r) => r.cost));
-    lines.push('*시간대별 (어제, KST)*');
-    hourRows.forEach((r) => {
-      const bars = Math.round((r.cost / maxCost) * 10);
-      const bar = '█'.repeat(bars) + '░'.repeat(10 - bars);
-      lines.push(`${r.hour}시  ${bar}  ${fmtCost(r.cost)}`);
-    });
-    lines.push('');
-  }
+    lines.push(`━━ ${label} ━━`);
 
-  // ─────── 국가별 (어제) ───────
-  // [2026-05-02 Roy] owner 구분 제거 — Roy 본인 데이터도 포함됨 (대부분 KR/macOS/iOS).
-  const countryRows = topByPattern(todaySum, 'country:([^:]+)', ':cost', 8);
-  if (countryRows.length > 0) {
-    lines.push('*국가별 (어제)*');
-    countryRows.forEach((row) => {
-      const usd = microToUsd(row.value);
-      const reqs = todaySum[`country:${row.key}:requests`] || 0;
-      const label = COUNTRY_LABELS[row.key] || row.key;
-      lines.push(`${label}  ${fmtCost(usd)} · ${reqs}건`);
-    });
-    lines.push('');
-  }
+    // AI 회사별
+    const provRows = topByPattern(sum, 'provider:([^:]+)', ':cost', 10);
+    if (provRows.length > 0) {
+      lines.push('*AI 회사별*');
+      provRows.forEach((row) => {
+        const usd = microToUsd(row.value);
+        const reqs = sum[`provider:${row.key}:requests`] || 0;
+        const tok = sum[`provider:${row.key}:tokens`] || 0;
+        const label = PROVIDER_LABELS[row.key] || row.key;
+        lines.push(`${label}  ${fmtCost(usd)}  · ${reqs}건 · ${fmtTokens(tok)}토큰`);
+      });
+      lines.push('');
+    }
 
-  // ─────── OS별 (어제) ───────
-  const osRows = topByPattern(todaySum, 'os:([^:]+)', ':cost', 8);
-  if (osRows.length > 0) {
-    lines.push('*OS별 (어제)*');
-    osRows.forEach((row) => {
-      const usd = microToUsd(row.value);
-      const reqs = todaySum[`os:${row.key}:requests`] || 0;
-      lines.push(`${row.key}  ${fmtCost(usd)} · ${reqs}건`);
-    });
-    lines.push('');
-  }
+    // 모델별 Top 5
+    const modelRows = topByPattern(sum, 'model:([^:]+)', ':cost', 5);
+    if (modelRows.length > 0) {
+      lines.push('*모델별 Top 5*');
+      modelRows.forEach((row) => {
+        const usd = microToUsd(row.value);
+        const reqs = sum[`model:${row.key}:requests`] || 0;
+        lines.push(`${row.key}  ${fmtCost(usd)}  · ${reqs}건`);
+      });
+      lines.push('');
+    }
+
+    // 시간대별 (KST)
+    const hourRows = [];
+    for (let h = 0; h < 24; h++) {
+      const HH = String(h).padStart(2, '0');
+      const cost = microToUsd(sum[`hour:${HH}:cost`]);
+      if (cost > 0) hourRows.push({ hour: HH, cost });
+    }
+    if (hourRows.length > 0) {
+      const maxCost = Math.max(...hourRows.map((r) => r.cost));
+      lines.push('*시간대별 (KST)*');
+      hourRows.forEach((r) => {
+        const bars = Math.round((r.cost / maxCost) * 10);
+        const bar = '█'.repeat(bars) + '░'.repeat(10 - bars);
+        lines.push(`${r.hour}시  ${bar}  ${fmtCost(r.cost)}`);
+      });
+      lines.push('');
+    }
+
+    // 국가별
+    const countryRows = topByPattern(sum, 'country:([^:]+)', ':cost', 8);
+    if (countryRows.length > 0) {
+      lines.push('*국가별*');
+      countryRows.forEach((row) => {
+        const usd = microToUsd(row.value);
+        const reqs = sum[`country:${row.key}:requests`] || 0;
+        const label = COUNTRY_LABELS[row.key] || row.key;
+        lines.push(`${label}  ${fmtCost(usd)} · ${reqs}건`);
+      });
+      lines.push('');
+    }
+
+    // OS별
+    const osRows = topByPattern(sum, 'os:([^:]+)', ':cost', 8);
+    if (osRows.length > 0) {
+      lines.push('*OS별*');
+      osRows.forEach((row) => {
+        const usd = microToUsd(row.value);
+        const reqs = sum[`os:${row.key}:requests`] || 0;
+        lines.push(`${row.key}  ${fmtCost(usd)} · ${reqs}건`);
+      });
+      lines.push('');
+    }
+    return true;
+  };
+
+  renderBreakdown('어제', todaySum);
+  renderBreakdown('이번 주(7일)', weekSum);
+  renderBreakdown('전체 누적(90일)', allSum);
 
   lines.push('—');
   lines.push('💡 비용은 토큰 × pricing 추정값 (~95% 정확). 실 청구액은 각 AI 콘솔 확인.');
