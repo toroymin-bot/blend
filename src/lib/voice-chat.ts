@@ -124,6 +124,16 @@ const LANG_TO_BCP47: Record<DetectedLang, string> = {
 
 export type TTSQuality = 'premium' | 'standard';
 
+// [2026-05-02 Roy] TTS 재생 속도 + 톤(피치) — 모든 provider 통일.
+// 속도: 1.0 = 정상, 1.15 = 약간 빠름. OpenAI/Google 모두 0.25-4.0 지원.
+// 피치: Google semitones (0 = 기본). +2.0 = 약간 높은 톤. -20~20 범위.
+//   OpenAI tts-1/gpt-4o-mini-tts는 직접 pitch 파라미터 X — 'instructions' 필드에
+//   "Speak with a slightly bright, lively tone" 식으로 voice steering. 단 tts-1은
+//   instructions 무시 (gpt-4o-mini-tts만 지원).
+const TTS_SPEED = 1.15;
+const TTS_PITCH_GOOGLE = 2.0; // Google semitones
+const TTS_INSTRUCTIONS_OPENAI = 'Speak with a slightly bright and uplifted tone, lively but soft and warm. Female voice.';
+
 export type VoiceProvider = 'openai' | 'google';
 
 export interface VoiceProviderConfig {
@@ -425,7 +435,10 @@ export async function ttsOpenAI(
       model,
       input: text.slice(0, 4096),
       voice,
-      speed: options.speed ?? 1.0,
+      // Roy 결정: 약간 빠른 속도 + 밝고 살짝 높은 톤. instructions는 gpt-4o-mini-tts
+      // 전용 voice steering — tts-1은 무시함.
+      speed: options.speed ?? TTS_SPEED,
+      instructions: TTS_INSTRUCTIONS_OPENAI,
     }),
   });
   if (!res.ok) {
@@ -438,7 +451,8 @@ export async function ttsOpenAI(
           model: 'tts-1',
           input: text.slice(0, 4096),
           voice: ['alloy', 'nova', 'shimmer', 'echo', 'fable', 'onyx'].includes(voice) ? voice : 'nova',
-          speed: options.speed ?? 1.0,
+          speed: options.speed ?? TTS_SPEED,
+          // tts-1은 instructions 미지원 → 속도/voice 선택만으로 처리
         }),
       });
       if (!r2.ok) {
@@ -492,7 +506,14 @@ export async function ttsGoogle(
   const body = {
     input: { text: text.slice(0, 5000) },
     voice: { languageCode: langCode, name: voiceName },
-    audioConfig: { audioEncoding: 'MP3' },
+    // [2026-05-02 Roy] speakingRate 1.15 (약간 빠름) + pitch +2 semitones (약간 높음).
+    // 활기 + 부드러움 톤 강조. Chirp3-HD는 pitch 무시할 수 있으나 (Chirp 전용 prosody)
+    // speakingRate는 모든 voice에서 동작.
+    audioConfig: {
+      audioEncoding: 'MP3',
+      speakingRate: TTS_SPEED,
+      pitch: TTS_PITCH_GOOGLE,
+    },
   };
 
   const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
