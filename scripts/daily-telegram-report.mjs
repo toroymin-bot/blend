@@ -99,14 +99,15 @@ const PROVIDER_LABELS = {
   groq:      'Groq',
 };
 
-// [2026-05-02 Roy] '얼마나 청구됐나' 보여주는 빌링/사용량 페이지로 직링크.
-// 각 회사 콘솔에서 ALL keys (조직 단위) 합산 청구액이 표시되는 곳.
+// [2026-05-02 Roy] '돈 청구된 금액(₩/$)' 보여주는 빌링 페이지로 직링크.
+// 각 회사 콘솔에서 ALL keys (조직/워크스페이스 단위) 합산 청구액이 표시되는 곳.
+// usage 페이지가 아닌 billing/payment 페이지 — Roy가 클릭하면 결제 명세 바로 보임.
 const PROVIDER_USAGE_URLS = {
-  openai:    'https://platform.openai.com/settings/organization/usage',     // org 전체 사용량 + cost
-  anthropic: 'https://console.anthropic.com/settings/usage',                // workspace 전체 사용량 + spend
-  google:    'https://aistudio.google.com/app/usage',                       // AI Studio 전체 사용량
-  deepseek:  'https://platform.deepseek.com/usage',                         // 잔액 + 사용 history
-  groq:      'https://console.groq.com/settings/billing',                   // billing (free-tier도 표시)
+  openai:    'https://platform.openai.com/settings/organization/billing/overview', // billing overview
+  anthropic: 'https://console.anthropic.com/settings/billing',                     // 빌링/크레딧
+  google:    'https://console.cloud.google.com/billing',                           // GCP 빌링 (Gemini API는 GCP 청구)
+  deepseek:  'https://platform.deepseek.com/usage',                                // DeepSeek는 별도 billing 없음 — usage가 잔액+spend
+  groq:      'https://console.groq.com/settings/billing',                          // billing
 };
 
 const COUNTRY_LABELS = {
