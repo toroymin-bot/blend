@@ -43,6 +43,14 @@ import { stripSourceTag } from '@/lib/source-indexer';
 import { classifyAttachmentIntent, getModePromptHeader, getLangEnforcementHeader } from '@/modules/chat/intent-classifier';
 // [2026-05-01 Roy] Blend 정체성 — 모든 AI에 system prompt로 주입
 import { getBlendIdentityPrompt, BLEND_INTRO_QUESTION } from '@/lib/blend-identity';
+
+// [2026-05-02 Roy] AI 도구 한국어 라벨 — indicator 표시용. 영어는 raw name 그대로.
+const TOOL_LABEL_KO: Record<string, string> = {
+  get_current_time: '시간 조회',
+  get_weather: '날씨',
+  get_currency_rate: '환율',
+  calculate: '계산',
+};
 // [2026-04-28 Roy 직접 요청] AI 응답을 PDF로 자동 다운로드
 import { exportResponseAsPDF, detectPdfDownloadIntent, stripPdfDownloadIntent } from '@/lib/export/export-response-pdf';
 // [Tori 18644993 PR #1+#2+#3] Cross-Model 컨텍스트 연속성
@@ -324,6 +332,9 @@ export default function D1ChatView({
   const [currentModel, setCurrentModel] = useState(initialModel ?? 'auto');
   const abortRef = useRef<AbortController | null>(null);
   const nextModelOverrideRef = useRef<string | null>(null);
+  // [2026-05-02 Roy] AI 도구 사용 indicator — streaming 중에 '🔧 weather 도구
+  // 사용 중' 식 표시. 사용자가 stuck/처리 중 구분.
+  const [activeToolName, setActiveToolName] = useState<string | null>(null);
 
   const t = copy[lang] ?? copy.en;
   const hasMessages = messages.length > 0 || isStreaming;
@@ -704,6 +715,8 @@ export default function D1ChatView({
         model: avail.apiModel,
         provider: avail.provider,
         apiKey: getKey(avail.provider),
+        // [2026-05-02 Roy] auto-title은 4-6 단어 요약이라 도구 X
+        enableTools: false,
         onDone: (full) => onTitle(full),
         onError: () => { /* ignore — fallback derived title 유지 */ },
       });
@@ -1567,9 +1580,19 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
       provider: resolvedProvider,
       apiKey: getKey(resolvedProvider),
       signal: controller.signal,
+      // [2026-05-02 Roy] AI 도구 자동 사용 default ON. 사용자가 '오늘 날씨' 같은
+      // 자연어 한 줄에 모델이 자체 판단으로 도구 호출. 모델/provider가 미지원이면
+      // 자동 비활성 (chat-api supportsTools).
+      enableTools: true,
+      onToolUse: (toolName) => {
+        setActiveToolName(toolName);
+        // 5초 후 자동 해제 — 다음 도구 호출 또는 답변 도착으로 덮어쓰기
+        setTimeout(() => setActiveToolName(null), 5000);
+      },
       onChunk: (text) => {
         accumulated += text;
         setStreamingContent(accumulated);
+        setActiveToolName(null); // 텍스트 chunk 도착하면 도구 indicator 해제
       },
       onDone: (fullText) => {
         setMessages(prev => [...prev, {
@@ -1583,6 +1606,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         }]);
         setIsStreaming(false);
         setStreamingContent('');
+        setActiveToolName(null);
         abortRef.current = null;
         // P3.2 자동 제목 — 첫 응답 직후만 트리거
         if (messages.length === 0) triggerAutoTitle(content, fullText);
@@ -1616,6 +1640,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
     }
     setIsStreaming(false);
     setStreamingContent('');
+    setActiveToolName(null);
     abortRef.current = null;
   }
 
@@ -1760,6 +1785,16 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
             ))}
             {isStreaming && streamingContent && (
               <D1AssistantMessage content={streamingContent} streaming lang={lang} t={t} />
+            )}
+            {/* [2026-05-02 Roy] AI 도구 사용 indicator — 'weather/calculator/...' 도구
+                실행 중. streaming 텍스트 시작하기 전 단계 시각 표시. */}
+            {isStreaming && activeToolName && (
+              <div className="mt-2 flex items-center gap-2 text-[12.5px]" style={{ color: tokens.textDim, animation: 'd1-rise 240ms cubic-bezier(0.16,1,0.3,1) both' }}>
+                <span aria-hidden>🔧</span>
+                <span>
+                  {lang === 'en' ? `Using ${activeToolName} tool…` : `${TOOL_LABEL_KO[activeToolName] ?? activeToolName} 도구 사용 중…`}
+                </span>
+              </div>
             )}
           </div>
         </div>

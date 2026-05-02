@@ -69,10 +69,18 @@ function toAnthropicContent(content: MessageContent): string | object[] {
 }
 
 /** Convert our MessageContent to Google parts array */
-function toGoogleParts(content: MessageContent): object[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toGoogleParts(content: MessageContent | any[]): object[] {
   if (typeof content === 'string') return [{ text: content }];
-  return content.map((part) => {
+  // [2026-05-02 Roy] functionCall/functionResponse parts는 그대로 통과
+  // (handleGoogle의 tool chain에서 caller가 push한 그대로 보낸다).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (content as any[]).map((part: any) => {
+    if (part.functionCall) return { functionCall: part.functionCall };
+    if (part.functionResponse) return { functionResponse: part.functionResponse };
+    if (part.inlineData) return { inlineData: part.inlineData };
     if (part.type === 'text') return { text: part.text ?? '' };
+    if (part.text) return { text: part.text };
     const url = part.url ?? '';
     const match = url.match(/^data:([^;]+);base64,(.+)$/);
     if (match) return { inlineData: { mimeType: match[1], data: match[2] } };
@@ -286,17 +294,34 @@ async function handleAnthropic(
   onChunk?: (text: string) => void,
   onDone?: (fullText: string, usage?: { input: number; output: number }) => void,
   signal?: AbortSignal,
-  // [2026-05-02 Roy] 시그니처 통일 — Anthropic tool 본격 처리는 다음 commit.
-  // useTools/onToolUse 받아도 무시 (Anthropic SSE input_json_delta + tool_use
-  // content_block 분기가 OpenAI 대비 복잡, 별도 sprint).
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _useTools = false,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _onToolUse?: (toolName: string) => void,
+  useTools = false,
+  onToolUse?: (toolName: string) => void,
+  toolTurn = 0,
 ) {
-  void toAnthropicTools; // 다음 commit에서 사용 — import 보존
   const systemMsg = messages.find((m) => m.role === 'system');
   const userMsgs = messages.filter((m) => m.role !== 'system');
+
+  const body: Record<string, unknown> = {
+    model,
+    // 2026-04-28: 4096 → 8192. 큰 첨부(번역/직역) 요청 시 4K 제한이 응답을
+    // 잘라 사용자가 "요약했다"고 인식하던 회귀 차단. Claude Sonnet 4.6은 8K+
+    // 출력 문제없이 처리.
+    max_tokens: 8192,
+    system: systemMsg ? (typeof systemMsg.content === 'string' ? systemMsg.content : undefined) : undefined,
+    // [2026-05-02 Roy] tool_result 메시지 통과 — userMsgs에 caller가 추가한
+    // tool_use/tool_result content blocks를 그대로 전달.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: userMsgs.map((m: any) => {
+      if (Array.isArray(m.content) && m.content.length > 0 && (m.content[0].type === 'tool_use' || m.content[0].type === 'tool_result')) {
+        return { role: m.role, content: m.content };
+      }
+      return { role: m.role, content: toAnthropicContent(m.content) };
+    }),
+    stream,
+  };
+  if (useTools && toolTurn < MAX_TOOL_TURNS) {
+    body.tools = toAnthropicTools();
+  }
 
   const res = await fetch(ENDPOINTS.anthropic, {
     method: 'POST',
@@ -306,16 +331,7 @@ async function handleAnthropic(
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({
-      model,
-      // 2026-04-28: 4096 → 8192. 큰 첨부(번역/직역) 요청 시 4K 제한이 응답을
-      // 잘라 사용자가 "요약했다"고 인식하던 회귀 차단. Claude Sonnet 4.6은 8K+
-      // 출력 문제없이 처리.
-      max_tokens: 8192,
-      system: systemMsg ? (typeof systemMsg.content === 'string' ? systemMsg.content : undefined) : undefined,
-      messages: userMsgs.map((m) => ({ role: m.role, content: toAnthropicContent(m.content) })),
-      stream,
-    }),
+    body: JSON.stringify(body),
     signal,
   });
 
@@ -327,61 +343,139 @@ async function handleAnthropic(
   if (stream && res.body) {
     let fullText = '';
     let usage: { input: number; output: number } | undefined;
-    // inputUsage is provided on message_start; output on message_delta
     let inputTokens = 0;
+    let stopReason: string | undefined;
+    // [2026-05-02 Roy] Anthropic content_block 누적 — index별 type/id/name/input(json).
+    // text block은 fullText로, tool_use block은 별도 처리.
+    const blocks: Array<{ type?: string; id?: string; name?: string; jsonAccum?: string; text?: string }> = [];
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    // Buffer to handle chunks that don't end on a newline boundary
     let lineBuffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      // Append decoded bytes to buffer; keep stream: true so multi-byte chars are handled
       lineBuffer += decoder.decode(value, { stream: true });
-
-      // Process all complete lines (split on \n, keep remainder in buffer)
       const parts = lineBuffer.split('\n');
-      lineBuffer = parts.pop() ?? ''; // last element may be incomplete
+      lineBuffer = parts.pop() ?? '';
 
       for (const line of parts) {
         const trimmed = line.trim();
         if (!trimmed.startsWith('data: ')) continue;
         const data = trimmed.slice(6);
-        // Anthropic does not send [DONE] but guard anyway
         if (data === '[DONE]') continue;
         try {
           const json = JSON.parse(data);
-          // message_start carries input token count
           if (json.type === 'message_start' && json.message?.usage) {
             inputTokens = json.message.usage.input_tokens ?? 0;
           }
-          // content_block_delta carries text deltas
-          if (json.type === 'content_block_delta' && json.delta?.type === 'text_delta' && json.delta?.text) {
-            fullText += json.delta.text;
-            onChunk?.(json.delta.text);
+          if (json.type === 'content_block_start') {
+            const idx = json.index ?? 0;
+            const cb = json.content_block ?? {};
+            blocks[idx] = { type: cb.type, id: cb.id, name: cb.name, jsonAccum: '', text: '' };
           }
-          // message_delta carries output token count
-          if (json.type === 'message_delta' && json.usage) {
-            usage = {
-              input: inputTokens || json.usage.input_tokens || 0,
-              output: json.usage.output_tokens || 0,
-            };
+          if (json.type === 'content_block_delta') {
+            const idx = json.index ?? 0;
+            const block = blocks[idx];
+            if (!block) continue;
+            if (json.delta?.type === 'text_delta' && json.delta?.text) {
+              fullText += json.delta.text;
+              block.text = (block.text ?? '') + json.delta.text;
+              onChunk?.(json.delta.text);
+            }
+            if (json.delta?.type === 'input_json_delta' && typeof json.delta?.partial_json === 'string') {
+              block.jsonAccum = (block.jsonAccum ?? '') + json.delta.partial_json;
+            }
           }
-        } catch {
-          // Silently skip malformed JSON chunks
-        }
+          if (json.type === 'message_delta') {
+            if (json.delta?.stop_reason) stopReason = json.delta.stop_reason;
+            if (json.usage) {
+              usage = {
+                input: inputTokens || json.usage.input_tokens || 0,
+                output: json.usage.output_tokens || 0,
+              };
+            }
+          }
+        } catch {}
       }
     }
-    // Flush any remaining buffer content (shouldn't normally have a data line here)
+
+    // tool_use blocks 처리 — execute → tool_result content append → 재 stream
+    const toolUseBlocks = blocks.filter((b) => b?.type === 'tool_use');
+    if (stopReason === 'tool_use' && toolUseBlocks.length > 0 && toolTurn < MAX_TOOL_TURNS) {
+      // assistant turn (text + tool_use blocks)
+      const assistantContent = blocks.filter(Boolean).map((b) => {
+        if (b!.type === 'text') return { type: 'text', text: b!.text ?? '' };
+        if (b!.type === 'tool_use') {
+          let parsedInput: Record<string, unknown> = {};
+          try { parsedInput = JSON.parse(b!.jsonAccum ?? '{}'); } catch {}
+          return { type: 'tool_use', id: b!.id, name: b!.name, input: parsedInput };
+        }
+        return null;
+      }).filter(Boolean);
+
+      // tool_result 메시지 — Anthropic은 user role에 tool_result content block로 전달
+      const toolResultBlocks: Array<{ type: string; tool_use_id: string; content: string }> = [];
+      for (const b of toolUseBlocks) {
+        if (!b!.id || !b!.name) continue;
+        onToolUse?.(b!.name);
+        let parsedInput: Record<string, unknown> = {};
+        try { parsedInput = JSON.parse(b!.jsonAccum ?? '{}'); } catch {}
+        const result = await executeAITool(b!.name, parsedInput);
+        toolResultBlocks.push({ type: 'tool_result', tool_use_id: b!.id, content: JSON.stringify(result) });
+      }
+
+      const newMessages: ChatRequestMessage[] = [
+        ...messages,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'assistant', content: assistantContent as any },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'user', content: toolResultBlocks as any },
+      ];
+      return handleAnthropic(newMessages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse, toolTurn + 1);
+    }
+
     onDone?.(fullText, usage);
   } else {
     const json = await res.json();
-    const content = json.content?.[0]?.text || '';
+    const contentBlocks = json.content ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const textBlocks = contentBlocks.filter((b: any) => b.type === 'text');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const toolBlocks = contentBlocks.filter((b: any) => b.type === 'tool_use');
+    const text = textBlocks.map((b: { text?: string }) => b.text ?? '').join('');
     const usage = json.usage ? { input: json.usage.input_tokens, output: json.usage.output_tokens } : undefined;
-    onDone?.(content, usage);
+    if (json.stop_reason === 'tool_use' && toolBlocks.length > 0 && toolTurn < MAX_TOOL_TURNS) {
+      const toolResultBlocks: Array<{ type: string; tool_use_id: string; content: string }> = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const b of toolBlocks as any[]) {
+        onToolUse?.(b.name);
+        const result = await executeAITool(b.name, b.input ?? {});
+        toolResultBlocks.push({ type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(result) });
+      }
+      const newMessages: ChatRequestMessage[] = [
+        ...messages,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'assistant', content: contentBlocks as any },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'user', content: toolResultBlocks as any },
+      ];
+      return handleAnthropic(newMessages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse, toolTurn + 1);
+    }
+    onDone?.(text, usage);
   }
+}
+
+/** 마지막 user 메시지에서 도구 키워드 감지 — function 우선 시그널 */
+function detectGeminiToolIntent(messages: ChatRequestMessage[]): boolean {
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  if (!lastUser) return false;
+  const text = typeof lastUser.content === 'string'
+    ? lastUser.content
+    : lastUser.content.map((p) => p.text ?? '').join(' ');
+  // 명확한 도구 트리거 키워드 (한국어/영어). function calling이 더 적절한 경우.
+  return /환율|얼마|원화|달러|위안|엔화|파운드|유로|exchange.*rate|currency|convert|날씨|기온|비.*와|미세먼지|weather|temperature|forecast|계산|complete.*calc|=|복리|이자|평방|sqrt|pow|지금.*몇.*시|몇 시|현재.*시간|현재.*시각|시간.*뭐|시간.*몇|today.*date|current.*time|time.*now/i.test(text);
 }
 
 async function handleGoogle(
@@ -392,15 +486,10 @@ async function handleGoogle(
   onChunk?: (text: string) => void,
   onDone?: (fullText: string, usage?: { input: number; output: number }) => void,
   signal?: AbortSignal,
-  // [2026-05-02 Roy] 시그니처 통일. Gemini는 tools array에 google_search OR
-  // function_declarations 둘 중 하나만 — 동시 X. grounding 우선 유지, function
-  // calling은 별도 commit에서 처리.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _useTools = false,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _onToolUse?: (toolName: string) => void,
+  useTools = false,
+  onToolUse?: (toolName: string) => void,
+  toolTurn = 0,
 ) {
-  void toGeminiFunctionDeclarations; // import 보존
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${stream ? 'streamGenerateContent' : 'generateContent'}?key=${apiKey}${stream ? '&alt=sse' : ''}`;
 
   const systemMsg = messages.find((m) => m.role === 'system');
@@ -417,18 +506,26 @@ async function handleGoogle(
     ? { responseModalities: ['TEXT', 'IMAGE'] }
     : undefined;
 
-  // [2026-05-02 Roy] Gemini Grounding (Google Search) — 자연스러운 자동 검색.
-  // 사용자가 '오늘 환율', '최신 뉴스', '어제 경기 결과' 같은 실시간 정보 물으면
-  // Gemini가 자체 판단으로 Google 검색 → 답변 + 출처. 별도 메뉴/명령어 없이
-  // chat에 자연 통합. 비용은 BYOK ($0.035/1k grounded responses, 사용자 부담).
-  // Gemini 2.5+ 모델만 지원 — 다른 모델/이미지 모델은 비활성.
+  // [2026-05-02 Roy] Gemini는 tools array에 google_search OR function_declarations
+  // 둘 중 하나만 — 동시 X. user message 분석해 분기:
+  //   - 도구 키워드(환율/날씨/계산/시간) → function_declarations
+  //   - 그 외 → google_search grounding (실시간 정보 자동 검색)
+  // useTools=false면 grounding 우선, image 모델은 둘 다 비활성.
   const supportsGrounding =
     !isImageModel &&
     /^gemini-2\.5|^gemini-3/.test(model) &&
     !/embedding|tts|imagen|veo|lyria/i.test(model);
-  const tools = supportsGrounding
-    ? [{ google_search: {} }]
-    : undefined;
+  const wantsFunction = useTools && supportsGrounding && toolTurn < MAX_TOOL_TURNS && detectGeminiToolIntent(messages);
+  // tool_response 메시지가 user/model role에 functionResponse part로 들어와 있으면
+  // 그건 function turn 계속 → function_declarations 유지.
+  const isToolContinuation = toolTurn > 0;
+
+  let tools: object[] | undefined;
+  if (wantsFunction || isToolContinuation) {
+    tools = toGeminiFunctionDeclarations();
+  } else if (supportsGrounding) {
+    tools = [{ google_search: {} }];
+  }
 
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -467,6 +564,12 @@ async function handleGoogle(
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let lineBuffer = '';
+    // [2026-05-02 Roy] functionCall parts 누적 — Gemini는 stream 도중 functionCall
+    // 보내면 끝까지 모은 다음 execute → functionResponse → 재호출.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const functionCalls: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lastModelParts: any[] = [];
 
     while (true) {
       const { done, value } = await reader.read();
@@ -488,8 +591,14 @@ async function handleGoogle(
               fullText += chunk;
               onChunk?.(chunk);
             }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            for (const p of partsArr as any[]) {
+              if (p.functionCall) {
+                functionCalls.push(p.functionCall);
+              }
+              lastModelParts.push(p);
+            }
           }
-          // Collect usage from each chunk (last one wins)
           if (json.usageMetadata) {
             usage = {
               input: json.usageMetadata.promptTokenCount ?? 0,
@@ -499,14 +608,57 @@ async function handleGoogle(
         } catch {}
       }
     }
+
+    // functionCall 처리 — execute → functionResponse → 재호출
+    if (useTools && functionCalls.length > 0 && toolTurn < MAX_TOOL_TURNS) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseParts: any[] = [];
+      for (const fc of functionCalls) {
+        if (!fc.name) continue;
+        onToolUse?.(fc.name);
+        const result = await executeAITool(fc.name, fc.args ?? {});
+        responseParts.push({
+          functionResponse: { name: fc.name, response: result },
+        });
+      }
+      const newMessages: ChatRequestMessage[] = [
+        ...messages,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'assistant', content: lastModelParts as any },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'user', content: responseParts as any },
+      ];
+      return handleGoogle(newMessages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse, toolTurn + 1);
+    }
+
     onDone?.(fullText, usage);
   } else {
     const json = await res.json();
     const partsArr = json.candidates?.[0]?.content?.parts ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fnCalls = (partsArr as any[]).filter((p) => p.functionCall);
     const content = partsArr.length ? extractGoogleParts(partsArr) : '';
     const usage = json.usageMetadata
       ? { input: json.usageMetadata.promptTokenCount ?? 0, output: json.usageMetadata.candidatesTokenCount ?? 0 }
       : undefined;
+    if (useTools && fnCalls.length > 0 && toolTurn < MAX_TOOL_TURNS) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseParts: any[] = [];
+      for (const p of fnCalls) {
+        const fc = p.functionCall;
+        onToolUse?.(fc.name);
+        const result = await executeAITool(fc.name, fc.args ?? {});
+        responseParts.push({ functionResponse: { name: fc.name, response: result } });
+      }
+      const newMessages: ChatRequestMessage[] = [
+        ...messages,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'assistant', content: partsArr as any },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'user', content: responseParts as any },
+      ];
+      return handleGoogle(newMessages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse, toolTurn + 1);
+    }
     onDone?.(content, usage);
   }
 }
