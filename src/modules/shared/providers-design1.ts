@@ -7,6 +7,7 @@
  */
 
 import { AIProvider } from '@/types';
+import { getFeaturedModels } from '@/data/available-models';
 
 export type ProviderCost = 'free' | 'trial' | 'paid';
 
@@ -56,11 +57,46 @@ export const API_GUIDE_STEPS_KEYS: Record<
   ],
 };
 
+// [2026-05-02 Roy] models 필드를 정적 string에서 동적 함수로 — registry
+// (available-models)에서 provider별 featured 모델을 도출. 3시간 cron이 새 모델
+// 등록하면 settings/onboarding 라벨도 자동 동기화. 이전엔 'GPT-4o, GPT-4.1' 같이
+// 하드코딩돼 실제 등록된 GPT-5.4 / Claude Opus 4.7과 안 맞았음.
+//
+// fallback static label은 유지 — registry 비어있을 때(빌드 직후) 표시.
+
+const STATIC_FALLBACK_LABEL: Record<AIProvider, string> = {
+  openai:    'GPT-5, GPT-4o',
+  anthropic: 'Claude Opus, Sonnet, Haiku',
+  google:    'Gemini Pro, Flash',
+  deepseek:  'DeepSeek Chat, Reasoner',
+  groq:      'Llama 3.3 70B',
+  custom:    'Custom endpoint',
+};
+
+/**
+ * provider별 featured 모델 라벨 — registry-derived.
+ * 예: 'OpenAI' → 'GPT-5.4, GPT-5.4 mini, GPT-5.2'
+ *     'Anthropic' → 'Claude Opus 4.7, Sonnet 4.6, Haiku 4.5'
+ */
+export function getProviderModelsLabel(providerId: AIProvider): string {
+  try {
+    const featured = getFeaturedModels();
+    const ofProvider = featured
+      .filter((m) => m.provider === providerId)
+      .map((m) => m.displayName);
+    if (ofProvider.length === 0) return STATIC_FALLBACK_LABEL[providerId];
+    return ofProvider.join(', ');
+  } catch {
+    return STATIC_FALLBACK_LABEL[providerId];
+  }
+}
+
 export const D1_PROVIDERS: {
   id: AIProvider;
   name: string;
   color: string;
   placeholder: string;
+  /** @deprecated 정적 fallback. 실제 표시는 getProviderModelsLabel(id) 사용. */
   models: string;
   keyUrl: string;
   noteKey?: string;
@@ -71,7 +107,7 @@ export const D1_PROVIDERS: {
     name: 'OpenAI',
     color: '#10a37f',
     placeholder: 'sk-...',
-    models: 'GPT-4o, GPT-4.1, o3, o4-mini',
+    models: STATIC_FALLBACK_LABEL.openai,
     keyUrl: 'https://platform.openai.com/api-keys',
     cost: 'trial',
   },
@@ -80,7 +116,7 @@ export const D1_PROVIDERS: {
     name: 'Anthropic',
     color: '#d4a574',
     placeholder: 'sk-ant-...',
-    models: 'Claude Opus 4, Sonnet 4, Haiku 4.5',
+    models: STATIC_FALLBACK_LABEL.anthropic,
     keyUrl: 'https://console.anthropic.com/settings/keys',
     cost: 'trial',
   },
@@ -89,7 +125,7 @@ export const D1_PROVIDERS: {
     name: 'Google Gemini',
     color: '#4285f4',
     placeholder: 'AIza...',
-    models: 'Gemini 2.0 Flash, Gemini 2.5 Pro',
+    models: STATIC_FALLBACK_LABEL.google,
     keyUrl: 'https://aistudio.google.com/app/apikey',
     noteKey: 'common.free_tier',
     cost: 'free',
@@ -99,7 +135,7 @@ export const D1_PROVIDERS: {
     name: 'DeepSeek',
     color: '#4D6BFE',
     placeholder: 'sk-...',
-    models: 'DeepSeek-V3, DeepSeek-R1',
+    models: STATIC_FALLBACK_LABEL.deepseek,
     keyUrl: 'https://platform.deepseek.com/api_keys',
     noteKey: 'common.ultra_cheap',
     cost: 'paid',
@@ -109,7 +145,7 @@ export const D1_PROVIDERS: {
     name: 'Groq',
     color: '#F55036',
     placeholder: 'gsk_...',
-    models: 'Llama 3.3 70B, Mixtral 8x7B',
+    models: STATIC_FALLBACK_LABEL.groq,
     keyUrl: 'https://console.groq.com/keys',
     noteKey: 'common.free_fast',
     cost: 'free',

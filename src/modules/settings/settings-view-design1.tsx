@@ -24,7 +24,7 @@ import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 // [2026-04-26] 16417054 — Full Backup IDB 통합 v2.0
 import { downloadBackup, importBackup, clearAllData, getCounts, type BackupMeta } from '@/lib/full-backup';
 import { useTranslation }   from '@/lib/i18n';
-import { D1_PROVIDERS, API_GUIDE_STEPS_KEYS } from '@/modules/shared/providers-design1';
+import { D1_PROVIDERS, API_GUIDE_STEPS_KEYS, getProviderModelsLabel } from '@/modules/shared/providers-design1';
 // [2026-04-29 Tori 18841602 v2 P0] 모바일 콘텐츠 깨짐 수정 — 200px nav 가 mobile에서도
 // 그대로 push 되어 우측 콘텐츠가 1-2글자 폭으로 잘리던 문제. deviceClass 분기로 해결.
 import { useDeviceClass } from '@/hooks/use-device-class';
@@ -517,7 +517,9 @@ export function D1SettingsView() {
                           )}
                         </div>
                         <p className="mt-0.5 text-[12px]" style={{ color: tokens.textFaint }}>
-                          {provider.models}
+                          {/* [2026-05-02 Roy] registry-derived 동적 라벨 — 3시간 cron이 새 모델
+                              추가하면 자동 동기화. 이전 정적 'GPT-4o, GPT-4.1' 하드코딩 폐기. */}
+                          {getProviderModelsLabel(provider.id)}
                         </p>
                       </div>
                     </div>

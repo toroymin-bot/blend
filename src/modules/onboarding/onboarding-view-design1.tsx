@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { useTranslation } from '@/lib/i18n';
 import { AIProvider } from '@/types';
-import { D1_PROVIDERS } from '@/modules/shared/providers-design1';
+import { D1_PROVIDERS, getProviderModelsLabel } from '@/modules/shared/providers-design1';
 
 // ── Design tokens ─────────────────────────────────────────────────
 const tokens = {
@@ -192,7 +192,8 @@ export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: '
                     )}
                   </div>
                   <p className="mt-0.5 text-[12px]" style={{ color: tokens.textFaint }}>
-                    {p.models}
+                    {/* [2026-05-02 Roy] registry-derived 동적 라벨 */}
+                    {getProviderModelsLabel(p.id)}
                   </p>
                 </div>
 

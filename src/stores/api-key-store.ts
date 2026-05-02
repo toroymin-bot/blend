@@ -31,13 +31,18 @@ export const useAPIKeyStore = create<APIKeyState>((set, get) => ({
   },
 
   setKey: (provider, key) => {
+    // [2026-05-02 Roy] trim — 사용자가 키 복사할 때 줄바꿈/공백 같이 paste하는
+    // 케이스 흔함. raw로 저장하면 'Bearer sk-ant-...\n' 식으로 헤더 들어가
+    // Anthropic/OpenAI가 401 invalid_api_key 반환. UI엔 '설정됨'으로 보이지만
+    // 실제 API 호출은 실패 — 사용자는 '키 등록했는데 왜 안 됨?' 혼란.
+    const trimmed = (key ?? '').trim();
     const wasEmpty = !get().keys[provider];
     set((state) => ({
-      keys: { ...state.keys, [provider]: key },
+      keys: { ...state.keys, [provider]: trimmed },
     }));
     get().saveToStorage();
     // Phase 5.0 Analytics — only track first-time registration
-    if (typeof window !== 'undefined' && key && key.trim() && wasEmpty) {
+    if (typeof window !== 'undefined' && trimmed && wasEmpty) {
       import('@/lib/analytics').then(({ trackEvent }) =>
         trackEvent('key_registered', { provider }),
       ).catch(() => {});
@@ -45,10 +50,12 @@ export const useAPIKeyStore = create<APIKeyState>((set, get) => ({
   },
 
   // 사용자 입력 키 우선, 없으면 환경변수 fallback
-  getKey: (provider) => get().keys[provider] || getEnvKey(provider),
+  // [2026-05-02 Roy] getKey도 trim — 옛 storage 데이터 호환 (이전 setKey가
+  // trim 안 했을 때 저장된 키에 whitespace 잔존 가능).
+  getKey: (provider) => (get().keys[provider] || getEnvKey(provider)).trim(),
 
-  // 사용자 키 또는 환경변수 키 중 하나라도 있으면 true
-  hasKey: (provider) => !!get().keys[provider] || !!getEnvKey(provider),
+  // 사용자 키 또는 환경변수 키 중 하나라도 있으면 true (trim 후 빈 문자열은 false)
+  hasKey: (provider) => !!get().keys[provider]?.trim() || !!getEnvKey(provider),
 
   clearKey: (provider) => {
     set((state) => ({
@@ -69,7 +76,9 @@ export const useAPIKeyStore = create<APIKeyState>((set, get) => ({
         const sane: Partial<Record<string, string>> = {};
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           for (const [k, v] of Object.entries(parsed)) {
-            if (typeof v === 'string') sane[k] = v;
+            // [2026-05-02 Roy] storage에서 로드 시도 trim — 옛 데이터에 whitespace
+            // 잔존 가능. 401 invalid_api_key 가짜 발생 차단.
+            if (typeof v === 'string') sane[k] = v.trim();
           }
         }
         set((state) => ({ keys: { ...state.keys, ...sane } }));
