@@ -2599,12 +2599,16 @@ function D1InputBar({
           }}
           type="button"
           disabled={!isStreaming && !canSend}
-          className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-none transition-[transform,background] duration-150 hover:-translate-y-px disabled:cursor-not-allowed disabled:translate-y-0"
+          // [2026-05-02 Roy] isStreaming 시 'd1-pulse-morph' 애니메이션 — 버튼이
+          // 일그러지며 brething → '답변 준비 중' 시각 피드백. 정적 버튼이라 사용자가
+          // 'stuck/버그'로 오인하던 문제 해결. globals.css에 keyframe 정의.
+          className={`flex h-[34px] w-[34px] items-center justify-center rounded-full border-none hover:-translate-y-px disabled:cursor-not-allowed disabled:translate-y-0 ${isStreaming ? 'd1-pulse-morph' : 'transition-[transform,background] duration-150'}`}
           style={{
             background: isStreaming ? tokens.accent : canSend ? tokens.text : tokens.borderStrong,
             color: isStreaming || canSend ? tokens.bg : tokens.textFaint,
           }}
-          title={sendLabel}
+          title={isStreaming ? (lang === 'en' ? 'Generating… click to stop' : '답변 준비 중… 클릭하면 중지') : sendLabel}
+          aria-label={isStreaming ? (lang === 'en' ? 'Generating, click to stop' : '답변 준비 중, 클릭하면 중지') : sendLabel}
         >
           {isStreaming ? <StopIcon /> : <SendIcon />}
         </button>

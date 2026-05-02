@@ -312,3 +312,45 @@ body {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
+
+/* [2026-05-02 Roy] 채팅 send/stop 버튼이 'isStreaming'일 때 일그러지며 breathe.
+ * 답변 준비 중임을 사용자가 직관적으로 인지 (이전엔 정적 빨간 사각형이라 stuck/
+ * 버그로 오인). border-radius + scale 동시 morph로 'liquid' 느낌.
+ * 1.4s 주기 — 너무 빠르면 산만, 너무 느리면 정적처럼 보임. */
+@keyframes d1-pulse-morph {
+  0%, 100% {
+    transform: scale(1);
+    border-radius: 9999px;
+    box-shadow: 0 0 0 0 rgba(198, 90, 60, 0.45);
+  }
+  25% {
+    transform: scale(1.08);
+    border-radius: 35%;
+    box-shadow: 0 0 0 4px rgba(198, 90, 60, 0.15);
+  }
+  50% {
+    transform: scale(0.94);
+    border-radius: 9999px;
+    box-shadow: 0 0 0 8px rgba(198, 90, 60, 0);
+  }
+  75% {
+    transform: scale(1.05);
+    border-radius: 42%;
+    box-shadow: 0 0 0 4px rgba(198, 90, 60, 0.12);
+  }
+}
+
+.d1-pulse-morph {
+  animation: d1-pulse-morph 1.4s ease-in-out infinite;
+}
+
+/* prefers-reduced-motion 사용자는 morph 비활성, 단순 fade 펄스로 대체 */
+@media (prefers-reduced-motion: reduce) {
+  .d1-pulse-morph {
+    animation: d1-pulse-fade 2s ease-in-out infinite;
+  }
+}
+@keyframes d1-pulse-fade {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
