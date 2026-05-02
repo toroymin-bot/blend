@@ -86,6 +86,14 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        {/* [2026-05-03 BUG-012] /(design[123]/)?(ko|en) 라우트면 document lang 즉시 보정.
+            output:'export'로 SSR HTML은 lang="en" 정적 박혀 있지만 이 스크립트가
+            첫 페인트 전에 동기 실행돼 스크린리더 + DOM lang API 모두 올바른 값을 본다. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=location.pathname.match(/^\\/(?:design[123]\\/)?(ko|en)(?:\\/|$)/);if(m)document.documentElement.lang=m[1];}catch(e){}})();`,
+          }}
+        />
         {/* [2026-04-17] Paddle Billing v2 — loaded globally for overlay checkout */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="https://cdn.paddle.com/paddle/v2/paddle.js" async></script>

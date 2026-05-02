@@ -4,8 +4,18 @@ Publish markdown drafts to Confluence Blend space.
 
 Reads token from ~/.claude.json (where claude mcp add stored it).
 Converts markdown → HTML → Confluence Storage Format → POST as new pages.
+
+Usage:
+  python3 publish.py                       # auto-pick newest YYYY-MM-DD-dev-log.md by mtime
+  python3 publish.py 2026-05-03            # publish 2026-05-03-dev-log.md
+  python3 publish.py 2026-05-03-dev-log.md # publish that file by name
+  python3 publish.py file1.md file2.md     # publish multiple specific files
+
+Title is auto-extracted from the first H1 (`# Title`) line. Filename pattern
+must be `YYYY-MM-DD-dev-log.md` for safe defaults.
 """
 import json
+import re
 import sys
 from pathlib import Path
 import requests
@@ -18,11 +28,7 @@ DRAFTS_DIR = Path(__file__).parent
 SPACE_ID = "5079095"
 PARENT_PAGE_ID = "9371649"
 
-# Map: filename → page title
-# Keep only today's draft to avoid re-updating prior days every nighttask.
-PAGES = [
-    ("2026-05-02-dev-log.md", "Blend 개발일지 — 2026-05-02 (새벽 nighttask)"),
-]
+DEV_LOG_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})-dev-log\.md$")
 
 
 def load_creds():
@@ -119,17 +125,59 @@ def update_page(creds, page, body_storage):
     return r.json()
 
 
+def extract_title(md_text: str, fallback: str) -> str:
+    """First H1 line wins. Falls back to provided string if no H1 found."""
+    for line in md_text.splitlines():
+        m = re.match(r"^#\s+(.+?)\s*$", line)
+        if m:
+            return m.group(1).strip()
+    return fallback
+
+
+def resolve_targets(args: list[str]) -> list[Path]:
+    """Resolve CLI args (or auto-pick newest dev-log) into draft paths."""
+    if args:
+        targets: list[Path] = []
+        for raw in args:
+            # accept "2026-05-03" shorthand
+            cand = raw if raw.endswith(".md") else f"{raw}-dev-log.md"
+            p = (DRAFTS_DIR / cand).resolve()
+            if not p.exists():
+                sys.stderr.write(f"⚠ Missing: {p}\n")
+                continue
+            targets.append(p)
+        return targets
+
+    # No args → newest YYYY-MM-DD-dev-log.md by date in filename, tiebreak by mtime.
+    candidates = []
+    for p in DRAFTS_DIR.glob("*.md"):
+        m = DEV_LOG_PATTERN.match(p.name)
+        if m:
+            candidates.append((m.group(1), p.stat().st_mtime, p))
+    if not candidates:
+        sys.stderr.write("⚠ No YYYY-MM-DD-dev-log.md drafts found.\n")
+        return []
+    candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return [candidates[0][2]]
+
+
 def main():
     creds = load_creds()
     print(f"Site: {creds['url']}  | User: {creds['username']}\n")
 
-    for fname, title in PAGES:
-        path = DRAFTS_DIR / fname
-        if not path.exists():
-            print(f"⚠ Missing: {path}")
-            continue
+    args = sys.argv[1:]
+    targets = resolve_targets(args)
+    if not targets:
+        sys.exit(1)
 
+    for path in targets:
         md_text = path.read_text(encoding="utf-8")
+        # date in filename → fallback "Blend 개발일지 — YYYY-MM-DD (새벽 nighttask)"
+        m = DEV_LOG_PATTERN.match(path.name)
+        fallback_title = (
+            f"Blend 개발일지 — {m.group(1)} (새벽 nighttask)" if m else path.stem
+        )
+        title = extract_title(md_text, fallback_title)
         storage = md_to_storage(md_text)
 
         existing = get_existing_page(creds, title)

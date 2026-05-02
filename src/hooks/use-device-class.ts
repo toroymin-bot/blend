@@ -11,17 +11,11 @@ import { useEffect, useState } from 'react';
 import { getDeviceClass, type DeviceClass } from '@/lib/responsive/breakpoints';
 
 export function useDeviceClass(): DeviceClass {
-  // [2026-04-30 v3.2 fix] lazy initializer — 클라이언트 첫 렌더부터 정확한 deviceClass 반환.
-  //   이전엔 SSR 안전을 위해 'desktop' 박아두고 useEffect로 갱신했는데, 그 사이 1 tick에
-  //   downstream useEffect들이 'desktop' 가정으로 잘못된 셋을 해버리는 race가 발생함.
-  //   useState lazy init은 첫 렌더만 실행되므로 SSR(`window === undefined`)엔 'desktop'을,
-  //   client hydration 직후엔 실제 폭을 반환. SSR HTML과 첫 client 렌더 결과가 다를 수 있지만
-  //   화면에 보이는 값은 client 렌더 결과 → hydration mismatch 경고 가능성. 그러나 이 컴포넌트는
-  //   client-only 분기 (반응형 레이아웃)라 시각 왜곡보단 race 차단이 더 중요.
-  const [deviceClass, setDeviceClass] = useState<DeviceClass>(() => {
-    if (typeof window === 'undefined') return 'desktop';
-    return getDeviceClass(window.innerWidth);
-  });
+  // [2026-05-03 BUG-011] SSR HTML과 client 첫 렌더가 항상 같은 'desktop'을 반환 →
+  //   React #418 hydration mismatch 차단. 이전 v3.2 lazy init은 client에서 실제 폭을
+  //   바로 반환해 SSR ('desktop')과 어긋났음. 다운스트림 race는 각 consumer가
+  //   useEffect에서 deviceClass 변화를 다시 받아 보정하도록 처리.
+  const [deviceClass, setDeviceClass] = useState<DeviceClass>('desktop');
 
   useEffect(() => {
     function update() {

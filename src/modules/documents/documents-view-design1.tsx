@@ -176,10 +176,16 @@ export default function D1DocumentsView({
   // P3.4 — 파일 인라인 미리보기 모달
   const [previewDocId, setPreviewDocId]   = useState<string | null>(null);
   // P2.1 — 하이브리드 탭 상태 (localStorage 영속화)
-  const [tab, setTab] = useState<'library' | 'chat'>(() => {
-    if (typeof window === 'undefined') return 'library';
-    return localStorage.getItem('d1:docs-tab') === 'chat' ? 'chat' : 'library';
-  });
+  // [2026-05-03 BUG-011] SSR과 client 첫 렌더 모두 'library' → hydration 일치.
+  //   마운트 후 useEffect로 localStorage 값을 반영해 'chat'으로 전환하면 1회 re-render.
+  const [tab, setTab] = useState<'library' | 'chat'>('library');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('d1:docs-tab');
+      if (stored === 'chat') setTab('chat');
+    } catch {}
+  }, []);
   useEffect(() => {
     try { localStorage.setItem('d1:docs-tab', tab); } catch {}
   }, [tab]);

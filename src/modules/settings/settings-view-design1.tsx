@@ -141,28 +141,26 @@ export function D1SettingsView() {
   } = useSettingsStore();
   const { t, lang, setLang } = useTranslation();
 
-  // [2026-04-29 Tori 18841602 v2 / 2026-04-30 v3.2 / v3.2-hotfix] 진입 동작 정정.
-  //
-  // v3.2 회귀 디버깅 history:
-  //   v2 (commit 32aa1d5): 초기값 'api' → showMobileMenu 항상 false → V16 위반.
-  //   v3.2 (commit e7ac2e0): 초기값 null + useEffect로 desktop/tablet 시 'api' 셋
-  //                          → 여전히 race condition: useDeviceClass 가 SSR 안전 위해
-  //                            'desktop' 으로 초기 반환 → settings useEffect가 그걸 보고
-  //                            'api' 로 셋 → 그 후 deviceClass 가 'mobile'로 갱신되지만
-  //                            activeSection은 이미 'api' 라 메뉴 안 보임.
-  //   v3.2-hotfix (이번): useDeviceClass 가 lazy init 으로 첫 렌더부터 정확한 폭 반환.
-  //                       그리고 settings도 lazy init 으로 첫 렌더부터 deviceClass에 맞춰
-  //                       null 또는 'api' 결정. 이중 안전장치.
+  // [2026-05-03 BUG-011] SSR-safe 진입 동작.
+  //   초기값은 항상 'api' (SSR과 client 첫 렌더 일치 → hydration mismatch 차단).
+  //   첫 마운트 직후 deviceClass='mobile' 이면 activeSection을 null로 보정 (메뉴 노출).
+  //   firstMountRef로 user 클릭 후 리사이즈 시 의도된 'api'를 다시 null로 만들지 않도록 분리.
   const deviceClass = useDeviceClass();
-  const [activeSection, setActiveSection] = useState<SectionId | null>(() => {
-    if (typeof window === 'undefined') return 'api';      // SSR safe default
-    return window.innerWidth < 768 ? null : 'api';        // 클라이언트 첫 렌더 정확한 분기
-  });
+  const [activeSection, setActiveSection] = useState<SectionId | null>('api');
   const [drawerOpen,   setDrawerOpen]   = useState(false);
+  const firstMountRef = useRef(true);
 
-  // 회전 / 리사이즈 처리 — null 상태에서 desktop/tablet 으로 가면 'api' 자동 활성,
-  // 'theme' 같은 legacy 섹션은 어디서든 'api'로 정정.
+  // 회전 / 리사이즈 처리.
   useEffect(() => {
+    if (firstMountRef.current) {
+      firstMountRef.current = false;
+      // 첫 마운트: deviceClass가 실제 폭으로 갱신된 직후 1회 보정.
+      if (deviceClass === 'mobile' && activeSection === 'api') {
+        setActiveSection(null);
+      }
+      return;
+    }
+    // 이후 리사이즈: null/theme → api 정정만 수행 (사용자 의도된 'api'는 보존).
     if (deviceClass === 'desktop' || deviceClass === 'tablet') {
       if (activeSection === null || activeSection === 'theme') setActiveSection('api');
     }

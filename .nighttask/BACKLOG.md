@@ -599,7 +599,7 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 - **헬스 체크**: production 4 URL 모두 200, i18n 937 키 완전 동기, REG-01 회귀 0 hit, TypeScript 통과, blend-identity.ts(76 lines) 무결성 확인
 - **신규 발견 (회귀 carry-over)**: BUG-005 fix 이후 추가된 3개 store가 raw `localStorage.setItem` 사용 — `d1-cost-store.ts:53`, `d1-chat-store.ts:160` (fallback), `use-datasource-queue-polling.ts:51`. 모두 자체 try/catch 있어 silent fail로 즉각 위험은 낮음. 영구 정책 통일 위해 `safeSetItem`으로 교체 권장 → 다음 nighttask 후보
 
-### [ ] PUBLISH-PY-IMPROVE — Confluence publish.py 견고성 개선 (carry-over, 우선순위 ↑)
+### [x] PUBLISH-PY-IMPROVE — Confluence publish.py 견고성 개선 ✅ 2026-05-03
 - **배경**: 오늘 nighttask 시작 시 publish.py가 hardcoded PAGES만 처리해 인자로 넘긴 5월 2일 파일을 무시하고 5월 1일 페이지를 5월 2일 내용으로 덮어씀 (즉시 복원 완료)
 - **개선안**:
   1. `sys.argv` 받으면 해당 파일만 publish (안전한 fallback)
@@ -608,9 +608,48 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 - **현재 워크어라운드**: 매 nighttask마다 PAGES 리스트를 오늘 항목 1개로 수동 교체 (오늘 적용 완료)
 - **위치**: `.nighttask/confluence-drafts/publish.py`
 
-### [ ] BUG-005-REGRESSION — d1-cost-store / d1-chat-store / queue-polling safeSetItem 통일 (carry-over)
+### [x] BUG-005-REGRESSION — d1-cost-store / d1-chat-store / queue-polling safeSetItem 통일 ✅ 2026-05-03
 - **위치**: `src/stores/d1-cost-store.ts:53`, `src/stores/d1-chat-store.ts:160`, `src/hooks/use-datasource-queue-polling.ts:51`
 - **현재**: 각자 try/catch silent fail (queue-polling) 또는 outer fallback에서만 quota event dispatch (d1-chat-store는 inner err 미캡처)
 - **통일안**: `import { safeSetItem } from '@/lib/safe-storage'` + `safeSetItem(STORAGE_KEY, JSON.stringify(state), 'd1-cost')` 등으로 교체. 사용자가 quota toast로 인지 가능
 - **risk**: 낮음 (silent fail 그대로 두는 것보다 명시적 알림이 안전). 단, d1-chat-store는 IDB primary + LS fallback 구조라 fallback도 실패하면 사용자 데이터 손실 → toast 노출이 더 적합
 - **다음 nighttask에서 처리**
+
+## 2026-05-03 — blend-daily-dev nighttask
+
+### [x] BUG-FIX-BUNDLE-2026-05-03 — 4개 carry-over 일괄 처리 ✅ 2026-05-03
+- **BUG-012**: root `layout.tsx` body 최상단 inline blocking script — pathname 매칭으로 `document.documentElement.lang` 즉시 보정 (output:'export' static HTML lang="en" 한계 우회)
+- **BUG-011**: 3 곳 SSR-safe 복귀 — `use-device-class.ts` lazy init 제거, `settings-view-design1.tsx` firstMountRef 패턴, `documents-view-design1.tsx` 'library' default + post-mount localStorage 반영
+- **BUG-005-REGRESSION**: `d1-cost-store` / `d1-chat-store` IDB-fallback / `use-datasource-queue-polling` lsSet 모두 `safeSetItem` 통일 — quota toast 일관 발사
+- **PUBLISH-PY-IMPROVE**: publish.py CLI args 지원 (`python3 publish.py 2026-05-03` 또는 인자 없이 newest mtime), H1 자동 추출, 안전한 fallback 제목
+- **검증**: tsc --noEmit 통과, vercel --prod 성공 (39s 빌드, 58s 배포), production 4 URL 모두 200/308, dev preview에서 lang=ko/en 올바름, 콘솔 #418 0건
+- **commit**: 다음 커밋
+- **Confluence**: 커밋 후 작성
+
+## 🐛 BLEND-DAILY-QA 2026-05-02 — 신규 발견 (Komi)
+
+### [x] BUG-011 — React #418 REGRESSION ✅ 2026-05-03
+- **재발생**: BUG-003 (resolved 2026-04-25) 이 다시 발생
+- **위치**: chunk `0x3vkhsknfjrp.js`, fiber render (rX/iu/sd)
+- **재현**: `/ko/qatest`, `/en/qatest`, `/design1/ko/qatest` 진입 직후 + 메뉴 네비게이션 시마다 발생
+- **원인**: 2026-04-30 `useDeviceClass` lazy initializer 도입 (commit 의도적 트레이드오프 — 다운스트림 race 차단 위해 SSR/client 첫 렌더 결과 다르게 함). settings-view-design1 / documents-view-design1 에도 같은 패턴 두 곳 더 있었음
+- **수정**: 세 곳 모두 SSR-safe 패턴으로 복귀(첫 렌더 동일 default → useEffect로 client 갱신). settings-view-design1 은 `firstMountRef` 로 첫 마운트만 mobile→null 보정해 user 의도된 'api' 보존
+- **Excel**: Bug Report row 16 — 🔵 Pending Re-test
+
+### [x] BUG-012 — html `lang="en"` hardcoded ✅ 2026-05-03
+- **위치**: `src/app/layout.tsx:80` — `<html lang="en">` 정적 박힘
+- **영향**: `/ko/...` 페이지에서도 `document.documentElement.lang === 'en'` 반환 — SEO 페널티 + 스크린리더 한국어를 영어로 발음
+- **수정**: `[lang]/layout.tsx` 분리는 `output:'export'` + 비-lang 라우트(privacy/terms/refund/qatest 등 5+개) 와의 충돌 때문에 불가. 대안으로 root `layout.tsx` `<body>` 최상단에 inline blocking script 삽입 — `/(design[123]/)?(ko|en)` 매칭 시 `document.documentElement.lang` 즉시 보정. 첫 페인트 전에 동기 실행 → 스크린리더 + DOM lang API 모두 올바른 값. 비-lang 라우트는 기존 lang="en" 그대로 (영어 페이지)
+- **검증**: production HTML grep `design[123]\\/...` 확인, 로컬 dev 서버 `/design1/ko` → lang=ko, `/design1/en` → lang=en
+- **Excel**: Bug Report row 17 — 🔵 Pending Re-test
+
+### NOTE — Queue polling 'Failed to fetch' 워닝
+- 콘솔에 `[queue-polling] source failed: <google_drive_id|onedrive_id> Failed to fetch` 5분마다 반복
+- env `NEXT_PUBLIC_DS_WEBHOOK_URL=""` 빈 문자열인데 polling 일어나는 중 — 하지만 실제 fetch 호출은 capture 안됨 (window.fetch 인터셉트 0건)
+- 추측: 빌드 시점 env 가 다른 값이었어서 bundle에 박혀있는 가능성. 또는 `if (!url)` 가드가 작동하지만 syncOneSource() 내부 다른 fetch 가 실패. **추가 조사 필요** — 다음 nighttask 권장
+
+### NOTE — OneDrive chip vs detail 상태 불일치 (UX issue)
+- 채팅 뷰 chip: "OneDrive 27 · 오류" (red dot)
+- 데이터 소스 상세 뷰: "OneDrive idle" (no error)
+- 원인: `categoryStatus()` (active-sources-bar.tsx:63) 가 OneDrive 카테고리에 속한 documents 중 하나라도 status='error' 면 카테고리 전체를 'error' 로 표시 — 의도된 worst-status aggregation
+- 사용자가 chip 보고 데이터 소스 페이지 가면 "엥? 오류 없는데?" 혼란 가능. 카테고리 chip tooltip 또는 모달에서 "27개 중 N개 인덱싱 실패" 같이 분해 표시 검토

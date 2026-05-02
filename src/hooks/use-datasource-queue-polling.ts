@@ -28,6 +28,7 @@ import {
   isTokenValid as msTokenValid,
 } from '@/lib/connectors/onedrive-connector';
 import { parseDocument, generateEmbeddings } from '@/modules/plugins/document-plugin';
+import { safeSetItem } from '@/lib/safe-storage';
 import { saveDocument, getActiveDocIds, setActiveDocIds } from '@/lib/vector-db';
 import type { DataSource, GoogleDriveConfig, OneDriveConfig } from '@/types';
 
@@ -47,9 +48,8 @@ function lsGet(key: string): string | undefined {
   }
 }
 function lsSet(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {}
+  // [2026-05-03 BUG-005-REGRESSION] safeSetItem으로 통일 — quota 초과 시 toast로 사용자 인지.
+  safeSetItem(key, value, 'datasource-queue');
 }
 
 async function syncOneSource(

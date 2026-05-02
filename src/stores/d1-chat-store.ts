@@ -8,6 +8,7 @@
  */
 
 import { create } from 'zustand';
+import { safeSetItem } from '@/lib/safe-storage';
 
 export type D1Role = 'user' | 'assistant';
 
@@ -153,16 +154,10 @@ export const useD1ChatStore = create<D1ChatStoreState>((set, get) => ({
             }
           }
         });
-      } catch (err) {
-        // IDB 실패 시 localStorage fallback
-        try {
-          const payload = { version: 1, chats: get().chats };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        } catch {
-          if ((err as Error)?.name === 'QuotaExceededError') {
-            window.dispatchEvent(new CustomEvent('blend:storage-quota-exceeded', { detail: { store: 'chats' } }));
-          }
-        }
+      } catch {
+        // IDB 실패 시 localStorage fallback. safeSetItem이 quota event 자동 dispatch.
+        const payload = { version: 1, chats: get().chats };
+        safeSetItem(STORAGE_KEY, JSON.stringify(payload), 'd1-chat');
       }
     })();
   },

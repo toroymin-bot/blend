@@ -6,6 +6,7 @@
 // $1 알림 / $2 한도 초과 시 자동 일시정지를 제공.
 
 import { create } from 'zustand';
+import { safeSetItem } from '@/lib/safe-storage';
 
 const STORAGE_KEY = 'd1:cost-state';
 
@@ -50,7 +51,7 @@ const DEFAULT_STATE: CostStateData = {
 };
 
 function persist(state: CostStateData) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  safeSetItem(STORAGE_KEY, JSON.stringify(state), 'd1-cost');
 }
 
 export const useCostStore = create<CostStoreState>((set, get) => ({
