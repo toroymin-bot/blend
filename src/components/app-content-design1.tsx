@@ -20,6 +20,7 @@ import { trackEvent, trackVisit } from '@/lib/analytics';
 import D1ChatView from '@/modules/chat/chat-view-design1';
 // [2026-04-26] BUG-FIX (16417011) — 사이드바 '최근'을 d1-chat-store에서 직접 가져옴
 import { useD1ChatStore } from '@/stores/d1-chat-store';
+import { useD1MemoryStore, D1_MEMORY_LIMIT } from '@/stores/d1-memory-store';
 
 const D1CompareView      = lazy(() => import('@/modules/compare/compare-view-design1'));
 const D1BillingView      = lazy(() => import('@/modules/billing/billing-view-design1'));
@@ -132,6 +133,8 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
   const d1Chats        = useD1ChatStore((s) => s.chats);
   const d1LoadFromDB   = useD1ChatStore((s) => s.loadFromStorage);
   useEffect(() => { d1LoadFromDB(); }, [d1LoadFromDB]);
+  // [2026-05-02 Roy] 채팅 기억하기 — 사이드바와 chat-view가 같은 store 참조
+  const memoryIds = useD1MemoryStore((s) => s.selectedIds);
   const recentChats = useMemo(
     () => [...d1Chats]
       .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt)
@@ -377,17 +380,44 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
             : <div className="flex flex-col gap-px">
                 {recentChats.map((c) => {
                   const isActive = c.id === activeChatIdInSidebar && activeView === 'chat';
+                  const memorySelected = memoryIds.includes(c.id);
                   return (
-                    <button key={c.id} onClick={() => loadRecentChat(c.id)} title={c.title}
-                      className="w-full truncate rounded-lg px-2 py-1.5 text-left text-[12.5px] transition-colors hover:bg-black/5"
-                      style={{
-                        color: isActive ? tokens.text : tokens.textDim,
-                        background: isActive ? 'rgba(0,0,0,0.05)' : 'transparent',
-                        fontWeight: isActive ? 500 : 400,
-                      }}>
-                      {c.pinned && <span aria-hidden style={{ marginRight: 4, color: tokens.accent }}>📌</span>}
-                      {c.title || (lang === 'ko' ? '(제목 없음)' : '(Untitled)')}
-                    </button>
+                    <div key={c.id} className="group flex items-center gap-1">
+                      <button onClick={() => loadRecentChat(c.id)} title={c.title}
+                        className="min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-[12.5px] transition-colors hover:bg-black/5"
+                        style={{
+                          color: isActive ? tokens.text : tokens.textDim,
+                          background: isActive ? 'rgba(0,0,0,0.05)' : 'transparent',
+                          fontWeight: isActive ? 500 : 400,
+                        }}>
+                        {c.pinned && <span aria-hidden style={{ marginRight: 4, color: tokens.accent }}>📌</span>}
+                        {c.title || (lang === 'ko' ? '(제목 없음)' : '(Untitled)')}
+                      </button>
+                      {/* [2026-05-02 Roy] 채팅 기억하기 — 항상 회색으로 살짝 보임,
+                          호버 시 진해지고 선택 시 노란색. 텍스트 X, 아이콘만. */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const ok = useD1MemoryStore.getState().toggle(c.id);
+                          if (!ok) {
+                            // limit reached — 토스트 dispatch
+                            window.dispatchEvent(new CustomEvent('d1:toast', {
+                              detail: lang === 'ko' ? `최대 ${D1_MEMORY_LIMIT}개 채팅만` : `Up to ${D1_MEMORY_LIMIT} chats`,
+                            }));
+                          }
+                        }}
+                        className="shrink-0 rounded-md p-1 transition-all hover:bg-black/5"
+                        style={{
+                          background: memorySelected ? '#FEF3C7' : 'transparent',
+                          color: memorySelected ? '#854D0E' : tokens.textFaint,
+                        }}
+                        title={memorySelected ? (lang === 'ko' ? '기억에서 제외' : 'Remove from memory') : (lang === 'ko' ? '채팅 기억하기' : 'Remember this chat')}
+                      >
+                        <svg width={12} height={12} viewBox="0 0 24 24" fill={memorySelected ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: memorySelected ? 1 : 0.45 }} className="transition-opacity group-hover:!opacity-100">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </button>
+                    </div>
                   );
                 })}
               </div>

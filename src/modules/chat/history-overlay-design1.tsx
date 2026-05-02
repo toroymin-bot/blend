@@ -239,23 +239,35 @@ export function D1HistoryOverlay({
               {/* [2026-05-02 Roy] 이전 세션 기억하기 토글 — 멀티 선택. 선택 시
                   연노랑 highlight + 채워진 아이콘. 클릭 시 부모가 selectedMemoryIds
                   관리. 행 hover 시 노출. */}
+              {/* [2026-05-02 Roy 결정 'A'] 발견율 ↑ — hover 의존 제거. 모든 행에
+                  살짝 보이는 회색 북마크 → hover 시 진해지고 선택 시 노란색.
+                  시각 노이즈 미미하면서 사용자가 "이게 뭐지?" 인지 가능. */}
               {onToggleMemory && (() => {
                 const selected = selectedMemoryIds.includes(c.id);
                 return (
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleMemory(c.id); }}
-                    className="shrink-0 rounded-md p-1 transition-opacity hover:bg-black/5"
+                    className="shrink-0 rounded-md p-1 transition-all hover:bg-black/5"
                     style={{
-                      opacity: selected ? 1 : undefined,
                       background: selected ? '#FEF3C7' : 'transparent',
                       color: selected ? '#854D0E' : tokens.textFaint,
                     }}
                     title={selected
                       ? (lang === 'ko' ? '기억에서 제외' : 'Remove from memory')
-                      : (lang === 'ko' ? '이 세션 기억하기' : 'Remember this session')}
+                      : (lang === 'ko' ? '채팅 기억하기' : 'Remember this chat')}
                   >
-                    {/* brain/bookmark style icon */}
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill={selected ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={selected ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}>
+                    <svg
+                      width={14}
+                      height={14}
+                      viewBox="0 0 24 24"
+                      fill={selected ? 'currentColor' : 'none'}
+                      stroke="currentColor"
+                      strokeWidth={1.6}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ opacity: selected ? 1 : 0.45 }}
+                      className="transition-opacity group-hover:!opacity-100"
+                    >
                       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                     </svg>
                   </button>

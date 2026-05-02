@@ -26,6 +26,7 @@ import { trackEvent } from '@/lib/analytics';
 // 모든 sendChatRequest 호출에 대해 자동 트래킹. 여기서 또 호출하면 이중 누적.
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
+import { useD1MemoryStore, D1_MEMORY_LIMIT } from '@/stores/d1-memory-store';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
 // [2026-04-26] Sprint 3 (16384367) — Share Links
 import { ShareModal } from '@/components/share-modal';
@@ -580,25 +581,21 @@ export default function D1ChatView({
   const [chatCreatedAt, setChatCreatedAt] = useState<number>(() => Date.now());
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // [2026-05-02 Roy] '이전 세션 기억하기' — 멀티 선택, 현재 세션의 system prompt에
-  // 컨텍스트 주입. 새 페이지 로드 / 새 채팅 시작 시 자동 초기화 (default = 빈 배열).
-  // useState로만 보관 (localStorage X) → 의도적으로 매번 다시 선택해야 함.
-  const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
-  // 선택된 chat의 요약 캐시 — 매 메시지마다 재요약 안 하도록. chatId → 요약 텍스트.
+  // [2026-05-02 Roy] '채팅 기억하기' — d1-memory-store 공유 (사이드바 + 히스토리
+  // 오버레이 양쪽에서 같은 store 참조). 페이지 reload 시 자동 초기화.
+  const selectedMemoryIds = useD1MemoryStore((s) => s.selectedIds);
   const memorySummaryCache = useRef<Map<string, string>>(new Map());
 
   function toggleMemoryChat(chatId: string): void {
-    setSelectedMemoryIds((cur) => {
-      if (cur.includes(chatId)) {
-        memorySummaryCache.current.delete(chatId);
-        return cur.filter((id) => id !== chatId);
-      }
-      if (cur.length >= 5) {
-        setToastMsg(lang === 'ko' ? '최대 5개 세션만 동시 기억 가능' : 'Up to 5 sessions can be remembered at once');
-        return cur;
-      }
-      return [...cur, chatId];
-    });
+    const ok = useD1MemoryStore.getState().toggle(chatId);
+    if (!ok) {
+      setToastMsg(lang === 'ko' ? `최대 ${D1_MEMORY_LIMIT}개 채팅만 동시 기억 가능` : `Up to ${D1_MEMORY_LIMIT} chats max`);
+      return;
+    }
+    // 제거된 경우 캐시도 같이 비우기
+    if (!useD1MemoryStore.getState().selectedIds.includes(chatId)) {
+      memorySummaryCache.current.delete(chatId);
+    }
   }
   const [exportOpen, setExportOpen] = useState(false);
   // [2026-04-26] Sprint 3 (16384367) — Share modal
@@ -2062,7 +2059,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               setTtsCount(0);
               if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
               // [2026-05-02 Roy] 메모리 선택 자동 초기화 — 새 채팅마다 다시 선택해야 함
-              setSelectedMemoryIds([]);
+              useD1MemoryStore.getState().clear();
               memorySummaryCache.current.clear();
             }}
           >
@@ -2208,7 +2205,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                 selectedIds={selectedMemoryIds}
                 chats={chatSummaries}
                 onRemove={toggleMemoryChat}
-                onClearAll={() => { setSelectedMemoryIds([]); memorySummaryCache.current.clear(); }}
+                onClearAll={() => { useD1MemoryStore.getState().clear(); memorySummaryCache.current.clear(); }}
               />
             )}
             <D1InputBar
@@ -2327,7 +2324,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                 selectedIds={selectedMemoryIds}
                 chats={chatSummaries}
                 onRemove={toggleMemoryChat}
-                onClearAll={() => { setSelectedMemoryIds([]); memorySummaryCache.current.clear(); }}
+                onClearAll={() => { useD1MemoryStore.getState().clear(); memorySummaryCache.current.clear(); }}
               />
             )}
             <D1InputBar
@@ -3087,11 +3084,11 @@ function D1InputBar({
               disabled={isStreaming || (ttsCount !== undefined && ttsCount >= ttsLimit!)}
               className="ml-0.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
-                // [2026-05-02 Roy] ON일 때 연노랑(soft yellow) — accent 컬러와 시각 구분.
-                // 다른 입력 바 chip(블렌드란?)이 accent라서 음성 토글은 다른 색으로.
-                background: ttsActive ? '#FEF3C7' : 'transparent',
-                color:      ttsActive ? '#854D0E' : 'var(--d1-text-dim)',
-                border:     ttsActive ? '1px solid #FCD34D' : '1px solid var(--d1-border-strong)',
+                // [2026-05-02 Roy] ON일 때 연한 파랑(soft blue, sky-100) — 메모리(노랑)와
+                // 시각 구분. accent(orange)와도 구분. 음성 = 파랑, 메모리 = 노랑 의미 분리.
+                background: ttsActive ? '#DBEAFE' : 'transparent',
+                color:      ttsActive ? '#1E40AF' : 'var(--d1-text-dim)',
+                border:     ttsActive ? '1px solid #93C5FD' : '1px solid var(--d1-border-strong)',
               }}
               title={
                 ttsCount !== undefined && ttsCount >= ttsLimit!
