@@ -350,7 +350,10 @@ export default function D1ChatView({
   //   limit: 채팅마다 50회. 새 채팅 시작 시 리셋. 카운터 헤더 노출.
   //   첫 사용 시 D1TtsQualityModal로 품질 선택 (default 'standard').
   const TTS_LIMIT = 50;
-  const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
+  // [2026-05-02 Roy] default OFF — 첫 사용자는 의도적으로 토글 ON해야 활성. 회의실
+  // /카페 등에서 갑자기 음성 재생 방지. localStorage에 'true' 저장된 사용자는 그
+  // 값으로 복원 (새 세션에서도 유지).
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(false);
   const [ttsQuality, setTtsQuality] = useState<'premium' | 'standard'>('standard');
   const [ttsQualityChosen, setTtsQualityChosen] = useState<boolean>(false);
   const [ttsCount, setTtsCount] = useState<number>(0);
@@ -384,10 +387,25 @@ export default function D1ChatView({
   function setTtsQualityAndPersist(q: 'premium' | 'standard'): void {
     setTtsQuality(q);
     setTtsQualityChosen(true);
+    // 첫 모달에서 품질 선택 = ON 활성화 의도. 마스터 토글도 ON으로.
+    setTtsEnabled(true);
     if (typeof window !== 'undefined') {
       localStorage.setItem('d1:tts-quality', q);
       localStorage.setItem('d1:tts-quality-chosen', 'true');
+      localStorage.setItem('d1:tts-enabled', 'true');
     }
+  }
+
+  // [2026-05-02 Roy] 입력바 토글 클릭 시 — OFF→ON 전환 + 첫 사용이면 품질 모달.
+  // 첫 사용 시 모달 먼저, 사용자가 품질 선택해야 ON 활성화. 모달 닫기 → OFF 유지
+  // (의도적 cancel 보호). 이미 chosen된 상태면 즉시 토글.
+  function handleToggleTts(): void {
+    if (!ttsEnabled && !ttsQualityChosen) {
+      // 첫 ON 시도 — 모달부터. ttsEnabled은 onChoose에서 true로 셋팅.
+      setShowTtsQualityModal(true);
+      return;
+    }
+    setTtsEnabled((v) => !v);
   }
 
   // 답변 텍스트를 TTS에 보낼 때 마크다운/이미지/코드블록 제거 + 길이 제한.
@@ -448,9 +466,11 @@ export default function D1ChatView({
     }
   }
 
-  /** B 모드 자동 재생 — 입력 source가 voice였을 때만 */
-  async function maybeAutoPlay(text: string, source: 'voice' | 'text'): Promise<void> {
-    if (source !== 'voice') return;
+  /** [2026-05-02 Roy] 마스터 토글 ON일 때 모든 답변 자동 재생 (source 무관).
+   *  Roy 결정 — B+C 모드 폐기, 단순 ON/OFF로 회귀. 입력 source 추적은 코드 호환을
+   *  위해 유지하되 maybeAutoPlay 분기에는 사용 X. */
+  async function maybeAutoPlay(text: string, _source: 'voice' | 'text'): Promise<void> {
+    if (!ttsEnabled) return;
     await playTTS(text);
   }
 
@@ -1975,29 +1995,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           })()}
         </div>
         <div className="flex items-center gap-1">
-          {/* [2026-05-02 Roy] TTS 마스터 토글 + 카운터 — 클릭 시 ON/OFF.
-              ON일 때 옆에 작게 카운터 (예: 3/50). 50 도달 시 회색 비활성. */}
-          <button
-            type="button"
-            onClick={() => setTtsEnabled((v) => !v)}
-            disabled={ttsCount >= TTS_LIMIT}
-            title={
-              ttsCount >= TTS_LIMIT
-                ? (lang === 'ko' ? `이번 채팅 음성 한도 도달 (${TTS_LIMIT}/${TTS_LIMIT})` : `Voice limit reached (${TTS_LIMIT}/${TTS_LIMIT})`)
-                : ttsEnabled
-                  ? (lang === 'ko' ? '음성 답변 끄기' : 'Turn off voice')
-                  : (lang === 'ko' ? '음성 답변 켜기' : 'Turn on voice')
-            }
-            className="inline-flex items-center gap-1 rounded-full border bg-transparent px-2.5 py-1 text-[12px] transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ borderColor: tokens.borderStrong, color: tokens.textDim }}
-          >
-            {ttsEnabled ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
-            {ttsEnabled && (
-              <span className="text-[11px] tabular-nums" style={{ color: tokens.textFaint }}>
-                {ttsCount}/{TTS_LIMIT}
-              </span>
-            )}
-          </button>
+          {/* [2026-05-02 Roy] TTS 마스터 토글은 헤더가 아닌 입력바로 이동 (마이크
+              아이콘 옆). 헤더 정리. */}
           <D1IconButton
             title={lang === 'ko' ? '새 채팅' : 'New chat'}
             onClick={() => {
@@ -2075,8 +2074,6 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                 onTryAnother={(newModel?: string) => regenerateAssistantMessage(msg.id, newModel)}
                 onFork={msg.role === 'assistant' ? () => forkChatAtMessage(msg.id) : undefined}
                 onShare={msg.role === 'assistant' ? () => setShareOpen(true) : undefined}
-                ttsEnabled={ttsEnabled}
-                onPlayTTS={msg.role === 'assistant' ? (text) => playTTS(text) : undefined}
               />
             ))}
             {isStreaming && streamingContent && (
@@ -2170,6 +2167,10 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
               onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
               onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; }}
+              ttsActive={ttsEnabled}
+              onToggleTts={handleToggleTts}
+              ttsCount={ttsCount}
+              ttsLimit={TTS_LIMIT}
             />
 
             {/* Suggestions — desktop only. Sprint 2 (16384367): 6 카드 + icon + ⓘ 툴팁 */}
@@ -2274,6 +2275,10 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
               onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
               onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; }}
+              ttsActive={ttsEnabled}
+              onToggleTts={handleToggleTts}
+              ttsCount={ttsCount}
+              ttsLimit={TTS_LIMIT}
             />
           </div>
         </div>
@@ -2403,12 +2408,10 @@ type CopyObj = {
   tryAnother: string;
 };
 
-function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare, ttsEnabled, onPlayTTS }: {
+function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: {
   message: Message; lang: Lang; t: CopyObj;
   onTryAnother: (newModel?: string) => void;
   onFork?: () => void; onShare?: () => void;
-  ttsEnabled?: boolean;
-  onPlayTTS?: (text: string) => void;
 }) {
   if (message.role === 'user') {
     return <D1UserMessage content={message.content} lang={lang} />;
@@ -2427,8 +2430,6 @@ function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare, ttsEnab
       onTryAnother={onTryAnother}
       onFork={onFork}
       onShare={onShare}
-      ttsEnabled={ttsEnabled}
-      onPlayTTS={onPlayTTS}
     />
   );
 }
@@ -2472,8 +2473,6 @@ function D1AssistantMessage({
   onTryAnother,
   onFork,
   onShare,
-  ttsEnabled,
-  onPlayTTS,
 }: {
   content: string;
   streaming?: boolean;
@@ -2488,10 +2487,7 @@ function D1AssistantMessage({
   onTryAnother?: (newModel?: string) => void;
   onFork?: () => void;
   onShare?: () => void;
-  // [2026-05-02 Roy] TTS — ttsEnabled true일 때만 🔊 버튼 노출. 클릭 시 onPlayTTS
-  // 호출해 부모가 비용·카운터·품질 라우팅 처리.
-  ttsEnabled?: boolean;
-  onPlayTTS?: (text: string) => void;
+  // [2026-05-02 Roy] per-message TTS 버튼 제거 — 입력바 마스터 토글로만 제어.
 }) {
   const [copied, setCopied] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -2565,21 +2561,9 @@ function D1AssistantMessage({
               {copied ? t.copied : t.copy}
             </button>
             {/* [2026-05-02 Roy] '다시 생성' 버튼 제거 — 불필요한 기능. '다른 AI로'
-                재생성 + 자동 fallback이 같은 역할을 더 똑똑하게 처리. */}
-
-            {/* [2026-05-02 Roy] per-message TTS 버튼 (C 모드) — 텍스트 입력 답변에도
-                듣고 싶을 때 클릭. ttsEnabled=true일 때만 노출. */}
-            {ttsEnabled && onPlayTTS && (
-              <button
-                onClick={() => onPlayTTS(content)}
-                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
-                style={{ color: 'inherit' }}
-                title={lang === 'ko' ? '음성으로 듣기' : 'Listen'}
-              >
-                <SpeakerOnIcon />
-                {lang === 'ko' ? '듣기' : 'Listen'}
-              </button>
-            )}
+                재생성 + 자동 fallback이 같은 역할을 더 똑똑하게 처리.
+                per-message '듣기' 버튼도 제거 — Roy 결정으로 입력바 마스터 토글 ON/OFF만
+                사용 (모든 답변 자동 재생 또는 전부 비활성). */}
 
             {/* [2026-04-26] Sprint 3 (16384367) — Share button */}
             {onShare && (
@@ -2805,6 +2789,10 @@ function D1InputBar({
   onVoiceError,
   onAskBlend,
   onVoiceUsed,
+  ttsActive,
+  onToggleTts,
+  ttsCount,
+  ttsLimit,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2829,8 +2817,13 @@ function D1InputBar({
   // [2026-05-01 Roy] '블렌드 서비스란?' 칩 — 클릭 시 BLEND_INTRO_QUESTION 자동 전송
   onAskBlend?: () => void;
   // [2026-05-02 Roy] 마이크로 음성 입력될 때 신호 — 부모가 lastUserSourceRef='voice'로
-  // 표시. 다음 답변 끝나면 자동 TTS 재생 트리거 (B 모드).
+  // 표시. 다음 답변 끝나면 자동 TTS 재생 트리거.
   onVoiceUsed?: () => void;
+  // [2026-05-02 Roy] TTS 마스터 토글 — '블렌드란?' 왼쪽 위치. 부모가 상태 관리.
+  ttsActive?: boolean;
+  onToggleTts?: () => void;
+  ttsCount?: number;
+  ttsLimit?: number;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -2948,6 +2941,36 @@ function D1InputBar({
               disabled={isStreaming}
               lang={lang}
             />
+          )}
+          {/* [2026-05-02 Roy] TTS 마스터 토글 — 마이크 옆, '블렌드란?' 왼쪽.
+              ON이면 모든 답변 자동 음성 재생, OFF면 비활성. localStorage 영구 보존
+              (새 세션에서도 유지). 50/채팅 한도 도달 시 회색 비활성. */}
+          {onToggleTts && (
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); onToggleTts(); }}
+              disabled={isStreaming || (ttsCount !== undefined && ttsCount >= ttsLimit!)}
+              className="ml-0.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: ttsActive ? 'var(--d1-accent-soft)' : 'transparent',
+                color: ttsActive ? 'var(--d1-accent)' : 'var(--d1-text-dim)',
+                border: ttsActive ? `1px solid var(--d1-accent-mid)` : `1px solid var(--d1-border-strong)`,
+              }}
+              title={
+                ttsCount !== undefined && ttsCount >= ttsLimit!
+                  ? (lang === 'ko' ? `이번 채팅 음성 한도(${ttsLimit})` : `Voice limit reached`)
+                  : ttsActive
+                    ? (lang === 'ko' ? '음성 답변 끄기' : 'Turn off voice')
+                    : (lang === 'ko' ? '음성 답변 켜기' : 'Turn on voice')
+              }
+            >
+              {ttsActive ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
+              {ttsActive && ttsCount !== undefined && (
+                <span className="text-[11px] tabular-nums">
+                  {ttsCount}/{ttsLimit}
+                </span>
+              )}
+            </button>
           )}
           {/* [2026-05-01 Roy] '블렌드 서비스란?' 칩 — 음성 버튼 오른쪽.
               클릭 시 BLEND_INTRO_QUESTION을 자동 전송해 Blend 소개 답변을 받음. */}

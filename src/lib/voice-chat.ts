@@ -72,41 +72,47 @@ export function detectLanguageFromText(text: string): DetectedLang {
   return 'en';
 }
 
-// Chirp3-HD voice IDs (2025 GA) — 21개 언어 지원. 가장 사람 같은 음성.
-// $60 / 1M chars (premium tier).
+// [2026-05-02 Roy] 모든 TTS provider 여자 목소리 통일 — "활기차지만 부드러운"
+// 톤. 영어든 한국어든 다른 언어든 일관된 캐릭터 유지.
+//
+// Google Chirp3-HD (2025 GA): 'Aoede' = 그리스 신화 뮤즈, feminine + lively + warm.
+// 모든 언어에 Aoede 사용 → 사용자가 어느 언어로 답변받아도 같은 캐릭터.
+// $60 / 1M chars (premium).
 const CHIRP3_HD_VOICE: Partial<Record<DetectedLang, string>> = {
-  ko: 'ko-KR-Chirp3-HD-Achird',
-  en: 'en-US-Chirp3-HD-Charon',
-  ja: 'ja-JP-Chirp3-HD-Achird',
-  zh: 'cmn-CN-Chirp3-HD-Achird',
-  vi: 'vi-VN-Chirp3-HD-Achird',
-  th: 'th-TH-Chirp3-HD-Achird',
-  hi: 'hi-IN-Chirp3-HD-Achird',
-  es: 'es-ES-Chirp3-HD-Achird',
-  fr: 'fr-FR-Chirp3-HD-Achird',
-  de: 'de-DE-Chirp3-HD-Achird',
-  pt: 'pt-BR-Chirp3-HD-Achird',
-  ar: 'ar-XA-Chirp3-HD-Achird',
-  id: 'id-ID-Chirp3-HD-Achird',
+  ko: 'ko-KR-Chirp3-HD-Aoede',
+  en: 'en-US-Chirp3-HD-Aoede',
+  ja: 'ja-JP-Chirp3-HD-Aoede',
+  zh: 'cmn-CN-Chirp3-HD-Aoede',
+  vi: 'vi-VN-Chirp3-HD-Aoede',
+  th: 'th-TH-Chirp3-HD-Aoede',
+  hi: 'hi-IN-Chirp3-HD-Aoede',
+  es: 'es-ES-Chirp3-HD-Aoede',
+  fr: 'fr-FR-Chirp3-HD-Aoede',
+  de: 'de-DE-Chirp3-HD-Aoede',
+  pt: 'pt-BR-Chirp3-HD-Aoede',
+  ar: 'ar-XA-Chirp3-HD-Aoede',
+  id: 'id-ID-Chirp3-HD-Aoede',
   // fil 미지원 → fallback
 };
 
-// 표준 품질 — Wavenet/Neural2. $16 / 1M chars.
+// 표준 품질 — Wavenet/Neural2. 언어마다 다른 ID 체계라 일관 voice ID 사용 불가.
+// 각 언어별 가장 자연스러운 여자 voice (Wavenet-A는 대부분 언어에서 female 기본).
+// $16 / 1M chars.
 const STANDARD_GOOGLE_VOICE: Record<DetectedLang, string> = {
-  ko: 'ko-KR-Neural2-A',
-  en: 'en-US-Neural2-J',
-  ja: 'ja-JP-Neural2-B',
-  zh: 'cmn-CN-Wavenet-A',
-  fil: 'fil-PH-Wavenet-A',
-  vi: 'vi-VN-Neural2-A',
-  th: 'th-TH-Neural2-C',
-  hi: 'hi-IN-Neural2-A',
-  es: 'es-ES-Neural2-A',
-  fr: 'fr-FR-Neural2-A',
-  de: 'de-DE-Neural2-A',
-  pt: 'pt-BR-Neural2-A',
-  ar: 'ar-XA-Wavenet-A',
-  id: 'id-ID-Wavenet-A',
+  ko: 'ko-KR-Wavenet-A',           // female, warm
+  en: 'en-US-Neural2-F',           // female, lively
+  ja: 'ja-JP-Wavenet-A',           // female
+  zh: 'cmn-CN-Wavenet-A',          // female
+  fil: 'fil-PH-Wavenet-A',         // female
+  vi: 'vi-VN-Wavenet-A',           // female
+  th: 'th-TH-Neural2-C',           // female (Thai 한정)
+  hi: 'hi-IN-Wavenet-A',           // female
+  es: 'es-ES-Wavenet-C',           // female
+  fr: 'fr-FR-Wavenet-C',           // female
+  de: 'de-DE-Wavenet-A',           // female
+  pt: 'pt-BR-Wavenet-A',           // female
+  ar: 'ar-XA-Wavenet-A',           // female
+  id: 'id-ID-Wavenet-A',           // female
 };
 
 // 언어 코드 매핑 — Google TTS API용 (BCP-47).
@@ -397,15 +403,16 @@ export interface TTSOptions {
 /**
  * Generate speech audio URL using OpenAI TTS API.
  * Returns an object URL that should be revoked after playback.
- * [2026-05-02 Roy] 표준 품질 default = gpt-4o-mini-tts + 'coral' voice (멀티링구얼,
- * 한국어/영어 모두 자연스러움). tts-1보다 자연스럽고 가격 비슷.
+ * [2026-05-02 Roy] 표준 품질 default = gpt-4o-mini-tts + 'nova' voice
+ * (활기차고 친근한 여자 목소리, 멀티링구얼, 한국어/영어 모두 자연스러움).
+ * Chirp3-HD Aoede와 비슷한 캐릭터로 통일.
  */
 export async function ttsOpenAI(
   text: string,
   apiKey: string,
   options: TTSOptions = {},
 ): Promise<string> {
-  const voice = (options.voice as OpenAITTSVoice) || 'coral';
+  const voice = (options.voice as OpenAITTSVoice) || 'nova';
   // gpt-4o-mini-tts 우선 — 더 자연스러움. 실패 시 tts-1 fallback (구 voice도 호환).
   const model = 'gpt-4o-mini-tts';
   const res = await fetch('https://api.openai.com/v1/audio/speech', {
@@ -570,7 +577,8 @@ export async function synthesizeTTS(
     }
   }
   if (openaiKey) {
-    return ttsOpenAI(rawText, openaiKey, { voice: 'coral' });
+    // [2026-05-02 Roy] nova — 활기차고 친근한 여자 목소리. Chirp3-HD Aoede와 통일.
+    return ttsOpenAI(rawText, openaiKey, { voice: 'nova' });
   }
   throw new Error('No TTS API key available');
 }
