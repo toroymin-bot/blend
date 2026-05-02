@@ -899,6 +899,28 @@ export const DEFAULT_MODELS: AIModel[] = [
     description: 'GPT-5.5 최고급 — 가장 강력',
     enabled: false,
   },
+  {
+    id: 'o3-pro',
+    name: 'O3 Pro',
+    provider: 'openai',
+    contextLength: 128000,
+    inputPrice: 10,
+    outputPrice: 40,
+    features: ['streaming', 'vision', 'thinking', 'function_calling'],
+    description: '크고 강력한 고성능 AI',
+    enabled: true,
+  },
+  {
+    id: 'o3-pro-2025-06-10',
+    name: 'O3 Pro 2025 06 10',
+    provider: 'openai',
+    contextLength: 128000,
+    inputPrice: 10,
+    outputPrice: 40,
+    features: ['streaming', 'vision', 'thinking', 'function_calling'],
+    description: '크고 강력한 고성능 AI',
+    enabled: false,
+  },
   // ── Anthropic ──────────────────────────────────────────────────────────────
   {
     id: 'claude-opus-4-6',
