@@ -638,13 +638,15 @@ export default function D1ChatView({
 
     let text = '';
     try {
+      // [2026-05-02 Roy] 채팅 환경 lang(KO/EN) 무시하고 'auto' — Whisper/Gemini가
+      // 100+개 언어 자동 감지. 한국어 환경에서 영어/필리핀어 발화도 그대로 변환.
+      // 사용자 명시 요청: '어느 환경에서든 언어를 구분하라'.
       if (openaiKey) {
-        const sttLang = lang === 'ko' ? 'ko-KR' : 'en-US';
-        text = await sttOpenAI(blob, openaiKey, sttLang);
+        text = await sttOpenAI(blob, openaiKey, 'auto');
       } else if (googleKey) {
-        text = await sttGeminiAudio(blob, googleKey, lang);
+        text = await sttGeminiAudio(blob, googleKey, 'auto');
       } else if (trialKey && TRIAL_KEY_AVAILABLE) {
-        text = await sttGeminiAudio(blob, trialKey, lang);
+        text = await sttGeminiAudio(blob, trialKey, 'auto');
       } else {
         setToastMsg(t.noApiKey);
         return;

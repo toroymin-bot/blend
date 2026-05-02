@@ -47,10 +47,16 @@ export async function sttOpenAI(audioBlob: Blob, apiKey: string, language: strin
   const formData = new FormData();
   formData.append('file', audioBlob, filename);
   formData.append('model', 'whisper-1');
-  // [2026-05-01 Roy] 'ko' / 'ko-KR' 둘 다 한국어로 매핑. 이전엔 === 비교만 해서
-  // chat의 voice-button이 'ko-KR'을 보내면 영어로 fallback → 한국어 음성을 영어로
-  // 인식 (사용자 화면: "Annyeonghaseyo"). meeting-view는 'ko' 직접 보내 정상.
-  formData.append('language', language.toLowerCase().startsWith('ko') ? 'ko' : 'en');
+  // [2026-05-02 Roy] language='auto' (또는 빈 문자열)이면 Whisper 자동 감지 모드.
+  // language 파라미터를 omit하면 Whisper가 발화 내용 분석해 100+개 언어 자동 분류
+  // (한국어/영어/필리핀어/일본어/중국어 등). UI lang 강제로 묶지 않음 — 채팅 환경
+  // 셋팅(KO/EN)과 무관하게 사용자가 말한 언어 그대로 변환.
+  // 'ko'/'ko-KR' 또는 'en'/'en-US' 명시 시엔 그 언어로 강제 (회의 분석 등 명확한
+  // 케이스에서 사용).
+  const lang = language.toLowerCase();
+  if (lang && lang !== 'auto') {
+    formData.append('language', lang.startsWith('ko') ? 'ko' : 'en');
+  }
 
   // 2분 timeout (대용량 파일 대비)
   const ctrl = new AbortController();
@@ -151,7 +157,7 @@ export async function sttGoogle(audioBlob: Blob, apiKey: string, language: strin
  *     have this. Gemini API is enabled by default on the same key.
  *   - sttGoogle rejects mp4/aac (iOS Safari recordings) — Gemini accepts them.
  */
-export async function sttGeminiAudio(audioBlob: Blob, apiKey: string, language: 'ko' | 'en'): Promise<string> {
+export async function sttGeminiAudio(audioBlob: Blob, apiKey: string, language: 'ko' | 'en' | 'auto'): Promise<string> {
   // Chunked base64 encoding — String.fromCharCode(...largeArray) overflows
   const arrayBuffer = await audioBlob.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
@@ -174,9 +180,13 @@ export async function sttGeminiAudio(audioBlob: Blob, apiKey: string, language: 
   // typically uses Web Speech API path so doesn't reach here. If it does,
   // the call will likely fail and the caller's catch will surface a friendly toast.
 
+  // [2026-05-02 Roy] 'auto'는 multilingual 자동 감지 — 한국어/영어/필리핀어/일본어
+  // 등 발화 언어 그대로 옮겨 적기. 'ko'/'en'은 명시 강제 (회의 분석 등).
   const prompt = language === 'ko'
     ? '이 음성을 한국어 텍스트로 정확하게 옮겨 적어줘. 텍스트만 반환하고 다른 설명은 하지 마.'
-    : 'Transcribe this audio to English text accurately. Return only the text, no other explanation.';
+    : language === 'en'
+      ? 'Transcribe this audio to English text accurately. Return only the text, no other explanation.'
+      : 'Transcribe this audio in the SAME language the speaker uses (Korean, English, Filipino, Japanese, Chinese, etc.). Detect the language automatically. Return only the transcribed text — no translation, no explanation, no language label.';
 
   const body = {
     contents: [{

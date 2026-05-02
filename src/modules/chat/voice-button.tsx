@@ -66,21 +66,13 @@ export function VoiceButton({ onTranscript, onFallbackRecorded, onError, disable
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
 
-  // Resolve SpeechRecognition constructor (handles webkit prefix).
-  // [2026-04-30] iOS Safari는 webkitSpeechRecognition 객체가 존재하지만 실제 작동 안 함
-  // (사용자 제스처에 mic 권한 요청 X, onresult 안 옴). 명시적으로 우회해 MediaRecorder 사용.
-  const isIOS = (): boolean => {
-    if (typeof navigator === 'undefined') return false;
-    const ua = navigator.userAgent || '';
-    if (/iPad|iPhone|iPod/.test(ua)) return true;
-    // iPadOS 13+는 Mac UA로 보고됨 — touch 지원 + Mac으로 감지
-    if (/Macintosh/.test(ua) && typeof document !== 'undefined' && 'ontouchend' in document) return true;
-    return false;
-  };
+  // [2026-05-02 Roy] Web Speech API 전면 비활성화 — `recognition.lang`이 단일
+  // 언어만 받아 multilingual 불가 (한국어 셋팅 시 영어/필리핀어 발화 인식 X).
+  // 모든 환경에서 MediaRecorder + Whisper/Gemini path 강제 → 100+개 언어 자동 감지.
+  // 사용자 명시 요청: '어느 환경에서든 언어를 구분하라'.
+  // 트레이드오프: 데스크톱에서 실시간 interim 텍스트 사라짐 (대신 multilingual ON).
   const getSpeechRecognition = (): ISpeechRecognitionConstructor | null => {
-    if (typeof window === 'undefined') return null;
-    if (isIOS()) return null; // iOS는 항상 MediaRecorder fallback 사용
-    return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
+    return null;
   };
 
   // Cleanup on unmount
