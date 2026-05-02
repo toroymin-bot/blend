@@ -14,10 +14,27 @@ export type RouteCategory =
   | 'data'         // 데이터 분석/SQL/통계
   | 'simple'       // 짧은 질문/간단한 답변
   | 'long_doc'     // 긴 문서 분석/요약
+  | 'realtime_info' // [2026-05-02] 실시간 정보 (뉴스/주가/날씨/환율) — Gemini grounding 우선
   | 'general';     // 일반 대화
 
 // ── 카테고리별 키워드 (한국어 + 영어) ─────────────────────────────────────
 const KW: Record<Exclude<RouteCategory, 'vision' | 'general'>, string[]> = {
+  // [2026-05-02 Roy] 실시간 정보 — '오늘/최근/현재/요즘/지금' + '뉴스/주가/환율/날씨/경기/스코어' 등.
+  // Gemini grounding으로 Google 검색 자동 → 최신 답변. OpenAI/Anthropic은 search_web 도구 활용.
+  realtime_info: [
+    // 한국어 — 시간성 + 정보 명사 조합
+    '최근 뉴스', '오늘 뉴스', '실시간 뉴스', '속보', '최신 소식',
+    '오늘 환율', '현재 환율', '실시간 환율',
+    '오늘 주가', '현재 주가', '실시간 주가', '시세',
+    '오늘 날씨', '현재 날씨', '내일 날씨', '날씨 예보',
+    '경기 결과', '스코어', '오늘 경기',
+    '오늘 추천', '오늘 일정', '오늘의', '요즘',
+    // 영어
+    'latest news', 'today.*news', 'breaking news', 'recent news',
+    'current.*price', 'today.*weather', "today's", 'right now',
+    'realtime', 'real-time', 'live score', 'stock price',
+    'exchange rate', 'currency rate',
+  ],
   image_gen: [
     // 한국어 — 동사형 (조사 포함)
     '그려줘', '그려 줘', '그려주세요', '그려봐', '그려봐줘',
@@ -91,13 +108,24 @@ const ROUTE_MAP: Record<RouteCategory, string[]> = {
   creative:    ['claude-opus-4-7', 'claude-sonnet-4-6', 'gpt-5.5', 'gpt-5.4', 'gpt-4o', 'gpt-4.1'],
   translation: ['gpt-5.4-mini', 'claude-haiku-4-5', 'gpt-4o-mini', 'gpt-4.1-mini', 'gemini-2.5-flash', 'claude-haiku-4-5-20251001'],
   vision:      ['claude-opus-4-7', 'gpt-5.5', 'gemini-3.1-pro', 'gemini-3-pro-preview', 'gpt-4o', 'claude-sonnet-4-6', 'gemini-2.5-pro'],
-  // PR #5 핵심 — image_gen 우선순위 회사 권장(최신) 순. 사용자 키 분기는 routeToModel에서.
   image_gen:   ['gpt-image-2', 'gpt-image-1', 'dall-e-3', 'imagen-3', 'gemini-3.1-pro'],
   data:        ['gemini-3.1-pro', 'claude-opus-4-7', 'gpt-5.5', 'gemini-2.5-pro', 'gpt-4o', 'claude-sonnet-4-6'],
   simple:      ['gpt-5.4-mini', 'claude-haiku-4-5', 'gemini-2.5-flash', 'gpt-4o-mini', 'gpt-4.1-mini', 'claude-haiku-4-5-20251001'],
   long_doc:    ['claude-opus-4-7', 'gemini-3.1-pro', 'gpt-5.5', 'claude-sonnet-4-6', 'gemini-2.5-pro', 'gpt-4o'],
+  // [2026-05-02 Roy] realtime_info — Gemini 2.5+ / 3.x 절대 우선 (Google grounding 자동).
+  // 사용자 Gemini 키 없으면 OpenAI/Anthropic fallback (search_web 도구로 보강).
+  realtime_info: ['gemini-3.1-pro', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gpt-5.5', 'claude-opus-4-7', 'gpt-4o'],
   general:     ['claude-opus-4-7', 'gpt-5.5', 'gpt-5.4', 'gpt-4o', 'claude-sonnet-4-6', 'gpt-4.1'],
 };
+
+/**
+ * [2026-05-02 Roy] 카테고리별 우선 모델 lookup — chat-view에서 Auto 라우팅 시
+ * 호출. 사용자 키 보유 + registry 등록된 모델 중 카테고리 우선순위 첫 번째 반환.
+ * 못 찾으면 null (caller가 generic fallback chain 사용).
+ */
+export function getCategoryPreferredModels(category: RouteCategory): string[] {
+  return ROUTE_MAP[category] ?? [];
+}
 
 // ── 카테고리 라벨 (UI 표시용) ────────────────────────────────────────────
 export function getCategoryLabels(): Record<RouteCategory, string> {
@@ -112,6 +140,7 @@ export function getCategoryLabels(): Record<RouteCategory, string> {
     data:        isEn ? '📊 Data Analysis'      : '📊 데이터 분석',
     simple:      isEn ? '⚡ Quick Question'     : '⚡ 간단 질문',
     long_doc:    isEn ? '📄 Document Analysis'  : '📄 문서 분석',
+    realtime_info: isEn ? '🌐 Realtime Info'    : '🌐 실시간 정보',
     general:     isEn ? '💬 General Chat'       : '💬 일반 대화',
   };
 }
@@ -124,9 +153,15 @@ export function detectCategory(query: string, hasImages: boolean): RouteCategory
 
   const q = query.toLowerCase();
 
-  // 우선순위 순서로 체크 (image_gen 최우선 — 이미지 생성 요청은 명확하므로)
-  for (const cat of ['image_gen', 'translation', 'coding', 'data', 'reasoning', 'creative', 'long_doc', 'simple'] as const) {
-    if (KW[cat].some((k) => q.includes(k.toLowerCase()))) return cat;
+  // 우선순위 순서로 체크 (image_gen 최우선 — 이미지 생성 요청은 명확하므로).
+  // [2026-05-02 Roy] realtime_info를 image_gen 다음 우선순위에 — '오늘 환율'
+  // '최근 뉴스' 같은 실시간 정보를 일반/data로 오인 안 하게 (Gemini grounding 활용).
+  for (const cat of ['image_gen', 'realtime_info', 'translation', 'coding', 'data', 'reasoning', 'creative', 'long_doc', 'simple'] as const) {
+    if (KW[cat].some((k) => {
+      const kl = k.toLowerCase();
+      // realtime_info의 일부 패턴은 정규식 (예: 'today.*news') — regex로 매칭, 아니면 includes.
+      return /[.*]/.test(kl) ? new RegExp(kl).test(q) : q.includes(kl);
+    })) return cat;
   }
 
   // 길이 기반 휴리스틱

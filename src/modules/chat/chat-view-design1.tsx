@@ -41,6 +41,10 @@ import { buildContext, buildFullContext, buildMetadataContext } from '@/modules/
 import { stripSourceTag } from '@/lib/source-indexer';
 // Tori 17989643 PR #1 — 첨부 파일 처리 의도 분류
 import { classifyAttachmentIntent, getModePromptHeader, getLangEnforcementHeader } from '@/modules/chat/intent-classifier';
+// [2026-05-02 Roy] Blend 핵심: 질문별 최적 AI 자동 매칭 — detectCategory로 카테고리
+// 분류 후 ROUTE_MAP에서 우선 모델 선택. 단순 'first available' fallback 폐기.
+import { detectCategory as routerDetectCategory, getCategoryPreferredModels } from '@/lib/model-router';
+import { inferProvider as routerInferProvider } from '@/data/available-models';
 // [2026-05-01 Roy] Blend 정체성 — 모든 AI에 system prompt로 주입
 import { getBlendIdentityPrompt, BLEND_INTRO_QUESTION } from '@/lib/blend-identity';
 
@@ -1503,15 +1507,43 @@ The [Active...] sections below are the user's activated sources. Use them as you
     let resolvedModelId: string;
 
     if (effectiveModel === 'auto') {
-      const avail = FALLBACK_ORDER.find(p => hasKey(p.provider));
-      if (!avail) {
-        setMessages(prev => [...prev, { id: Date.now().toString() + '_err', role: 'assistant', content: t.noApiKey }]);
-        setIsStreaming(false);
-        return;
+      // [2026-05-02 Roy] Blend 핵심 — 질문 카테고리 분석 후 최적 AI 자동 매칭.
+      // 단순 'first available' 우선순위 → detectCategory + ROUTE_MAP 기반 라우팅.
+      // 사용자 한 줄 → 카테고리별 우선 모델 중 키 보유 첫 번째 → 그게 답변.
+      // 예: '최근 뉴스' → realtime_info → Gemini 우선 (grounding으로 Google 검색)
+      //     '코딩 도와줘' → coding → Claude Opus 우선
+      //     '긴 문서 요약' → long_doc → Gemini Pro 우선
+      const queryText = typeof content === 'string' ? content : '';
+      const category = routerDetectCategory(queryText, attachedImages.length > 0);
+      const preferredModels = getCategoryPreferredModels(category);
+
+      // 카테고리 우선 모델 중 사용자 키 보유 + AVAILABLE_MODELS 등록된 것 first.
+      let picked: { provider: AIProvider; apiModel: string } | null = null;
+      for (const modelId of preferredModels) {
+        const provider = routerInferProvider(modelId);
+        if (!provider) continue;
+        if (hasKey(provider)) {
+          picked = { provider, apiModel: modelId };
+          break;
+        }
       }
-      resolvedProvider = avail.provider;
-      resolvedApiModel = avail.apiModel;
-      resolvedModelId = avail.apiModel;
+      // 카테고리 우선 모델 중 키 있는 게 없으면 generic FALLBACK_ORDER로
+      if (!picked) {
+        const avail = FALLBACK_ORDER.find(p => hasKey(p.provider));
+        if (!avail) {
+          setMessages(prev => [...prev, { id: Date.now().toString() + '_err', role: 'assistant', content: t.noApiKey }]);
+          setIsStreaming(false);
+          return;
+        }
+        picked = avail;
+      }
+      resolvedProvider = picked.provider;
+      resolvedApiModel = picked.apiModel;
+      resolvedModelId = picked.apiModel;
+      // 콘솔 진단 — 어떤 카테고리 → 어떤 모델로 매칭됐는지
+      if (typeof window !== 'undefined') {
+        console.info(`[Blend Auto] category=${category} → ${picked.provider}/${picked.apiModel}`);
+      }
     } else {
       const modelDef = MODELS.find(m => m.id === effectiveModel);
       if (!modelDef || !hasKey(modelDef.provider)) {
