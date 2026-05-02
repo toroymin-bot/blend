@@ -115,33 +115,26 @@ export function isAnalyticsDisabled(): boolean {
 
 // ──────────────────────────────────────────────────────────────────
 // AI 사용 비용 추적 (2026-05-02 Roy)
-// 채팅 응답 완료 시마다 호출 → Cloudflare counter가 시간/일별 + 국가/OS/owner
+// 채팅 응답 완료 시마다 호출 → Cloudflare counter가 시간/일별 + 국가/OS
 // 별로 KV에 집계 → daily-telegram-report.mjs가 새 섹션으로 append.
 //
 // 용량 부담: usage_record는 모델 응답마다 1회 호출되므로 빈도 높음. props 최소화
 // (provider/model/in/out/cost) + keepalive로 페이지 떠나도 발송 보장.
 //
-// Owner 식별: localStorage 'blend:is-owner'='true' (Roy가 본인 기기 한 번 콘솔에서
-// 세팅). 그 외 사용자는 익명 분포(country/os)로만 집계 — 서버에 PII 저장 X.
+// owner 구분 제거 (2026-05-02 Roy 결정) — per-device 콘솔 setup 부담 회피.
+// 모든 데이터는 전체 합산으로 누적되며 Roy 본인 데이터도 KR/macOS 등 자동
+// 분류돼 국가/OS 분포에 함께 표시됨.
 // ──────────────────────────────────────────────────────────────────
 
-const OWNER_FLAG_KEY = 'blend:is-owner';
-
-function isOwner(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem(OWNER_FLAG_KEY) === 'true';
-}
-
-/** Roy 본인 기기 한 번 콘솔에서 호출: setBlendOwner(true) */
-export function setBlendOwner(owner: boolean): void {
-  if (typeof window === 'undefined') return;
-  if (owner) localStorage.setItem(OWNER_FLAG_KEY, 'true');
-  else localStorage.removeItem(OWNER_FLAG_KEY);
-}
-
-if (typeof window !== 'undefined') {
-  // 디버그/세팅 편의 — `setBlendOwner(true)` 콘솔에서 직접 호출 가능.
-  (window as unknown as { setBlendOwner?: typeof setBlendOwner }).setBlendOwner = setBlendOwner;
+function detectOS(): string {
+  if (typeof window === 'undefined') return 'other';
+  const ua = navigator.userAgent ?? '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
+  if (/Android/i.test(ua)) return 'Android';
+  if (/Mac OS X|Macintosh/i.test(ua)) return 'macOS';
+  if (/Windows/i.test(ua)) return 'Windows';
+  if (/Linux/i.test(ua)) return 'Linux';
+  return 'other';
 }
 
 export interface UsageEventInput {
@@ -166,22 +159,13 @@ export function trackUsage(usage: UsageEventInput): void {
   // 0 cost / 0 token은 의미 없음 — 노이즈 차단
   if (usage.cost <= 0 && usage.inputTokens === 0 && usage.outputTokens === 0) return;
 
-  const ua = navigator.userAgent ?? '';
-  let os = 'other';
-  if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
-  else if (/Android/i.test(ua)) os = 'Android';
-  else if (/Mac OS X|Macintosh/i.test(ua)) os = 'macOS';
-  else if (/Windows/i.test(ua)) os = 'Windows';
-  else if (/Linux/i.test(ua)) os = 'Linux';
-
   const body = {
     provider: String(usage.provider).slice(0, 32),
     model: String(usage.model).slice(0, 64),
     inputTokens: Math.max(0, Math.round(usage.inputTokens)),
     outputTokens: Math.max(0, Math.round(usage.outputTokens)),
     cost: Math.max(0, usage.cost),
-    isOwner: isOwner(),
-    os,
+    os: detectOS(),
     // 시간 bucket은 worker에서 KST 변환해서 결정 (클라이언트 시계 신뢰 X)
   };
 
@@ -193,4 +177,112 @@ export function trackUsage(usage: UsageEventInput): void {
       keepalive: true,
     }).catch(() => {});
   } catch {}
+}
+
+/**
+ * 1회용 마이그레이션 — localStorage 'blend:usage'에 누적된 과거 사용량을
+ * Cloudflare KV에 backdate 누적. Roy가 본인 디바이스에서 1회만 실행.
+ *
+ * 사용법 (Roy 콘솔):
+ *   await migrateBlendUsage()       // 90일치 (기본)
+ *   await migrateBlendUsage(30)     // 최근 30일치만
+ *
+ * - 각 record의 timestamp를 KST 날짜/시간으로 변환해 worker에 dateOverride/hourOverride 전달
+ * - 같은 디바이스에서 두 번 실행하면 중복 누적되니 1회만 실행 — 안전장치로 마지막 실행
+ *   기록을 localStorage 'blend:usage-migrated'에 저장. 이미 마이그레이션 했으면 거부.
+ */
+export async function migrateBlendUsage(daysBack = 90): Promise<{
+  migrated: number;
+  skipped: number;
+  failed: number;
+}> {
+  if (typeof window === 'undefined') return { migrated: 0, skipped: 0, failed: 0 };
+  if (!COUNTER_ENDPOINT) {
+    console.warn('[migrate] COUNTER_ENDPOINT not configured');
+    return { migrated: 0, skipped: 0, failed: 0 };
+  }
+
+  const MIGRATED_KEY = 'blend:usage-migrated';
+  const lastMigrated = localStorage.getItem(MIGRATED_KEY);
+  if (lastMigrated) {
+    const ok = confirm(
+      `이미 ${lastMigrated}에 마이그레이션 완료. 또 실행하면 중복 누적됩니다. 계속할까요?`
+    );
+    if (!ok) {
+      console.log('[migrate] aborted (already migrated at', lastMigrated, ')');
+      return { migrated: 0, skipped: 0, failed: 0 };
+    }
+  }
+
+  const raw = localStorage.getItem('blend:usage');
+  if (!raw) {
+    console.log('[migrate] no blend:usage records');
+    return { migrated: 0, skipped: 0, failed: 0 };
+  }
+
+  let records: Array<{
+    timestamp: number;
+    model: string;
+    provider: string;
+    inputTokens: number;
+    outputTokens: number;
+    cost: number;
+  }>;
+  try {
+    records = JSON.parse(raw);
+  } catch (e) {
+    console.error('[migrate] parse failed:', e);
+    return { migrated: 0, skipped: 0, failed: 0 };
+  }
+
+  const cutoff = Date.now() - daysBack * 24 * 60 * 60 * 1000;
+  const target = records.filter((r) => r.timestamp >= cutoff);
+  console.log(`[migrate] ${target.length} records in last ${daysBack} days (of ${records.length} total)`);
+
+  let migrated = 0, skipped = 0, failed = 0;
+  const os = detectOS();
+
+  for (const r of target) {
+    if (!r.cost && !r.inputTokens && !r.outputTokens) {
+      skipped++;
+      continue;
+    }
+    // KST 날짜/시간 추출
+    const kst = new Date(r.timestamp + 9 * 60 * 60 * 1000);
+    const dateOverride = kst.toISOString().slice(0, 10);
+    const hourOverride = kst.getUTCHours();
+
+    try {
+      const res = await fetch(`${COUNTER_ENDPOINT}/track-usage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: r.provider,
+          model: r.model,
+          inputTokens: r.inputTokens,
+          outputTokens: r.outputTokens,
+          cost: r.cost,
+          os,
+          dateOverride,
+          hourOverride,
+        }),
+      });
+      if (res.ok) migrated++;
+      else { failed++; console.warn('[migrate] failed', res.status, dateOverride); }
+    } catch (e) {
+      failed++;
+      console.warn('[migrate] error', e);
+    }
+    // 폭주 방지 — 짧은 간격
+    if ((migrated + failed) % 20 === 0) await new Promise(r => setTimeout(r, 100));
+  }
+
+  localStorage.setItem(MIGRATED_KEY, new Date().toISOString());
+  console.log(`[migrate] done — migrated=${migrated}, skipped=${skipped}, failed=${failed}`);
+  return { migrated, skipped, failed };
+}
+
+if (typeof window !== 'undefined') {
+  // Roy 콘솔 편의 — `migrateBlendUsage()` 호출 가능
+  (window as unknown as { migrateBlendUsage?: typeof migrateBlendUsage }).migrateBlendUsage = migrateBlendUsage;
 }

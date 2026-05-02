@@ -243,57 +243,34 @@ async function buildUsageSection(targetDate) {
     lines.push('');
   }
 
-  // ─────── Roy 본인 ───────
-  const ownerToday = microToUsd(todaySum['owner:cost']);
-  const ownerWeek = microToUsd(weekSum['owner:cost']);
-  const ownerMonth = microToUsd(monthSum['owner:cost']);
-  if (ownerToday > 0 || ownerWeek > 0 || ownerMonth > 0) {
-    lines.push('*🧑 Roy 본인*');
-    lines.push(`어제          ${fmtCostBoth(ownerToday)}  · ${todaySum['owner:requests'] || 0}건`);
-    lines.push(`이번 주(7일)  ${fmtCostBoth(ownerWeek)}  · ${weekSum['owner:requests'] || 0}건`);
-    lines.push(`이번 달       ${fmtCostBoth(ownerMonth)}  · ${monthSum['owner:requests'] || 0}건`);
-    const ownerProv = topByPattern(monthSum, 'owner:provider:([^:]+)', ':cost', 10);
-    if (ownerProv.length > 0) {
-      lines.push('  └ 프로바이더 (이번 달)');
-      ownerProv.forEach((row) => {
-        const usd = microToUsd(row.value);
-        lines.push(`     ${row.key}  ${fmtCost(usd)}`);
-      });
-    }
+  // ─────── 국가별 (어제) ───────
+  // [2026-05-02 Roy] owner 구분 제거 — Roy 본인 데이터도 포함됨 (대부분 KR/macOS/iOS).
+  const countryRows = topByPattern(todaySum, 'country:([^:]+)', ':cost', 8);
+  if (countryRows.length > 0) {
+    lines.push('*국가별 (어제)*');
+    countryRows.forEach((row) => {
+      const usd = microToUsd(row.value);
+      const reqs = todaySum[`country:${row.key}:requests`] || 0;
+      const label = COUNTRY_LABELS[row.key] || row.key;
+      lines.push(`${label}  ${fmtCost(usd)} · ${reqs}건`);
+    });
     lines.push('');
   }
 
-  // ─────── 다른 사용자 — 국가 / OS (어제) ───────
-  const othersToday = microToUsd(todaySum['others:cost']);
-  if (othersToday > 0) {
-    lines.push('*👥 다른 사용자 (Roy 제외, 어제)*');
-    lines.push(`합계          ${fmtCostBoth(othersToday)}  · ${todaySum['others:requests'] || 0}건`);
-
-    const countryRows = topByPattern(todaySum, 'country:([^:]+)', ':cost', 8);
-    if (countryRows.length > 0) {
-      lines.push('  └ 국가별');
-      countryRows.forEach((row) => {
-        const usd = microToUsd(row.value);
-        const reqs = todaySum[`country:${row.key}:requests`] || 0;
-        const label = COUNTRY_LABELS[row.key] || row.key;
-        lines.push(`     ${label}  ${fmtCost(usd)} · ${reqs}건`);
-      });
-    }
-
-    const osRows = topByPattern(todaySum, 'os:([^:]+)', ':cost', 8);
-    if (osRows.length > 0) {
-      lines.push('  └ OS별');
-      osRows.forEach((row) => {
-        const usd = microToUsd(row.value);
-        const reqs = todaySum[`os:${row.key}:requests`] || 0;
-        lines.push(`     ${row.key}  ${fmtCost(usd)} · ${reqs}건`);
-      });
-    }
-    lines.push('');
-  } else {
-    lines.push('*👥 다른 사용자*  어제 사용 없음');
+  // ─────── OS별 (어제) ───────
+  const osRows = topByPattern(todaySum, 'os:([^:]+)', ':cost', 8);
+  if (osRows.length > 0) {
+    lines.push('*OS별 (어제)*');
+    osRows.forEach((row) => {
+      const usd = microToUsd(row.value);
+      const reqs = todaySum[`os:${row.key}:requests`] || 0;
+      lines.push(`${row.key}  ${fmtCost(usd)} · ${reqs}건`);
+    });
     lines.push('');
   }
+
+  lines.push('—');
+  lines.push('💡 비용은 토큰 × pricing 추정값 (~95% 정확). 실 청구액은 각 AI 콘솔 확인.');
 
   return lines.join('\n');
 }

@@ -129,8 +129,11 @@ export default {
           inputTokens?: number;
           outputTokens?: number;
           cost?: number;
-          isOwner?: boolean;
           os?: string;
+          // [2026-05-02 Roy] localStorage 마이그레이션용 — 과거 데이터를 그 시점의
+          // KST 날짜/시간 키로 backdate 누적. 미제공 시 현재 시각.
+          dateOverride?: string; // 'YYYY-MM-DD' (KST)
+          hourOverride?: number; // 0~23 (KST)
         };
 
         const provider = String(body.provider ?? '').slice(0, 32) || 'unknown';
@@ -139,7 +142,6 @@ export default {
         const outputTokens = Math.max(0, Math.round(Number(body.outputTokens) || 0));
         const cost = Math.max(0, Number(body.cost) || 0);
         const tokens = inputTokens + outputTokens;
-        const isOwner = body.isOwner === true;
         const os = String(body.os ?? 'other').slice(0, 16);
         const country = (req.headers.get('CF-IPCountry') ?? 'XX').slice(0, 3);
 
@@ -147,9 +149,17 @@ export default {
           return new Response('OK', { status: 200, headers: corsHeaders });
         }
 
-        const today = kstDate();
+        // 마이그레이션 backdate 지원 — dateOverride가 유효하면 사용.
+        const validDate = typeof body.dateOverride === 'string' &&
+          /^\d{4}-\d{2}-\d{2}$/.test(body.dateOverride) &&
+          body.dateOverride <= kstDate(); // 미래 날짜 방지
+        const today = validDate ? body.dateOverride! : kstDate();
         // KST 시간 (HH 00~23)
-        const kstHour = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours();
+        const validHour = typeof body.hourOverride === 'number' &&
+          body.hourOverride >= 0 && body.hourOverride < 24;
+        const kstHour = validHour
+          ? Math.floor(body.hourOverride!)
+          : new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours();
         const HH = String(kstHour).padStart(2, '0');
 
         // 부동소수점 누적 → 정밀도 손실 방지: 마이크로센트 정수로 저장 (cost*1_000_000)
@@ -166,12 +176,12 @@ export default {
 
         const base = `daily:${today}:usage`;
 
-        // 전체
+        // 전체 (Roy 포함 — owner 구분 없음)
         await incr(`${base}:total:cost`, costMicro);
         await incr(`${base}:total:tokens`, tokens);
         await incr(`${base}:total:requests`, 1);
 
-        // 시간대별 (전체 — Roy 포함)
+        // 시간대별
         await incr(`${base}:hour:${HH}:cost`, costMicro);
         await incr(`${base}:hour:${HH}:requests`, 1);
 
@@ -185,26 +195,12 @@ export default {
         await incr(`${base}:model:${model}:tokens`, tokens);
         await incr(`${base}:model:${model}:requests`, 1);
 
-        if (isOwner) {
-          // Roy 본인
-          await incr(`${base}:owner:cost`, costMicro);
-          await incr(`${base}:owner:tokens`, tokens);
-          await incr(`${base}:owner:requests`, 1);
-          await incr(`${base}:owner:provider:${provider}:cost`, costMicro);
-          await incr(`${base}:owner:provider:${provider}:tokens`, tokens);
-          await incr(`${base}:owner:provider:${provider}:requests`, 1);
-          await incr(`${base}:owner:hour:${HH}:cost`, costMicro);
-          await incr(`${base}:owner:hour:${HH}:requests`, 1);
-        } else {
-          // Roy 제외 — 국가/OS 분포
-          await incr(`${base}:others:cost`, costMicro);
-          await incr(`${base}:others:tokens`, tokens);
-          await incr(`${base}:others:requests`, 1);
-          await incr(`${base}:country:${country}:cost`, costMicro);
-          await incr(`${base}:country:${country}:requests`, 1);
-          await incr(`${base}:os:${os}:cost`, costMicro);
-          await incr(`${base}:os:${os}:requests`, 1);
-        }
+        // [2026-05-02 Roy] owner 구분 제거 — per-device setup 부담 회피.
+        // 국가/OS는 모든 데이터에 대해 추적 (Roy 본인 데이터도 KR/macOS로 분류됨).
+        await incr(`${base}:country:${country}:cost`, costMicro);
+        await incr(`${base}:country:${country}:requests`, 1);
+        await incr(`${base}:os:${os}:cost`, costMicro);
+        await incr(`${base}:os:${os}:requests`, 1);
 
         return new Response('OK', { status: 200, headers: corsHeaders });
       } catch {
