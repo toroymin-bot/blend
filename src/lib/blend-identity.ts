@@ -72,25 +72,21 @@ export function getBlendIdentityPrompt(lang: 'ko' | 'en'): string {
 }
 
 /** "블렌드 서비스란?" 버튼 클릭 시 자동 전송할 사용자 질문.
- *  AI가 자기 capability로 자세히 풀어 답변하므로, 자세한 정보는 prompt가
- *  아니라 user message에 포함. */
+ *  [2026-05-02 Roy] 짧게 — 컨셉 + 특징 2-3개 + 비용. 8줄 이내. 마지막에 "어떤
+ *  기능 더 알고 싶으면 물어보세요" 유도. 사용자가 follow-up하면 그때 자세히. */
 export const BLEND_INTRO_QUESTION = {
-  ko: `Blend 서비스에 대해 자세히 알려줘. 다음 항목을 빠짐없이 정리해줘:
+  ko: `Blend 서비스를 짧고 쉽게 소개해줘. 다음 형식으로:
 
-1. 컨셉 — 어떤 서비스이고 어떤 문제를 해결하는지
-2. 핵심 기능 — 채팅(멀티 AI 자동 라우팅), 데이터 소스(Google Drive/OneDrive 폴더 연결, RAG 문서 검색), 회의 분석(음성/텍스트/YouTube 자동 요약 + 액션 아이템), 문서 업로드(PDF/DOCX/XLSX, 이미지 PDF는 OCR 자동), 모델 비교 (같은 질문 여러 AI 동시 전송)
-3. 차별화 장점 — 멀티 AI 자동 라우팅(코딩은 GPT, 긴 문서는 Gemini, 글쓰기는 Claude), 프라이버시(데이터 브라우저-only), BYOK(API 키 사용자 소유, 구독 lock-in 없음), 통합 UX(여러 AI 앱 띄울 필요 X)
-4. 비용 절감 효과 — BYOK 모델로 평균 월 $5, 일반 AI 구독($60+)대비 약 95% 절감, 안 쓰면 $0
-5. 추천 사용자 — 평소 ChatGPT/Claude/Gemini 두 개 이상 쓰는 사람, 프라이버시 중요한 사용자, 문서 RAG/회의 분석 도구 필요한 사용자
+1. 한 줄 컨셉 (예: "ChatGPT·Claude·Gemini를 한 화면에서 쓰는 통합 AI 서비스")
+2. 핵심 특징 2-3개 (멀티 AI 자동 라우팅 / BYOK 비용 절감 / 프라이버시 등 중 골라 짧게)
+3. 비용 — BYOK로 월 평균 $5, 일반 구독 $60+ 대비 약 95% 절감
 
-각 항목별로 명확하게 정리해서 답변해줘.`,
-  en: `Tell me about Blend in detail. Cover all of these:
+전체 답변은 8줄 이내. 마지막 줄에 "어떤 기능에 대해 더 알고 싶으시면 편하게 물어보세요 :)" 식으로 자연스럽게 follow-up 유도. 너무 자세한 설명은 사용자가 물어봤을 때만 답변.`,
+  en: `Give a short, easy intro to Blend with this structure:
 
-1. Concept — what it is and what problem it solves
-2. Core features — chat (multi-AI auto-routing), data sources (Google Drive/OneDrive folder connect, RAG search), meeting analysis (voice/text/YouTube auto-summary + action items), document upload (PDF/DOCX/XLSX, image PDFs auto-OCR'd), model comparison (same question to multiple AIs)
-3. Key advantages — multi-AI auto-routing (GPT for coding, Gemini for long docs, Claude for writing), privacy (browser-only data), BYOK (keys are yours, no subscription lock-in), unified UX (one screen vs 5 separate AI apps)
-4. Cost savings — BYOK averages ~$5/month vs $60+ for typical AI subscriptions (~95% savings), $0 when idle
-5. Recommended users — already using 2+ AIs (ChatGPT/Claude/Gemini), privacy-conscious users, those needing document RAG / meeting analysis
+1. One-line concept (e.g., "Unified AI service combining ChatGPT, Claude, Gemini in one screen")
+2. 2-3 key features (multi-AI auto-routing / BYOK cost savings / privacy — pick a few, keep brief)
+3. Cost — BYOK averages ~$5/month vs $60+ subscriptions (~95% savings)
 
-Organize the answer clearly by each section.`,
+Keep the entire answer within 8 lines. End with a friendly invite like "Want to know more about a specific feature? Just ask :)" to encourage follow-up. Save detail for when user asks specifically.`,
 };

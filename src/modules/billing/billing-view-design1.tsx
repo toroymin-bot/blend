@@ -517,26 +517,33 @@ export default function D1BillingView({
                   </span>
                 </div>
 
-                {/* v3 — 절약 영역: 잡스식 데이터 강조 (큰 숫자, accent) */}
+                {/* [2026-05-02 Roy] 절약 강조 — 'Blend' / '절약' 둘 다 눈에 띄게.
+                    이전: 작은 회색 텍스트로 묻혔음. 신규: top label 키우고 Blend
+                    bold + accent, 금액 옆에 '절약' 인라인으로 큰 글자. */}
                 {showSavings && (
                   <>
                     <div className="mt-8 h-px" style={{ background: tokens.border }} />
                     <div className="mt-8">
-                      <div className="text-[14px]" style={{ color: tokens.textDim }}>
+                      <div className="text-[15px] md:text-[16px]" style={{ color: tokens.textDim }}>
                         {t.savingsTopPrefix(daysSince)}
-                        <span style={{ color: tokens.accent, fontWeight: 500 }}>
+                        <span style={{ color: tokens.accent, fontWeight: 700 }}>
                           {t.savingsHighlight}
                         </span>
                         {t.savingsTopSuffix(daysSince)}
                       </div>
-                      <div
-                        className="mt-2 text-[36px] md:text-[48px] font-medium leading-none tracking-tight"
-                        style={{ color: tokens.accent }}
-                      >
-                        {fmtMoney(savingsUsd, lang)}
-                      </div>
-                      <div className="mt-2 text-[14px]" style={{ color: tokens.textDim }}>
-                        {t.savedLabel(daysSince)}
+                      <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                        <span
+                          className="text-[36px] md:text-[48px] font-medium leading-none tracking-tight"
+                          style={{ color: tokens.accent }}
+                        >
+                          {fmtMoney(savingsUsd, lang)}
+                        </span>
+                        <span
+                          className="text-[20px] md:text-[24px] font-medium"
+                          style={{ color: tokens.text }}
+                        >
+                          {t.savedLabel(daysSince)}
+                        </span>
                       </div>
                     </div>
                   </>
