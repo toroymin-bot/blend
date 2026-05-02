@@ -985,39 +985,106 @@ export default function D1ChatView({
           );
         }
 
-        generateImage(promptToSend, openaiKey, imageModel)
-          .then((res) => {
-            if (res.error) {
+        // [2026-05-02 Roy] OpenAI 한도/quota/rate-limit 실패 시 Google Imagen으로
+        // seamless 자동 전환. 사용자에 자연스럽게 '자동 전환됨' 안내 + 이미지 결과.
+        // Blend 핵심 — 한 AI 막혔다고 사용자 흐름 끊으면 안 됨.
+        const tryImageWithFallback = async (): Promise<{ ok: true; res: Awaited<ReturnType<typeof generateImage>>; modelUsed: string; fallbackNote: string } | { ok: false; error: string }> => {
+          // 1차: OpenAI gpt-image / dall-e
+          try {
+            const res = await generateImage(promptToSend, openaiKey, imageModel);
+            if (!res.error) {
+              const note = res.fallbackFrom
+                ? (lang === 'ko'
+                    ? `> ℹ️ ${res.fallbackFrom}는 OpenAI 조직 인증이 필요한 신규 모델이라, ${res.modelUsed ?? 'DALL-E 3'}로 자동 전환했어요.\n\n`
+                    : `> ℹ️ ${res.fallbackFrom} requires OpenAI org verification — auto-switched to ${res.modelUsed ?? 'DALL-E 3'}.\n\n`)
+                : '';
+              return { ok: true, res, modelUsed: res.modelUsed ?? imageModel, fallbackNote: note };
+            }
+            // res.error에 quota/rate-limit/billing 단어 포함 → Gemini fallback 시도
+            const errLower = String(res.error).toLowerCase();
+            if (!/quota|rate|limit|billing|402|429|insufficient/.test(errLower)) {
+              return { ok: false, error: res.error };
+            }
+            // fallthrough to Gemini
+          } catch (e) {
+            const msg = String((e as Error)?.message ?? e).toLowerCase();
+            if (!/quota|rate|limit|billing|402|429|insufficient/.test(msg)) {
+              return { ok: false, error: friendlyError(e, 'openai') };
+            }
+          }
+
+          // 2차: Google Gemini Imagen (사용자가 google 키 등록했으면)
+          const googleKey = getKey('google') || '';
+          if (!googleKey) {
+            return {
+              ok: false,
+              error: lang === 'ko'
+                ? '🎨 OpenAI 이미지 생성 한도 초과 — Google Gemini 키도 없어 자동 전환 불가. OpenAI 콘솔에서 한도 늘리거나(platform.openai.com/settings/organization/billing/overview), 설정 → API 키에서 Google Gemini 키 등록하면 자동 전환 가능.'
+                : '🎨 OpenAI image quota hit — no Google Gemini key registered for auto-fallback. Raise OpenAI quota or register a Google key in Settings → API Keys.',
+            };
+          }
+          try {
+            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${googleKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                instances: [{ prompt: promptToSend }],
+                parameters: { sampleCount: 1, aspectRatio: '1:1' },
+              }),
+            });
+            if (!r.ok) {
+              const j = await r.json().catch(() => ({}));
+              return {
+                ok: false,
+                error: lang === 'ko'
+                  ? `🎨 OpenAI 한도 초과 → Google Imagen 자동 전환 시도했지만 실패: ${j?.error?.message ?? r.status}. 잠시 후 다시 시도하거나 다른 모델 선택.`
+                  : `🎨 OpenAI quota → tried Google Imagen but failed: ${j?.error?.message ?? r.status}. Retry later or pick different model.`,
+              };
+            }
+            const json = await r.json();
+            const b64 = json?.predictions?.[0]?.bytesBase64Encoded;
+            if (!b64) {
+              return { ok: false, error: 'Google Imagen returned empty result' };
+            }
+            const dataUrl = `data:image/png;base64,${b64}`;
+            const note = lang === 'ko'
+              ? `> 🔄 OpenAI 이미지 한도 초과 → **Google Imagen 3.0**으로 자동 전환했어요.\n\n`
+              : `> 🔄 OpenAI image quota hit → auto-switched to **Google Imagen 3.0**.\n\n`;
+            return {
+              ok: true,
+              res: { url: dataUrl, modelUsed: 'imagen-3.0-generate-002' } as Awaited<ReturnType<typeof generateImage>>,
+              modelUsed: 'imagen-3.0-generate-002',
+              fallbackNote: note,
+            };
+          } catch (e) {
+            return {
+              ok: false,
+              error: lang === 'ko'
+                ? `🎨 OpenAI 한도 초과 + Google Imagen 자동 전환 실패: ${(e as Error).message}`
+                : `🎨 OpenAI quota + Google Imagen fallback failed: ${(e as Error).message}`,
+            };
+          }
+        };
+
+        tryImageWithFallback()
+          .then((r) => {
+            if (!r.ok) {
               setMessages((prev) => [...prev, {
                 id: Date.now().toString() + '_err',
                 role: 'assistant',
-                content: `🎨 ${res.error}`,
+                content: r.error,
               }]);
               return;
             }
-            // [2026-05-02 Roy] verification fallback 발동 시 사용자에게 알림.
-            // 'gpt-image-2 인증 필요 → DALL-E 3로 자동 전환됨' 메시지 + 이미지.
-            const fallbackNote = res.fallbackFrom
-              ? (lang === 'ko'
-                  ? `> ℹ️ ${res.fallbackFrom}는 OpenAI 조직 인증이 필요한 신규 모델이라, ${res.modelUsed ?? 'DALL-E 3'}로 자동 전환했어요. 인증하려면 [OpenAI 설정](https://platform.openai.com/settings/organization/general)에서 [Verify Organization] 클릭.\n\n`
-                  : `> ℹ️ ${res.fallbackFrom} requires OpenAI organization verification — auto-switched to ${res.modelUsed ?? 'DALL-E 3'}. To verify: [OpenAI settings](https://platform.openai.com/settings/organization/general) → [Verify Organization].\n\n`)
-              : '';
             setMessages((prev) => [...prev, {
               id: Date.now().toString() + '_img',
               role: 'assistant',
-              content: `${fallbackNote}![${finalImgPrompt.slice(0, 80)}](${res.url})`,
-              modelUsed: res.modelUsed ?? imageModel,
+              content: `${r.fallbackNote}![${finalImgPrompt.slice(0, 80)}](${r.res.url})`,
+              modelUsed: r.modelUsed,
               bridgeApplied: adapt.bridgeApplied,
               bridgeFromCache: adapt.fromCache,
             }]);
           })
-        .catch((err) => {
-          setMessages((prev) => [...prev, {
-            id: Date.now().toString() + '_err',
-            role: 'assistant',
-            content: friendlyError(err, 'openai'),
-          }]);
-        })
         .finally(() => {
           setIsStreaming(false);
           setStreamingContent('');

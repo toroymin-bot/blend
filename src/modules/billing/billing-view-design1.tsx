@@ -143,6 +143,7 @@ const copy = {
     monthlyLimit:  '월간 한도',
     notSet:        '없음',
     set:           '설정',
+    change:        '변경',
     cancel:        '취소',
     save:          '저장',
     notify80:      '한도 80% 도달 시 알림',
@@ -216,6 +217,7 @@ const copy = {
     monthlyLimit:  'Monthly limit',
     notSet:        'None',
     set:           'Set',
+    change:        'Change',
     cancel:        'Cancel',
     save:          'Save',
     notify80:      'Notify at 80%',
@@ -1098,7 +1100,9 @@ function LimitRow({
             className="text-[12px] transition-colors hover:underline"
             style={{ color: tokens.accent }}
           >
-            {t.set}
+            {/* [2026-05-02 Roy] 이미 설정된 값이면 '변경', 미설정이면 '설정' —
+                'set'과 're-set'을 시각적으로 구분 (이전엔 똑같이 [설정]만 노출). */}
+            {valueUsd > 0 ? t.change : t.set}
           </button>
         </div>
       )}

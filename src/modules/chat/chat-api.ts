@@ -109,10 +109,75 @@ function supportsTools(provider: AIProvider, model: string): boolean {
   return ['openai', 'anthropic', 'google', 'deepseek', 'groq'].includes(provider);
 }
 
+// [2026-05-02 PM2 Roy] 한도 enforcement — 모든 AI 호출 직전 체크.
+// d1:billing-limit (BillingView 설정) + useUsageStore.getTodayCost/getThisMonthCost
+// 비교. autoStop=true && 초과 → throw (사용자에 친절한 메시지). notify80=true &&
+// 80% 도달 → window event dispatch (cost-alert-toast가 수신).
+async function enforceLimits(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem('d1:billing-limit');
+    if (!raw) return;
+    const limit = JSON.parse(raw) as {
+      dailyUsd?: number;
+      monthlyUsd?: number;
+      notify80?: boolean;
+      autoStop?: boolean;
+    };
+    const { useUsageStore } = await import('@/stores/usage-store');
+    const today = useUsageStore.getState().getTodayCost();
+    const month = useUsageStore.getState().getThisMonthCost();
+
+    const dailyOver = (limit.dailyUsd ?? 0) > 0 && today >= limit.dailyUsd!;
+    const monthlyOver = (limit.monthlyUsd ?? 0) > 0 && month >= limit.monthlyUsd!;
+
+    if (limit.autoStop && (dailyOver || monthlyOver)) {
+      const KRW_PER_USD = 1370;
+      const which = dailyOver ? '일일' : '월간';
+      const limitUsd = dailyOver ? limit.dailyUsd! : limit.monthlyUsd!;
+      const usedUsd = dailyOver ? today : month;
+      throw new Error(
+        `🛑 ${which} 비용 한도(${
+          `₩${Math.round(limitUsd * KRW_PER_USD).toLocaleString('ko-KR')}`
+        }) 초과로 자동 정지 — 현재 ${
+          `₩${Math.round(usedUsd * KRW_PER_USD).toLocaleString('ko-KR')}`
+        } 사용. 설정 → 비용 관리에서 한도 조정 또는 자동 정지 끄기.`,
+      );
+    }
+
+    if (limit.notify80) {
+      const dailyPct = (limit.dailyUsd ?? 0) > 0 ? today / limit.dailyUsd! : 0;
+      const monthlyPct = (limit.monthlyUsd ?? 0) > 0 ? month / limit.monthlyUsd! : 0;
+      if (dailyPct >= 0.8 || monthlyPct >= 0.8) {
+        window.dispatchEvent(new CustomEvent('blend:cost-alert', {
+          detail: {
+            used: dailyPct >= 0.8 ? today : month,
+            limit: dailyPct >= 0.8 ? limit.dailyUsd : limit.monthlyUsd,
+            paused: dailyPct >= 1 || monthlyPct >= 1,
+            which: dailyPct >= 0.8 ? 'daily' : 'monthly',
+          },
+        }));
+      }
+    }
+  } catch (e) {
+    // 자동 정지로 throw된 경우만 caller에 전파, 그 외는 silent (한도 체크 실패가
+    // 본 채팅 흐름을 막으면 안 됨).
+    if (e instanceof Error && e.message.startsWith('🛑')) throw e;
+  }
+}
+
 export async function sendChatRequest(req: ChatRequest) {
   const { messages, model, provider, apiKey, baseUrl, stream = true, onChunk, onDone, onError, signal, enableTools = true, onToolUse } = req;
   // [2026-05-02 Roy] enableTools=true (default) + 모델/provider가 지원하면 tool 활성.
   const useTools = enableTools && supportsTools(provider, model);
+
+  // 한도 체크 — autoStop && 초과 시 throw → onError로 전달 → 사용자에 친절 안내
+  try {
+    await enforceLimits();
+  } catch (e) {
+    onError?.((e as Error).message);
+    return;
+  }
 
   // [2026-05-02 Roy] 모든 sendChatRequest 호출 자동 비용 추적 — onDone wrap.
   // 이전 회귀: 호출자(chat-view-design1, meeting-runner, model-compare 등)가
@@ -120,11 +185,15 @@ export async function sendChatRequest(req: ChatRequest) {
   // 한 곳에서 처리 → caller 코드 수정 없이 모든 경로 커버.
   // - usage 미제공(stream off, 일부 provider, abort 등) 또는 0 token 시 silent skip.
   // - cost는 model-registry pricing 기반. registry에 없는 모델이면 cost=0(token만).
+  // [2026-05-02 PM2] localStorage `blend:usage`에도 addRecord 호출 — Billing
+  // 화면 '아직 사용 기록이 없어요' 표시되던 회귀 차단. 한도 80%/100% 알림+
+  // 자동정지 enforcement도 여기서 동작.
   const trackingOnDone: typeof onDone = (fullText, usage) => {
     try {
       if (usage && (usage.input > 0 || usage.output > 0)) {
         const m = getModelById(model);
         const cost = m ? calculateCost(m, usage.input, usage.output) : 0;
+        // 1) Cloudflare counter (Telegram 비즈니스 리포트용)
         trackUsage({
           provider,
           model,
@@ -132,6 +201,21 @@ export async function sendChatRequest(req: ChatRequest) {
           outputTokens: usage.output,
           cost,
         });
+        // 2) localStorage usage-store (앱 내부 Billing 화면용 + 한도 enforcement)
+        if (typeof window !== 'undefined') {
+          import('@/stores/usage-store').then(({ useUsageStore }) => {
+            useUsageStore.getState().addRecord({
+              timestamp: Date.now(),
+              model,
+              provider,
+              inputTokens: usage.input,
+              outputTokens: usage.output,
+              cost,
+              chatId: 'chat',
+            });
+            // 한도 enforcement는 enforceLimits()가 다음 호출 직전 체크 (이건 사후 기록)
+          }).catch(() => {});
+        }
       }
     } catch {
       // 추적 실패는 본 응답 흐름 절대 막지 않음
