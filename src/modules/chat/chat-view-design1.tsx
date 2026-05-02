@@ -776,9 +776,32 @@ export default function D1ChatView({
   const canSend = (value.trim().length > 0 || attachedImages.length > 0) && !isStreaming;
 
   // v3 P0.4: 이미지 → base64 + 압축 (1MB 이상이면 JPEG 80% 리사이즈)
+  // [2026-05-02 Roy] 5개 제한 (Claude처럼). 한도 도달 시 토스트.
+  // 이미지 외 파일(PDF/DOCX 등) 드롭은 데이터 소스 메뉴 안내.
+  const ATTACH_LIMIT = 5;
   async function handleImagesAttached(files: File[]) {
+    const currentCount = attachedImages.length;
+    const remaining = ATTACH_LIMIT - currentCount;
+    if (remaining <= 0) {
+      setToastMsg(lang === 'ko' ? `채팅당 최대 ${ATTACH_LIMIT}개 첨부 가능` : `Up to ${ATTACH_LIMIT} attachments per chat`);
+      return;
+    }
+    const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+    const nonImageCount = files.length - imageFiles.length;
+    if (nonImageCount > 0) {
+      setToastMsg(lang === 'ko'
+        ? `이미지만 채팅 첨부 가능. 문서는 데이터 소스 메뉴 사용 (${nonImageCount}개 무시)`
+        : `Only images can be attached. Use Data Sources for documents (${nonImageCount} ignored)`);
+    }
+    const accepted = imageFiles.slice(0, remaining);
+    const overflow = imageFiles.length - accepted.length;
+    if (overflow > 0) {
+      setToastMsg(lang === 'ko'
+        ? `${ATTACH_LIMIT}개 한도 초과 — ${overflow}개 무시됨`
+        : `${ATTACH_LIMIT} limit — ${overflow} ignored`);
+    }
     const next: string[] = [];
-    for (const f of files) {
+    for (const f of accepted) {
       try {
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -797,7 +820,7 @@ export default function D1ChatView({
         // 무시 — 다른 파일은 계속
       }
     }
-    if (next.length) setAttachedImages((prev) => [...prev, ...next].slice(0, 6));
+    if (next.length) setAttachedImages((prev) => [...prev, ...next].slice(0, ATTACH_LIMIT));
   }
 
   function handleRemoveImage(idx: number) {
@@ -3008,16 +3031,85 @@ function D1InputBar({
     }
   }
 
+  // [2026-05-02 Roy] 드래그앤드롭 + 페이스트 — Claude처럼 채팅에 이미지 첨부.
+  // 드래그 시 input bar 테두리 highlight (시각 피드백). drop → onImagesAttached.
+  // 페이스트 → 클립보드 이미지 추출 → onImagesAttached.
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0); // dragenter/leave 중첩 카운트 — child 진입 시 깜빡임 방지
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (dragCounterRef.current === 1) setIsDragOver(true);
+  }
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  }
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    if (files.length > 0 && onImagesAttached) {
+      onImagesAttached(files);
+    }
+  }
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    if (!onImagesAttached) return;
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const imageFiles: File[] = [];
+    for (const item of items) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const f = item.getAsFile();
+        if (f) imageFiles.push(f);
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault(); // 이미지면 텍스트 붙여넣기 안 함
+      onImagesAttached(imageFiles);
+    }
+  }
+
   return (
     <div
-      className={`w-full max-w-[720px] rounded-[20px] border bg-white px-[18px] pt-4 pb-3 transition-[border-color,box-shadow] duration-200 focus-within:shadow-[0_12px_40px_rgba(0,0,0,0.08)]${glowing ? ' d1-input-glow' : ''}`}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`relative w-full max-w-[720px] rounded-[20px] border bg-white px-[18px] pt-4 pb-3 transition-[border-color,box-shadow] duration-200 focus-within:shadow-[0_12px_40px_rgba(0,0,0,0.08)]${glowing ? ' d1-input-glow' : ''}`}
       style={{
-        borderColor: tokens.borderStrong,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+        borderColor: isDragOver ? 'var(--d1-accent)' : tokens.borderStrong,
+        boxShadow: isDragOver ? '0 0 0 3px var(--d1-accent-soft)' : '0 8px 32px rgba(0,0,0,0.06)',
         animation: floating ? 'none' : 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) 120ms both',
         margin: floating ? '0 auto' : undefined,
       }}
     >
+      {/* [2026-05-02 Roy] 드래그 중 안내 오버레이 — 사용자가 드롭 가능 영역 인지 */}
+      {isDragOver && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[20px]"
+          style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(2px)' }}
+        >
+          <div className="flex items-center gap-2 text-[14px] font-medium" style={{ color: tokens.text }}>
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span>{lang === 'ko' ? '여기에 이미지 놓기' : 'Drop image here'}</span>
+          </div>
+        </div>
+      )}
       {/* Hidden file input — generic */}
       <input
         ref={fileInputRef}
@@ -3068,6 +3160,7 @@ function D1InputBar({
         value={value}
         onChange={(e) => { voiceBaseRef.current = ''; onChange(e.target.value); }}
         onKeyDown={onKeyDown}
+        onPaste={handlePaste}
         placeholder={placeholder}
         rows={3}
         className="w-full resize-none border-none bg-transparent text-[15px] md:text-base leading-[1.5] tracking-[-0.01em] outline-none placeholder:text-[--d1-placeholder] min-h-[88px] md:min-h-[96px] max-h-[240px]"
