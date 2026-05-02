@@ -259,6 +259,20 @@ export async function generateEmbeddings(
           detail: { used: fresh.todayUsed, limit: fresh.dailyLimit, paused: fresh.paused },
         }));
       }
+
+      // [2026-05-02 Roy] 비즈니스 리포트용 trackUsage — 임베딩 비용도 KV 누적.
+      // 이전 회귀: 데이터소스 동기화 → embedding API 호출했지만 비용 추적 안 됨.
+      // text-embedding-3-small 가격: $0.020 / 1M tokens, text-embedding-004(google): 무료티어.
+      // 토큰은 chars/4 추정(영문 4chars/token, 한국어 ~2chars/token 평균).
+      const { trackUsage } = await import('@/lib/analytics');
+      const estTokens = Math.round(totalChars / 3);
+      trackUsage({
+        provider,
+        model: provider === 'openai' ? 'text-embedding-3-small' : 'text-embedding-004',
+        inputTokens: estTokens,
+        outputTokens: 0,
+        cost: usd,
+      });
     } catch (e) {
       console.warn('[document-plugin] cost tracking failed:', (e as Error).message);
     }

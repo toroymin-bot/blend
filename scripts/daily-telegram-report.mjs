@@ -89,13 +89,22 @@ const ALL_MENUS = [
 // 1$ → KRW 환율은 ~1370 (변동, 단순화)
 const KRW_PER_USD = 1370;
 
-// [2026-05-02 Roy] provider id → 사람 친화적 회사+제품명. Telegram 표시 가독성.
+// [2026-05-02 Roy] provider id → 사람 친화적 회사+제품명 + 콘솔 링크.
+// Roy가 텔레그램에서 직접 클릭해 들어가 실 청구액 확인 가능.
 const PROVIDER_LABELS = {
   openai:    'OpenAI (GPT)',
   anthropic: 'Anthropic (Claude)',
   google:    'Google (Gemini)',
   deepseek:  'DeepSeek',
   groq:      'Groq',
+};
+
+const PROVIDER_USAGE_URLS = {
+  openai:    'https://platform.openai.com/usage',
+  anthropic: 'https://console.anthropic.com/settings/usage',
+  google:    'https://aistudio.google.com/usage',
+  deepseek:  'https://platform.deepseek.com/usage',
+  groq:      'https://console.groq.com/settings/usage',
 };
 
 const COUNTRY_LABELS = {
@@ -241,9 +250,14 @@ async function buildUsageSection(targetDate) {
     lines.push('*AI 회사별 합계*');
     providerRows.forEach((r) => {
       const label = PROVIDER_LABELS[r.p] || r.p;
-      lines.push(`${label}`);
+      const url = PROVIDER_USAGE_URLS[r.p];
+      // Telegram Markdown 링크 형식 — 라벨에 [회사명](URL).
+      // 콘솔 클릭 → 실 청구액 확인 가능.
+      lines.push(url ? `[${label}](${url})` : label);
       lines.push(`  어제 ${fmtCost(r.d)} · 이번주 ${fmtCost(r.w)} · 전체 ${fmtCost(r.a)}`);
     });
+    lines.push('');
+    lines.push('💵 *실 청구액*: 위 회사명 클릭 → 각 콘솔에서 직접 확인');
     lines.push('');
   }
 

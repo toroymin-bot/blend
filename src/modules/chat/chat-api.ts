@@ -3,6 +3,8 @@
 
 import { AIProvider } from '@/types';
 import { executeAITool, toOpenAITools, toAnthropicTools, toGeminiFunctionDeclarations } from '@/lib/ai-tools';
+import { trackUsage } from '@/lib/analytics';
+import { calculateCost, getModelById } from '@/modules/models/model-registry';
 
 // Multimodal content: either plain text or an array of text/image parts
 export interface MultimodalPart {
@@ -112,19 +114,44 @@ export async function sendChatRequest(req: ChatRequest) {
   // [2026-05-02 Roy] enableTools=true (default) + 모델/provider가 지원하면 tool 활성.
   const useTools = enableTools && supportsTools(provider, model);
 
+  // [2026-05-02 Roy] 모든 sendChatRequest 호출 자동 비용 추적 — onDone wrap.
+  // 이전 회귀: 호출자(chat-view-design1, meeting-runner, model-compare 등)가
+  // 각자 onDone에서 트래킹 코드 박아야 했음 → meeting/datasource는 추적 누락.
+  // 한 곳에서 처리 → caller 코드 수정 없이 모든 경로 커버.
+  // - usage 미제공(stream off, 일부 provider, abort 등) 또는 0 token 시 silent skip.
+  // - cost는 model-registry pricing 기반. registry에 없는 모델이면 cost=0(token만).
+  const trackingOnDone: typeof onDone = (fullText, usage) => {
+    try {
+      if (usage && (usage.input > 0 || usage.output > 0)) {
+        const m = getModelById(model);
+        const cost = m ? calculateCost(m, usage.input, usage.output) : 0;
+        trackUsage({
+          provider,
+          model,
+          inputTokens: usage.input,
+          outputTokens: usage.output,
+          cost,
+        });
+      }
+    } catch {
+      // 추적 실패는 본 응답 흐름 절대 막지 않음
+    }
+    onDone?.(fullText, usage);
+  };
+
   try {
     if (provider === 'openai') {
-      await handleOpenAI(messages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse);
+      await handleOpenAI(messages, model, apiKey, stream, onChunk, trackingOnDone, signal, useTools, onToolUse);
     } else if (provider === 'anthropic') {
-      await handleAnthropic(messages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse);
+      await handleAnthropic(messages, model, apiKey, stream, onChunk, trackingOnDone, signal, useTools, onToolUse);
     } else if (provider === 'google') {
-      await handleGoogle(messages, model, apiKey, stream, onChunk, onDone, signal, useTools, onToolUse);
+      await handleGoogle(messages, model, apiKey, stream, onChunk, trackingOnDone, signal, useTools, onToolUse);
     } else if (provider === 'deepseek') {
-      await handleOpenAICompat(messages, model, apiKey, ENDPOINTS.deepseek, stream, onChunk, onDone, signal);
+      await handleOpenAICompat(messages, model, apiKey, ENDPOINTS.deepseek, stream, onChunk, trackingOnDone, signal);
     } else if (provider === 'groq') {
-      await handleOpenAICompat(messages, model, apiKey, ENDPOINTS.groq, stream, onChunk, onDone, signal);
+      await handleOpenAICompat(messages, model, apiKey, ENDPOINTS.groq, stream, onChunk, trackingOnDone, signal);
     } else if (provider === 'custom' && baseUrl) {
-      await handleCustom(messages, model, apiKey, baseUrl, stream, onChunk, onDone, signal);
+      await handleCustom(messages, model, apiKey, baseUrl, stream, onChunk, trackingOnDone, signal);
     }
   } catch (e: any) {
     if (e.name === 'AbortError') return;

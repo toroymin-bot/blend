@@ -21,8 +21,9 @@ import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { D1TrialExhaustedModal, D1KeyRequiredModal } from '@/modules/chat/trial-modals-design1';
 import { AVAILABLE_MODELS, getFeaturedModels, getAutoFallbackChain, getBestImageModel, isImageGenModel, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
-import { trackEvent, trackUsage } from '@/lib/analytics';
-import { calculateCost as calcModelCost, getModelById as getRegistryModel } from '@/modules/models/model-registry';
+import { trackEvent } from '@/lib/analytics';
+// [2026-05-02 Roy] trackUsage / calculateCost 호출 제거 — chat-api.ts가 자체적으로
+// 모든 sendChatRequest 호출에 대해 자동 트래킹. 여기서 또 호출하면 이중 누적.
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
@@ -1668,7 +1669,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         setStreamingContent(accumulated);
         setActiveToolName(null); // 텍스트 chunk 도착하면 도구 indicator 해제
       },
-      onDone: (fullText, usage) => {
+      onDone: (fullText) => {
         setMessages(prev => [...prev, {
           id: Date.now().toString() + '_ai',
           role: 'assistant',
@@ -1682,20 +1683,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         setStreamingContent('');
         setActiveToolName(null);
         abortRef.current = null;
-        // [2026-05-02 Roy] AI 사용량 추적 — Cloudflare counter로 push.
-        // chat-api가 onDone에 usage{input,output} 전달. 비용은 model-registry의
-        // calculateCost(input·USD/M + output·USD/M)로 산출. usage 없으면 silent skip.
-        if (usage && (usage.input > 0 || usage.output > 0)) {
-          const m = getRegistryModel(resolvedModelId);
-          const cost = m ? calcModelCost(m, usage.input, usage.output) : 0;
-          trackUsage({
-            provider: resolvedProvider,
-            model: resolvedModelId,
-            inputTokens: usage.input,
-            outputTokens: usage.output,
-            cost,
-          });
-        }
+        // [2026-05-02 Roy] usage 트래킹은 chat-api.ts 내부에서 자동 처리.
+        // 여기서 또 호출하면 이중 누적되니 제거.
         // P3.2 자동 제목 — 첫 응답 직후만 트리거
         if (messages.length === 0) triggerAutoTitle(content, fullText);
         // [2026-04-28 Roy] PDF 다운로드 자동화
