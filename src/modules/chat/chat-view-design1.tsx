@@ -780,8 +780,11 @@ export default function D1ChatView({
   const sessionLoadColor = useMemo(() => getLoadColor(sessionLoad.loadPct), [sessionLoad.loadPct]);
 
   // [2026-05-04 Roy] 70/90/100 임계점 도달 시 자동 시스템 메시지(C 옵션 — 입력창 안
-  // 건드리고 대화창에 직접 추가) + 100%면 sessionFull 켜고 3초 후 자동 새 채팅(B 옵션).
-  // lastLoadStageRef로 한 번만 발화 (이미 90 발화 후엔 다시 90 진입 안 함).
+  // 건드리고 대화창에 직접 추가).
+  // [2026-05-04 Roy 후속] 자동 새 채팅 이동 제거 — 사용자가 수동으로 + 버튼 클릭.
+  //   100% 도달: sessionFull로 입력만 비활성화 (메시지/메모리 유지).
+  //   90% 이상: + 새 채팅 버튼 노란 펄스 (newChatPulse=true)로 클릭 유도.
+  //   사용자 + 버튼 누르면 펄스 해제 + 새 채팅 시작.
   useEffect(() => {
     const stage = getLoadStage(sessionLoad.loadPct);
     if (stage === 0 || stage === lastLoadStageRef.current) return;
@@ -798,22 +801,13 @@ export default function D1ChatView({
     ]);
     if (stage === 100) {
       setSessionFull(true);
-      setTimeout(() => {
-        setActiveChatId(null);
-        setMessages([]);
-        setValue('');
-        setTtsCount(0);
-        setSttCount(0);
-        setRagChunkCount(0);
-        setSessionFull(false);
-        lastLoadStageRef.current = 0;
-        if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-        useD1MemoryStore.getState().clear();
-        memorySummaryCache.current.clear();
-      }, 3000);
+      // 자동 이동/메모리 reset 제거 — 사용자 수동 + 버튼 클릭에 위임.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionLoad.loadPct, lang]);
+
+  // [2026-05-04 Roy 후속] 새 채팅 버튼 펄스 트리거 — sessionLoad 90% 이상이면 true.
+  const newChatPulse = sessionLoad.loadPct >= 90;
 
   // Cmd/Ctrl+K → open history
   useEffect(() => {
@@ -2485,27 +2479,36 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         <div className="flex items-center gap-1">
           {/* [2026-05-02 Roy] TTS 마스터 토글은 헤더가 아닌 입력바로 이동 (마이크
               아이콘 옆). 헤더 정리. */}
-          <D1IconButton
-            title={lang === 'ko' ? '새 채팅' : 'New chat'}
-            onClick={() => {
-              setActiveChatId(null);
-              setMessages([]);
-              setValue('');
-              // [2026-05-02 Roy] 새 채팅 시 TTS 카운터 리셋 (50회/채팅 한도)
-              setTtsCount(0);
-              // [2026-05-04 Roy] 세션 부하 카운터 함께 리셋
-              setSttCount(0);
-              setRagChunkCount(0);
-              setSessionFull(false);
-              lastLoadStageRef.current = 0;
-              if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-              // [2026-05-02 Roy] 메모리 선택 자동 초기화 — 새 채팅마다 다시 선택해야 함
-              useD1MemoryStore.getState().clear();
-              memorySummaryCache.current.clear();
-            }}
+          {/* [2026-05-04 Roy 후속] 세션 부하 90%+ 시 + 버튼 노란 펄스로 새 채팅 유도.
+              자동 이동 대신 사용자 수동 클릭. ring 노란색 + animate-pulse. */}
+          <div
+            className={newChatPulse ? 'rounded-full d1-newchat-pulse' : ''}
+            style={newChatPulse ? { boxShadow: '0 0 0 0 rgba(250, 204, 21, 0.7)' } : undefined}
           >
-            <PlusIcon />
-          </D1IconButton>
+            <D1IconButton
+              title={lang === 'ko'
+                ? (newChatPulse ? '⚡ 새 채팅을 시작하세요' : '새 채팅')
+                : (newChatPulse ? '⚡ Start a new chat' : 'New chat')}
+              onClick={() => {
+                setActiveChatId(null);
+                setMessages([]);
+                setValue('');
+                // [2026-05-02 Roy] 새 채팅 시 TTS 카운터 리셋 (50회/채팅 한도)
+                setTtsCount(0);
+                // [2026-05-04 Roy] 세션 부하 카운터 함께 리셋
+                setSttCount(0);
+                setRagChunkCount(0);
+                setSessionFull(false);
+                lastLoadStageRef.current = 0;
+                if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+                // [2026-05-02 Roy] 메모리 선택 자동 초기화 — 새 채팅마다 다시 선택해야 함
+                useD1MemoryStore.getState().clear();
+                memorySummaryCache.current.clear();
+              }}
+            >
+              <PlusIcon />
+            </D1IconButton>
+          </div>
           <D1IconButton
             title={`${t.history} (${typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) ? '⌘K' : 'Ctrl+K'})`}
             onClick={() => setHistoryOpen(true)}
@@ -3743,7 +3746,7 @@ function D1InputBar({
         }}
         onKeyDown={onKeyDown}
         onPaste={handlePaste}
-        placeholder={sessionDisabled ? (lang === 'ko' ? '이 채팅은 사용량 한도에 도달했어요. 새 채팅으로 이동 중…' : 'Chat capacity reached. Moving to a new chat…') : placeholder}
+        placeholder={sessionDisabled ? (lang === 'ko' ? '이 채팅은 한도 도달. 위 + 새 채팅 버튼(노란색)을 눌러 시작해 주세요.' : 'Chat capacity reached — click the pulsing + New chat button above.') : placeholder}
         rows={1}
         disabled={sessionDisabled}
         className="w-full resize-none border-none bg-transparent text-[15px] md:text-base leading-[1.5] tracking-[-0.01em] outline-none placeholder:text-[--d1-placeholder] min-h-[28px] md:min-h-[32px] max-h-[240px] disabled:opacity-60 disabled:cursor-not-allowed"

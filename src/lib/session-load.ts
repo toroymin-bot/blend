@@ -97,8 +97,8 @@ export function getLoadStageMessage(stage: 70 | 90 | 100, lang: 'ko' | 'en' = 'k
       : '🔴 This chat is at 90% capacity. **It will auto-close shortly.**\n\n— Response delays are noticeably increasing.\n— **Strongly recommended:** finish reading the current reply, then move to a new chat.\n— At 100%, this chat will be disabled and you\'ll be moved to a fresh chat automatically.';
   }
   return lang === 'ko'
-    ? '🚫 이 채팅이 100% 사용량에 도달해 비활성화됐어요.\n\n3초 뒤 자동으로 새 채팅으로 이동합니다. 작업하던 주제는 새 채팅에 이어서 질문해 주세요. (이전 대화는 사이드바 기록에 그대로 남아 있어요.)'
-    : '🚫 This chat has reached 100% capacity and has been disabled.\n\nMoving you to a new chat in 3 seconds. Continue your topic there — the previous conversation stays in your history sidebar.';
+    ? '🚫 이 채팅이 100% 사용량에 도달해 비활성화됐어요.\n\n상단의 **+ 새 채팅 버튼(노란색 펄스)**을 눌러 새로 시작해 주세요. 작업하던 주제는 새 채팅에 이어서 질문하시면 됩니다. (이 대화는 사이드바 기록에 그대로 남아 있어요.)'
+    : '🚫 This chat has reached 100% capacity and is disabled.\n\nClick the pulsing **+ New chat** button at the top to start fresh. Continue your topic there — this conversation stays in your history sidebar.';
 }
 
 /** rough token estimate from text (≈ 4 chars per token) */
