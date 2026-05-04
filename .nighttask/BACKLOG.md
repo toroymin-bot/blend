@@ -626,6 +626,26 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 - **commit**: 다음 커밋
 - **Confluence**: 커밋 후 작성
 
+## 2026-05-05 — blend-daily-dev nighttask
+
+### [x] PH-FOLLOW-UP — PM-28 후속 ph 회귀 차단 + carry-over NOTE 2건 종결 ✅ 2026-05-05
+- **commit `598529a`** — `intent-classifier.ts`: `getLangEnforcementHeader('ph')` 분기 추가 (따갈로그 사용자에게 영어 정형 거부 표현 회귀 차단). `getModePromptHeader` signature `'ko'|'en'|'ph'` 확장 + ph 인입 시 EN branch 폴백. `meeting-view.tsx`: `diarizeSpeakers` lang ph→en 폴백
+- **commit `b69c6a6`** — 어제 push 누락분 origin 동기화 (PM-28 ph.json 88.3% 번역 + design1 ph 분기)
+- **시스템 헬스**: tsc 통과, i18n ko/en/ph 951키 동기, REG-01 0 hit, production 7 URL 200 (4 표준 + /ph + /design1/ph + /ph/qatest), Vercel deploy READY 55s `dpl_GEoe85JKeXJuzDxEfmqbUWz3sUZi`
+- **TC 8건 Pass** (488/595→**496/595, 83%**): TEST-488 (모바일 picker viewport), TEST-489 (까만 토스트 제거), TEST-490 (회의 분석 fallback), TEST-491 (채팅 기억 6+ 무제한), TEST-492 (ph 사이드바 따갈로그), TEST-493 (ph 런타임 크래시 0), TEST-494 (ph 첫 진입 100% 따갈로그), TEST-495 (ph About ₱500)
+- **Confluence**: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/23068675
+- **Dev 시트**: row 162
+- **Carry-over 종결** ↓ (NOTE 2건 5월 4일 commit에서 이미 fix됨 확인)
+- **GAS 이메일**: 인증 차단 (GAS-AUTH 이슈 동일, Roy 재인증 필요)
+
+### [x] CARRY-OVER-NOTE-A — Queue polling 'Failed to fetch' 노이즈 ✅ 2026-05-05 (5월 4일 fix됨 확인)
+- 5월 4일 `use-datasource-queue-polling.ts:228-234`에서 이미 처리: 'Failed to fetch' / 'NetworkError' / 'Load failed' 메시지는 환경 원인이라 `console.debug`로 강등, 진짜 서버 오류만 `console.warn` 유지. `webhook-registry.ts` 모든 함수에 `if (!url) return` 가드 확인. 종결.
+
+### [x] CARRY-OVER-NOTE-B — OneDrive chip vs detail 상태 불일치 ✅ 2026-05-05 (5월 4일 fix됨 확인)
+- 5월 4일 `active-sources-bar.tsx:65-74`에서 이미 처리: `categoryStatus()` worst-status aggregation에 `partial` 분기 추가 (일부만 error → 'partial', 전부 error여야 'error'). chip에 failure count 명시 (`(N/M개 인덱싱 실패)` line 295-301). partial 시각: 주황 톤(#ea8c1e), error는 빨간 톤(#dc2626). 종결.
+
+---
+
 ## 🐛 BLEND-DAILY-QA 2026-05-02 — 신규 발견 (Komi)
 
 ### [x] BUG-011 — React #418 REGRESSION ✅ 2026-05-03
@@ -643,13 +663,11 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 - **검증**: production HTML grep `design[123]\\/...` 확인, 로컬 dev 서버 `/design1/ko` → lang=ko, `/design1/en` → lang=en
 - **Excel**: Bug Report row 17 — 🔵 Pending Re-test
 
-### NOTE — Queue polling 'Failed to fetch' 워닝
-- 콘솔에 `[queue-polling] source failed: <google_drive_id|onedrive_id> Failed to fetch` 5분마다 반복
-- env `NEXT_PUBLIC_DS_WEBHOOK_URL=""` 빈 문자열인데 polling 일어나는 중 — 하지만 실제 fetch 호출은 capture 안됨 (window.fetch 인터셉트 0건)
-- 추측: 빌드 시점 env 가 다른 값이었어서 bundle에 박혀있는 가능성. 또는 `if (!url)` 가드가 작동하지만 syncOneSource() 내부 다른 fetch 가 실패. **추가 조사 필요** — 다음 nighttask 권장
+### [x] NOTE — Queue polling 'Failed to fetch' 워닝 ✅ 2026-05-05 (5월 4일 fix됨 확인)
+- `use-datasource-queue-polling.ts:228-234`: 'Failed to fetch' / 'NetworkError' / 'Load failed' 메시지는 `console.debug`로 강등 (환경 원인 노이즈), 진짜 서버 오류만 `console.warn` 유지
+- `webhook-registry.ts` 모든 함수 (`fetchQueueForDataSource`, `ackQueueItems`, `registerSubscriptionMeta`)에 `if (!url) return` 가드 정상 작동 확인
 
-### NOTE — OneDrive chip vs detail 상태 불일치 (UX issue)
-- 채팅 뷰 chip: "OneDrive 27 · 오류" (red dot)
-- 데이터 소스 상세 뷰: "OneDrive idle" (no error)
-- 원인: `categoryStatus()` (active-sources-bar.tsx:63) 가 OneDrive 카테고리에 속한 documents 중 하나라도 status='error' 면 카테고리 전체를 'error' 로 표시 — 의도된 worst-status aggregation
-- 사용자가 chip 보고 데이터 소스 페이지 가면 "엥? 오류 없는데?" 혼란 가능. 카테고리 chip tooltip 또는 모달에서 "27개 중 N개 인덱싱 실패" 같이 분해 표시 검토
+### [x] NOTE — OneDrive chip vs detail 상태 불일치 ✅ 2026-05-05 (5월 4일 fix됨 확인)
+- `active-sources-bar.tsx:65-74` `categoryStatus()` worst-status aggregation 분해: 일부만 error → `'partial'` (주황 #ea8c1e), 전부 error여야 `'error'` (빨강 #dc2626)
+- chip tooltip + 라벨에 failure count 명시 (`(N/M개 인덱싱 실패)`, line 295-301)
+- partial 카피: ko `"일부 동기화 성공"` / en `"Partially synced"`
