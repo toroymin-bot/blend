@@ -11,6 +11,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import hljs from 'highlight.js';
@@ -3165,17 +3166,54 @@ function D1AssistantMessage({
   const [copied, setCopied] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  // [2026-05-04 Roy 후속] picker portal + 동적 위치 계산.
+  // anchor button(↻ 다른 AI로) 기준으로 viewport 안에 들어오도록 위/아래 자동
+  // 결정. 충분 공간 있는 쪽으로 띄움.
+  const pickerAnchorRef = useRef<HTMLButtonElement>(null);
+  const [pickerCoords, setPickerCoords] = useState<{ top: number; right: number; maxHeight: string } | null>(null);
   const modelInfo = MODELS.find((m) => m.id === modelUsed || m.apiModel === modelUsed);
 
   useEffect(() => {
-    if (!showModelPicker) return;
+    if (!showModelPicker) {
+      setPickerCoords(null);
+      return;
+    }
+    // 위치 계산
+    const recalc = () => {
+      const btn = pickerAnchorRef.current;
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      const viewportH = window.innerHeight;
+      const spaceAbove = r.top;
+      const spaceBelow = viewportH - r.bottom;
+      // 위/아래 중 더 큰 공간 쪽에 띄움. picker height 최대 = 그 공간 - 여유 16px.
+      const useAbove = spaceAbove >= spaceBelow;
+      const usableSpace = (useAbove ? spaceAbove : spaceBelow) - 16;
+      const maxH = Math.max(160, Math.min(usableSpace, 520));
+      const top = useAbove
+        ? Math.max(8, r.top - 4 - maxH) // anchor 위
+        : r.bottom + 4;                 // anchor 아래
+      const right = Math.max(8, window.innerWidth - r.right);
+      setPickerCoords({ top, right, maxHeight: `${maxH}px` });
+    };
+    recalc();
+    window.addEventListener('resize', recalc);
+    window.addEventListener('scroll', recalc, true);
     const handleClick = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        pickerRef.current && !pickerRef.current.contains(target) &&
+        pickerAnchorRef.current && !pickerAnchorRef.current.contains(target)
+      ) {
         setShowModelPicker(false);
       }
     };
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      window.removeEventListener('resize', recalc);
+      window.removeEventListener('scroll', recalc, true);
+    };
   }, [showModelPicker]);
 
   const handleCopy = () => {
@@ -3353,6 +3391,7 @@ function D1AssistantMessage({
                   </span>
                 )}
                 <button
+                  ref={pickerAnchorRef}
                   onClick={() => setShowModelPicker((v) => !v)}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
                   style={{ color: 'inherit' }}
@@ -3360,22 +3399,27 @@ function D1AssistantMessage({
                 >
                   ↻ {t.tryAnother}
                 </button>
-                {showModelPicker && (
+                {showModelPicker && pickerCoords && typeof window !== 'undefined' && createPortal(
                   // [2026-05-04 Roy] 모델명만 나열돼 사용자가 "이게 뭔 AI인지" 모름.
                   // 각 행에 짧은 설명(description_ko/en) 추가 — registry가 자동
                   // 생성·갱신하므로 신모델 추가돼도 코드 수정 불필요.
-                  // [2026-05-04 Roy 후속] picker가 위쪽으로 뻗다 부모 overflow에
-                  // 잘려 위쪽 모델 안 보이는 신고. maxHeight + overflow-y-auto로
-                  // 내부 스크롤 가능하게. 추가로 maxHeight를 viewport 기반(70vh)
-                  // 으로 제한해 짧은 모바일 화면에서도 picker 자체는 화면 안에 들어옴.
+                  // [2026-05-04 Roy 후속] picker가 부모 overflow에 갇혀 짧은 모바일
+                  // 화면에서 위쪽 모델 안 보이는 신고. createPortal + position:fixed
+                  // 로 viewport 기준 렌더 → 부모 stacking 무관하게 항상 화면 안.
+                  // 위/아래 자동 — anchor 위에 충분 공간 있으면 위, 없으면 아래.
                   <div
-                    className="absolute bottom-full right-0 mb-1 z-50 overflow-y-auto rounded-xl border py-1.5 shadow-lg"
+                    ref={pickerRef}
+                    className="overflow-y-auto rounded-xl border py-1.5 shadow-lg"
                     style={{
+                      position: 'fixed',
+                      top: pickerCoords.top,
+                      right: pickerCoords.right,
                       background: tokens.surface,
                       borderColor: tokens.border,
                       minWidth: 240,
                       maxWidth: 320,
-                      maxHeight: 'min(70vh, 520px)',
+                      maxHeight: pickerCoords.maxHeight,
+                      zIndex: 100,
                     }}
                   >
                     {MODELS.filter((m) => m.id !== 'auto').slice(0, 8).map((m) => {
@@ -3408,7 +3452,8 @@ function D1AssistantMessage({
                         </button>
                       );
                     })}
-                  </div>
+                  </div>,
+                  document.body,
                 )}
               </div>
             )}
