@@ -6,7 +6,7 @@
 import SharePageClient from './client';
 
 export function generateStaticParams() {
-  return [{ lang: 'ko' }, { lang: 'en' }];
+  return [{ lang: 'ko' }, { lang: 'en' }, { lang: 'ph' }];
 }
 
 export default function SharePage() {

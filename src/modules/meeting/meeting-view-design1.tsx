@@ -246,7 +246,7 @@ function saveResults(rs: MeetingResult[]) {
   } catch {}
 }
 
-function buildSystemPrompt(lang: 'ko' | 'en'): string {
+function buildSystemPrompt(lang: 'ko' | 'en' | 'ph'): string {
   if (lang === 'ko') {
     return `당신은 회의록 분석 전문가입니다. 다음 텍스트를 분석하여 정확히 다음 JSON 구조로만 응답하세요. 다른 설명이나 마크다운 없이 JSON만:
 {
@@ -277,8 +277,8 @@ function buildSystemPrompt(lang: 'ko' | 'en'): string {
 // meeting-runner.ts로 이동 (분석 로직과 함께 module-level). 여기선 미사용 → 제거.
 
 // ── Main view ───────────────────────────────────────────────────
-export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
-  const t = copy[lang];
+export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
+  const t = lang === 'ko' ? copy.ko : copy.en;
 
   const [text, setText]               = useState('');
   const [ytUrl, setYtUrl]             = useState('');
@@ -502,7 +502,7 @@ function InputPhase({
   onAnalyze: () => void;
   onOpen: (r: MeetingResult) => void;
   onAskDelete: (id: string) => void;
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
 }) {
   return (
     <>
@@ -689,7 +689,7 @@ function ResultPhase({
   result: MeetingResult;
   onBack: () => void;
   onToggleAction: (idx: number) => void;
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
 }) {
   const [exportOpen, setExportOpen] = useState(false);
   return (
@@ -870,7 +870,7 @@ function MeetingExportModal({
   meeting, lang, t, onClose,
 }: {
   meeting: MeetingResult;
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   t: typeof copy[keyof typeof copy];
   onClose: () => void;
 }) {

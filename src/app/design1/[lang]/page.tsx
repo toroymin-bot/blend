@@ -4,7 +4,7 @@
 import { notFound } from 'next/navigation';
 import LangPageClient from './page-client';
 
-const SUPPORTED_LANGS = ['ko', 'en'] as const;
+const SUPPORTED_LANGS = ['ko', 'en', 'ph'] as const;
 type SupportedLang = (typeof SUPPORTED_LANGS)[number];
 
 export function generateStaticParams() {

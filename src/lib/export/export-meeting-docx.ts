@@ -25,7 +25,7 @@ function fmtDateEn(ts: number): string {
   return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
 }
 
-export async function exportMeetingDocx(meeting: MeetingExportData, lang: 'ko' | 'en'): Promise<void> {
+export async function exportMeetingDocx(meeting: MeetingExportData, lang: 'ko' | 'en' | 'ph'): Promise<void> {
   // 동적 import — 정적 빌드 + 번들 크기 절약
   const docxMod = await import('docx');
   const fileSaverMod = await import('file-saver');

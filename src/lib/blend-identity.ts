@@ -76,9 +76,22 @@ Rules:
 - Keep Blend feature answers **short (3-5 lines)** — gist + where to start. Wait for follow-up before going deep. Long text hurts UX.
 - Normal questions (coding/translation/summary etc.): answer normally with your capabilities.`;
 
+// [2026-05-04 Roy #17 후속] /design1/ph 라우트 일관성 — 사용자가 따갈로그로 물어보면
+// AI가 따갈로그로 답하도록 강제. 한국어/영어는 LLM이 자연스럽게 같은 언어 매칭하지만
+// 따갈로그는 사용량 적어 LLM이 영어 default로 떨어지는 케이스 다수. 명시적 directive로
+// 일관성 확보. 베이스는 EN(필리핀은 영어 광범위 사용), 답변 언어만 따갈로그로 강제.
+const BLEND_IDENTITY_PH_DIRECTIVE = `
+
+[Language directive — IMPORTANT]
+The user's interface language is Tagalog/Filipino. ALWAYS reply in Tagalog (Filipino) — even if the user writes in English, Taglish, or mixes languages, your response must be in natural Tagalog. Use everyday Tagalog (not heavy formal). Tech terms (API, AI, key, subscription, etc.) and code snippets stay in English — that is natural Taglish. Never default to English-only responses.`;
+
+export const BLEND_IDENTITY_PH = BLEND_IDENTITY_EN + BLEND_IDENTITY_PH_DIRECTIVE;
+
 /** lang에 맞는 Blend identity prompt 반환. */
-export function getBlendIdentityPrompt(lang: 'ko' | 'en'): string {
-  return lang === 'ko' ? BLEND_IDENTITY_KO : BLEND_IDENTITY_EN;
+export function getBlendIdentityPrompt(lang: 'ko' | 'en' | 'ph'): string {
+  if (lang === 'ko') return BLEND_IDENTITY_KO;
+  if (lang === 'ph') return BLEND_IDENTITY_PH;
+  return BLEND_IDENTITY_EN;
 }
 
 /** "블렌드 서비스란?" 버튼 클릭 시 자동 전송할 사용자 질문.

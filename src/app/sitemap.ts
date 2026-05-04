@@ -13,7 +13,7 @@ import type { MetadataRoute } from 'next';
 export const dynamic = 'force-static';
 
 const SITE = 'https://blend.ai4min.com';
-const LANGS = ['ko', 'en'] as const;
+const LANGS = ['ko', 'en', 'ph'] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();

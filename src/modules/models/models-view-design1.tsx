@@ -131,7 +131,7 @@ function fmtContext(n?: number): string {
   return String(n);
 }
 
-function fmtRegistryDate(iso: string, lang: 'ko' | 'en'): string {
+function fmtRegistryDate(iso: string, lang: 'ko' | 'en' | 'ph'): string {
   if (!iso) return '';
   try {
     const d = new Date(iso);
@@ -155,11 +155,11 @@ export default function D1ModelsView({
   onSelectModel,
   onOpenOnboarding,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onSelectModel?: (modelId: string) => void;
   onOpenOnboarding?: () => void;
 }) {
-  const t = copy[lang];
+  const t = lang === 'ko' ? copy.ko : copy.en;
   const [filter, setFilter] = useState<FilterId>('all');
   const [query, setQuery] = useState('');
 
@@ -342,7 +342,7 @@ function ModelCard({
 }: {
   model: AvailableModel;
   hasUserKey: boolean;
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   t: typeof copy[keyof typeof copy];
   onSelect: () => void;
   onEnterKey: () => void;

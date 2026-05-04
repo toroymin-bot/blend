@@ -148,6 +148,9 @@ export function D1SettingsView() {
     customModels, addCustomModel, removeCustomModel,
   } = useSettingsStore();
   const { t, lang, setLang } = useTranslation();
+  // [2026-05-04 #17] 자식 selector들은 'ko' | 'en' 만 받음 — ph는 en 변형 표시.
+  // (Voice/Image/Storage selector 등은 narrow 텍스트라 i18n.ts 따갈로그 카피 외 추가 카피 X)
+  const childLang: 'ko' | 'en' = lang === 'ph' ? 'en' : lang;
 
   // [2026-05-04 Roy] 모바일 진입은 무조건 메뉴 리스트(null)부터 — 사용자 보고:
   //   '설정 클릭하면 API 키 관리로 두 단계 점프되는 버그'.
@@ -331,7 +334,8 @@ export function D1SettingsView() {
   };
 
   // ── Language routing (Design1-aware) ─────────────────────────
-  const handleLangChange = (l: 'ko' | 'en') => {
+  // [2026-05-04 #17] 'ph' 추가 — /design1/ph/ 따갈로그어 라우트
+  const handleLangChange = (l: 'ko' | 'en' | 'ph') => {
     setLang(l);
     if (typeof window !== 'undefined') {
       const parts = window.location.pathname.split('/');
@@ -339,7 +343,7 @@ export function D1SettingsView() {
         // /design1/ko/ → /design1/en/
         const rest = parts.slice(3).join('/');
         window.location.href = `/design1/${l}/${rest ? rest + '/' : ''}`;
-      } else if (parts[1] === 'ko' || parts[1] === 'en') {
+      } else if (parts[1] === 'ko' || parts[1] === 'en' || parts[1] === 'ph') {
         const rest = parts.slice(2).join('/');
         window.location.href = `/${l}/${rest ? rest + '/' : ''}`;
       }
@@ -812,19 +816,19 @@ export function D1SettingsView() {
                 label={<span className="flex items-center gap-2"><GlobeIcon /> {t('settings.language')}</span>}
                 sub={t('settings.language_desc')}
                 right={
-                  <div className="flex gap-2">
-                    {(['ko', 'en'] as const).map((l) => (
+                  <div className="flex flex-col gap-2 items-stretch sm:items-start">
+                    {(['ko', 'en', 'ph'] as const).map((l) => (
                       <button
                         key={l}
                         onClick={() => handleLangChange(l)}
-                        className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors"
+                        className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors w-full sm:w-auto justify-start"
                         style={{
                           background: lang === l ? tokens.text : tokens.navActive,
                           color:      lang === l ? tokens.bg  : tokens.textDim,
                         }}
                       >
-                        <span>{l === 'ko' ? '🇰🇷' : '🇺🇸'}</span>
-                        <span>{l === 'ko' ? t('settings.language_ko') : t('settings.language_en')}</span>
+                        <span>{l === 'ko' ? '🇰🇷' : l === 'en' ? '🇺🇸' : '🇵🇭'}</span>
+                        <span>{l === 'ko' ? t('settings.language_ko') : l === 'en' ? t('settings.language_en') : t('settings.language_ph')}</span>
                         {lang === l && <CheckIcon />}
                       </button>
                     ))}
@@ -843,7 +847,7 @@ export function D1SettingsView() {
             <p className="mb-4 text-[13px]" style={{ color: tokens.textDim }}>
               {t('settings.voice_desc')}
             </p>
-            <D1VoiceQualitySelector lang={lang} t={t} />
+            <D1VoiceQualitySelector lang={childLang} t={t} />
           </section>
 
           {/* ── 5c. Image (Generation quality) ──────────────────── */}
@@ -856,7 +860,7 @@ export function D1SettingsView() {
             <p className="mb-4 text-[13px]" style={{ color: tokens.textDim }}>
               {t('settings.image_desc')}
             </p>
-            <D1ImageQualitySelector lang={lang} t={t} />
+            <D1ImageQualitySelector lang={childLang} t={t} />
           </section>
 
           {/* ── 6. Data ───────────────────────────────────────── */}
@@ -869,7 +873,7 @@ export function D1SettingsView() {
                 </p>
                 {/* [2026-05-04 Roy #14] 동적 사용량 인디케이터 — navigator.storage.estimate()
                     기반. 정적 "10MB 가정" 대신 브라우저가 origin에 허용하는 실제 한도 표시. */}
-                <D1StorageUsage lang={lang} />
+                <D1StorageUsage lang={childLang} />
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={handleExport}
@@ -1062,7 +1066,7 @@ export function D1SettingsView() {
 // D1VoiceQualitySelector — TTS 품질 선택 (2026-05-02 Roy)
 // localStorage 'd1:tts-quality'에 저장. 첫 사용 모달에서도 같은 키 갱신.
 // ════════════════════════════════════════════════════════════════
-function D1VoiceQualitySelector({ lang, t }: { lang: 'ko' | 'en'; t: (k: string) => string }) {
+function D1VoiceQualitySelector({ lang, t }: { lang: 'ko' | 'en' | 'ph'; t: (k: string) => string }) {
   const [quality, setQuality] = useState<'premium' | 'standard'>('standard');
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1121,7 +1125,7 @@ function D1VoiceQualitySelector({ lang, t }: { lang: 'ko' | 'en'; t: (k: string)
 // [2026-05-03 Roy Agentic] {{model}} placeholder를 registry-derived 라벨로 치환 →
 // 신모델(gpt-image-3 등) 출시 시 카피 자동 갱신. 카드 하단에 현재 사용 모델 표시 + 'auto-updated' 안내.
 // ════════════════════════════════════════════════════════════════
-function D1ImageQualitySelector({ lang, t }: { lang: 'ko' | 'en'; t: (k: string) => string }) {
+function D1ImageQualitySelector({ lang, t }: { lang: 'ko' | 'en' | 'ph'; t: (k: string) => string }) {
   const [quality, setQuality] = useState<'premium' | 'standard'>('standard');
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1139,8 +1143,10 @@ function D1ImageQualitySelector({ lang, t }: { lang: 'ko' | 'en'; t: (k: string)
   }
   // registry에서 현재 standard/premium에 매칭되는 실제 모델 라벨 도출.
   // cron(3시간 주기)으로 새 모델 추가되면 다음 사용 시 자동 적용.
-  const standardLabel = getImageModelLabel(getImageModelByQuality('standard'), lang);
-  const premiumLabel  = getImageModelLabel(getImageModelByQuality('premium'),  lang);
+  // getImageModelLabel은 'ko'|'en'만 받음 — 'ph'는 'en' coerce.
+  const labelLang: 'ko' | 'en' = lang === 'ph' ? 'en' : lang;
+  const standardLabel = getImageModelLabel(getImageModelByQuality('standard'), labelLang);
+  const premiumLabel  = getImageModelLabel(getImageModelByQuality('premium'),  labelLang);
   const labelByQ = { standard: standardLabel, premium: premiumLabel };
   return (
     <Card>
@@ -1219,7 +1225,7 @@ function AnalyticsSection({ t }: { t: (k: string) => string }) {
 // D1StorageUsage — 동적 storage 사용량 인디케이터 (2026-05-04 Roy #14)
 // navigator.storage.estimate() 기반. 정적 10MB 가정 제거.
 // ════════════════════════════════════════════════════════════════
-function D1StorageUsage({ lang }: { lang: 'ko' | 'en' }) {
+function D1StorageUsage({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
   const [data, setData] = useState<StorageEstimateResult | null>(null);
   const [unsupported, setUnsupported] = useState(false);
 

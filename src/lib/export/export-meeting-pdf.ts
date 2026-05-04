@@ -111,7 +111,7 @@ function buildMeetingBody(meeting: MeetingExportData, lang: 'ko' | 'en'): string
   `;
 }
 
-export async function exportMeetingPDF(meeting: MeetingExportData, lang: 'ko' | 'en'): Promise<void> {
+export async function exportMeetingPDF(meeting: MeetingExportData, lang: 'ko' | 'en' | 'ph'): Promise<void> {
   // sanitize/formatDate는 새 파일명 힌트용으로만 사용 — 실제 파일명은
   // 사용자가 print 다이얼로그에서 결정. title을 그 힌트에 반영.
   const baseFilename = sanitizeFilename(
@@ -119,11 +119,13 @@ export async function exportMeetingPDF(meeting: MeetingExportData, lang: 'ko' | 
   );
   const titleHint = baseFilename.replace(/_/g, ' ').slice(0, 60);
 
+  // buildMeetingBody / printHtmlAsPDF은 'ko'|'en'만 받음 — 'ph'는 'en' coerce.
+  const docLang: 'ko' | 'en' = lang === 'ph' ? 'en' : lang;
   try {
     printHtmlAsPDF({
       title: titleHint,
-      bodyHtml: buildMeetingBody(meeting, lang),
-      lang,
+      bodyHtml: buildMeetingBody(meeting, docLang),
+      lang: docLang,
     });
   } catch (e) {
     const err = e as Error & { code?: string };

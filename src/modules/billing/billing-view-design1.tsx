@@ -65,13 +65,16 @@ const DEFAULT_LIMIT: SpendingLimit = {
 type PlanId = 'free' | 'pro' | 'lifetime';
 type BillingCycle = 'monthly' | 'yearly';
 
+// [2026-05-04 Roy PM-25 + 후속] Lifetime → 6개월 패키지로 전환. id 'lifetime' 유지
+// (license-store/payment 호환). 가격: Pro 월 $9 × 6 = $54 → $29 (≈ 46% off — Roy 결정).
+// 39730 = $29 × 1370 KRW_PER_USD.
 const PRICING = {
   pro: {
     monthlyKrw: 12420,
     yearlyKrw:  124200, // 10x = 2개월 무료
   },
   lifetime: {
-    onceKrw: 40020,
+    onceKrw: 39730, // $29 — 6개월 패키지 (46% off)
   },
 } as const;
 
@@ -92,10 +95,10 @@ const copy = {
     free:          '무료',
     plan_free:     '무료',
     plan_pro:      'Pro',
-    plan_lifetime: 'Lifetime',
+    plan_lifetime: 'Discount - 6개월',
     plan_free_desc: 'API 키 BYOK · 핵심 기능 무제한.',
     plan_pro_desc:  '체험 키 + 우선 신모델 + 고급 RAG.',
-    plan_lifetime_desc: 'Pro의 모든 기능을 평생.',
+    plan_lifetime_desc: 'Pro의 모든 기능을 6개월간 — 1회 결제 (46% 할인).',
     plan_free_features: [
       '내 API 키로 모든 AI 무제한',
       '회의 분석 · 문서 RAG',
@@ -110,13 +113,13 @@ const copy = {
     ],
     plan_lifetime_features: [
       'Pro의 모든 기능',
-      '평생 라이센스 (1회 결제)',
+      '6개월 이용권 (1회 결제 · 46% 할인)',
       '미래 신기능 자동 포함',
     ],
     cta_current:    '현재 플랜',
     cta_choose:     '선택하기',
     cta_upgrade:    '업그레이드',
-    cta_lifetime:   '평생 구매',
+    cta_lifetime:   '6개월 구매 — $29',
     payTitle:       '결제 준비 중',
     payDesc:        '결제 시스템(Toss / Xendit / 카드)을 곧 연결해요. 출시 알림을 받으시려면 아래 버튼을 눌러주세요.',
     payNotify:      '출시 알림 받기',
@@ -174,10 +177,10 @@ const copy = {
     free:          'Free',
     plan_free:     'Free',
     plan_pro:      'Pro',
-    plan_lifetime: 'Lifetime',
+    plan_lifetime: 'Discount - 6 Months',
     plan_free_desc: 'BYOK · unlimited core features.',
     plan_pro_desc:  'Trial key + priority new models + advanced RAG.',
-    plan_lifetime_desc: 'Everything in Pro, forever.',
+    plan_lifetime_desc: 'All Pro features for 6 months — pay once (46% off).',
     plan_free_features: [
       'Unlimited AI with your own keys',
       'Meeting analysis · document RAG',
@@ -192,13 +195,13 @@ const copy = {
     ],
     plan_lifetime_features: [
       'All Pro features',
-      'Lifetime license (one-time)',
+      '6-month access (one-time · 46% off)',
       'Future features included',
     ],
     cta_current:    'Current plan',
     cta_choose:     'Choose',
     cta_upgrade:    'Upgrade',
-    cta_lifetime:   'Get Lifetime',
+    cta_lifetime:   'Get 6-Month Access — $29',
     payTitle:       'Payment coming soon',
     payDesc:        'Toss / Xendit / Card checkout will be wired up shortly. Tap below to get a launch notification.',
     payNotify:      'Notify me at launch',
@@ -239,9 +242,91 @@ const copy = {
     providerLimitDesc:     'Blend\'s limit only works in this browser. Cap your spend at the source — every device, every key, every situation will respect it.',
     providerLimitOpen:     'Open limit settings',
   },
+  // [2026-05-04 Roy #17 후속] Filipino/Tagalog — design1 billing UI 따갈로그 적용.
+  // 기술 용어 (API key, subscription, BYOK 등)는 영어 — Taglish 자연스러움.
+  ph: {
+    head:          'Lahat ng AI, sa iisang key.',
+    sub:           'Isang AI app — mas mura at mas matalino.',
+    plansHead:     'Mga Plan',
+    plansSub:      'Pay-as-you-go, isang beses, o buwanan — pumili ng akma.',
+    monthly:       'Buwanan',
+    yearly:        'Taunan',
+    yearlyBadge:   '2 buwan libre',
+    perMonth:      '/buwan',
+    perYear:       '/taon',
+    once:          'Isang beses na bayad',
+    free:          'Libre',
+    plan_free:     'Libre',
+    plan_pro:      'Pro',
+    plan_lifetime: 'Discount - 6 Buwan',
+    plan_free_desc: 'BYOK · walang limit na core features.',
+    plan_pro_desc:  'Trial key + priority na bagong models + advanced RAG.',
+    plan_lifetime_desc: 'Lahat ng Pro features sa 6 na buwan — minsan lang magbayad (46% off).',
+    plan_free_features: [
+      'Walang limit na AI gamit ang sarili mong keys',
+      'Pagsusuri ng meeting · document RAG',
+      'Data source connectors',
+    ],
+    plan_pro_features: [
+      'Lahat ng Free features',
+      'Araw-araw na free trial nang walang key',
+      'Priority access sa bagong models',
+      'Advanced RAG · embedding search',
+      'Priority support',
+    ],
+    plan_lifetime_features: [
+      'Lahat ng Pro features',
+      '6-buwang access (isang beses · 46% off)',
+      'Future features kasama na',
+    ],
+    cta_current:    'Kasalukuyang plan',
+    cta_choose:     'Piliin',
+    cta_upgrade:    'Mag-upgrade',
+    cta_lifetime:   'Kumuha ng 6-Buwan — $29',
+    payTitle:       'Malapit nang magkaroon ng payment',
+    payDesc:        'Malapit nang ikonekta ang Toss / Xendit / Card checkout. I-tap sa baba para makatanggap ng launch notification.',
+    payNotify:      'Abisuhan ako sa launch',
+    payClose:       'Isara',
+    thisMonth:     'Buwang ito',
+    spent:         'nagastos',
+    ifSubscribedPrefix:    'Kung nagbabayad ka sa bawat isa — ',
+    ifSubscribedHighlight: '',
+    ifSubscribed:          '',
+    ifSubscribedTrailing:  '/buwan',
+    savingsTopPrefix:  (_n: number) => 'Naitipid sa ',
+    savingsHighlight:  'Blend',
+    savingsTopSuffix:  (_n: number) => '',
+    savedLabel:        (n: number) => `sa ${n} araw`,
+    sumLabel:      'Total',
+    last30:        'Huling 30 araw',
+    breakdown:     'Kada model',
+    dailyAvg:      'Araw-araw na average',
+    highestDay:    'Pinakamataas na araw',
+    spendingLimit: 'Spending limit ng Blend',
+    spendingLimitSub: 'Kapag lumampas ang gastos sa halagang ito, ititigil ng Blend ang lahat ng AI calls.',
+    dailyLimit:    'Araw-araw na Limit',
+    monthlyLimit:  'Buwanang Limit',
+    notSet:        'Wala',
+    set:           'I-set',
+    change:        'Baguhin',
+    cancel:        'Kanselahin',
+    save:          'I-save',
+    notify80:      'Abisuhan kapag 80% ng limit',
+    autoStop:      'Awtomatikong itigil kapag lumampas',
+    empty:         'Wala pang usage.',
+    emptyHint:     'Kapag nag-umpisa kang mag-chat, lalabas dito ang usage mo.',
+    today:         'Ngayon',
+    providerLimitTitle:    'Mag-set ng hard limit sa source',
+    providerLimitHeadline: 'I-lock minsan. Ligtas habambuhay.',
+    providerLimitDesc:     'Sa browser na ito lang gumagana ang limit ng Blend. I-cap ang gastos sa source (AI company console) — bawat device, bawat key, bawat sitwasyon ay susunod doon.',
+    providerLimitOpen:     'Buksan ang limit settings',
+  },
 } as const;
 
 // ── Format helpers ───────────────────────────────────────────────
+// [2026-05-04 #17] PHP 환산 — billing-view.tsx와 동일 비율 (1 USD ≈ 56 PHP).
+const PHP_PER_USD = 56;
+
 function fmtKrw(usd: number): string {
   const krw = Math.round(usd * KRW_PER_USD);
   if (krw === 0) return '₩0';
@@ -256,8 +341,17 @@ function fmtUsd(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
-function fmtMoney(usd: number, lang: 'ko' | 'en'): string {
-  return lang === 'ko' ? fmtKrw(usd) : fmtUsd(usd);
+function fmtPhp(usd: number): string {
+  const php = Math.round(usd * PHP_PER_USD);
+  if (php === 0) return '₱0';
+  if (php < 1) return '<₱1';
+  return `₱${php.toLocaleString('en-PH')}`;
+}
+
+function fmtMoney(usd: number, lang: 'ko' | 'en' | 'ph', isPh = false): string {
+  if (lang === 'ko') return fmtKrw(usd);
+  if (isPh) return `${fmtUsd(usd)} (${fmtPhp(usd)})`;
+  return fmtUsd(usd);
 }
 
 function providerOf(modelId: string): string {
@@ -270,7 +364,7 @@ function providerOf(modelId: string): string {
   return 'openai';
 }
 
-function shortDateLabel(iso: string, lang: 'ko' | 'en'): string {
+function shortDateLabel(iso: string, lang: 'ko' | 'en' | 'ph'): string {
   const d = new Date(iso + 'T00:00:00');
   const m = d.getMonth() + 1;
   const day = d.getDate();
@@ -283,7 +377,7 @@ function SVGLineChart({
   lang,
 }: {
   data: { date: string; cost: number }[];
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
 }) {
   const W = 600;
   const H = 180;
@@ -322,13 +416,19 @@ function SVGLineChart({
 // ── Main view ────────────────────────────────────────────────────
 // [2026-04-26] F-3 — mode='pricing' (Billing 메뉴) / 'savings' (Cost Savings 메뉴)
 export default function D1BillingView({
-  lang,
+  lang: rawLang,
   mode = 'pricing',
 }: {
-  lang: 'ko' | 'en';
+  // [2026-05-04 #17] 'ph' 받음 → 내부 displayLang 'en'으로 coerce해 텍스트 영어 표시.
+  // 화폐만 별도 분기 (USD + ₱ PHP 동반 표시) — fmtMoney에서 처리.
+  lang: 'ko' | 'en' | 'ph';
   mode?: 'pricing' | 'savings';
 }) {
-  const t = copy[lang];
+  const lang: 'ko' | 'en' | 'ph' = rawLang === 'ph' ? 'en' : rawLang;
+  const isPh = rawLang === 'ph';
+  // [2026-05-04 #17 후속] copy lookup은 rawLang 사용 — copy.ph가 직접 매칭돼 따갈로그 카피
+  // 노출. lang(narrow)는 fmtKrw/fmtUsd 같은 ko/en 분기에만 사용.
+  const t = copy[rawLang];
 
   // ── Usage data ────────────────────────────────────────────────
   const records         = useUsageStore((s) => s.records);
@@ -452,6 +552,7 @@ export default function D1BillingView({
         {mode === 'pricing' && (
           <PricingSection
             lang={lang}
+            isPh={isPh}
             t={t}
             billingCycle={billingCycle}
             setBillingCycle={setBillingCycle}
@@ -478,9 +579,9 @@ export default function D1BillingView({
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <KvCol label={lang === 'ko' ? '어제' : 'Yesterday'}    cost={kvSummary.yesterday.totalCost} reqs={kvSummary.yesterday.totalRequests} lang={lang} />
-                <KvCol label={lang === 'ko' ? '이번 주(7일)' : 'This week'}   cost={kvSummary.week.totalCost}      reqs={kvSummary.week.totalRequests}      lang={lang} />
-                <KvCol label={lang === 'ko' ? '전체 누적' : 'All time'}    cost={kvSummary.all.totalCost}       reqs={kvSummary.all.totalRequests}       lang={lang} />
+                <KvCol label={lang === 'ko' ? '어제' : 'Yesterday'}    cost={kvSummary.yesterday.totalCost} reqs={kvSummary.yesterday.totalRequests} lang={lang} isPh={isPh} />
+                <KvCol label={lang === 'ko' ? '이번 주(7일)' : 'This week'}   cost={kvSummary.week.totalCost}      reqs={kvSummary.week.totalRequests}      lang={lang} isPh={isPh} />
+                <KvCol label={lang === 'ko' ? '전체 누적' : 'All time'}    cost={kvSummary.all.totalCost}       reqs={kvSummary.all.totalRequests}       lang={lang} isPh={isPh} />
               </div>
               {Object.keys(kvSummary.all.providers).length > 0 && (
                 <div className="mt-5 pt-4 border-t text-[13px]" style={{ borderColor: tokens.border, color: tokens.textDim }}>
@@ -491,7 +592,7 @@ export default function D1BillingView({
                       .map(([p, v]) => (
                         <span key={p}>
                           <span style={{ background: BRAND_COLORS[p] ?? tokens.accent, display: 'inline-block', width: 8, height: 8, borderRadius: '50%', marginRight: 6 }} />
-                          {p}: {fmtMoney(v.cost, lang)} · {v.requests}건
+                          {p}: {fmtMoney(v.cost, lang, isPh)} · {v.requests}{lang === 'ko' ? '건' : ' requests'}
                         </span>
                       ))}
                   </div>
@@ -523,7 +624,7 @@ export default function D1BillingView({
                     className="text-[40px] md:text-[56px] font-medium leading-none tracking-tight"
                     style={{ color: tokens.text }}
                   >
-                    {fmtMoney(monthCostUsd, lang)}
+                    {fmtMoney(monthCostUsd, lang, isPh)}
                   </span>
                   <span className="text-[14px]" style={{ color: tokens.textDim }}>
                     {t.spent}
@@ -549,7 +650,7 @@ export default function D1BillingView({
                           className="text-[36px] md:text-[48px] font-medium leading-none tracking-tight"
                           style={{ color: tokens.accent }}
                         >
-                          {fmtMoney(savingsUsd, lang)}
+                          {fmtMoney(savingsUsd, lang, isPh)}
                         </span>
                         <span
                           className="text-[20px] md:text-[24px] font-medium"
@@ -577,7 +678,7 @@ export default function D1BillingView({
                     )}
                     {t.ifSubscribed}
                     <span style={{ color: tokens.text, fontWeight: 500 }}>
-                      {fmtMoney(SUB_TOTAL_USD, lang)}
+                      {fmtMoney(SUB_TOTAL_USD, lang, isPh)}
                     </span>
                     {t.ifSubscribedTrailing}
                   </span>
@@ -589,7 +690,7 @@ export default function D1BillingView({
                     <li key={s.id} className="flex items-center justify-between text-[14px]">
                       <span style={{ color: tokens.textDim }}>{lang === 'ko' ? s.ko : s.en}</span>
                       <span style={{ color: tokens.text }}>
-                        {fmtMoney(s.usd, lang)}
+                        {fmtMoney(s.usd, lang, isPh)}
                       </span>
                     </li>
                   ))}
@@ -600,7 +701,7 @@ export default function D1BillingView({
                   style={{ borderColor: tokens.border }}
                 >
                   <span style={{ color: tokens.textDim }}>{t.sumLabel}</span>
-                  <span style={{ color: tokens.text }}>{fmtMoney(SUB_TOTAL_USD, lang)}</span>
+                  <span style={{ color: tokens.text }}>{fmtMoney(SUB_TOTAL_USD, lang, isPh)}</span>
                 </div>
                 {/* v3 — '차이' 행 제거: 절약액(₩82,135)은 메인 영역에서 강조됨, 중복 정보 제거 */}
               </div>
@@ -635,7 +736,7 @@ export default function D1BillingView({
                           <div className="flex items-center justify-between text-[13px] mb-1.5">
                             <span style={{ color: tokens.text }}>{model}</span>
                             <span style={{ color: tokens.textDim }}>
-                              {fmtMoney(usd, lang)} · {pct.toFixed(0)}%
+                              {fmtMoney(usd, lang, isPh)} · {pct.toFixed(0)}%
                             </span>
                           </div>
                           <div
@@ -661,7 +762,7 @@ export default function D1BillingView({
                 >
                   <div className="text-[13px]" style={{ color: tokens.textDim }}>{t.dailyAvg}</div>
                   <div className="mt-2 text-[24px] font-medium" style={{ color: tokens.text }}>
-                    {fmtMoney(dailyAvgUsd, lang)}
+                    {fmtMoney(dailyAvgUsd, lang, isPh)}
                   </div>
                 </div>
                 <div
@@ -670,7 +771,7 @@ export default function D1BillingView({
                 >
                   <div className="text-[13px]" style={{ color: tokens.textDim }}>{t.highestDay}</div>
                   <div className="mt-2 text-[24px] font-medium" style={{ color: tokens.text }}>
-                    {highestDay ? fmtMoney(highestDay.cost, lang) : '—'}
+                    {highestDay ? fmtMoney(highestDay.cost, lang, isPh) : '—'}
                   </div>
                   {highestDay && (
                     <div className="mt-1 text-[12px]" style={{ color: tokens.textFaint }}>
@@ -758,9 +859,11 @@ export default function D1BillingView({
 
 // ── [2026-04-26] PricingSection ──────────────────────────────────
 function PricingSection({
-  lang, t, billingCycle, setBillingCycle, activePlan, onChoose,
+  lang, isPh, t, billingCycle, setBillingCycle, activePlan, onChoose,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
+  // [2026-05-04 #17] /design1/ph 라우트 시 true → 가격 옆 ₱ PHP 동반 표시.
+  isPh: boolean;
   t: typeof copy[keyof typeof copy];
   billingCycle: BillingCycle;
   setBillingCycle: (c: BillingCycle) => void;
@@ -769,7 +872,12 @@ function PricingSection({
 }) {
   const fmtKrwInline = (n: number) => `₩${n.toLocaleString('ko-KR')}`;
   const fmtUsdInline = (krw: number) => `$${(krw / KRW_PER_USD).toFixed(0)}`;
-  const money = (krw: number) => (lang === 'ko' ? fmtKrwInline(krw) : fmtUsdInline(krw));
+  const fmtPhpInline = (krw: number) => `₱${Math.round((krw / KRW_PER_USD) * PHP_PER_USD).toLocaleString('en-PH')}`;
+  const money = (krw: number) => {
+    if (lang === 'ko') return fmtKrwInline(krw);
+    if (isPh) return `${fmtUsdInline(krw)} (${fmtPhpInline(krw)})`;
+    return fmtUsdInline(krw);
+  };
 
   const proPriceKrw = billingCycle === 'monthly' ? PRICING.pro.monthlyKrw : PRICING.pro.yearlyKrw;
   const proSuffix   = billingCycle === 'monthly' ? t.perMonth : t.perYear;
@@ -904,7 +1012,15 @@ function PlanCard({
       }}
     >
       <div className="mb-1 text-[14px] font-semibold" style={{ color: tokens.text }}>
-        {name}
+        {/* [2026-05-04 Roy] 'Discount - 6 Months' 같이 시작하면 Discount 부분만 파란색 + bold */}
+        {name.startsWith('Discount') ? (
+          <>
+            <span style={{ color: '#2563eb', fontWeight: 700 }}>Discount</span>
+            <span>{name.slice('Discount'.length)}</span>
+          </>
+        ) : (
+          name
+        )}
       </div>
       <p className="mb-5 text-[12.5px]" style={{ color: tokens.textDim }}>
         {desc}
@@ -949,7 +1065,7 @@ function PaymentStubModal({
 }: {
   plan: PlanId;
   billingCycle: BillingCycle;
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   t: typeof copy[keyof typeof copy];
   onClose: () => void;
 }) {
@@ -1096,7 +1212,7 @@ const PROVIDER_LIMIT_LINKS: Array<{ id: string; name: string; brand: string; url
   { id: 'groq',      name: 'Groq',           brand: '#F55036', url: 'https://console.groq.com/settings/limits',                         hint_ko: 'Llama · Mixtral 고속',          hint_en: 'Llama · Mixtral fast' },
 ];
 
-function ProviderLimitsSection({ lang, t }: { lang: 'ko' | 'en'; t: Record<string, unknown> & typeof copy.ko }) {
+function ProviderLimitsSection({ lang, t }: { lang: 'ko' | 'en' | 'ph'; t: Record<string, unknown> & typeof copy.ko }) {
   const headline = (t.providerLimitHeadline as string) ?? '';
   const desc     = (t.providerLimitDesc as string) ?? '';
   const title    = (t.providerLimitTitle as string) ?? '';
@@ -1167,14 +1283,25 @@ function ProviderLimitsSection({ lang, t }: { lang: 'ko' | 'en'; t: Record<strin
 }
 
 // [2026-05-02 Roy] KV 통합 뷰 컬럼 — 어제/이번주/전체 누적 표시.
-function KvCol({ label, cost, reqs, lang }: { label: string; cost: number; reqs: number; lang: 'ko' | 'en' }) {
+function KvCol({ label, cost, reqs, lang, isPh = false }: { label: string; cost: number; reqs: number; lang: 'ko' | 'en' | 'ph'; isPh?: boolean }) {
   // [2026-05-02 Roy] 라벨/건수 텍스트를 '이번 달' 헤더(13px)와 통일.
   // 이전: label 12px / reqs 11px → 너무 작음, 가독성 낮음.
+  // [2026-05-04 Roy #17 후속] isPh일 때 USD + ₱ PHP 동반 표시.
+  const usdLabel = cost > 0 ? `$${cost.toFixed(cost < 0.01 ? 4 : 2)}` : '$0';
+  const phpLabel = cost > 0 ? `₱${Math.round(cost * 56).toLocaleString('en-PH')}` : '₱0';
+  let priceText: string;
+  if (lang === 'ko') {
+    priceText = cost > 0 ? `₩${Math.round(cost * KRW_PER_USD).toLocaleString('ko-KR')}` : '₩0';
+  } else if (isPh) {
+    priceText = `${usdLabel} (${phpLabel})`;
+  } else {
+    priceText = usdLabel;
+  }
   return (
     <div>
       <div className="text-[13px] mb-1" style={{ color: tokens.textDim }}>{label}</div>
       <div className="text-[20px] font-medium" style={{ color: tokens.text }}>
-        {cost > 0 ? (lang === 'ko' ? `₩${Math.round(cost * KRW_PER_USD).toLocaleString('ko-KR')}` : `$${cost.toFixed(cost < 0.01 ? 4 : 2)}`) : (lang === 'ko' ? '₩0' : '$0')}
+        {priceText}
       </div>
       <div className="text-[13px]" style={{ color: tokens.textFaint }}>
         {reqs}{lang === 'ko' ? '건' : ' requests'}
@@ -1183,8 +1310,8 @@ function KvCol({ label, cost, reqs, lang }: { label: string; cost: number; reqs:
   );
 }
 
-function EmptyState({ lang }: { lang: 'ko' | 'en' }) {
-  const t = copy[lang];
+function EmptyState({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
+  const t = lang === 'ko' ? copy.ko : lang === 'ph' ? copy.ph : copy.en;
   return (
     <div
       className="rounded-2xl border p-10 md:p-14 text-center"
@@ -1201,7 +1328,7 @@ function LimitRow({
 }: {
   label: string;
   valueUsd: number;
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onSave: (usd: number) => void;
   t: typeof copy[keyof typeof copy];
 }) {

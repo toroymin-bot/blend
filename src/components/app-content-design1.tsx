@@ -33,7 +33,7 @@ const D1DataSourcesView  = lazy(() => import('@/modules/datasources/datasources-
 // [2026-04-26] F-3 — cost-savings 메뉴는 D1BillingView mode='savings'를 사용 (사용량/한도/SVG/모델별)
 const D1CostSavingsView  = lazy(() =>
   import('@/modules/billing/billing-view-design1').then((m) => ({
-    default: (props: { lang: 'ko' | 'en' }) => <m.default {...props} mode="savings" />,
+    default: (props: { lang: 'ko' | 'en' | 'ph' }) => <m.default {...props} mode="savings" />,
   }))
 );
 
@@ -83,15 +83,23 @@ type ConvSummary = { id: number; title: string };
 const labels = {
   ko: { logo: 'Blend', newChat: '새 채팅', search: '검색', chat: '채팅', compare: '모델 비교', documents: '문서', meeting: '회의', billing: '요금제', more: '더보기', settings: '설정', datasources: '데이터 소스', models: '모델', agents: '에이전트', savings: '비용 절감', dashboard: '대시보드', security: '보안', about: '소개', prompts: '프롬프트', plugins: '플러그인', recent: '최근', noConvs: '아직 대화가 없습니다' },
   en: { logo: 'Blend', newChat: 'New chat', search: 'Search', chat: 'Chat', compare: 'Compare', documents: 'Documents', meeting: 'Meeting', billing: 'Billing', more: 'More', settings: 'Settings', datasources: 'Data Sources', models: 'Models', agents: 'Agents', savings: 'Cost Savings', dashboard: 'Dashboard', security: 'Security', about: 'About', prompts: 'Prompts', plugins: 'Plugins', recent: 'Recent', noConvs: 'No conversations yet' },
+  // [2026-05-04 Roy #17 후속] Filipino/Tagalog — sidebar 메뉴 라벨 따갈로그.
+  // Tech terms (Models, Agents, Plugins) ay manatiling English — natural Taglish.
+  ph: { logo: 'Blend', newChat: 'Bagong chat', search: 'Hanapin', chat: 'Chat', compare: 'Ihambing', documents: 'Mga Dokumento', meeting: 'Meeting', billing: 'Bayad', more: 'Higit pa', settings: 'Mga Setting', datasources: 'Data Sources', models: 'Models', agents: 'Agents', savings: 'Tipid', dashboard: 'Dashboard', security: 'Seguridad', about: 'Tungkol', prompts: 'Prompts', plugins: 'Plugins', recent: 'Kamakailan', noConvs: 'Wala pang usapan' },
 } as const;
 
 // [2026-04-26] BUG-FIX (16417011) — Roy 결정: 검색 메뉴 UI에서 숨김 (코드 유지)
 // 향후 재활성화 시 한 줄 변경: SHOW_SEARCH_MENU = true
 const SHOW_SEARCH_MENU = false;
 
-export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' }) {
+export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' | 'ph' }) {
   const lang = urlLang;
+  // [2026-05-04 #17 후속] 'ph'에 sidebar 라벨 따갈로그 적용 — labels.ph 추가됨.
   const t = labels[lang];
+  // [2026-05-05 ph 전면 적용] 자식 design1 컴포넌트들 모두 'ko' | 'en' | 'ph' 받게
+  // 확장됨. childLang은 그대로 lang을 전달 — inline ternary `lang === 'ko' ? K : E`
+  // 분기에 ph일 때 따갈로그 또는 en fallback이 컴포넌트별로 적용됨.
+  const childLang: 'ko' | 'en' | 'ph' = lang;
 
   // ── 온보딩: 이벤트 기반 (d1:open-onboarding) ───────────────────
   const { loadFromStorage } = useAPIKeyStore();
@@ -287,18 +295,18 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       return <D1ChatView key={convKey} lang={lang} initialModel={chatInitialModel} onConversationStart={handleConversationStart} />;
     }
     const map: Partial<Record<ViewId, React.ReactNode>> = {
-      compare:     <D1CompareView lang={lang} onContinueInChat={handleContinueInChat} />,
-      documents:   <D1DocumentsView lang={lang} onAskAboutDocs={() => { setActiveView('chat'); setConvKey((k) => k + 1); }} />,
-      meeting:     <D1MeetingView lang={lang} />,
+      compare:     <D1CompareView lang={childLang} onContinueInChat={handleContinueInChat} />,
+      documents:   <D1DocumentsView lang={childLang} onAskAboutDocs={() => { setActiveView('chat'); setConvKey((k) => k + 1); }} />,
+      meeting:     <D1MeetingView lang={childLang} />,
       billing:     <D1BillingView lang={lang} />,
-      datasources: <D1DataSourcesView lang={lang} />,
-      models:      <D1ModelsView lang={lang} onSelectModel={handleContinueInChat} onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))} />,
-      agents:      <D1AgentsView lang={lang} onStartChat={handleContinueInChat} />,
-      savings:     <D1CostSavingsView lang={lang} />,
-      dashboard:   <D1DashboardView lang={lang} />,
+      datasources: <D1DataSourcesView lang={childLang} />,
+      models:      <D1ModelsView lang={childLang} onSelectModel={handleContinueInChat} onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))} />,
+      agents:      <D1AgentsView lang={childLang} onStartChat={handleContinueInChat} />,
+      savings:     <D1CostSavingsView lang={childLang} />,
+      dashboard:   <D1DashboardView lang={childLang} />,
       settings:    <D1SettingsView />,
-      security:    <D1SecurityView lang={lang} />,
-      about:       <D1AboutView lang={lang} onNavigate={(tab) => nav(tab as ViewId)} />,
+      security:    <D1SecurityView lang={childLang} />,
+      about:       <D1AboutView lang={childLang} onNavigate={(tab) => nav(tab as ViewId)} />,
       // Roy 결정 2026-04-25: prompts 라우트 제거 (메뉴도 없음). plugins 유지.
       plugins:     <PluginsView />,
     };
@@ -329,7 +337,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
 
   // 온보딩 화면
   if (showOnboarding) {
-    return <D1OnboardingView onDone={handleOnboardingDone} lang={lang} />;
+    return <D1OnboardingView onDone={handleOnboardingDone} lang={childLang} />;
   }
 
   return (
@@ -596,8 +604,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       <Analytics />
 
       {/* [2026-04-26] Sprint 1 (16384367) — Welcome Demo 60s */}
+      {/* WelcomeDemo은 'ko'|'en'만 받음 — ph는 en으로 coerce (Filipino UX는 영어 fallback OK). */}
       <WelcomeDemo
-        lang={lang}
+        lang={childLang === 'ph' ? 'en' : childLang}
         open={welcomeOpen}
         onClose={() => setWelcomeOpen(false)}
         onStart={() => { setWelcomeOpen(false); setActiveView('chat'); }}
@@ -608,8 +617,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
       <StorageQuotaToast onOpenSecurity={() => setActiveView('security')} />
 
       {/* [2026-04-26 Tori 16384118 §3.9] 비용 한도 알림 모달 */}
+      {/* CostAlertModal은 'ko'|'en'만 받음 — ph는 en으로 coerce. */}
       <CostAlertModal
-        lang={lang}
+        lang={childLang === 'ph' ? 'en' : childLang}
         open={costAlertOpen}
         used={costAlertData.used}
         limit={costAlertData.limit}

@@ -10,7 +10,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Language } from '@/lib/i18n';
 
-const SUPPORTED_LANGS: Language[] = ['ko', 'en'];
+const SUPPORTED_LANGS: Language[] = ['ko', 'en', 'ph'];
 
 interface Props {
   lang: string;

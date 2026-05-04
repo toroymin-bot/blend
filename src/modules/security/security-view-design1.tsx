@@ -128,8 +128,8 @@ function maskKey(key: string): string {
 }
 
 // ── Main view ───────────────────────────────────────────────────
-export default function D1SecurityView({ lang }: { lang: 'ko' | 'en' }) {
-  const t = copy[lang];
+export default function D1SecurityView({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
+  const t = lang === 'ko' ? copy.ko : copy.en;
 
   const { keys, getKey, setKey, loadFromStorage } = useAPIKeyStore();
   const agents      = useAgentStore((s) => s.agents);

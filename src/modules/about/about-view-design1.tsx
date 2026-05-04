@@ -17,8 +17,9 @@ const tokens = {
 const BUILD_DATE = process.env.NEXT_PUBLIC_BUILD_DATE || '2026-04-25';
 const VERSION    = process.env.NEXT_PUBLIC_BUILD_VERSION || 'v0.9.x';
 
-export default function D1AboutView({ lang }: { lang: 'ko' | 'en'; onNavigate?: (tab: string) => void }) {
+export default function D1AboutView({ lang }: { lang: 'ko' | 'en' | 'ph'; onNavigate?: (tab: string) => void }) {
   const isKo = lang === 'ko';
+  const isPh = lang === 'ph';
 
   return (
     <div
@@ -46,17 +47,27 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en'; onNavigate?: 
           </div>
           <h1 className="text-[32px] md:text-[40px] font-medium tracking-tight">Blend</h1>
           <p className="mt-5 text-[16px] md:text-[18px]" style={{ color: tokens.textDim }}>
-            {isKo ? 'AI들을 하나로, 더 저렴하게, 더 똑똑하게.' : 'One AI app — more affordable and smarter.'}
+            {isKo
+              ? 'AI들을 하나로, 더 저렴하게, 더 똑똑하게.'
+              : isPh
+              ? 'Iisang AI app — mas mura at mas matalino.'
+              : 'One AI app — more affordable and smarter.'}
           </p>
         </header>
 
         {/* Why we built this */}
-        <Section title={isKo ? '왜 만들었나' : 'Why we built this'}>
+        <Section title={isKo ? '왜 만들었나' : isPh ? 'Bakit ginawa namin ito' : 'Why we built this'}>
           {isKo ? (
             <>
               <P>매월 AI 구독료로 12만원을 쓰고 있었습니다.</P>
               <P>이제는 월 12,000원이면 충분합니다.</P>
               <PStrong>이게 Blend입니다.</PStrong>
+            </>
+          ) : isPh ? (
+            <>
+              <P>Ginagastos namin ang ₱5,000 kada buwan sa AI subscriptions.</P>
+              <P>Ngayon, ₱500 lang kada buwan.</P>
+              <PStrong>Iyan ang Blend.</PStrong>
             </>
           ) : (
             <>
@@ -68,12 +79,12 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en'; onNavigate?: 
         </Section>
 
         {/* Made by */}
-        <Section title={isKo ? '만든 곳' : 'Made by'}>
+        <Section title={isKo ? '만든 곳' : isPh ? 'Ginawa ng' : 'Made by'}>
           <P>MIN Company</P>
         </Section>
 
         {/* Contact */}
-        <Section title={isKo ? '연락' : 'Contact'}>
+        <Section title={isKo ? '연락' : isPh ? 'Makipag-ugnayan' : 'Contact'}>
           <P>
             <a href="mailto:blend@ai4min.com" style={{ color: tokens.accent }}>
               📧 blend@ai4min.com

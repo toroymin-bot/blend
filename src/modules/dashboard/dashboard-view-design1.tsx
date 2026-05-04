@@ -135,8 +135,8 @@ function categoryOfModel(id: string): keyof typeof CATEGORY_COLORS {
 }
 
 // ── Main view ────────────────────────────────────────────────────
-export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' }) {
-  const t = copy[lang];
+export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
+  const t = lang === 'ko' ? copy.ko : copy.en;
 
   const records         = useUsageStore((s) => s.records);
   const loadFromStorage = useUsageStore((s) => s.loadFromStorage);

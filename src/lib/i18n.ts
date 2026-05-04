@@ -9,11 +9,15 @@ import { useParams } from 'next/navigation';
 import { useSettingsStore } from '@/stores/settings-store';
 import ko from '@/locales/ko.json';
 import en from '@/locales/en.json';
+import ph from '@/locales/ph.json';
 
-export type Language = 'ko' | 'en';
+// [2026-05-04 Roy #17] Filipino market — URL `/ph`, Tagalog (with English
+// fallback for un-translated keys via JSON merge at build time). 'ph' is a
+// market code (matches /ph URL) not a strict ISO 639 lang tag.
+export type Language = 'ko' | 'en' | 'ph';
 
 type NestedStringRecord = { [key: string]: string | NestedStringRecord };
-const translations: Record<Language, NestedStringRecord> = { ko, en };
+const translations: Record<Language, NestedStringRecord> = { ko, en, ph };
 
 /**
  * Resolve a dot-notation key like "settings.title" from the translation object.
@@ -59,6 +63,7 @@ function getLangFromPath(): Language | null {
   for (const s of segs.slice(0, 2)) {
     if (s === 'en') return 'en';
     if (s === 'ko') return 'ko';
+    if (s === 'ph') return 'ph';
   }
   return null;
 }
@@ -75,7 +80,7 @@ export function useTranslation(): UseTranslationResult {
   // Route params take priority — works during both SSR and client hydration.
   const urlLang = params?.lang as string | undefined;
   const lang: Language =
-    urlLang === 'en' ? 'en' : urlLang === 'ko' ? 'ko' :
+    urlLang === 'en' ? 'en' : urlLang === 'ko' ? 'ko' : urlLang === 'ph' ? 'ph' :
     (settings.language as Language) ?? 'ko';
 
   const dict = useMemo(() => translations[lang] ?? translations.ko, [lang]);
@@ -98,7 +103,8 @@ export function useTranslation(): UseTranslationResult {
 
 /**
  * Standalone helper for getting the current language without React hooks.
- * URL path takes priority (same logic as getLangFromPath), then falls back to localStorage.
+ * URL path takes priority (same logic as getLangFromPath), then falls back to
+ * localStorage, then country geo-cache (PH → 'ph' for first-visit Filipinos).
  */
 export function getCurrentLanguage(): Language {
   if (typeof window === 'undefined') return 'ko';
@@ -107,14 +113,39 @@ export function getCurrentLanguage(): Language {
   for (const s of segs.slice(0, 2)) {
     if (s === 'en') return 'en';
     if (s === 'ko') return 'ko';
+    if (s === 'ph') return 'ph';
   }
-  // Fallback: read from localStorage
+  // Fallback 1: explicit user choice in localStorage
   try {
     const stored = localStorage.getItem('blend:settings');
     if (stored) {
       const data = JSON.parse(stored);
       if (data.settings?.language === 'en') return 'en';
+      if (data.settings?.language === 'ph') return 'ph';
+      if (data.settings?.language === 'ko') return 'ko';
+    }
+  } catch {}
+  // Fallback 2: country geo-cache (set by useCountry hook). PH → ph default.
+  try {
+    const cached = localStorage.getItem('blend:country');
+    if (cached) {
+      const { value } = JSON.parse(cached);
+      if (value === 'PH') return 'ph';
     }
   } catch {}
   return 'ko';
+}
+
+/**
+ * Inline 3-way branching helper for design1 components that don't use t().
+ * Usage:
+ *   pickLang(lang, '한국어', 'English', 'Filipino')
+ *   pickLang(lang, '저장됨', 'Saved', 'Naka-save')
+ * If `ph` is omitted, falls back to `en` (Filipino IT/Taglish convention —
+ * many tech terms remain English).
+ */
+export function pickLang<T>(lang: Language | string | undefined, ko: T, en: T, ph?: T): T {
+  if (lang === 'ko') return ko;
+  if (lang === 'ph') return ph !== undefined ? ph : en;
+  return en;
 }

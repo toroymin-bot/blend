@@ -34,7 +34,8 @@ export interface AnalyzeInput {
   text?: string;
   ytUrl?: string;
   audioFile?: File | null;
-  lang: 'ko' | 'en';
+  /** 'ko' | 'en' | 'ph' — 'ph'는 내부적으로 영어 메시지로 처리 (Filipino UX는 영어 fallback). */
+  lang: 'ko' | 'en' | 'ph';
   /** view에서 가져온 키 lookup — 클로저로 capture해 module이 store 의존 없이 사용 */
   getKey: (provider: AIProvider) => string | undefined;
   hasKey: (provider: AIProvider) => boolean;
@@ -166,7 +167,9 @@ export async function startAnalyze(input: AnalyzeInput): Promise<void> {
   const ctrl = new AbortController();
   abortControllers.set(jobId, ctrl);
   const store = useMeetingJobStore.getState();
-  const lbl = labels[input.lang];
+  // labels는 'ko'|'en'만 있음 — 'ph'는 'en' fallback (Filipino UX = Taglish, 영어 OK).
+  const labelLang: 'ko' | 'en' = input.lang === 'ph' ? 'en' : input.lang;
+  const lbl = labels[labelLang];
 
   store.beginJob(jobId, lbl.analyzing);
 
@@ -221,7 +224,7 @@ export async function startAnalyze(input: AnalyzeInput): Promise<void> {
       const diarizeKey      = openaiKey || (input.getKey('anthropic') || '');
       if (diarizeKey) {
         try {
-          const segments = await diarizeSpeakers(transcribed, diarizeKey, diarizeProvider, input.lang);
+          const segments = await diarizeSpeakers(transcribed, diarizeKey, diarizeProvider, labelLang);
           inputText = segments.map((s) => `${s.speaker}: ${s.text}`).join('\n');
           transcriptSegments = segments.map((s) => ({ speaker: s.speaker, text: s.text }));
         } catch {
@@ -373,7 +376,7 @@ export async function startAnalyze(input: AnalyzeInput): Promise<void> {
 
     useMeetingJobStore.getState().finishJob(jobId, result);
   } catch (e) {
-    const detail = friendlyAnalyzeError(e, input.lang);
+    const detail = friendlyAnalyzeError(e, labelLang);
     console.error('[meeting-runner] analyze failed:', e);
     useMeetingJobStore.getState().failJob(jobId, detail);
   } finally {

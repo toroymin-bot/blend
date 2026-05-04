@@ -135,6 +135,30 @@ const copy = {
     send: 'Send',
     tryAnother: 'Try another AI',
   },
+  // [2026-05-04 Roy #17 후속] Filipino/Tagalog — 채팅 빈 화면 + 입력바 핵심 카피.
+  // Tech 용어(API/AI/Blend)는 영어 그대로 (Taglish 자연스러움).
+  ph: {
+    emptyTitle: 'Magtanong sa',
+    emptyTitleAccent: 'maraming AI,',
+    emptyTitleEnd: 'maghanap ng dokumento, magbuod ng meeting.',
+    emptySubtitle: 'Isang AI app — mas mura at mas matalino.',
+    placeholder: 'Magtanong ng kahit ano',
+    placeholderActive: 'Magtanong sa Blend',
+    suggestions: ['Sumulat ng email draft', 'Suriin ang larawang ito', 'I-review ang code ko', 'Ibuod ang mahabang teksto'],
+    modelAuto: 'Auto',
+    modelAutoDesc: 'Awtomatikong pumipili ng pinakamagaling na AI',
+    footer: 'Awtomatikong pinipili ng Blend ang pinakamagaling na AI sa bawat tanong',
+    copy: 'Kopyahin',
+    copied: 'Nakopya',
+    regenerate: 'Ulitin',
+    noApiKey: 'Mangyaring i-setup muna ang API key.',
+    history: 'Kasaysayan',
+    share: 'Ibahagi',
+    attachFile: 'Mag-attach ng file',
+    voiceInput: 'Voice input',
+    send: 'Ipadala',
+    tryAnother: 'Subukan ang ibang AI',
+  },
 } as const;
 
 type Lang = keyof typeof copy;
@@ -202,7 +226,7 @@ const SUGGESTIONS_WITH_MODEL = [
 // ============================================================
 // Formatting utilities
 // ============================================================
-function formatKRW(usd: number | undefined, lang: 'ko' | 'en'): string {
+function formatKRW(usd: number | undefined, lang: 'ko' | 'en' | 'ph'): string {
   if (usd === undefined || usd === 0) return '';
   if (lang === 'en') return usd < 0.01 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(3)}`;
   const krw = Math.round(usd * 1370);
@@ -210,7 +234,7 @@ function formatKRW(usd: number | undefined, lang: 'ko' | 'en'): string {
   return `₩${krw}`;
 }
 
-function formatTokens(count: number | undefined, lang: 'ko' | 'en'): string {
+function formatTokens(count: number | undefined, lang: 'ko' | 'en' | 'ph'): string {
   if (count === undefined || count === 0) return '';
   if (count >= 1000) return lang === 'ko' ? `${(count / 1000).toFixed(1)}K토큰` : `${(count / 1000).toFixed(1)}K tokens`;
   return lang === 'ko' ? `${count}토큰` : `${count} tokens`;
@@ -319,10 +343,15 @@ export default function D1ChatView({
   onConversationStart,
   initialModel,
 }: {
-  lang: 'ko' | 'en';
+  // [2026-05-04 Roy #17 후속] 'ph' 받음 — Blend identity prompt에 따갈로그 directive
+  // 부착해 AI 응답 일관성. 내부의 ko/en 분기(formatKRW/formatTokens 등)는 'en' fallback.
+  lang: 'ko' | 'en' | 'ph';
   onConversationStart?: (title: string) => void;
   initialModel?: string;
 }) {
+  // 자식 함수/유틸 (ko/en만 받는 narrow 시그니처)에 전달할 때 사용. ph는 en으로 coerce.
+  // ph 고유 처리는 lang 그대로 사용 (예: getBlendIdentityPrompt, copy[lang]).
+  const narrowLang: 'ko' | 'en' = lang === 'ph' ? 'en' : lang;
   const { keys, getKey, hasKey, loadFromStorage } = useAPIKeyStore();
 
   useEffect(() => { loadFromStorage(); }, []);
@@ -526,7 +555,7 @@ export default function D1ChatView({
       }
     } catch (e) {
       if (typeof window !== 'undefined') console.warn('[TTS] failed:', e);
-      setToastMsg(lang === 'ko' ? `🔇 음성 재생 실패: ${(e as Error).message}` : `🔇 TTS failed: ${(e as Error).message}`);
+      setToastMsg(lang === 'ko' ? `🔇 음성 재생 실패: ${(e as Error).message}` : lang === 'ph' ? `🔇 Hindi nagana ang TTS: ${(e as Error).message}` : `🔇 TTS failed: ${(e as Error).message}`);
     }
   }
 
@@ -874,7 +903,7 @@ export default function D1ChatView({
     const id = activeChatId ?? 'd1_unsaved';
     const chat: D1Chat = {
       id,
-      title: d1DeriveTitle(messages as D1Message[]) || (lang === 'ko' ? 'Blend 대화' : 'Blend Chat'),
+      title: d1DeriveTitle(messages as D1Message[]) || (lang === 'ko' ? 'Blend 대화' : lang === 'ph' ? 'Usapan sa Blend' : 'Blend Chat'),
       messages: messages.map<D1Message>((m) => ({
         id: m.id,
         role: m.role,
@@ -952,7 +981,7 @@ export default function D1ChatView({
     const currentCount = attachedImages.length;
     const remaining = ATTACH_LIMIT - currentCount;
     if (remaining <= 0) {
-      setToastMsg(lang === 'ko' ? `채팅당 최대 ${ATTACH_LIMIT}개 첨부 가능` : `Up to ${ATTACH_LIMIT} attachments per chat`);
+      setToastMsg(lang === 'ko' ? `채팅당 최대 ${ATTACH_LIMIT}개 첨부 가능` : lang === 'ph' ? `Hanggang ${ATTACH_LIMIT} attachments kada chat` : `Up to ${ATTACH_LIMIT} attachments per chat`);
       return;
     }
     const imageFiles = files.filter((f) => f.type.startsWith('image/'));
@@ -1024,11 +1053,11 @@ export default function D1ChatView({
         return;
       }
     } catch {
-      setToastMsg(lang === 'ko' ? '음성 변환 실패' : 'Voice transcription failed');
+      setToastMsg(lang === 'ko' ? '음성 변환 실패' : lang === 'ph' ? 'Hindi nagana ang voice transcription' : 'Voice transcription failed');
       return;
     }
     if (!text.trim()) {
-      setToastMsg(lang === 'ko' ? '음성을 인식하지 못했어요' : "Couldn't recognize speech");
+      setToastMsg(lang === 'ko' ? '음성을 인식하지 못했어요' : lang === 'ph' ? 'Hindi nakilala ang boses' : "Couldn't recognize speech");
       return;
     }
     const existing = value.trim();
@@ -1117,7 +1146,7 @@ export default function D1ChatView({
     const newId = useD1ChatStore.getState().forkChatAt(srcId, messageId);
     if (newId) {
       loadChat(newId);
-      showToast(lang === 'ko' ? '새 채팅으로 분기했어요' : 'Forked to a new chat');
+      showToast(lang === 'ko' ? '새 채팅으로 분기했어요' : lang === 'ph' ? 'Na-fork sa bagong chat' : 'Forked to a new chat');
     }
   }
 
@@ -1314,7 +1343,7 @@ export default function D1ChatView({
         // [2026-05-03 Roy] 사용자 신고 — "어떤 API?" t.noApiKey가 어떤 키인지
         // 안 알려줌. 이미지 생성은 OpenAI 키 필수 → 토스트는 짧게 명시 + 채팅에
         // 친절 마크다운(발급 링크 + 등록 위치) 추가해 사용자가 즉시 행동 가능.
-        setToastMsg(lang === 'ko' ? '🔑 OpenAI 키가 필요해요' : '🔑 OpenAI key required');
+        setToastMsg(lang === 'ko' ? '🔑 OpenAI 키가 필요해요' : lang === 'ph' ? '🔑 Kailangan ng OpenAI key' : '🔑 OpenAI key required');
         setTimeout(() => setToastMsg(null), 4500);
         const friendly = lang === 'ko'
           ? `🎨 **이미지 생성에는 OpenAI API 키가 필요해요.**\n\n` +
@@ -1368,7 +1397,7 @@ export default function D1ChatView({
           currentUserMessage: finalImgPrompt,
           targetModel: imageModel,
           anthropicKey: getKey('anthropic') || undefined,
-          lang,
+          lang: narrowLang,
         });
         const promptToSend = adapt.finalPrompt;
         if (typeof window !== 'undefined') {
@@ -1719,7 +1748,7 @@ export default function D1ChatView({
         .map((d) => ({ name: stripSourceTag(d.name), error: docStoreState.embedProgress[d.id]?.error }));
       if (activeDocs.length > 0) {
         // Tori 17989643 PR #1 — 의도 분류 + 모드 분기
-        const intent = classifyAttachmentIntent(content, lang);
+        const intent = classifyAttachmentIntent(content, narrowLang);
 
         if (intent === 'full_context') {
           // 번역/요약/재구성 — 파일 전체 텍스트 주입
@@ -1761,7 +1790,7 @@ export default function D1ChatView({
 
         // 모드 헤더 prepend (모든 모드 공통)
         if (docContext) {
-          docContext = `${getModePromptHeader(intent, lang)}\n\n---\n\n${docContext}`;
+          docContext = `${getModePromptHeader(intent, narrowLang)}\n\n---\n\n${docContext}`;
         }
 
         // Sources 추출 (모든 모드 공통)
@@ -1790,7 +1819,7 @@ export default function D1ChatView({
             .slice(0, 8)
             .map(([name, count]) =>
               count > 1
-                ? (lang === 'ko' ? `${name} · ${count}개 청크` : `${name} · ${count} chunks`)
+                ? (lang === 'ko' ? `${name} · ${count}개 청크` : lang === 'ph' ? `${name} · ${count} chunks` : `${name} · ${count} chunks`)
                 : name
             );
         }
@@ -2057,7 +2086,7 @@ The [Active...] sections below are the user's activated sources. Use them as you
         targetModel: effectiveModel,
         attachedImageCount: images?.length ?? 0,
         anthropicKey: getKey('anthropic') || undefined,
-        lang,
+        lang: narrowLang,
         signal: controller.signal,
       });
       if (adapt.bridgeApplied) {
@@ -2110,7 +2139,7 @@ The [Active...] sections below are the user's activated sources. Use them as you
           if (messages.length === 0) triggerAutoTitle(content, fullText);
           // [2026-04-28 Roy] PDF 다운로드 자동화
           if (wantsPdfDownload && fullText.trim()) {
-            triggerPdfDownload(content, fullText, docSources, lang);
+            triggerPdfDownload(content, fullText, docSources, narrowLang);
           }
           // [2026-05-02 Roy] B 모드 — 음성 입력이었으면 답변 자동 재생
           maybeAutoPlay(fullText, sourceForThisMessage);
@@ -2321,7 +2350,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         if (messages.length === 0) triggerAutoTitle(content, fullText);
         // [2026-04-28 Roy] PDF 다운로드 자동화
         if (wantsPdfDownload && fullText.trim()) {
-          triggerPdfDownload(content, fullText, docSources, lang);
+          triggerPdfDownload(content, fullText, docSources, narrowLang);
         }
         // [2026-05-02 Roy] B 모드 — 음성 입력이었으면 답변 자동 재생
         maybeAutoPlay(fullText, sourceForThisMessage);
@@ -2465,7 +2494,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
             >
               <span style={{ whiteSpace: 'nowrap' }} suppressHydrationWarning>
                 {trialRemaining === 0
-                  ? (lang === 'ko' ? '무료 체험 종료' : 'Free trial ended')
+                  ? (lang === 'ko' ? '무료 체험 종료' : lang === 'ph' ? 'Tapos na ang free trial' : 'Free trial ended')
                   : lang === 'ko'
                   ? (isMobile ? `무료 · ${trialRemaining}/${trialMaxPerDay}${trailKo}` : `무료 체험중 · ${trialRemaining}/${trialMaxPerDay}${trailKo}`)
                   : (isMobile ? `Trial · ${trialRemaining}/${trialMaxPerDay}${trailEn}` : `Free trial · ${trialRemaining}/${trialMaxPerDay}${trailEn}`)}
@@ -2486,6 +2515,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
             <D1IconButton
               title={lang === 'ko'
                 ? (newChatPulse ? '⚡ 새 채팅을 시작하세요' : '새 채팅')
+                : lang === 'ph'
+                ? (newChatPulse ? '⚡ Magsimula ng bagong chat' : 'Bagong chat')
                 : (newChatPulse ? '⚡ Start a new chat' : 'New chat')}
               onClick={() => {
                 setActiveChatId(null);
@@ -2518,10 +2549,10 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onClick={() => { if (messages.length > 0) setExportOpen((o) => !o); }}
               title={
                 messages.length === 0
-                  ? (lang === 'ko' ? '대화를 시작하면 내보낼 수 있어요' : 'Start a conversation to export')
-                  : (lang === 'ko' ? '대화 내보내기' : 'Export conversation')
+                  ? (lang === 'ko' ? '대화를 시작하면 내보낼 수 있어요' : lang === 'ph' ? 'Magsimula ng usapan para makapag-export' : 'Start a conversation to export')
+                  : (lang === 'ko' ? '대화 내보내기' : lang === 'ph' ? 'I-export ang usapan' : 'Export conversation')
               }
-              aria-label={lang === 'ko' ? '대화 내보내기' : 'Export conversation'}
+              aria-label={lang === 'ko' ? '대화 내보내기' : lang === 'ph' ? 'I-export ang usapan' : 'Export conversation'}
               className="flex h-9 w-9 items-center justify-center rounded-lg border-none bg-transparent transition-colors duration-150 hover:bg-black/5"
               style={{
                 color: tokens.textDim,
@@ -2536,7 +2567,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               open={exportOpen}
               onClose={() => setExportOpen(false)}
               onExport={handleExport}
-              lang={lang}
+              lang={narrowLang}
             />
           </div>
         </div>
@@ -2637,9 +2668,9 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           >
             {/* Tori 통합 RAG — 활성 소스 칩 바 (입력창 위) */}
             <div className="mx-auto w-full max-w-[720px]">
-              <D1RagProgressBanner lang={lang} />
+              <D1RagProgressBanner lang={narrowLang} />
               <ActiveSourcesBar
-                lang={lang}
+                lang={narrowLang}
                 onNavigate={(source) => {
                   // [2026-04-26 QA-BUG-A] chip type별 view 분기. 이전엔 모든 chip이 documents view로만 이동.
                   const view =
@@ -2653,7 +2684,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
             </div>
             {selectedMemoryIds.length > 0 && (
               <D1MemoryChipsBar
-                lang={lang}
+                lang={narrowLang}
                 selectedIds={selectedMemoryIds}
                 chats={chatSummaries}
                 onRemove={toggleMemoryChat}
@@ -2681,7 +2712,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               voiceEnabled
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
-              onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
+              onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[narrowLang])}
               onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; setSttCount((c) => c + 1); }}
               ttsActive={ttsEnabled}
               onToggleTts={handleToggleTts}
@@ -2731,7 +2762,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                 }}
                 role="status"
               >
-                {lang === 'ko' ? '엔터를 눌러 보내세요' : 'Press Enter to send'}
+                {lang === 'ko' ? '엔터를 눌러 보내세요' : lang === 'ph' ? 'Pindutin ang Enter para magpadala' : 'Press Enter to send'}
               </div>
             )}
 
@@ -2751,7 +2782,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })}
           className="absolute bottom-[148px] right-6 z-10 flex h-8 w-8 items-center justify-center rounded-full border bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.15)]"
           style={{ borderColor: tokens.borderStrong }}
-          aria-label={lang === 'ko' ? '맨 아래로' : 'Scroll to bottom'}
+          aria-label={lang === 'ko' ? '맨 아래로' : lang === 'ph' ? 'Bumaba sa ibaba' : 'Scroll to bottom'}
         >
           <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: tokens.textDim }}>
             <path d="m6 9 6 6 6-6" />
@@ -2769,9 +2800,9 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           }}
         >
           <div className="mx-auto w-full max-w-[760px] px-8">
-            <D1RagProgressBanner lang={lang} />
+            <D1RagProgressBanner lang={narrowLang} />
             <ActiveSourcesBar
-              lang={lang}
+              lang={narrowLang}
               onNavigate={() => window.dispatchEvent(new CustomEvent('d1:nav-documents'))}
               onShowToast={showToast}
             />
@@ -2779,7 +2810,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                 시작 시 자동 비워짐. × 클릭으로 개별 제거. */}
             {selectedMemoryIds.length > 0 && (
               <D1MemoryChipsBar
-                lang={lang}
+                lang={narrowLang}
                 selectedIds={selectedMemoryIds}
                 chats={chatSummaries}
                 onRemove={toggleMemoryChat}
@@ -2807,7 +2838,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               voiceEnabled
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
-              onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
+              onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[narrowLang])}
               onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; setSttCount((c) => c + 1); }}
               ttsActive={ttsEnabled}
               onToggleTts={handleToggleTts}
@@ -2836,7 +2867,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') setToastMsg(null); }}
           className="fixed bottom-3 left-1/2 -translate-x-1/2 flex min-w-[280px] max-w-[90vw] items-start gap-3 rounded-2xl px-5 py-3 text-[13.5px] leading-relaxed shadow-lg z-[70] cursor-pointer"
           style={{ background: tokens.text, color: tokens.bg, fontFamily: fontStack }}
-          title={lang === 'ko' ? '눌러서 닫기' : 'Tap to dismiss'}
+          title={lang === 'ko' ? '눌러서 닫기' : lang === 'ph' ? 'I-tap para isara' : 'Tap to dismiss'}
         >
           <span className="flex-1 break-words whitespace-pre-wrap">{toastMsg}</span>
           <span aria-hidden className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[14px] leading-none opacity-80 hover:opacity-100" style={{ background: 'rgba(255,255,255,0.15)' }}>×</span>
@@ -2846,14 +2877,14 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
       {/* Trial modals */}
       {showTrialExhausted && (
         <D1TrialExhaustedModal
-          lang={lang}
+          lang={narrowLang}
           onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))}
           onClose={() => setShowTrialExhausted(false)}
         />
       )}
       {showKeyRequired && (
         <D1KeyRequiredModal
-          lang={lang}
+          lang={narrowLang}
           providerName={showKeyRequired.providerName}
           onSwitchToGemini={() => setCurrentModel('gemini-2.5-flash')}
           onOpenOnboarding={() => window.dispatchEvent(new CustomEvent('d1:open-onboarding'))}
@@ -2864,7 +2895,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
       {/* [2026-05-02 Roy] TTS 품질 첫 사용 모달 — '프리미엄' / '표준' 선택 */}
       {showTtsQualityModal && (
         <D1TtsQualityModal
-          lang={lang}
+          lang={narrowLang}
           onChoose={(q) => setTtsQualityAndPersist(q)}
           onClose={() => setShowTtsQualityModal(false)}
         />
@@ -2874,7 +2905,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           선택 후 pending prompt 자동 재발사. 모달 닫기로 cancel 시 prompt 폐기. */}
       {showImageQualityModal && (
         <D1ImageQualityModal
-          lang={lang}
+          lang={narrowLang}
           onChoose={(q) => {
             setImageQualityAndPersist(q);
             const pending = pendingImagePromptRef.current;
@@ -2891,7 +2922,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
 
       {/* [2026-04-26] Sprint 3 (16384367) — Share modal */}
       <ShareModal
-        lang={lang}
+        lang={narrowLang}
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         messages={shareMessages}
@@ -2911,7 +2942,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         }}
         onTogglePin={(id) => useD1ChatStore.getState().togglePin(id)}
         chats={chatSummaries}
-        lang={lang}
+        lang={narrowLang}
         selectedMemoryIds={selectedMemoryIds}
         onToggleMemory={toggleMemoryChat}
       />
@@ -2988,7 +3019,7 @@ function D1MemoryChipsBar({
   onRemove,
   onClearAll,
 }: {
-  lang: 'ko' | 'en';
+  lang: Lang;
   selectedIds: string[];
   chats: ChatSummary[];
   onRemove: (id: string) => void;
@@ -3001,7 +3032,7 @@ function D1MemoryChipsBar({
   return (
     <div className="mx-auto mb-2 flex w-full max-w-[720px] flex-wrap items-center gap-1.5 px-1">
       <span className="text-[12px]" style={{ color: tokens.textDim }}>
-        {lang === 'ko' ? '🧠 기억 중:' : '🧠 Remembering:'}
+        {lang === 'ko' ? '🧠 기억 중:' : lang === 'ph' ? '🧠 Tinatandaan:' : '🧠 Remembering:'}
       </span>
       {items.map((c) => (
         <span
@@ -3009,7 +3040,7 @@ function D1MemoryChipsBar({
           className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px]"
           style={{ background: '#FEF3C7', borderColor: '#FCD34D', color: '#854D0E' }}
         >
-          <span className="max-w-[180px] truncate">{c.title || (lang === 'ko' ? '제목 없음' : 'Untitled')}</span>
+          <span className="max-w-[180px] truncate">{c.title || (lang === 'ko' ? '제목 없음' : lang === 'ph' ? 'Walang pamagat' : 'Untitled')}</span>
           <button
             onClick={() => onRemove(c.id)}
             className="ml-0.5 rounded-full px-1 transition-opacity hover:opacity-70"
@@ -3026,7 +3057,7 @@ function D1MemoryChipsBar({
           className="text-[11.5px] underline transition-opacity hover:opacity-70"
           style={{ color: tokens.textFaint }}
         >
-          {lang === 'ko' ? '모두 지우기' : 'Clear all'}
+          {lang === 'ko' ? '모두 지우기' : lang === 'ph' ? 'Linisin lahat' : 'Clear all'}
         </button>
       )}
     </div>
@@ -3286,6 +3317,8 @@ function D1AssistantMessage({
             >
               {lang === 'ko'
                 ? `🎨 이미지를 표시할 수 없어요. "다른 AI로" 버튼을 누르거나 같은 요청을 다시 보내주세요.`
+                : lang === 'ph'
+                ? `🎨 Hindi ma-display ang larawan. Subukan ang "Try another AI" o ipadala ulit ang parehong request.`
                 : `🎨 Couldn't display the image. Try "Try another AI" or send the same request again.`}
             </div>
           )}
@@ -3329,7 +3362,7 @@ function D1AssistantMessage({
                 onClick={onShare}
                 className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
                 style={{ color: 'inherit' }}
-                title={lang === 'ko' ? '공유' : 'Share'}
+                title={lang === 'ko' ? '공유' : lang === 'ph' ? 'Ibahagi' : 'Share'}
               >
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
                   <circle cx={18} cy={5} r={3} />
@@ -3338,7 +3371,7 @@ function D1AssistantMessage({
                   <line x1={8.59} y1={13.51} x2={15.42} y2={17.49} />
                   <line x1={15.41} y1={6.51} x2={8.59} y2={10.49} />
                 </svg>
-                {lang === 'ko' ? '공유' : 'Share'}
+                {lang === 'ko' ? '공유' : lang === 'ph' ? 'Ibahagi' : 'Share'}
               </button>
             )}
 
@@ -3354,10 +3387,12 @@ function D1AssistantMessage({
                 title={
                   lang === 'ko'
                     ? `이전 대화의 컨텍스트를 자동으로 참조해서 답변했어요${bridgeFromCache ? ' (캐시 hit)' : ''}`
+                    : lang === 'ph'
+                    ? `Awtomatikong nagamit ang context ng dating usapan${bridgeFromCache ? ' (cache hit)' : ''}`
                     : `Previous conversation context was automatically used${bridgeFromCache ? ' (cache hit)' : ''}`
                 }
               >
-                ✨ {lang === 'ko' ? '이전 대화 참조' : 'Previous context'}
+                ✨ {lang === 'ko' ? '이전 대화 참조' : lang === 'ph' ? 'Nakaraang context' : 'Previous context'}
               </span>
             )}
 
@@ -3367,9 +3402,9 @@ function D1AssistantMessage({
                 onClick={onFork}
                 className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] opacity-0 transition-opacity duration-150 hover:!opacity-100 group-hover:opacity-60"
                 style={{ color: tokens.textDim }}
-                title={lang === 'ko' ? '분기 (포크)' : 'Fork from here'}
+                title={lang === 'ko' ? '분기 (포크)' : lang === 'ph' ? 'I-fork mula dito' : 'Fork from here'}
               >
-                ⑂ {lang === 'ko' ? '분기' : 'Fork'}
+                ⑂ {lang === 'ko' ? '분기' : lang === 'ph' ? 'Fork' : 'Fork'}
               </button>
             )}
             {onTryAnother && (
@@ -3380,7 +3415,7 @@ function D1AssistantMessage({
                   <span
                     className="inline-flex items-center gap-1 text-[11.5px]"
                     style={{ color: 'inherit' }}
-                    title={lang === 'ko' ? '이 답변을 생성한 AI' : 'AI that generated this response'}
+                    title={lang === 'ko' ? '이 답변을 생성한 AI' : lang === 'ph' ? 'AI na gumawa ng sagot' : 'AI that generated this response'}
                   >
                     <span
                       aria-hidden
@@ -3466,7 +3501,7 @@ function D1AssistantMessage({
             className="mt-3 flex flex-wrap items-center gap-1.5 text-[11.5px]"
             style={{ color: tokens.textDim }}
           >
-            <span>{lang === 'ko' ? '출처:' : 'Sources:'}</span>
+            <span>{lang === 'ko' ? '출처:' : lang === 'ph' ? 'Mga Source:' : 'Sources:'}</span>
             {sources.map((src, i) => (
               <span
                 key={i}
@@ -3738,7 +3773,7 @@ function D1InputBar({
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            <span>{lang === 'ko' ? '여기에 이미지 놓기' : 'Drop image here'}</span>
+            <span>{lang === 'ko' ? '여기에 이미지 놓기' : lang === 'ph' ? 'Ihulog ang larawan dito' : 'Drop image here'}</span>
           </div>
         </div>
       )}
@@ -3801,7 +3836,7 @@ function D1InputBar({
         }}
         onKeyDown={onKeyDown}
         onPaste={handlePaste}
-        placeholder={sessionDisabled ? (lang === 'ko' ? '이 채팅은 한도 도달. 위 + 새 채팅 버튼(노란색)을 눌러 시작해 주세요.' : 'Chat capacity reached — click the pulsing + New chat button above.') : placeholder}
+        placeholder={sessionDisabled ? (lang === 'ko' ? '이 채팅은 한도 도달. 위 + 새 채팅 버튼(노란색)을 눌러 시작해 주세요.' : lang === 'ph' ? 'Naabot na ang capacity ng chat na ito — i-click ang + Bagong chat button sa taas (kumikislap).' : 'Chat capacity reached — click the pulsing + New chat button above.') : placeholder}
         rows={1}
         disabled={sessionDisabled}
         className="w-full resize-none border-none bg-transparent text-[15px] md:text-base leading-[1.5] tracking-[-0.01em] outline-none placeholder:text-[--d1-placeholder] min-h-[28px] md:min-h-[32px] max-h-[240px] disabled:opacity-60 disabled:cursor-not-allowed"
@@ -3840,8 +3875,8 @@ function D1InputBar({
               }}
               title={
                 ttsActive
-                  ? (lang === 'ko' ? '듣기 끄기' : 'Turn off listen')
-                  : (lang === 'ko' ? '듣기 켜기' : 'Turn on listen')
+                  ? (lang === 'ko' ? '듣기 끄기' : lang === 'ph' ? 'Isara ang pakikinig' : 'Turn off listen')
+                  : (lang === 'ko' ? '듣기 켜기' : lang === 'ph' ? 'Buksan ang pakikinig' : 'Turn on listen')
               }
               aria-pressed={ttsActive}
             >
@@ -3866,10 +3901,10 @@ function D1InputBar({
                 color: 'var(--d1-accent)',
                 border: `1px solid var(--d1-accent-mid)`,
               }}
-              title={lang === 'en' ? 'About Blend' : '블렌드 서비스 소개'}
+              title={lang === 'ko' ? '블렌드 서비스 소개' : lang === 'ph' ? 'Tungkol sa Blend' : 'About Blend'}
             >
               <span aria-hidden>✦</span>
-              {lang === 'en' ? 'Blend?' : '블렌드란?'}
+              {lang === 'ko' ? '블렌드란?' : lang === 'ph' ? 'Ano ang Blend?' : 'Blend?'}
             </button>
           )}
         </div>
@@ -4025,7 +4060,7 @@ function D1ModelDropdown({
                   padding: '8px 16px 4px',
                 }}
               >
-                {PROVIDER_LABELS[provider][lang]}
+                {PROVIDER_LABELS[provider][lang === 'ph' ? 'en' : lang]}
               </div>
               {models.map(renderRow)}
             </div>
@@ -4085,13 +4120,13 @@ function D1KeyOnboarding({ lang }: { lang: Lang }) {
     : '"Geist", -apple-system, system-ui, sans-serif';
 
   const t = {
-    title:    lang === 'ko' ? 'API 키 설정'                                         : 'Set up your API key',
-    subtitle: lang === 'ko' ? 'AI와 대화하려면 API 키를 먼저 등록해주세요.'              : 'Add an API key from any provider to start chatting.',
-    choose:   lang === 'ko' ? 'AI 제공사 선택'                                        : 'Choose a provider',
-    inputLabel: (name: string) => lang === 'ko' ? `${name} API 키 입력` : `Enter your ${name} API key`,
-    save:     lang === 'ko' ? '저장하고 시작하기'                                      : 'Save and start',
-    privacy:  lang === 'ko' ? '키는 브라우저에만 저장됩니다. 서버로 전송되지 않습니다.'   : 'Keys are stored in your browser only — never sent to our servers.',
-    back:     lang === 'ko' ? '← 뒤로'                                               : '← Back',
+    title:    lang === 'ko' ? 'API 키 설정' : lang === 'ph' ? 'I-set up ang API key mo' : 'Set up your API key',
+    subtitle: lang === 'ko' ? 'AI와 대화하려면 API 키를 먼저 등록해주세요.' : lang === 'ph' ? 'Magdagdag ng API key mula sa kahit anong provider para makapag-chat.' : 'Add an API key from any provider to start chatting.',
+    choose:   lang === 'ko' ? 'AI 제공사 선택' : lang === 'ph' ? 'Pumili ng provider' : 'Choose a provider',
+    inputLabel: (name: string) => lang === 'ko' ? `${name} API 키 입력` : lang === 'ph' ? `Ilagay ang ${name} API key mo` : `Enter your ${name} API key`,
+    save:     lang === 'ko' ? '저장하고 시작하기' : lang === 'ph' ? 'I-save at simulan' : 'Save and start',
+    privacy:  lang === 'ko' ? '키는 브라우저에만 저장됩니다. 서버로 전송되지 않습니다.' : lang === 'ph' ? 'Naka-save ang mga key sa browser mo lang — hindi ipinapadala sa aming servers.' : 'Keys are stored in your browser only — never sent to our servers.',
+    back:     lang === 'ko' ? '← 뒤로' : lang === 'ph' ? '← Bumalik' : '← Back',
   };
 
   function handleSave() {
@@ -4191,7 +4226,7 @@ function D1KeyOnboarding({ lang }: { lang: Lang }) {
               className="w-full rounded-[12px] py-3 text-[14px] font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ background: saved ? '#22c55e' : tokens.accent, color: '#fff' }}
             >
-              {saved ? (lang === 'ko' ? '저장됨 ✓' : 'Saved ✓') : t.save}
+              {saved ? (lang === 'ko' ? '저장됨 ✓' : lang === 'ph' ? 'Naka-save ✓' : 'Saved ✓') : t.save}
             </button>
           </div>
         )}

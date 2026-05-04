@@ -29,6 +29,7 @@ export const metadata: Metadata = {
     languages: {
       "ko-KR": `${SITE_URL}/design1/ko`,
       "en-US": `${SITE_URL}/design1/en`,
+      "tl-PH": `${SITE_URL}/design1/ph`,
     },
   },
   openGraph: {
@@ -91,7 +92,7 @@ export default function RootLayout({
             첫 페인트 전에 동기 실행돼 스크린리더 + DOM lang API 모두 올바른 값을 본다. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=location.pathname.match(/^\\/(?:design[123]\\/)?(ko|en)(?:\\/|$)/);if(m)document.documentElement.lang=m[1];}catch(e){}})();`,
+            __html: `(function(){try{var m=location.pathname.match(/^\\/(?:design[123]\\/)?(ko|en|ph)(?:\\/|$)/);if(m)document.documentElement.lang=(m[1]==='ph'?'tl':m[1]);}catch(e){}})();`,
           }}
         />
         {/* [2026-04-17] Paddle Billing v2 — loaded globally for overlay checkout */}

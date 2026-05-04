@@ -102,10 +102,10 @@ export default function D1AgentsView({
   lang,
   onStartChat,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onStartChat?: (modelId: string) => void;
 }) {
-  const t = copy[lang];
+  const t = lang === 'ko' ? copy.ko : copy.en;
 
   const agents          = useAgentStore((s) => s.agents);
   const addAgent        = useAgentStore((s) => s.addAgent);
@@ -344,7 +344,7 @@ function AgentCard({
 function AgentEditor({
   lang, t, existing, onClose, onSave,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   t: typeof copy[keyof typeof copy];
   existing?: Agent;
   onClose: () => void;

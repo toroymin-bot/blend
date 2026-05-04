@@ -14,7 +14,7 @@ const tokens = {
   borderStrong: 'rgba(10, 10, 10, 0.12)',
 } as const;
 
-function fontStack(lang: 'ko' | 'en') {
+function fontStack(lang: 'ko' | 'en' | 'ph') {
   return lang === 'ko'
     ? '"Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif'
     : '"Geist", -apple-system, system-ui, sans-serif';
@@ -30,7 +30,7 @@ function D1ModalShell({
   onClose,
   children,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   title: string;
   subtitle: string;
   onClose: () => void;
@@ -106,7 +106,7 @@ export function D1TrialExhaustedModal({
   onOpenOnboarding,
   onClose,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onOpenOnboarding: () => void;
   onClose: () => void;
 }) {
@@ -184,7 +184,7 @@ export function D1KeyRequiredModal({
   onOpenOnboarding,
   onClose,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   providerName: string; // e.g. "Anthropic", "OpenAI"
   onSwitchToGemini: () => void;
   onOpenOnboarding: () => void;
@@ -259,14 +259,16 @@ export function D1ImageQualityModal({
   onChoose,
   onClose,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onChoose: (quality: 'premium' | 'standard') => void;
   onClose: () => void;
 }) {
   // registry에서 현재 standard / premium에 해당하는 모델 라벨 동적 도출.
   // 새 버전 출시 시(cron 갱신) 모달 카피도 자동 따라감.
-  const standardLabel = getImageModelLabel(getImageModelByQuality('standard'), lang);
-  const premiumLabel  = getImageModelLabel(getImageModelByQuality('premium'),  lang);
+  // getImageModelLabel은 'ko'|'en'만 받음 — 'ph'는 'en'으로 coerce.
+  const labelLang: 'ko' | 'en' = lang === 'ph' ? 'en' : lang;
+  const standardLabel = getImageModelLabel(getImageModelByQuality('standard'), labelLang);
+  const premiumLabel  = getImageModelLabel(getImageModelByQuality('premium'),  labelLang);
   const c = lang === 'ko'
     ? {
         title: '이미지 품질을 선택하세요',
@@ -333,7 +335,7 @@ export function D1TtsQualityModal({
   onChoose,
   onClose,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onChoose: (quality: 'premium' | 'standard') => void;
   onClose: () => void;
 }) {

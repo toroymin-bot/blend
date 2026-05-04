@@ -507,17 +507,17 @@ export function SettingsView() {
           </h2>
           <div className="bg-surface-2 rounded-xl p-4">
             <p className="text-sm text-on-surface-muted mb-3">{t('settings.language_desc')}</p>
-            <div className="flex gap-2">
-              {(['ko', 'en'] as const).map((l) => (
+            <div className="flex flex-col gap-2 items-stretch sm:items-start">
+              {(['ko', 'en', 'ph'] as const).map((l) => (
                 <button
                   key={l}
                   onClick={() => {
-                    // URL-based routing: navigate to /ko/ or /en/ so the language is reflected in the URL
+                    // URL-based routing: navigate to /ko/, /en/, or /ph/ so the language is reflected in the URL
                     setLang(l);
                     if (typeof window !== 'undefined') {
                       const currentPath = window.location.pathname;
                       const seg = currentPath.split('/')[1];
-                      if (seg === 'ko' || seg === 'en') {
+                      if (seg === 'ko' || seg === 'en' || seg === 'ph') {
                         // Replace lang segment and navigate
                         const rest = currentPath.split('/').slice(2).join('/');
                         window.location.href = `/${l}/${rest ? rest + '/' : ''}`;
@@ -530,8 +530,8 @@ export function SettingsView() {
                       : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'
                   }`}
                 >
-                  <span>{l === 'ko' ? '🇰🇷' : '🇺🇸'}</span>
-                  <span>{l === 'ko' ? t('settings.language_ko') : t('settings.language_en')}</span>
+                  <span>{l === 'ko' ? '🇰🇷' : l === 'en' ? '🇺🇸' : '🇵🇭'}</span>
+                  <span>{l === 'ko' ? t('settings.language_ko') : l === 'en' ? t('settings.language_en') : t('settings.language_ph')}</span>
                   {lang === l && <Check size={14} />}
                 </button>
               ))}

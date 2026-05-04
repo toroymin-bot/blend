@@ -36,8 +36,8 @@ export function cancelSync(sourceId: string): void {
 }
 
 interface RunSyncOptions {
-  /** 'ko' | 'en' — 친절 에러 메시지 분기에 사용 */
-  lang: 'ko' | 'en';
+  /** 'ko' | 'en' | 'ph' — 친절 에러 메시지 분기에 사용. 'ph'는 'en'으로 coerce. */
+  lang: 'ko' | 'en' | 'ph';
 }
 
 export async function runSync(sourceId: string, opts: RunSyncOptions): Promise<void> {

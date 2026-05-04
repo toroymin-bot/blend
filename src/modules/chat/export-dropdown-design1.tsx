@@ -15,7 +15,7 @@ interface D1ExportDropdownProps {
   open: boolean;
   onClose: () => void;
   onExport: (format: D1ExportFormat) => void;
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
 }
 
 export function D1ExportDropdown({ open, onClose, onExport, lang }: D1ExportDropdownProps) {

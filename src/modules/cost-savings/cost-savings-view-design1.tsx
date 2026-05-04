@@ -97,11 +97,11 @@ function fmtUsd(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
-function fmtMoney(usd: number, lang: 'ko' | 'en'): string {
+function fmtMoney(usd: number, lang: 'ko' | 'en' | 'ph'): string {
   return lang === 'ko' ? fmtKrw(usd) : fmtUsd(usd);
 }
 
-function fmtDateShort(ts: number, lang: 'ko' | 'en'): string {
+function fmtDateShort(ts: number, lang: 'ko' | 'en' | 'ph'): string {
   const d = new Date(ts);
   if (lang === 'ko') {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -130,8 +130,8 @@ function modelProvider(id: string): string {
 }
 
 // ── Main view ────────────────────────────────────────────────────
-export default function D1CostSavingsView({ lang }: { lang: 'ko' | 'en' }) {
-  const t = copy[lang];
+export default function D1CostSavingsView({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
+  const t = lang === 'ko' ? copy.ko : copy.en;
 
   const records         = useUsageStore((s) => s.records);
   const loadFromStorage = useUsageStore((s) => s.loadFromStorage);
@@ -406,7 +406,7 @@ function CumulativeChart({
   data, lang,
 }: {
   data: { date: string; saved: number }[];
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
 }) {
   const W = 600;
   const H = 180;
@@ -439,7 +439,7 @@ function CumulativeChart({
   );
 }
 
-function shortLabel(iso: string, lang: 'ko' | 'en'): string {
+function shortLabel(iso: string, lang: 'ko' | 'en' | 'ph'): string {
   const d = new Date(iso + 'T00:00:00');
   const m = d.getMonth() + 1;
   const day = d.getDate();

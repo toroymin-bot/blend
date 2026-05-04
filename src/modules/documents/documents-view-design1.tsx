@@ -142,10 +142,10 @@ export default function D1DocumentsView({
   lang,
   onAskAboutDocs,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onAskAboutDocs?: () => void;
 }) {
-  const t = copy[lang];
+  const t = lang === 'ko' ? copy.ko : copy.en;
 
   const documents     = useDocumentStore((s) => s.documents);
   const activeDocIds  = useDocumentStore((s) => s.activeDocIds);
@@ -493,7 +493,7 @@ function ChatTab({
   t, lang, documents, activeDocIds, onToggle, onAskAboutDocs,
 }: {
   t: typeof copy[keyof typeof copy];
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   documents: ParsedDocument[];
   activeDocIds: Set<string>;
   onToggle: (id: string) => void;
@@ -646,7 +646,7 @@ function FileCard({
   isActive: boolean;
   status: EmbedStatus;
   progress: number;
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   t: typeof copy[keyof typeof copy];
   onToggle: () => void;
   onDelete: () => void;
@@ -731,7 +731,7 @@ function PreviewModal({
 }: {
   doc: ParsedDocument;
   t: typeof copy[keyof typeof copy];
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onClose: () => void;
 }) {
   const PREVIEW_CHUNKS = 8;

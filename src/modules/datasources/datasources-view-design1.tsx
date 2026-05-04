@@ -180,7 +180,7 @@ function fmtRelative(ts: number, t: typeof copy['ko']): string {
   return t.dayAgo(Math.floor(diff / 86_400_000));
 }
 
-function folderPath(source: DataSource, lang: 'ko' | 'en'): string {
+function folderPath(source: DataSource, lang: 'ko' | 'en' | 'ph'): string {
   if (source.config.type === 'local') return source.config.label;
   if (source.config.type === 'webdav') return source.config.serverUrl ?? '';
   // [2026-05-01 Roy] 1개면 그대로 표시, 2개 이상이면 첫 항목 + "외 N개" / "+N more".
@@ -197,7 +197,7 @@ function folderPath(source: DataSource, lang: 'ko' | 'en'): string {
 }
 
 // [2026-05-01 Roy] 기술적 에러 메시지 → 사용자 친화 안내 + 대처법
-function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en'): { what: string; how: string; openSettings?: boolean } {
+function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en' | 'ph'): { what: string; how: string; openSettings?: boolean } {
   const e = (raw ?? '').toLowerCase();
   const ko = lang === 'ko';
 
@@ -297,8 +297,10 @@ function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en'): { 
 }
 
 // ── Main view ────────────────────────────────────────────────────
-export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
-  const t = copy[lang];
+export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
+  const t = lang === 'ko' ? copy.ko : copy.en;
+  // 'ph'를 받지 않는 자식 컴포넌트/helper에 넘길 때 'en'으로 coerce.
+  const childLang: 'ko' | 'en' = lang === 'ph' ? 'en' : lang;
 
   const sources         = useDataSourceStore((s) => s.sources);
   const addSource       = useDataSourceStore((s) => s.addSource);
@@ -383,7 +385,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
   // runner가 store에 진행률 기록, AbortController도 module-level Map에 보관 →
   // 사용자가 다른 메뉴 갔다 와도 진행 유지.
   function runSync(source: DataSource) {
-    void runBackgroundSync(source.id, { lang });
+    void runBackgroundSync(source.id, { lang: childLang });
   }
   function cancelSync(sourceId: string) {
     cancelBackgroundSync(sourceId);
@@ -698,7 +700,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
       {/* [2026-04-26 Tori 16384118 §3.5] 비용 미리보기 모달 */}
       {pendingPicker && (
         <CostPreviewModal
-          lang={lang}
+          lang={childLang}
           open={!!pendingPicker}
           selections={pendingPicker.selections}
           onClose={() => {
@@ -714,7 +716,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
       {/* [2026-04-29 Tori 19857410] 로컬 드라이브 picker 모달 */}
       {showLocalPicker && (
         <LocalDriveModal
-          lang={lang}
+          lang={childLang}
           onCancel={() => {
             setShowLocalPicker(false);
             setReconnectTargetId(null);
@@ -727,7 +729,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
       <GoogleDriveFolderModal
         open={showGoogleDriveFolderModal}
         accessToken={googleDriveAccessToken}
-        lang={lang}
+        lang={childLang}
         onCancel={() => {
           setShowGoogleDriveFolderModal(false);
           setGoogleDriveAccessToken(null);
@@ -740,7 +742,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           }
           const validation = validateSelections(picked);
           if (!validation.ok) {
-            setConnectErr(describeValidationError(validation.reason, lang));
+            setConnectErr(describeValidationError(validation.reason, childLang));
             setGoogleDriveAccessToken(null);
             return;
           }
@@ -753,7 +755,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
       <OneDriveFolderModal
         open={showOneDriveFolderModal}
         accessToken={oneDriveAccessToken}
-        lang={lang}
+        lang={childLang}
         onCancel={() => {
           setShowOneDriveFolderModal(false);
           setOneDriveAccessToken(null);
@@ -766,7 +768,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' }) {
           }
           const validation = validateSelections(picked);
           if (!validation.ok) {
-            setConnectErr(describeValidationError(validation.reason, lang));
+            setConnectErr(describeValidationError(validation.reason, childLang));
             setOneDriveAccessToken(null);
             return;
           }
@@ -793,7 +795,7 @@ function ConnectedCard({
 }: {
   source: DataSource;
   t: typeof copy[keyof typeof copy];
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onDisconnect: () => void;
   onSync: () => void;
   onCancel: () => void;

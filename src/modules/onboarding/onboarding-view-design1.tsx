@@ -49,7 +49,7 @@ function XIcon()      { return <svg {...ic}><line x1="18" y1="6" x2="6" y2="18"/
 function LinkIcon()   { return <svg {...ic}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>; }
 function LoaderIcon() { return <svg {...ic} className="animate-spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>; }
 
-export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: 'ko' | 'en' }) {
+export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: 'ko' | 'en' | 'ph' }) {
   const { keys, setKey } = useAPIKeyStore();
   const { t } = useTranslation();
 
@@ -119,6 +119,8 @@ export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: '
 
   const hero = lang === 'ko'
     ? { title: '하나의 AI로는\n충분하지 않다', subtitle: '여러 AI를 하나의 앱에서. API 키만 있으면 됩니다.' }
+    : lang === 'ph'
+    ? { title: 'Isang AI ay\nhindi sapat', subtitle: 'Iba’t ibang AI sa iisang app. Kailangan mo lang ang API key mo.' }
     : { title: 'One AI is not\nenough', subtitle: 'Multiple AIs in one app. All you need is your API key.' };
 
   return (
@@ -200,11 +202,11 @@ export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: '
                 {/* Status badge */}
                 {isSaved ? (
                   <span className="flex items-center gap-1 text-[12px]" style={{ color: '#22c55e' }}>
-                    <CheckIcon /> {lang === 'ko' ? '저장됨' : 'Saved'}
+                    <CheckIcon /> {lang === 'ko' ? '저장됨' : lang === 'ph' ? 'Naka-save' : 'Saved'}
                   </span>
                 ) : (
                   <span className="text-[12px]" style={{ color: tokens.textFaint }}>
-                    {lang === 'ko' ? '미설정' : 'Not set'}
+                    {lang === 'ko' ? '미설정' : lang === 'ph' ? 'Hindi pa naka-set' : 'Not set'}
                   </span>
                 )}
 
@@ -253,12 +255,12 @@ export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: '
                   {/* Test result feedback */}
                   {tResult === 'ok' && (
                     <p className="flex items-center gap-1.5 text-[12px]" style={{ color: '#22c55e' }}>
-                      <CheckIcon /> {lang === 'ko' ? '키 유효함 — 자동 저장됨' : 'Key valid — auto-saved'}
+                      <CheckIcon /> {lang === 'ko' ? '키 유효함 — 자동 저장됨' : lang === 'ph' ? 'Valid ang key — naka-auto-save' : 'Key valid — auto-saved'}
                     </p>
                   )}
                   {tResult === 'fail' && (
                     <p className="flex items-center gap-1.5 text-[12px]" style={{ color: '#ef4444' }}>
-                      <XIcon /> {lang === 'ko' ? '키가 유효하지 않습니다' : 'Invalid key — check and retry'}
+                      <XIcon /> {lang === 'ko' ? '키가 유효하지 않습니다' : lang === 'ph' ? 'Hindi valid ang key — pakisubukang muli' : 'Invalid key — check and retry'}
                     </p>
                   )}
 
@@ -276,8 +278,8 @@ export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: '
                     >
                       {isTesting ? <LoaderIcon /> : tResult === 'ok' ? <CheckIcon /> : tResult === 'fail' ? <XIcon /> : null}
                       {isTesting
-                        ? (lang === 'ko' ? '테스트 중…' : 'Testing…')
-                        : (lang === 'ko' ? '테스트' : 'Test')}
+                        ? (lang === 'ko' ? '테스트 중…' : lang === 'ph' ? 'Sinusubok…' : 'Testing…')
+                        : (lang === 'ko' ? '테스트' : lang === 'ph' ? 'Subukan' : 'Test')}
                     </button>
 
                     {/* Save */}
@@ -291,7 +293,9 @@ export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: '
                       }}
                     >
                       {justSaved ? <CheckIcon /> : null}
-                      {justSaved ? (lang === 'ko' ? '저장됨' : 'Saved') : (lang === 'ko' ? '저장' : 'Save')}
+                      {justSaved
+                        ? (lang === 'ko' ? '저장됨' : lang === 'ph' ? 'Naka-save' : 'Saved')
+                        : (lang === 'ko' ? '저장' : lang === 'ph' ? 'I-save' : 'Save')}
                     </button>
 
                     {/* Get key link */}
@@ -303,7 +307,7 @@ export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: '
                       style={{ color: tokens.textDim }}
                     >
                       <LinkIcon />
-                      {lang === 'ko' ? '발급' : 'Get key'}
+                      {lang === 'ko' ? '발급' : lang === 'ph' ? 'Kumuha ng key' : 'Get key'}
                     </a>
                   </div>
                 </div>
@@ -326,17 +330,19 @@ export function D1OnboardingView({ onDone, lang }: { onDone: () => void; lang: '
             boxShadow: canStart ? '0 2px 12px rgba(0,0,0,0.14)' : 'none',
           }}
         >
-          {lang === 'ko' ? '시작하기' : 'Get started'}
+          {lang === 'ko' ? '시작하기' : lang === 'ph' ? 'Magsimula' : 'Get started'}
         </button>
         {!canStart && (
           <p className="text-[13px]" style={{ color: tokens.textFaint }}>
-            {lang === 'ko' ? '최소 1개 API 키를 저장하면 시작할 수 있어요' : 'Save at least one API key to continue'}
+            {lang === 'ko' ? '최소 1개 API 키를 저장하면 시작할 수 있어요' : lang === 'ph' ? 'I-save ang kahit isang API key para makapagsimula' : 'Save at least one API key to continue'}
           </p>
         )}
         {canStart && (
           <p className="text-[13px]" style={{ color: tokens.textFaint }}>
             {lang === 'ko'
               ? `${savedCount}개 프로바이더 연결됨 — 언제든지 설정에서 추가할 수 있어요`
+              : lang === 'ph'
+              ? `${savedCount} provider${savedCount > 1 ? '' : ''} naka-konekta — pwedeng magdagdag pa kahit kailan sa Settings`
               : `${savedCount} provider${savedCount > 1 ? 's' : ''} connected — add more anytime in Settings`}
           </p>
         )}

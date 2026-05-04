@@ -114,12 +114,12 @@ export function getFeaturedModels(): AvailableModel[] {
 }
 
 /** Provider display labels for section headers in the dropdown */
-export const PROVIDER_LABELS: Record<ProviderId, { ko: string; en: string }> = {
-  google:    { ko: 'Google',    en: 'Google' },
-  anthropic: { ko: 'Anthropic', en: 'Anthropic' },
-  openai:    { ko: 'OpenAI',    en: 'OpenAI' },
-  deepseek:  { ko: 'DeepSeek',  en: 'DeepSeek' },
-  groq:      { ko: 'Groq',      en: 'Groq' },
+export const PROVIDER_LABELS: Record<ProviderId, { ko: string; en: string; ph: string }> = {
+  google:    { ko: 'Google',    en: 'Google',    ph: 'Google' },
+  anthropic: { ko: 'Anthropic', en: 'Anthropic', ph: 'Anthropic' },
+  openai:    { ko: 'OpenAI',    en: 'OpenAI',    ph: 'OpenAI' },
+  deepseek:  { ko: 'DeepSeek',  en: 'DeepSeek',  ph: 'DeepSeek' },
+  groq:      { ko: 'Groq',      en: 'Groq',      ph: 'Groq' },
 };
 
 /** Infer provider from model id (registry lookup) */

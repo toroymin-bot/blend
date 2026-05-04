@@ -9,7 +9,7 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { Language } from '@/lib/i18n';
 import AppContentDesign3 from '@/components/app-content-design3';
 
-const SUPPORTED_LANGS: Language[] = ['ko', 'en'];
+const SUPPORTED_LANGS: Language[] = ['ko', 'en', 'ph'];
 
 interface Props {
   lang: string;

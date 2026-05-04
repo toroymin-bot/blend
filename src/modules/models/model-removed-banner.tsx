@@ -38,12 +38,13 @@ const COPY = {
 } as const;
 
 export interface ModelRemovedBannerProps {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onConnectClick?: () => void;
 }
 
 export function ModelRemovedBanner({ lang, onConnectClick }: ModelRemovedBannerProps) {
-  const t = COPY[lang];
+  // 'ph'는 'en' 사전 fallback (Filipino UX = Taglish, 영어 OK).
+  const t = lang === 'ko' ? COPY.ko : COPY.en;
   const [notices, setNotices] = useState<RemovedModelNotice[]>([]);
 
   useEffect(() => {

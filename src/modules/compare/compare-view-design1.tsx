@@ -164,7 +164,7 @@ function estimateCost(modelId: string, totalTokens: number): number {
   return (inferPricePer1M(modelId) / 1_000_000) * totalTokens;
 }
 
-function formatKRW(usd: number | undefined, lang: 'ko' | 'en'): string {
+function formatKRW(usd: number | undefined, lang: 'ko' | 'en' | 'ph'): string {
   if (usd === undefined || usd === 0) return '';
   if (lang === 'en') return usd < 0.001 ? '<$0.001' : `$${usd.toFixed(3)}`;
   const krw = Math.round(usd * 1370);
@@ -172,7 +172,7 @@ function formatKRW(usd: number | undefined, lang: 'ko' | 'en'): string {
   return `₩${krw.toLocaleString()}`;
 }
 
-function formatTokens(count: number | undefined, lang: 'ko' | 'en'): string {
+function formatTokens(count: number | undefined, lang: 'ko' | 'en' | 'ph'): string {
   if (!count) return '';
   if (count >= 1000) {
     return lang === 'ko'
@@ -198,10 +198,10 @@ export default function D1CompareView({
   lang,
   onContinueInChat,
 }: {
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   onContinueInChat?: (modelId: string) => void;
 }) {
-  const t = copy[lang];
+  const t = lang === 'ko' ? copy.ko : copy.en;
   const { getKey, hasKey } = useAPIKeyStore();
   const { dailyCount, maxPerDay, resetIfNewDay } = useTrialStore();
 

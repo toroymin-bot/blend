@@ -61,11 +61,11 @@ const PLANS = [
   },
   {
     // [2026-05-04 Roy] Lifetime → 6개월 패키지로 전환. 'lifetime' id는 license-store /
-    // payment success client에 박혀 있어 그대로 유지 (UI 표시만 6개월). 가격:
-    // Pro 월 $9 × 6 = $54 → $39 (≈ 28% 할인). i18n에서 "6개월" + 할인율 표기.
+    // payment success client에 박혀 있어 그대로 유지 (UI 표시만 'Discount - 6 Months').
+    // 가격: Pro 월 $9 × 6 = $54 → $29 (≈ 46% 할인). 카드 이름 "Discount" 부분 파란색 강조.
     id: 'lifetime',
-    name: '6-Month',
-    price: { monthly: 39, yearly: 39 },
+    name: 'Discount - 6 Months',
+    price: { monthly: 29, yearly: 29 },
     descKey: 'billing.lifetime_desc',
     features: [
       { textKey: 'billing.feature_all_in_pro' },
@@ -191,7 +191,17 @@ export function BillingView() {
                 )}
 
                 <div className="mb-5">
-                  <h2 className="text-xl font-bold mb-1">{plan.name}</h2>
+                  <h2 className="text-xl font-bold mb-1">
+                    {/* [2026-05-04 Roy] 'Discount - …' 시작이면 Discount 부분만 파란 강조 */}
+                    {plan.name.startsWith('Discount') ? (
+                      <>
+                        <span style={{ color: '#2563eb' }}>Discount</span>
+                        <span>{plan.name.slice('Discount'.length)}</span>
+                      </>
+                    ) : (
+                      plan.name
+                    )}
+                  </h2>
                   <p className="text-gray-400 text-sm">{t(plan.descKey)}</p>
                 </div>
 

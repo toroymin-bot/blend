@@ -39,7 +39,7 @@ interface D1HistoryOverlayProps {
   // P3.1 — 핀 토글
   onTogglePin?: (chatId: string) => void;
   chats: ChatSummary[];
-  lang: 'ko' | 'en';
+  lang: 'ko' | 'en' | 'ph';
   // [2026-05-02 Roy] '이전 세션 기억하기' 멀티 선택 — 현재 세션 컨텍스트로 주입.
   // 새 세션에선 자동 초기화. 노란 highlight로 선택 표시.
   selectedMemoryIds?: string[];

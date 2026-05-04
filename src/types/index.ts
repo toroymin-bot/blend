@@ -82,7 +82,8 @@ export interface Agent {
 
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
-  language: 'ko' | 'en';
+  // [2026-05-04 #17] 'ph' 추가 — 따갈로그어/필리핀 시장. 'ko' | 'en' | 'ph' 와 동치.
+  language: 'ko' | 'en' | 'ph';
   fontSize: number;
   sendOnEnter: boolean;
   streamResponse: boolean;
