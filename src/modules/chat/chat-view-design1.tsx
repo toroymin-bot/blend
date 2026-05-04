@@ -3364,9 +3364,19 @@ function D1AssistantMessage({
                   // [2026-05-04 Roy] 모델명만 나열돼 사용자가 "이게 뭔 AI인지" 모름.
                   // 각 행에 짧은 설명(description_ko/en) 추가 — registry가 자동
                   // 생성·갱신하므로 신모델 추가돼도 코드 수정 불필요.
+                  // [2026-05-04 Roy 후속] picker가 위쪽으로 뻗다 부모 overflow에
+                  // 잘려 위쪽 모델 안 보이는 신고. maxHeight + overflow-y-auto로
+                  // 내부 스크롤 가능하게. 추가로 maxHeight를 viewport 기반(70vh)
+                  // 으로 제한해 짧은 모바일 화면에서도 picker 자체는 화면 안에 들어옴.
                   <div
-                    className="absolute bottom-full right-0 mb-1 z-50 rounded-xl border py-1.5 shadow-lg"
-                    style={{ background: tokens.surface, borderColor: tokens.border, minWidth: 240, maxWidth: 320 }}
+                    className="absolute bottom-full right-0 mb-1 z-50 overflow-y-auto rounded-xl border py-1.5 shadow-lg"
+                    style={{
+                      background: tokens.surface,
+                      borderColor: tokens.border,
+                      minWidth: 240,
+                      maxWidth: 320,
+                      maxHeight: 'min(70vh, 520px)',
+                    }}
                   >
                     {MODELS.filter((m) => m.id !== 'auto').slice(0, 8).map((m) => {
                       const desc = lang === 'ko' ? m.desc_ko : m.desc_en;
