@@ -12,6 +12,7 @@ import { sttOpenAI, sttGoogle } from '@/lib/voice-chat';
 import { diarizeSpeakers } from '@/modules/meeting/meeting-plugin';
 import { useMeetingJobStore } from '@/stores/meeting-job-store';
 import { useTrialStore } from '@/stores/trial-store';
+import { getAutoFallbackChain } from '@/data/available-models';
 import type { AIProvider } from '@/types';
 import type { MeetingResult, TranscriptSegment } from '@/lib/meeting-types';
 
@@ -44,6 +45,10 @@ export interface AnalyzeInput {
 }
 
 // ── 사용자 친화 에러 메시지 ─────────────────────────────────────────
+// [2026-05-04 PM-26] regex hole 보강 — Gemini는 status 401 대신 body에 'API key not
+// valid' 문구로 줌. 'invalid.*key'만 검사하면 'not valid' 못 잡아 raw 영문 노출됨.
+// AI 서비스로서 책임감 있는 가이드 제공이 원칙. 모든 fallback 다 시도 후에도
+// 실패 시 어떤 키 등록하면 되는지·발급 링크까지 명시.
 function friendlyAnalyzeError(e: unknown, lang: 'ko' | 'en'): string {
   const err = e as Error & { status?: number; name?: string };
   const msg = (err?.message || '').toLowerCase();
@@ -53,28 +58,71 @@ function friendlyAnalyzeError(e: unknown, lang: 'ko' | 'en'): string {
       ? 'AI가 형식에 맞는 분석을 못 만들었어요. 다른 모델로 시도해주세요 (설정 → 모델).'
       : "AI didn't return a valid analysis format. Try a different model (Settings → Models).";
   }
-  if (err?.status === 401 || /unauthorized|invalid.*key/.test(msg)) {
-    return ko ? 'API 키가 유효하지 않아요. 설정에서 확인해주세요.' : 'API key invalid. Check Settings.';
+  // Auth / invalid key — Gemini 'API key not valid', OpenAI 'invalid_api_key',
+  // Anthropic 'authentication_error', 'API_KEY_INVALID', 'PERMISSION_DENIED' 모두 매칭.
+  if (
+    err?.status === 401 ||
+    err?.status === 403 ||
+    /unauthorized|invalid.*key|key.*invalid|key not valid|not.*valid.*key|api_key_invalid|permission_denied|authentication.?error|forbidden/i.test(msg)
+  ) {
+    return ko
+      ? '등록된 모든 AI 키가 유효하지 않거나 만료됐어요.\n\n해결:\n• 설정 → API 키에서 OpenAI 또는 Anthropic 키를 새로 등록 (가장 안정적)\n• Google Gemini 무료 키 발급: https://aistudio.google.com/app/apikey\n• OpenAI 키 발급: https://platform.openai.com/api-keys\n• Anthropic 키 발급: https://console.anthropic.com/settings/keys'
+      : 'All registered AI keys are invalid or expired.\n\nFix:\n• Settings → API keys: register a new OpenAI or Anthropic key (most reliable)\n• Free Google Gemini key: https://aistudio.google.com/app/apikey\n• OpenAI key: https://platform.openai.com/api-keys\n• Anthropic key: https://console.anthropic.com/settings/keys';
   }
   if (err?.status === 429 || /rate.?limit|quota|429/.test(msg)) {
-    return ko ? 'API 사용 한도 초과. 잠시 후 다시 시도해주세요.' : 'API rate limit exceeded. Try again shortly.';
+    return ko
+      ? 'AI 사용 한도 초과. 1~2분 뒤 다시 시도하거나, 설정에서 다른 provider 키를 추가하면 자동으로 다음 제공자로 분산돼요.'
+      : 'API rate limit exceeded. Retry in 1-2 min, or add another provider key in Settings to spread load.';
   }
   if (/paus|일시정지|한도/.test(msg)) {
     return ko ? '비용 한도 도달로 일시 정지됨. 설정에서 한도를 늘려주세요.' : 'Paused: cost limit reached. Increase limit in Settings.';
   }
   if (/trial|체험/.test(msg)) {
-    return ko ? '무료 체험 한도를 모두 썼어요. API 키를 설정하면 계속 쓸 수 있어요.' : 'Trial used up. Add an API key in Settings to continue.';
+    return ko
+      ? '무료 체험 한도를 모두 썼어요. 설정 → API 키에서 OpenAI/Anthropic/Gemini 중 하나만 등록하면 계속 쓸 수 있어요.\n→ Gemini 무료 키: https://aistudio.google.com/app/apikey'
+      : 'Trial used up. Add one key in Settings → API keys (OpenAI / Anthropic / Gemini) to continue.\n→ Free Gemini key: https://aistudio.google.com/app/apikey';
   }
   if (err?.name === 'AbortError') {
     return ko ? '분석이 중단되었어요.' : 'Analysis aborted.';
   }
-  if (/network|fetch|load failed/.test(msg)) {
-    return ko ? '네트워크 연결을 확인해주세요.' : 'Check your network connection.';
+  if (/network|fetch|load failed|cors/i.test(msg)) {
+    return ko ? '네트워크 연결을 확인해주세요. (Wi-Fi/모바일 데이터 신호, VPN 차단 여부)' : 'Check your network connection (Wi-Fi/data, VPN block).';
+  }
+  if (/safety|policy|harmful|harm.?category|blocked/i.test(msg)) {
+    return ko ? 'AI가 안전 정책으로 분석을 거부했어요. 텍스트를 다듬어 다시 시도하거나, 다른 모델을 골라주세요 (설정 → 모델).' : 'AI refused due to safety policy. Edit the text or pick another model (Settings → Models).';
   }
   const raw = err?.message ? err.message.slice(0, 160) : '';
   return ko
-    ? `분석에 실패했어요${raw ? ` — ${raw}` : ''}`
-    : `Analysis failed${raw ? ` — ${raw}` : ''}`;
+    ? `분석에 실패했어요${raw ? ` — ${raw}` : ''}\n\n다음을 시도해주세요:\n• 다른 AI 모델 선택 (설정 → 모델)\n• 파일이 손상되지 않았는지 확인\n• 네트워크 재연결 후 재시도`
+    : `Analysis failed${raw ? ` — ${raw}` : ''}\n\nTry:\n• Pick a different AI model (Settings → Models)\n• Verify file is not corrupted\n• Check network and retry`;
+}
+
+// [2026-05-04 PM-26] LLM 호출 단일화 헬퍼 — 1차 시도 + 자동 fallback chain에서 재사용.
+async function callLLM(args: {
+  provider: AIProvider;
+  modelId: string;
+  apiKey: string;
+  systemPrompt: string;
+  userText: string;
+  signal: AbortSignal;
+}): Promise<string> {
+  let raw = '';
+  await new Promise<void>((resolve, reject) => {
+    sendChatRequest({
+      messages: [
+        { role: 'system', content: args.systemPrompt },
+        { role: 'user', content: args.userText },
+      ],
+      apiKey: args.apiKey,
+      provider: args.provider,
+      model: args.modelId,
+      onChunk: (c) => { raw += c; },
+      onDone: () => resolve(),
+      onError: (e) => reject(new Error(e)),
+    });
+    args.signal.addEventListener('abort', () => reject(new DOMException('Analyze aborted', 'AbortError')), { once: true });
+  });
+  return raw;
 }
 
 function tryParseJson(s: string): Record<string, unknown> | null {
@@ -211,37 +259,92 @@ export async function startAnalyze(input: AnalyzeInput): Promise<void> {
     }
 
     // ── 4) LLM 분석 ────────────────────────────────────────────────
+    // [2026-05-04 PM-26] 자동 fallback chain 추가. picked가 invalid 키이거나 trial 만료
+    // 시 사용자가 등록한 다른 provider 키로 자동 retry. AI 서비스로서 책임감 있는 동작 —
+    // 키 1개가 invalid해도 다른 키 있으면 침묵하지 않고 자동 시도.
     useMeetingJobStore.getState().setStage(jobId, 'analyzing', lbl.analyzing);
     const messages = [{ role: 'user' as const, content: inputText }];
     let raw = '';
+    let lastError: unknown = null;
+    const attemptedProviders = new Set<AIProvider | 'trial'>();
+    void TRIAL_KEY_AVAILABLE; // suppress unused import warning
 
+    // 1차 시도 — picked
     if (input.picked.usingTrial) {
-      await new Promise<void>((resolve, reject) => {
-        sendTrialMessage({
-          messages,
-          systemPrompt: input.systemPrompt,
-          onChunk: (c) => { raw += c; },
-          onDone:  () => resolve(),
-          // [2026-05-01 Roy] sendTrialMessage onError는 Error 객체 — 그대로 reject.
-          onError: (e) => reject(e),
+      attemptedProviders.add('trial');
+      try {
+        await new Promise<void>((resolve, reject) => {
+          sendTrialMessage({
+            messages,
+            systemPrompt: input.systemPrompt,
+            onChunk: (c) => { raw += c; },
+            onDone:  () => resolve(),
+            // [2026-05-01 Roy] sendTrialMessage onError는 Error 객체 — 그대로 reject.
+            onError: (e) => reject(e),
+          });
         });
-      });
-      useTrialStore.getState().useTrial();
+        useTrialStore.getState().useTrial();
+      } catch (e) {
+        lastError = e;
+        raw = '';
+      }
     } else {
+      attemptedProviders.add(input.picked.provider);
       const apiKey = input.getKey(input.picked.provider) || '';
-      if (!apiKey) throw new Error(input.lang === 'ko' ? 'API 키가 없어요.' : 'No API key.');
-      void TRIAL_KEY_AVAILABLE; // suppress unused import warning when not using trial
-      await new Promise<void>((resolve, reject) => {
-        sendChatRequest({
-          messages: [{ role: 'system', content: input.systemPrompt }, ...messages],
-          apiKey,
-          provider: input.picked.provider,
-          model: input.picked.id,
-          onChunk: (c) => { raw += c; },
-          onDone:  () => resolve(),
-          onError: (e) => reject(new Error(e)),
-        });
-      });
+      if (!apiKey) {
+        lastError = new Error(input.lang === 'ko' ? 'API 키가 없어요.' : 'No API key.');
+      } else {
+        try {
+          raw = await callLLM({
+            provider: input.picked.provider,
+            modelId: input.picked.id,
+            apiKey,
+            systemPrompt: input.systemPrompt,
+            userText: inputText,
+            signal: ctrl.signal,
+          });
+        } catch (e) {
+          lastError = e;
+          raw = '';
+        }
+      }
+    }
+
+    // 1차 실패 시 자동 fallback — 사용자가 키 등록한 다른 provider로 순차 시도
+    if (!raw && lastError) {
+      const errMsg = ((lastError as Error)?.message || '').toLowerCase();
+      const isAuthOrTrialIssue =
+        /unauthorized|invalid.*key|key.*invalid|key not valid|not.*valid.*key|api_key_invalid|permission_denied|authentication.?error|forbidden|trial|체험|401|403/i.test(errMsg);
+
+      if (isAuthOrTrialIssue || ctrl.signal.aborted === false) {
+        const chain = getAutoFallbackChain();
+        for (const fb of chain) {
+          if (ctrl.signal.aborted) break;
+          if (attemptedProviders.has(fb.provider)) continue;
+          if (!input.hasKey(fb.provider)) continue;
+          const apiKey = input.getKey(fb.provider) || '';
+          if (!apiKey) continue;
+          attemptedProviders.add(fb.provider);
+          try {
+            raw = await callLLM({
+              provider: fb.provider,
+              modelId: fb.apiModel,
+              apiKey,
+              systemPrompt: input.systemPrompt,
+              userText: inputText,
+              signal: ctrl.signal,
+            });
+            console.warn(`[meeting-runner] picked failed, auto-fallback succeeded with ${fb.provider}/${fb.apiModel}`);
+            lastError = null;
+            break;
+          } catch (e) {
+            lastError = e;
+            raw = '';
+          }
+        }
+      }
+
+      if (!raw && lastError) throw lastError;
     }
 
     if (ctrl.signal.aborted) {

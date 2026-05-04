@@ -20,7 +20,7 @@ import { trackEvent, trackVisit } from '@/lib/analytics';
 import D1ChatView from '@/modules/chat/chat-view-design1';
 // [2026-04-26] BUG-FIX (16417011) — 사이드바 '최근'을 d1-chat-store에서 직접 가져옴
 import { useD1ChatStore } from '@/stores/d1-chat-store';
-import { useD1MemoryStore, D1_MEMORY_LIMIT } from '@/stores/d1-memory-store';
+import { useD1MemoryStore } from '@/stores/d1-memory-store';
 
 const D1CompareView      = lazy(() => import('@/modules/compare/compare-view-design1'));
 const D1BillingView      = lazy(() => import('@/modules/billing/billing-view-design1'));
@@ -400,14 +400,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                           onClick={(e) => {
                             e.stopPropagation();
                             const before = useD1MemoryStore.getState().selectedIds.includes(c.id);
-                            const ok = useD1MemoryStore.getState().toggle(c.id);
-                            if (!ok) {
-                              window.dispatchEvent(new CustomEvent('d1:toast', {
-                                detail: lang === 'ko' ? `최대 ${D1_MEMORY_LIMIT}개 채팅만` : `Up to ${D1_MEMORY_LIMIT} chats`,
-                              }));
-                              return;
-                            }
-                            // 모바일/데스크톱 공통 — 액션 결과 토스트로 자가 학습 ('learn by doing')
+                            useD1MemoryStore.getState().toggle(c.id);
+                            // [2026-05-04 PM-26] 한도 검사 제거 — 세션 부하(SessionLoadBar)가
+                            // 실제 한도를 자연스럽게 표시·강제. 여기서는 액션 피드백만.
                             window.dispatchEvent(new CustomEvent('d1:toast', {
                               detail: before
                                 ? (lang === 'ko' ? '기억에서 제외했어요' : 'Removed from memory')

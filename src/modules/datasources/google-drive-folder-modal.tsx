@@ -202,24 +202,29 @@ export function GoogleDriveFolderModal({ open, accessToken, lang, onPicked, onCa
 
   return (
     <div
-      className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-2 sm:p-4"
       onClick={() => { if (!confirming) onCancel(); }}
     >
       <div
-        className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
-        style={{ background: 'var(--d1-bg)', color: 'var(--d1-text)' }}
+        className="flex w-full max-w-md flex-col rounded-2xl p-4 shadow-2xl sm:p-6"
+        style={{
+          background: 'var(--d1-bg)',
+          color: 'var(--d1-text)',
+          maxHeight: 'calc(100dvh - 1rem)',
+          maxWidth: 'calc(100vw - 1rem)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center gap-2 text-[15px] font-semibold">
           <span aria-hidden>☁️</span>
           {c.title}
         </div>
-        <p className="mb-4 text-[13px]" style={{ color: 'var(--d1-text-dim)' }}>
+        <p className="mb-3 text-[13px] sm:mb-4" style={{ color: 'var(--d1-text-dim)' }}>
           {c.desc}
         </p>
 
         <div
-          className="max-h-72 overflow-y-auto rounded-xl border"
+          className="min-h-0 flex-1 overflow-y-auto rounded-xl border"
           style={{ borderColor: 'var(--d1-border)' }}
         >
           {loading && (
@@ -326,11 +331,11 @@ export function GoogleDriveFolderModal({ open, accessToken, lang, onPicked, onCa
           </button>
         )}
 
-        <div className="mt-5 flex items-center justify-between gap-3">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-y-2 gap-x-3 sm:mt-5">
           <span className="text-[12px]" style={{ color: 'var(--d1-text-dim)' }}>
             {selectedIds.size > 0 ? c.selected(selectedIds.size) : ''}
           </span>
-          <div className="flex gap-2">
+          <div className="ml-auto flex gap-2">
             <button
               type="button"
               onClick={onCancel}

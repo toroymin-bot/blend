@@ -28,7 +28,7 @@ import { trackEvent } from '@/lib/analytics';
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
 import { useProjectStore } from '@/stores/project-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
-import { useD1MemoryStore, D1_MEMORY_LIMIT } from '@/stores/d1-memory-store';
+import { useD1MemoryStore } from '@/stores/d1-memory-store';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
 // [2026-04-26] Sprint 3 (16384367) — Share Links
 import { ShareModal } from '@/components/share-modal';
@@ -694,11 +694,8 @@ export default function D1ChatView({
   const memorySummaryCache = useRef<Map<string, string>>(new Map());
 
   function toggleMemoryChat(chatId: string): void {
-    const ok = useD1MemoryStore.getState().toggle(chatId);
-    if (!ok) {
-      setToastMsg(lang === 'ko' ? `최대 ${D1_MEMORY_LIMIT}개 채팅만 동시 기억 가능` : `Up to ${D1_MEMORY_LIMIT} chats max`);
-      return;
-    }
+    // [2026-05-04 PM-26] 한도 검사 제거 — 세션 부하(SessionLoadBar)가 실제 한도 강제.
+    useD1MemoryStore.getState().toggle(chatId);
     // 제거된 경우 캐시도 같이 비우기
     if (!useD1MemoryStore.getState().selectedIds.includes(chatId)) {
       memorySummaryCache.current.delete(chatId);
@@ -2827,14 +2824,17 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
       {/* [2026-05-04 Roy] Toast — rounded-full(원형) → rounded-2xl(둥근 사각형) 변경.
           이전: 텍스트가 길면 동그란 모양에 강제로 줄바꿈돼 글자 잘림.
           신규: 양옆 더 넓게(min-w 280px), 둥근 모서리만 살짝, 줄바꿈 정상.
-          클릭 또는 ✕ 버튼으로 닫을 수 있음. */}
+          클릭 또는 ✕ 버튼으로 닫을 수 있음.
+          [2026-05-04 PM-26] bottom-24 → bottom-3 + z-50 → z-[70] — 히스토리 오버레이(z-50)에
+          토스트가 가려져 안 보이는 신고. 입력창 위 거의 끝으로 내리고 z-index를 오버레이 위로
+          올림. */}
       {toastMsg && (
         <div
           role="button"
           tabIndex={0}
           onClick={() => setToastMsg(null)}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') setToastMsg(null); }}
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 flex min-w-[280px] max-w-[90vw] items-start gap-3 rounded-2xl px-5 py-3 text-[13.5px] leading-relaxed shadow-lg z-50 cursor-pointer"
+          className="fixed bottom-3 left-1/2 -translate-x-1/2 flex min-w-[280px] max-w-[90vw] items-start gap-3 rounded-2xl px-5 py-3 text-[13.5px] leading-relaxed shadow-lg z-[70] cursor-pointer"
           style={{ background: tokens.text, color: tokens.bg, fontFamily: fontStack }}
           title={lang === 'ko' ? '눌러서 닫기' : 'Tap to dismiss'}
         >
