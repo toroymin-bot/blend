@@ -249,7 +249,11 @@ export default function D1CompareView({
   const canSend = selectedIds.length >= 2 && inputValue.trim().length > 0;
 
   // ── Stream one model ─────────────────────────────────────────
-  const streamOneModel = useCallback(async (modelId: string, question: string) => {
+  // [2026-05-04 Roy #12] Compare 모든 모델에 friendlyError + auto retry 적용.
+  // chat-api는 onError로 raw err.message를 던짐 → 사용자에게 'OpenAI API error: 429'
+  // 같은 raw 노출. 카테고리 정규식으로 친절 변환 + 일시 장애(rate/network/5xx)는
+  // 자동 1회 retry. provider 무관 동일 처리.
+  const streamOneModel = useCallback(async (modelId: string, question: string, attempt = 0) => {
     const model = MODELS.find((m) => m.id === modelId);
     if (!model) return;
 
@@ -323,12 +327,74 @@ export default function D1CompareView({
       );
     };
 
+    // 일시 장애만 자동 재시도 — 인증/권한/모델 오류는 사용자 행동 필요라 재시도 무의미.
+    const RETRYABLE = /429|rate.?limit|quota|timeout|timed out|aborted|fetch|network|load failed|connection|5\d\d|server.*error|service unavailable|overloaded/i;
+    const friendlyCompareError = (raw: string): string => {
+      const e = (raw ?? '').toLowerCase();
+      const ko = lang === 'ko';
+      if (/401|unauthorized|invalid.*api.?key|incorrect.*api.?key|invalid.*key/.test(e)) {
+        return ko
+          ? '🔑 API 키가 올바르지 않아요. 설정 → API 키에서 다시 확인해주세요.'
+          : '🔑 Invalid API key. Re-enter in Settings → API keys.';
+      }
+      if (/403|forbidden|verify|verification.required/.test(e)) {
+        return ko
+          ? '🚫 이 모델 접근 권한이 없어요. 일부 모델은 organization 인증 필요.'
+          : '🚫 No access to this model. Some require org verification.';
+      }
+      if (/429|rate.?limit|quota/.test(e)) {
+        return ko
+          ? '⚠️ 호출 한도 초과. 자동으로 한 번 더 시도했지만 실패. 잠시 후 다시 시도해주세요.'
+          : '⚠️ Rate limit. Auto-retried once. Try again in a moment.';
+      }
+      if (/404|not.found|model.*not.*found|deprecated|unsupported/.test(e)) {
+        return ko
+          ? '⏳ 이 모델은 더 이상 사용할 수 없어요. 다른 모델을 선택해주세요.'
+          : '⏳ Model unavailable. Pick another model.';
+      }
+      if (/network|fetch|load failed|connection|timeout|timed out|aborted/.test(e)) {
+        return ko
+          ? '📡 네트워크가 잠시 끊겼어요. 자동 재시도도 실패. 다시 시도해주세요.'
+          : '📡 Network dropped. Auto-retry also failed. Try again.';
+      }
+      if (/5\d\d|server.*error|internal|service unavailable|overloaded/.test(e)) {
+        return ko
+          ? '🔧 서버 일시 장애. 자동 재시도 실패. 잠시 후 다시 시도해주세요.'
+          : '🔧 Server hiccup. Auto-retry failed. Retry shortly.';
+      }
+      if (/content.*polic|safety|harmful|moderation/.test(e)) {
+        return ko
+          ? '🛡 컨텐츠 정책 차단. 질문을 다듬어 다시 시도해주세요.'
+          : '🛡 Content policy blocked. Refine the prompt and try again.';
+      }
+      if (/billing|payment|insufficient/.test(e)) {
+        return ko
+          ? '💳 결제/잔액 문제로 호출 거부. provider 콘솔에서 확인.'
+          : '💳 Billing/quota issue. Check the provider console.';
+      }
+      // generic — raw도 노출 (디버깅 단서). 너무 길면 잘라서.
+      const short = (raw ?? '').slice(0, 140);
+      return ko
+        ? `❗ 응답 실패. ${short}`
+        : `❗ Request failed. ${short}`;
+    };
+
+    const handleErr = (raw: string) => {
+      // RETRYABLE 카테고리이고 첫 시도면 자동 재시도.
+      if (attempt === 0 && RETRYABLE.test(raw ?? '')) {
+        // 약간의 backoff (300ms) 후 재시도.
+        setTimeout(() => streamOneModel(modelId, question, 1), 300);
+        return;
+      }
+      markError(friendlyCompareError(raw));
+    };
+
     if (isTrialGemini) {
       await sendTrialMessage({
         messages: [{ role: 'user', content: question }],
         onChunk:  appendChunk,
         onDone:   (full) => finalize(full),
-        onError:  (e) => markError(e.message),
+        onError:  (e) => handleErr(e.message),
         signal:   abort.signal,
       });
     } else {
@@ -342,12 +408,12 @@ export default function D1CompareView({
           const totalTok = (usage?.input ?? 0) + (usage?.output ?? 0);
           finalize(full, totalTok || undefined, estimateCost(modelId, totalTok));
         },
-        onError:   markError,
+        onError:   handleErr,
         signal:    abort.signal,
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getKey, hasKey, t.noKey, trialRemaining]);
+  }, [getKey, hasKey, t.noKey, trialRemaining, lang]);
 
   // ── Send to all selected models ──────────────────────────────
   async function handleSend() {
