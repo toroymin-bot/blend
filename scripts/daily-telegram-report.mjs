@@ -573,6 +573,9 @@ async function buildReport() {
     lines.push('⚠️ AI 사용 비용 섹션 빌드 실패 — 다음 발송에서 재시도');
   }
 
+  // [2026-05-03 PM-24 Roy] AI 신기능 섹션은 별도 cron(ai-models-report.mjs)으로 분리.
+  // KST 08:25에 별도 텔레그램 메시지로 발송됨. 비즈니스 리포트와 명확히 분리.
+
   return lines.join('\n');
 }
 

@@ -1067,6 +1067,40 @@ async function main() {
   const outPath = join(process.cwd(), 'src/data/available-models.generated.json');
   mkdirSync(dirname(outPath), { recursive: true });
 
+  // [2026-05-03 Roy] Diff 감지 — 신규 모델 / 폐기 모델 / 신규 deprecated 별도 추출.
+  // 이전 generated.json의 모델 ID 집합과 새 output 비교 → Roy에게 텔레그램 알림.
+  // Blend Fully Agentic 원칙: AI 모델 변화는 사용자/Roy의 수동 개입 없이 자동 대응 +
+  // Roy가 시장 변화를 즉시 인지할 수 있도록 자동 보고.
+  // [2026-05-03 PM-23 Roy] family detection 추가 — 새 family(예: gpt-realtime, gpt-image-edit)
+  // 등장 시 신 capability 출시 신호 → Blend 코드에 새 메뉴/기능 추가가 필요할 수 있음.
+  let prevModelIds = new Set<string>();
+  let prevDeprecated = new Set<string>();
+  if (existsSync(outPath)) {
+    try {
+      const prev = JSON.parse(readFileSync(outPath, 'utf-8'));
+      for (const m of prev.models ?? []) {
+        prevModelIds.add(m.id);
+        if (m.deprecated) prevDeprecated.add(m.id);
+      }
+    } catch {}
+  }
+  const newModelIds = new Set(output.models.map((m: any) => m.id));
+  const newDeprecated = new Set(output.models.filter((m: any) => m.deprecated).map((m: any) => m.id));
+  const added: string[]    = output.models.filter((m: any) => !prevModelIds.has(m.id)).map((m: any) => `${m.id} (${m.provider})`);
+  const removed: string[]  = [...prevModelIds].filter((id) => !newModelIds.has(id));
+  const newlyDeprecated: string[] = [...newDeprecated].filter((id) => !prevDeprecated.has(id));
+
+  // family 추출 — ID에서 첫 숫자 이전 부분. 예: 'gpt-image-2-2026-04-21' → 'gpt-image',
+  // 'claude-haiku-4-5' → 'claude-haiku', 'gemini-2.5-flash' → 'gemini', 'imagen-3' → 'imagen'.
+  function getModelFamily(id: string): string {
+    const m = id.match(/^([a-z]+(?:-[a-z]+)*?)-?[\d.]/i);
+    return m ? m[1] : id;
+  }
+  const prevFamilies = new Set([...prevModelIds].map(getModelFamily));
+  const newFamilies  = new Set([...newModelIds].map(getModelFamily));
+  const addedFamilies: string[]   = [...newFamilies].filter((f) => !prevFamilies.has(f));
+  const removedFamilies: string[] = [...prevFamilies].filter((f) => !newFamilies.has(f));
+
   // Only write if content changed (ignore generatedAt timestamp)
   const newContent = JSON.stringify(output, null, 2);
   let changed = true;
@@ -1078,16 +1112,47 @@ async function main() {
     } catch {}
   }
 
-  if (changed) {
-    writeFileSync(outPath, newContent);
+  // [2026-05-03 PM-23 Roy] lastSyncDiff를 output에 첨부 — daily-telegram-report가
+  // 다음날 KST 08:40에 generated.json을 읽어 어제 sync 결과를 'AI 신기능' 섹션으로
+  // append할 수 있도록. cron timing: KST 00:30 sync → 08:40 report.
+  (output as any).lastSyncDiff = {
+    syncedAt: output.generatedAt,
+    added,
+    removed,
+    newlyDeprecated,
+    addedFamilies,
+    removedFamilies,
+    totalModels: output.models.length,
+  };
+
+  // Re-serialize with lastSyncDiff included
+  const newContentWithDiff = JSON.stringify(output, null, 2);
+  let writeIt = changed;
+  // diff가 있으면 (모델 변화) 무조건 쓰기 (lastSyncDiff 갱신 필요)
+  if (added.length > 0 || removed.length > 0 || newlyDeprecated.length > 0 || addedFamilies.length > 0) {
+    writeIt = true;
+  }
+
+  if (writeIt) {
+    writeFileSync(outPath, newContentWithDiff);
     console.log(`\nWrote ${outPath}`);
     console.log(`Total: ${output.models.length} models from ${output.providers.length}/5 providers`);
+    if (addedFamilies.length > 0) {
+      console.log(`✨ New model families: ${addedFamilies.join(', ')}`);
+    }
     if (output.errors.length > 0) {
       console.log(`Skipped:\n${output.errors.map((e) => `  ${e.provider}: ${e.message}`).join('\n')}`);
+    }
+    // 모델 변화 텔레그램 알림 — 신규/폐기/제거/신가족 중 하나라도 있으면 발송.
+    // 첫 실행(prevModelIds 비어있음)이면 added가 전체 모델이라 노이즈 → skip.
+    if (prevModelIds.size > 0 && (added.length > 0 || removed.length > 0 || newlyDeprecated.length > 0 || addedFamilies.length > 0)) {
+      await notifyModelChanges({ added, removed, newlyDeprecated, addedFamilies, removedFamilies, total: output.models.length });
     }
   } else {
     console.log('\nNo changes.');
   }
+  // 변수 사용 보존 (newContent는 정적 빌드용 보전)
+  void newContent;
 
   // Persist newly AI-generated metas into META_OVERRIDES so next run is free
   if (Object.keys(newlyGenerated).length > 0) {
@@ -1095,6 +1160,61 @@ async function main() {
   }
 
   process.exit(0);
+}
+
+// ============================================================
+// [2026-05-03 Roy] Telegram 알림 — Blend Fully Agentic 원칙.
+// 신모델 출시/모델 폐기/deprecated 변경 시 Roy에게 자동 보고.
+// TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID는 daily-telegram-report와 동일 GitHub Secret 재사용.
+// ============================================================
+async function notifyModelChanges(diff: { added: string[]; removed: string[]; newlyDeprecated: string[]; addedFamilies?: string[]; removedFamilies?: string[]; total: number }) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) {
+    console.log('[notify] TELEGRAM_BOT_TOKEN/CHAT_ID 미설정 — 알림 skip');
+    return;
+  }
+  const lines: string[] = [`🤖 *Blend 모델 자동 갱신*`, `_총 ${diff.total}개 모델 (registry sync)_`, ''];
+  // [PM-23] 신 가족(capability) 우선 표시 — 신 family는 새 메뉴/UI 추가 신호.
+  // Roy가 즉시 인지하고 코드 검토 필요한 케이스.
+  if (diff.addedFamilies && diff.addedFamilies.length > 0) {
+    lines.push(`🆕 *새 모델 가족 (capability) 감지 — Blend 코드 검토 필요*`);
+    diff.addedFamilies.forEach((f) => lines.push(`  • \`${f}\` 가족 신규 등장`));
+    lines.push('');
+  }
+  if (diff.added.length > 0) {
+    lines.push(`✨ *신규 모델 ${diff.added.length}개*`);
+    diff.added.slice(0, 20).forEach((m) => lines.push(`  • ${m}`));
+    if (diff.added.length > 20) lines.push(`  ... +${diff.added.length - 20}`);
+    lines.push('');
+  }
+  if (diff.newlyDeprecated.length > 0) {
+    lines.push(`⚠️ *Deprecated ${diff.newlyDeprecated.length}개*`);
+    diff.newlyDeprecated.slice(0, 15).forEach((m) => lines.push(`  • ${m}`));
+    lines.push('');
+  }
+  if (diff.removed.length > 0) {
+    lines.push(`🗑️ *제거 ${diff.removed.length}개*`);
+    diff.removed.slice(0, 15).forEach((m) => lines.push(`  • ${m}`));
+    lines.push('');
+  }
+  if (diff.removedFamilies && diff.removedFamilies.length > 0) {
+    lines.push(`🗑️ *폐기된 가족: ${diff.removedFamilies.join(', ')}*`);
+    lines.push('');
+  }
+  lines.push(`Blend 라우팅·메뉴·카피는 registry 기반 자동 반영. 신 가족은 별도 코드 작업 필요할 수 있음.`);
+  const text = lines.join('\n');
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown', disable_web_page_preview: true }),
+    });
+    if (!r.ok) console.warn(`[notify] Telegram failed: ${r.status} ${await r.text()}`);
+    else console.log(`[notify] Telegram sent — added=${diff.added.length} dep=${diff.newlyDeprecated.length} removed=${diff.removed.length}`);
+  } catch (e) {
+    console.warn('[notify] fetch error:', (e as Error).message);
+  }
 }
 
 // ============================================================

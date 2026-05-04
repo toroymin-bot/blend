@@ -1,0 +1,27 @@
+name: AI Models Daily Report
+
+# [2026-05-03 PM-24 Roy] 신모델 변화만 따로 텔레그램 발송.
+# update-models cron(KST 00:30)이 generated.json에 첨부한 lastSyncDiff 읽어서
+# 어제 sync 결과만 발송. 비즈니스 리포트(KST 08:40)와 분리.
+
+on:
+  schedule:
+    # KST 08:25 = UTC 23:25 (전날). update-models(KST 00:30) 실행 후, 비즈니스 리포트(KST 08:40)보다 15분 일찍.
+    - cron: '25 23 * * *'
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Send AI models telegram report
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/ai-models-report.mjs
