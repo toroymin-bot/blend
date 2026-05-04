@@ -25,6 +25,7 @@ import { AIProvider }       from '@/types';
 import { exportAllChatsAsJSON } from '@/modules/chat/export-chat';
 // [2026-04-26] 16417054 — Full Backup IDB 통합 v2.0
 import { downloadBackup, importBackup, clearAllData, getCounts, type BackupMeta } from '@/lib/full-backup';
+import { getStorageEstimate, type StorageEstimateResult } from '@/lib/storage-estimate';
 import { useTranslation }   from '@/lib/i18n';
 import { D1_PROVIDERS, API_GUIDE_STEPS_KEYS, getProviderModelsLabel } from '@/modules/shared/providers-design1';
 // [2026-04-29 Tori 18841602 v2 P0] 모바일 콘텐츠 깨짐 수정 — 200px nav 가 mobile에서도
@@ -866,6 +867,9 @@ export function D1SettingsView() {
                 <p className="mb-4 text-[13px]" style={{ color: tokens.textDim }}>
                   {t('settings.data_storage_desc')}
                 </p>
+                {/* [2026-05-04 Roy #14] 동적 사용량 인디케이터 — navigator.storage.estimate()
+                    기반. 정적 "10MB 가정" 대신 브라우저가 origin에 허용하는 실제 한도 표시. */}
+                <D1StorageUsage lang={lang} />
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={handleExport}
@@ -1208,6 +1212,57 @@ function AnalyticsSection({ t }: { t: (k: string) => string }) {
         />
       </Card>
     </section>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// D1StorageUsage — 동적 storage 사용량 인디케이터 (2026-05-04 Roy #14)
+// navigator.storage.estimate() 기반. 정적 10MB 가정 제거.
+// ════════════════════════════════════════════════════════════════
+function D1StorageUsage({ lang }: { lang: 'ko' | 'en' }) {
+  const [data, setData] = useState<StorageEstimateResult | null>(null);
+  const [unsupported, setUnsupported] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const est = await getStorageEstimate();
+      if (cancelled) return;
+      if (!est) setUnsupported(true);
+      else setData(est);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (unsupported) {
+    return (
+      <p className="mb-4 text-[12px]" style={{ color: tokens.textFaint }}>
+        {lang === 'ko'
+          ? '이 브라우저는 저장소 한도를 동적 측정할 수 없어요.'
+          : 'This browser does not expose storage quota.'}
+      </p>
+    );
+  }
+  if (!data) return null;
+
+  const barColor = data.percent > 90 ? '#dc2626' : data.percent > 70 ? '#f97316' : tokens.accent;
+
+  return (
+    <div className="mb-4">
+      <div className="mb-1 flex items-center justify-between text-[12px]" style={{ color: tokens.textDim }}>
+        <span>{lang === 'ko' ? '브라우저 저장소' : 'Browser storage'}</span>
+        <span style={{ color: tokens.textFaint }}>{data.pretty}</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: tokens.border }}>
+        <div
+          className="h-full transition-[width,background-color] duration-500"
+          style={{
+            width: `${Math.min(100, Math.max(0.5, data.percent))}%`,
+            background: barColor,
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
