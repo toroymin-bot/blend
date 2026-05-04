@@ -201,15 +201,18 @@ function friendlyDataSourceError(raw: string | undefined, lang: 'ko' | 'en'): { 
   const e = (raw ?? '').toLowerCase();
   const ko = lang === 'ko';
 
+  // [2026-05-04 Roy #15] 만료/권한 메시지에 "이미 동기화한 내용은 그대로 검색 가능"
+  // 명시. 인덱스(chunks)는 토큰과 독립이라 RAG 검색은 끊기지 않음 — 사용자가
+  // "끊겼다"고 인식하지 않게.
   if (/token has expired|reconnect|invalid_grant|invalid_token/.test(e)) {
     return ko
-      ? { what: '계정 연결이 만료됐어요.', how: "'연결 해제' 후 다시 연결해주세요." }
-      : { what: 'Account connection expired.', how: 'Disconnect and reconnect this source.' };
+      ? { what: '계정 연결이 만료됐어요.', how: "'연결 해제' 후 다시 연결해주세요. 이미 동기화한 내용은 그대로 검색 가능해요." }
+      : { what: 'Account connection expired.', how: 'Disconnect and reconnect this source. Already-synced content stays searchable.' };
   }
   if (/permission|forbidden|403/.test(e)) {
     return ko
-      ? { what: '폴더 접근 권한이 없어요.', how: '다시 연결하면서 권한을 허용해주세요.' }
-      : { what: 'Folder access denied.', how: 'Reconnect and approve access.' };
+      ? { what: '폴더 접근 권한이 없어요.', how: '다시 연결하면서 권한을 허용해주세요. 이미 동기화한 내용은 그대로 검색 가능해요.' }
+      : { what: 'Folder access denied.', how: 'Reconnect and approve access. Already-synced content stays searchable.' };
   }
   if (/api[_ ]?key required|api[_ ]?키.*필요/.test(e)) {
     return ko
