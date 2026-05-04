@@ -3859,11 +3859,15 @@ function D1InputBar({
               transition: 'width 600ms ease, background-color 800ms ease',
             }}
           />
+          {/* [2026-05-04 Roy 후속] % 텍스트 위치 — 입력바 박스 위쪽이 아니라
+              진행 바 아래로. 사용자 신고 "위에 있어 보기 싫음". 입력바 컨테이너
+              하단(bottom:0)에서 -14px(박스 바깥) 쯤 = 진행 바(3px)가 위, 텍스트가
+              그 아래에 자연스럽게 정렬. */}
           <span
             aria-hidden
             className="pointer-events-none absolute text-[10px] font-medium tabular-nums select-none"
             style={{
-              bottom: '6px',
+              bottom: '-16px',
               left: `calc(min(${sessionLoadPct}%, 92%) + 6px)`,
               color: sessionLoadColor ?? '#1F2937',
               transition: 'left 600ms ease, color 800ms ease',

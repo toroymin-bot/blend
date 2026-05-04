@@ -44,10 +44,19 @@ function getBaseLatency(modelId?: string): number {
   return DEFAULT_BASE_LATENCY;
 }
 
-/** Roy 결정: 선형 (비선형 가속 X), 10% 느려짐 = 100% */
+/**
+ * [2026-05-04 Roy 후속] 한도 20배 완화 — 사용자 신고 "너무 빨리 100%".
+ * 이전: 100% = baseLatency × 0.10 (즉 10% 느려진 시점)
+ * 신규: 100% = baseLatency × 2.0  (즉 200% 느려진 = 3배 느려진 시점)
+ * → 같은 일량에 loadPct가 1/20로 감소. 사용자가 20배 더 많이 사용 가능.
+ *
+ * 100%는 강제 새 채팅 이동 시점인데, 사용자 입장에선 너무 일찍 차서 끊겨버림.
+ * 실제로 컨텍스트가 길어질수록 LLM 응답이 1.1~1.5배 느려지는 경향은 있지만
+ * 절대 못 쓰는 건 아니라, "권장" 정도로 충분. 사용자 자율에 더 맡김.
+ */
 export function computeSessionLoad(i: SessionLoadInputs): SessionLoadResult {
   const baseLatencyMs = getBaseLatency(i.modelId);
-  const thresholdMs = baseLatencyMs * 0.10;
+  const thresholdMs = baseLatencyMs * 2.0;
   const estimatedDeltaMs =
       i.totalTokens * 0.5
     + i.ragChunks * 80
