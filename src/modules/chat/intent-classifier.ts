@@ -96,7 +96,9 @@ export function classifyAttachmentIntent(
  * Tori 17989643 PR #2: 한국어 사용자가 "Not found in the provided sources"
  * 같은 영어 응답을 받던 회귀 차단. AI가 이를 무시하지 않도록 명시·반복.
  */
-export function getLangEnforcementHeader(lang: 'ko' | 'en'): string {
+// [2026-05-04 Roy #17 후속] 'ph' 추가 — 따갈로그 사용자에게 영어로 답하던 회귀 차단.
+// blend-identity의 PH directive와 동일 방향 — 따갈로그로 답변 강제.
+export function getLangEnforcementHeader(lang: 'ko' | 'en' | 'ph'): string {
   if (lang === 'ko') {
     return `[응답 언어 — 절대 규칙]
 사용자가 한국어로 질문하고 있습니다. 답변은 반드시 자연스러운 한국어로 작성하세요.
@@ -104,6 +106,14 @@ export function getLangEnforcementHeader(lang: 'ko' | 'en'): string {
 - 코드, 인명, 영어 인용은 그대로 둬도 됩니다.
 - "Not found", "I don't have access", 같은 영어 정형 거부 표현은 금지.
   거부할 때도 반드시 한국어로 친근하게: "자료에서 해당 정보를 찾지 못했어요" 등.`;
+  }
+  if (lang === 'ph') {
+    return `[Tuntunin sa Wika — Mahigpit na Patakaran]
+Ang user ay gumagamit ng Tagalog/Filipino interface. Ang sagot mo ay DAPAT nasa natural na Tagalog (Filipino).
+- Kahit nag-iingles o gumagamit ng Taglish ang user, sumagot ka sa Tagalog.
+- Tech terms (API, AI, key, subscription, model, code, atbp.) at code snippets ay pwedeng manatiling English — natural Taglish iyon.
+- Iwasan ang puro English na sagot. Iwasan din ang puro pormal na Tagalog — gamitin ang araw-araw na Tagalog.
+- Kapag tumatanggi (hal. "wala sa source"), sa Tagalog din: "Hindi ko nakita iyan sa sources" — hindi "Not found".`;
   }
   return `[Language Rule]
 The user is writing in English. Answer in natural English.
@@ -117,8 +127,11 @@ The user is writing in English. Answer in natural English.
  */
 export function getModePromptHeader(
   intent: AttachmentIntent,
-  lang: 'ko' | 'en',
+  lang: 'ko' | 'en' | 'ph',
 ): string {
+  // [2026-05-04 #17 후속] 'ph' 인입 시 EN branch 사용 — "Respond in the user's
+  // language" 규칙이 따갈로그 사용자에게도 자연스럽게 작동. 별도 ph branch 불필요.
+  if (lang === 'ph') lang = 'en';
   if (intent === 'full_context') {
     return lang === 'ko'
       ? `[처리 모드: 전체 처리 — 직역/완역 의무]

@@ -293,7 +293,7 @@ export function MeetingView() {
 
     try {
       setStep('diarizing');
-      const segments = await diarizeSpeakers(rawTranscript, apiKey, provider as 'openai' | 'anthropic', lang);
+      const segments = await diarizeSpeakers(rawTranscript, apiKey, provider as 'openai' | 'anthropic', lang === 'ph' ? 'en' : lang);
 
       setStep('analyzing');
       const [analysisResult, summaryResult] = await Promise.all([
