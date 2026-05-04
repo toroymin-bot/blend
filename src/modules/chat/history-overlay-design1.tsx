@@ -386,16 +386,10 @@ export function D1HistoryOverlay({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        const wasSelected = selected;
                         onToggleMemory(c.id);
-                        // 모바일/데스크톱 — 액션 토스트로 결과 확인
-                        if (typeof window !== 'undefined') {
-                          window.dispatchEvent(new CustomEvent('d1:toast', {
-                            detail: wasSelected
-                              ? (lang === 'ko' ? '기억에서 제외했어요' : 'Removed from memory')
-                              : (lang === 'ko' ? '✓ 이 채팅을 기억할게요' : '✓ Remembering this chat'),
-                          }));
-                        }
+                        // [2026-05-04 PM-26b] 까만 토스트 제거 — 모바일에서 위치 안정화 어려움
+                        // (기기 높이마다 잘림). 시각 피드백은 북마크 아이콘 색상(#FEF3C7
+                        // 노란 highlight + 채워진 fill) 토글로 충분.
                       }}
                       className="rounded-md p-1 transition-all hover:bg-black/5"
                       style={{

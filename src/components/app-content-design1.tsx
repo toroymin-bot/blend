@@ -399,15 +399,10 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const before = useD1MemoryStore.getState().selectedIds.includes(c.id);
                             useD1MemoryStore.getState().toggle(c.id);
-                            // [2026-05-04 PM-26] 한도 검사 제거 — 세션 부하(SessionLoadBar)가
-                            // 실제 한도를 자연스럽게 표시·강제. 여기서는 액션 피드백만.
-                            window.dispatchEvent(new CustomEvent('d1:toast', {
-                              detail: before
-                                ? (lang === 'ko' ? '기억에서 제외했어요' : 'Removed from memory')
-                                : (lang === 'ko' ? '✓ 이 채팅을 기억할게요' : '✓ Remembering this chat'),
-                            }));
+                            // [2026-05-04 PM-26b] 까만 토스트 제거 — 모바일에서 위치 안정화
+                            // 어려움. 시각 피드백은 북마크 아이콘 색상(노란 highlight + fill)
+                            // 토글로 충분. 한도는 SessionLoadBar(채팅창 밑 %)가 강제.
                           }}
                           className="rounded-md p-1 transition-all hover:bg-black/5"
                           style={{
