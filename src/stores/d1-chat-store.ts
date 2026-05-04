@@ -18,6 +18,12 @@ export interface D1Message {
   content: string;
   modelUsed?: string;
   createdAt: number;
+  // [Roy v9 — 2026-05-03 PM-21] 생성된 이미지 영구 보존.
+  // PM-20에서 chat-view Message에 imageUrl 추가했지만 D1Message(persisted)에는
+  // 누락 → 채팅 다시 열면 이미지 사라지던 회귀. base64 data URL이 100K+ 자라
+  // localStorage quota 위험은 있으나 safeSetItem이 quota 에러 처리.
+  imageUrl?: string;
+  imagePrompt?: string;
 }
 
 export interface D1Chat {
@@ -89,13 +95,21 @@ export const useD1ChatStore = create<D1ChatStoreState>((set, get) => ({
                 tags: c.tags,
                 folder: c.folderId ?? null,
                 forkedFrom: c.forkedFrom,
-                messages: msgs.map((m) => ({
-                  id: m.id,
-                  role: m.role as D1Role,
-                  content: m.content,
-                  modelUsed: m.model,
-                  createdAt: m.createdAt,
-                })),
+                messages: msgs.map((m) => {
+                  // [Roy v10 PM-22] IndexedDB에서 imageUrl/imagePrompt 복원 — 채팅 다시
+                  // 열어도 이미지 유지. DBMessage 타입에 추가됐지만 여기서는 narrow type
+                  // 회피 위해 한 번 더 cast.
+                  const mx = m as unknown as { imageUrl?: string; imagePrompt?: string };
+                  return {
+                    id: m.id,
+                    role: m.role as D1Role,
+                    content: m.content,
+                    modelUsed: m.model,
+                    createdAt: m.createdAt,
+                    imageUrl: mx.imageUrl,
+                    imagePrompt: mx.imagePrompt,
+                  };
+                }),
               };
             })
           );
@@ -149,6 +163,11 @@ export const useD1ChatStore = create<D1ChatStoreState>((set, get) => ({
                   content: m.content,
                   createdAt: m.createdAt,
                   model: m.modelUsed,
+                  // [Roy v10 PM-22] AI 생성 이미지 IndexedDB 보존 — 다른 페이지 갔다
+                  // 채팅 다시 열어도 이미지 유지. PM-21에서 D1Message만 추가했고
+                  // IndexedDB layer 변환에서 누락되어 회귀.
+                  imageUrl: m.imageUrl,
+                  imagePrompt: m.imagePrompt,
                 }))
               );
             }

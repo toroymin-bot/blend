@@ -298,6 +298,8 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
   const transcribing = job?.stage === 'transcribing';
   const diarizing    = job?.stage === 'diarizing';
   const analyzing    = job?.stage === 'analyzing';
+  // [2026-05-04 Roy] 데이터소스 동기화처럼 실제 진행 % 노출 — store.job.progress.
+  const jobProgress  = job?.progress ?? 0;
 
   const { hasKey, getKey } = useAPIKeyStore();
   const trialDailyCount = useTrialStore((s) => s.dailyCount);
@@ -443,6 +445,7 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
             transcribing={transcribing}
             diarizing={diarizing}
             analyzing={analyzing}
+            jobProgress={jobProgress}
             errorMsg={errorMsg}
             history={history}
             onAnalyze={runAnalyze}
@@ -480,7 +483,7 @@ export default function D1MeetingView({ lang }: { lang: 'ko' | 'en' }) {
 function InputPhase({
   t, text, setText, ytUrl, setYtUrl,
   audioFile, setAudioFile, audioInputRef, transcribing, diarizing,
-  analyzing, errorMsg, history, onAnalyze, onOpen, onAskDelete, lang,
+  analyzing, jobProgress, errorMsg, history, onAnalyze, onOpen, onAskDelete, lang,
 }: {
   t: typeof copy[keyof typeof copy];
   text: string;
@@ -493,6 +496,7 @@ function InputPhase({
   transcribing: boolean;
   diarizing: boolean;
   analyzing: boolean;
+  jobProgress: number;
   errorMsg: string | null;
   history: MeetingResult[];
   onAnalyze: () => void;
@@ -581,6 +585,34 @@ function InputPhase({
           </div>
         )}
 
+        {/* [2026-05-04 Roy] 분석 중 진행 % — 데이터소스 동기화처럼 실제 단계별 % 노출.
+            transcribing 5~50% / diarizing 55~75% / analyzing 80~99% / done 100%. */}
+        {(transcribing || diarizing || analyzing) && (
+          <div className="mt-6">
+            <div className="mb-1.5 flex items-center justify-between text-[12.5px]" style={{ color: tokens.textDim }}>
+              <span>
+                {transcribing ? t.transcribing : diarizing ? t.diarizing : t.analyzing}
+              </span>
+              <span className="font-medium tabular-nums" style={{ color: tokens.text }}>
+                {Math.round(jobProgress)}%
+              </span>
+            </div>
+            <div
+              className="h-1.5 w-full overflow-hidden rounded-full"
+              style={{ background: tokens.border }}
+            >
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${jobProgress}%`,
+                  background: tokens.accent,
+                  transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={onAnalyze}
@@ -588,7 +620,13 @@ function InputPhase({
           className="mt-6 w-full rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:opacity-40"
           style={{ background: tokens.text, color: tokens.bg }}
         >
-          {transcribing ? t.transcribing : diarizing ? t.diarizing : analyzing ? t.analyzing : t.analyze}
+          {transcribing
+            ? `${t.transcribing} ${Math.round(jobProgress)}%`
+            : diarizing
+              ? `${t.diarizing} ${Math.round(jobProgress)}%`
+              : analyzing
+                ? `${t.analyzing} ${Math.round(jobProgress)}%`
+                : t.analyze}
         </button>
       </div>
 

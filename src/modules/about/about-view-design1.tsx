@@ -46,7 +46,7 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en'; onNavigate?: 
           </div>
           <h1 className="text-[32px] md:text-[40px] font-medium tracking-tight">Blend</h1>
           <p className="mt-5 text-[16px] md:text-[18px]" style={{ color: tokens.textDim }}>
-            {isKo ? 'AI를 하나로, 더 싸게, 더 스마트하게.' : 'One AI app — cheaper and smarter.'}
+            {isKo ? 'AI들을 하나로, 더 저렴하게, 더 똑똑하게.' : 'One AI app — more affordable and smarter.'}
           </p>
         </header>
 

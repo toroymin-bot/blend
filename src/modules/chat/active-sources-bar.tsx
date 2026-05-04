@@ -60,13 +60,21 @@ function categorize(s: ActiveSource, dsTypeMap: Map<string, string>): Category {
 type CategoryStatus = 'ready' | 'syncing' | 'partial' | 'error' | 'idle';
 
 // [2026-05-01 Roy] 점 + 라벨 + 배경 모두 한 status에서 파생 — 시각 일관성 보장.
+// [2026-05-04] error 분해 — 일부만 error면 'partial', 전부 error여야 'error'.
+// 사용자가 chip("OneDrive 27 · 오류")만 보고 "전부 망가짐"으로 오해하지 않도록.
 function categoryStatus(items: ActiveSource[]): CategoryStatus {
-  // worst status 우선 (사용자가 문제를 즉시 인지하도록)
-  if (items.some((s) => s.status === 'error'))   return 'error';
+  if (items.length === 0) return 'idle';
+  const errCount = items.filter((s) => s.status === 'error').length;
+  if (errCount > 0 && errCount === items.length) return 'error';
+  if (errCount > 0) return 'partial';
   if (items.some((s) => s.status === 'syncing')) return 'syncing';
   if (items.some((s) => s.status === 'partial')) return 'partial';
   if (items.some((s) => s.status === 'ready'))   return 'ready';
   return 'idle';
+}
+
+function errorCount(items: ActiveSource[]): number {
+  return items.filter((s) => s.status === 'error').length;
 }
 
 const STATUS_DOT: Record<CategoryStatus, string> = {
@@ -284,9 +292,16 @@ function CategoryChip({
       ? 'rgba(234,140,30,0.35)'
       : tokens.border;
   const labelColor = isError ? '#dc2626' : isPartial ? '#b45309' : tokens.textDim;
+  // [2026-05-04] partial/error chip에 실패 건수 명시 — 데이터소스 페이지와 인지 차이 해소.
+  const errCount = errorCount(items);
+  const failureSuffix = errCount > 0
+    ? lang === 'ko'
+      ? ` (${errCount}/${items.length}개 인덱싱 실패)`
+      : ` (${errCount}/${items.length} indexing failed)`
+    : '';
   const tooltip = lang === 'ko'
-    ? `${label} · ${items.length}개${statusLabel ? ` · ${statusLabel}` : ''} — 클릭해서 항목 보기`
-    : `${label} · ${items.length} item${items.length === 1 ? '' : 's'}${statusLabel ? ` · ${statusLabel}` : ''} — click to view`;
+    ? `${label} · ${items.length}개${statusLabel ? ` · ${statusLabel}` : ''}${failureSuffix} — 클릭해서 항목 보기`
+    : `${label} · ${items.length} item${items.length === 1 ? '' : 's'}${statusLabel ? ` · ${statusLabel}` : ''}${failureSuffix} — click to view`;
 
   return (
     <div

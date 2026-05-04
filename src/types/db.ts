@@ -33,6 +33,10 @@ export interface DBMessage {
   edited?: boolean;
   editedAt?: number;
   images?: string[];
+  // [Roy v10 PM-22] AI 생성 이미지 영구 보존 (D1Message.imageUrl과 동일).
+  // Dexie schema에 인덱스 없이 임의 필드로 저장 가능 (migration 불필요).
+  imageUrl?: string;
+  imagePrompt?: string;
 }
 
 export interface DBMessageSource {

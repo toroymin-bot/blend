@@ -79,7 +79,7 @@ const PRICING = {
 const copy = {
   ko: {
     head:          '모든 AI를 하나의 키로.',
-    sub:           '하나로, 더 싸게, 더 스마트하게.',
+    sub:           '하나로, 더 저렴하게, 더 똑똑하게.',
     // Pricing v2
     plansHead:     '요금제',
     plansSub:      '필요한 만큼만, 평생 한 번, 또는 매달 — 골라쓰세요.',
@@ -123,10 +123,10 @@ const copy = {
     payClose:       '닫기',
     thisMonth:     '이번 달',
     spent:         '사용',
-    // v3 비교 라벨: "만약, Blend 없이 매달 ₩82,200"
+    // v3 비교 라벨: "만약, Blend가 없었다면 매달 ₩82,200"
     ifSubscribedPrefix:    '만약, ',
     ifSubscribedHighlight: 'Blend',
-    ifSubscribed:          ' 없이 매달 ',  // highlight와 amount 사이 텍스트
+    ifSubscribed:          '가 없었다면 매달 ',  // highlight와 amount 사이 텍스트
     ifSubscribedTrailing:  '',             // amount 뒤에 붙는 꼬리 (KO: 없음)
     // v3 절약 영역 (top + savings number + bottom)
     savingsTopPrefix:  (n: number) => `${n}일간 `,
@@ -138,7 +138,8 @@ const copy = {
     breakdown:     '모델별 사용',
     dailyAvg:      '일평균',
     highestDay:    '가장 많이 쓴 날',
-    spendingLimit: '비용 한도',
+    spendingLimit: 'Blend 자체 한도',
+    spendingLimitSub: '여기서 정한 금액을 넘으면 Blend가 모든 AI 호출을 멈춰요.',
     dailyLimit:    '일일 한도',
     monthlyLimit:  '월간 한도',
     notSet:        '없음',
@@ -151,10 +152,17 @@ const copy = {
     empty:         '아직 사용 기록이 없어요.',
     emptyHint:     '채팅을 시작하면 이곳에 사용량이 쌓입니다.',
     today:         '오늘',
+    // [2026-05-03 Roy] AI 회사 콘솔 직접 한도 설정 카드 — Blend 자체 한도와 별개로,
+    // 사용자가 OpenAI/Anthropic 등 원천에서 결제 한도를 직접 잠그도록 안내.
+    // 스티브 잡스 식: 강한 한 줄 명제 + 짧은 설명 + 1-탭 액션.
+    providerLimitTitle:    'AI 회사에서 직접 한도 설정',
+    providerLimitHeadline: '한 번만 잠그면, 평생 안전합니다.',
+    providerLimitDesc:     'Blend의 한도는 이 브라우저 안에서만 작동해요. 원천(각 AI 회사 콘솔)에서 한도를 직접 정해두면 — 어떤 디바이스, 어떤 키, 어떤 상황에서도 그 금액을 절대 넘지 않습니다.',
+    providerLimitOpen:     '한도 설정 열기',
   },
   en: {
     head:          'Every AI, with one key.',
-    sub:           'One AI app — cheaper and smarter.',
+    sub:           'One AI app — more affordable and smarter.',
     plansHead:     'Plans',
     plansSub:      'Pay-as-you-go, once forever, or monthly — pick what fits.',
     monthly:       'Monthly',
@@ -212,7 +220,8 @@ const copy = {
     breakdown:     'By model',
     dailyAvg:      'Daily average',
     highestDay:    'Highest day',
-    spendingLimit: 'Spending limit',
+    spendingLimit: 'Blend-side spending limit',
+    spendingLimitSub: 'Cross this and Blend stops every AI call — instantly.',
     dailyLimit:    'Daily limit',
     monthlyLimit:  'Monthly limit',
     notSet:        'None',
@@ -225,6 +234,10 @@ const copy = {
     empty:         'No usage yet.',
     emptyHint:     'Once you start chatting, your usage will appear here.',
     today:         'Today',
+    providerLimitTitle:    'Set a hard limit at the source',
+    providerLimitHeadline: 'Lock it once. Stay safe forever.',
+    providerLimitDesc:     'Blend\'s limit only works in this browser. Cap your spend at the source — every device, every key, every situation will respect it.',
+    providerLimitOpen:     'Open limit settings',
   },
 } as const;
 
@@ -459,9 +472,9 @@ export default function D1BillingView({
               className="rounded-2xl border p-6 md:p-8"
               style={{ background: tokens.surface, borderColor: tokens.border }}
             >
-              <div className="mb-4 flex items-center gap-2">
+              <div className="mb-6 flex items-center gap-2">
                 <span className="text-[13px]" style={{ color: tokens.textDim }}>
-                  {lang === 'ko' ? '☁️ 모든 디바이스 합산 (Mac · iPhone · PC)' : '☁️ All devices combined'}
+                  {lang === 'ko' ? '모든 디바이스 합산 (Mac · iPhone · PC)' : 'All devices combined'}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-4">
@@ -484,7 +497,7 @@ export default function D1BillingView({
                   </div>
                 </div>
               )}
-              <div className="mt-3 text-[11px]" style={{ color: tokens.textFaint }}>
+              <div className="mt-3 text-[13px]" style={{ color: tokens.textFaint }}>
                 {lang === 'ko'
                   ? '아래는 이 디바이스 기록만. 위는 모든 디바이스 합산 (Cloudflare KV).'
                   : 'Below: this device only. Above: all devices combined (Cloudflare KV).'}
@@ -549,7 +562,7 @@ export default function D1BillingView({
                   </>
                 )}
 
-                {/* v3 비교 라벨 — "만약, Blend 없이 매달 ₩82,200" / "If you paid for each — $60.00/month" */}
+                {/* v3 비교 라벨 — "만약, Blend가 없었다면 매달 ₩82,200" / "If you paid for each — $60.00/month" */}
                 <div className="mt-10 mb-5 flex items-center gap-3">
                   <span className="h-px flex-1" style={{ background: tokens.border }} />
                   <span
@@ -672,14 +685,21 @@ export default function D1BillingView({
 
         {/* ══ Section 3 — Spending limit (savings 모드에서만) ══ */}
         {mode === 'savings' && (
-        <section>
+        <section className="mb-12">
           <div
             className="rounded-2xl border p-6 md:p-8"
             style={{ background: tokens.surface, borderColor: tokens.border }}
           >
-            <div className="mb-6 text-[13px]" style={{ color: tokens.textDim }}>
+            {/* [2026-05-03 Roy] 헤더 + 1줄 부제 — 'Blend 자체 한도'임을 명시.
+                (다음 카드: AI 회사 콘솔 직접 한도와 구분) */}
+            <div className="mb-1 text-[15px] font-medium" style={{ color: tokens.text }}>
               {t.spendingLimit}
             </div>
+            {(t as { spendingLimitSub?: string }).spendingLimitSub && (
+              <div className="mb-6 text-[13px]" style={{ color: tokens.textDim }}>
+                {(t as { spendingLimitSub?: string }).spendingLimitSub}
+              </div>
+            )}
 
             <LimitRow
               label={t.dailyLimit}
@@ -710,6 +730,14 @@ export default function D1BillingView({
             </div>
           </div>
         </section>
+        )}
+
+        {/* [2026-05-03 Roy] ══ Section 4 — AI 회사별 직접 한도 설정 ══
+            Blend 자체 한도(Section 3)는 브라우저 안에서만 작동. 사용자가 OpenAI/
+            Anthropic/Google/DeepSeek/Groq 콘솔에서 결제 한도를 직접 잠그도록
+            안내. 강력한 명제(잡스 식) + 짧은 설명 + 1-탭 액션. */}
+        {mode === 'savings' && (
+          <ProviderLimitsSection lang={lang} t={t as Record<string, unknown> & typeof copy.ko} />
         )}
 
       </div>
@@ -1057,15 +1085,98 @@ function PaymentStubModal({
 
 // ── Subcomponents ────────────────────────────────────────────────
 
+// [2026-05-03 Roy] AI 회사 콘솔 직접 한도 설정 카드.
+// 디자인 의도(Steve Jobs 식): 강력한 한 줄 명제 + 1줄 설명 + 5개 프로바이더 행
+// 각각 1-탭 [열기 ↗] 액션. 사용자가 인지하고(왜 필요한지) 행동(클릭)할 수 있게.
+const PROVIDER_LIMIT_LINKS: Array<{ id: string; name: string; brand: string; url: string; hint_ko: string; hint_en: string }> = [
+  { id: 'openai',    name: 'OpenAI',         brand: '#10A37F', url: 'https://platform.openai.com/settings/organization/limits',         hint_ko: 'GPT · DALL-E · gpt-image',     hint_en: 'GPT · DALL-E · gpt-image' },
+  { id: 'anthropic', name: 'Anthropic',      brand: '#C65A3C', url: 'https://console.anthropic.com/settings/limits',                    hint_ko: 'Claude (Opus · Sonnet · Haiku)', hint_en: 'Claude (Opus · Sonnet · Haiku)' },
+  { id: 'google',    name: 'Google AI',      brand: '#4285F4', url: 'https://console.cloud.google.com/billing/budgets',                 hint_ko: 'Gemini · Imagen',              hint_en: 'Gemini · Imagen' },
+  { id: 'deepseek',  name: 'DeepSeek',       brand: '#5B6CFF', url: 'https://platform.deepseek.com/usage',                              hint_ko: 'DeepSeek V/R 시리즈',           hint_en: 'DeepSeek V/R series' },
+  { id: 'groq',      name: 'Groq',           brand: '#F55036', url: 'https://console.groq.com/settings/limits',                         hint_ko: 'Llama · Mixtral 고속',          hint_en: 'Llama · Mixtral fast' },
+];
+
+function ProviderLimitsSection({ lang, t }: { lang: 'ko' | 'en'; t: Record<string, unknown> & typeof copy.ko }) {
+  const headline = (t.providerLimitHeadline as string) ?? '';
+  const desc     = (t.providerLimitDesc as string) ?? '';
+  const title    = (t.providerLimitTitle as string) ?? '';
+  const openLbl  = (t.providerLimitOpen as string) ?? 'Open';
+  return (
+    <section className="mb-12">
+      <div
+        className="rounded-2xl border p-6 md:p-8"
+        style={{ background: tokens.surface, borderColor: tokens.border }}
+      >
+        <div className="mb-1 text-[15px] font-medium" style={{ color: tokens.text }}>
+          {title}
+        </div>
+        {/* Steve Jobs 식: 큰 한 줄 명제. accent 컬러로 시선 끌기. */}
+        <div
+          className="mb-3 text-[22px] md:text-[26px] font-medium leading-tight tracking-[-0.01em]"
+          style={{ color: tokens.text }}
+        >
+          {headline}
+        </div>
+        <div className="mb-6 text-[13px] leading-relaxed" style={{ color: tokens.textDim }}>
+          {desc}
+        </div>
+
+        <div className="flex flex-col">
+          {PROVIDER_LIMIT_LINKS.map((p, i) => (
+            <a
+              key={p.id}
+              href={p.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between gap-3 py-3.5 transition-colors hover:bg-black/[0.02]"
+              style={{
+                borderTop: i === 0 ? `1px solid ${tokens.border}` : undefined,
+                borderBottom: `1px solid ${tokens.border}`,
+              }}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span
+                  className="inline-block shrink-0 rounded-full"
+                  style={{ background: p.brand, width: 10, height: 10 }}
+                />
+                <div className="min-w-0">
+                  <div className="text-[14px] font-medium truncate" style={{ color: tokens.text }}>
+                    {p.name}
+                  </div>
+                  <div className="text-[12px] truncate" style={{ color: tokens.textFaint }}>
+                    {lang === 'ko' ? p.hint_ko : p.hint_en}
+                  </div>
+                </div>
+              </div>
+              <span
+                className="shrink-0 inline-flex items-center gap-1 text-[13px] font-medium whitespace-nowrap"
+                style={{ color: tokens.accent }}
+              >
+                {openLbl}
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M7 17L17 7" />
+                  <path d="M8 7h9v9" />
+                </svg>
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // [2026-05-02 Roy] KV 통합 뷰 컬럼 — 어제/이번주/전체 누적 표시.
 function KvCol({ label, cost, reqs, lang }: { label: string; cost: number; reqs: number; lang: 'ko' | 'en' }) {
+  // [2026-05-02 Roy] 라벨/건수 텍스트를 '이번 달' 헤더(13px)와 통일.
+  // 이전: label 12px / reqs 11px → 너무 작음, 가독성 낮음.
   return (
     <div>
-      <div className="text-[12px] mb-1" style={{ color: tokens.textDim }}>{label}</div>
+      <div className="text-[13px] mb-1" style={{ color: tokens.textDim }}>{label}</div>
       <div className="text-[20px] font-medium" style={{ color: tokens.text }}>
         {cost > 0 ? (lang === 'ko' ? `₩${Math.round(cost * KRW_PER_USD).toLocaleString('ko-KR')}` : `$${cost.toFixed(cost < 0.01 ? 4 : 2)}`) : (lang === 'ko' ? '₩0' : '$0')}
       </div>
-      <div className="text-[11px]" style={{ color: tokens.textFaint }}>
+      <div className="text-[13px]" style={{ color: tokens.textFaint }}>
         {reqs}{lang === 'ko' ? '건' : ' requests'}
       </div>
     </div>

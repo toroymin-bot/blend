@@ -60,9 +60,12 @@ const PLANS = [
     isLifetime: false,
   },
   {
+    // [2026-05-04 Roy] Lifetime → 6개월 패키지로 전환. 'lifetime' id는 license-store /
+    // payment success client에 박혀 있어 그대로 유지 (UI 표시만 6개월). 가격:
+    // Pro 월 $9 × 6 = $54 → $39 (≈ 28% 할인). i18n에서 "6개월" + 할인율 표기.
     id: 'lifetime',
-    name: 'Lifetime',
-    price: { monthly: 29, yearly: 29 },
+    name: '6-Month',
+    price: { monthly: 39, yearly: 39 },
     descKey: 'billing.lifetime_desc',
     features: [
       { textKey: 'billing.feature_all_in_pro' },

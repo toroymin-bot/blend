@@ -16,6 +16,8 @@ import { useAPIKeyStore }   from '@/stores/api-key-store';
 import { useChatStore }     from '@/stores/chat-store';
 import { usePromptStore }   from '@/stores/prompt-store';
 import { useAgentStore }    from '@/stores/agent-store';
+import { getImageModelByQuality, getImageModelLabel } from '@/data/available-models';
+import { getVoiceModelLabel } from '@/lib/voice-chat';
 import { useUsageStore }    from '@/stores/usage-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { isAnalyticsDisabled, setAnalyticsDisabled } from '@/lib/analytics';
@@ -50,7 +52,11 @@ const SHOW_ANALYTICS_SECTION = false;
 // ── Nav sections ──────────────────────────────────────────────────
 // Roy 결정 2026-04-25: Theme 섹션 제거 (라이트 모드 only). 'theme' SectionId는 호환 유지.
 // [2026-05-02 Roy] 'voice' 섹션 추가 — TTS 품질 변경.
-type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'analytics' | 'language' | 'voice' | 'data' | 'info';
+// [2026-05-03 Roy] 'image' 섹션 추가 — 이미지 생성 품질(DALL-E 3 / GPT Image 2) 변경.
+// [2026-05-04 Roy #16] 'info' 섹션을 'about'으로 통합. 사이드바 바깥 About 메뉴
+// 제거 + 일관된 진입점으로 Settings → About만 사용. 'info'(버전 단일 행)는 about
+// 안의 Version 블록으로 흡수 — 8 섹션 그대로 유지. 'info' SectionId는 호환 유지.
+type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'analytics' | 'language' | 'voice' | 'image' | 'data' | 'info' | 'about';
 
 const SECTIONS: { id: SectionId; labelKey: string }[] = [
   { id: 'api',      labelKey: 'settings.api_keys' },
@@ -58,8 +64,9 @@ const SECTIONS: { id: SectionId; labelKey: string }[] = [
   { id: 'prompt',   labelKey: 'settings.system_prompt' },
   { id: 'language', labelKey: 'settings.language' },
   { id: 'voice',    labelKey: 'settings.voice' },
+  { id: 'image',    labelKey: 'settings.image' },
   { id: 'data',     labelKey: 'settings.data_storage' },
-  { id: 'info',     labelKey: 'settings.info' },
+  { id: 'about',    labelKey: 'settings.about' },
 ];
 
 // ── Inline SVG icons ──────────────────────────────────────────────
@@ -141,9 +148,12 @@ export function D1SettingsView() {
   } = useSettingsStore();
   const { t, lang, setLang } = useTranslation();
 
-  // [2026-05-03 BUG-011] SSR-safe 진입 동작.
-  //   초기값은 항상 'api' (SSR과 client 첫 렌더 일치 → hydration mismatch 차단).
-  //   첫 마운트 직후 deviceClass='mobile' 이면 activeSection을 null로 보정 (메뉴 노출).
+  // [2026-05-04 Roy] 모바일 진입은 무조건 메뉴 리스트(null)부터 — 사용자 보고:
+  //   '설정 클릭하면 API 키 관리로 두 단계 점프되는 버그'.
+  //   원인: 초기값 'api'가 첫 렌더에서 표시 → 'flash of API'. 첫마운트 보정 useEffect는
+  //   deviceClass='unknown'(SSR 첫 클라 렌더)에서 mobile 판정 못 함 → 보정 누락.
+  //   해결: SSR-safe하게 useState 초기값을 'api'로 두되, useEffect 내에서 mobile/unknown
+  //   둘 다 null 보정 (즉 모바일 폭이거나 아직 미확정인 좁은 폭이면 메뉴 우선).
   //   firstMountRef로 user 클릭 후 리사이즈 시 의도된 'api'를 다시 null로 만들지 않도록 분리.
   const deviceClass = useDeviceClass();
   const [activeSection, setActiveSection] = useState<SectionId | null>('api');
@@ -154,8 +164,10 @@ export function D1SettingsView() {
   useEffect(() => {
     if (firstMountRef.current) {
       firstMountRef.current = false;
-      // 첫 마운트: deviceClass가 실제 폭으로 갱신된 직후 1회 보정.
-      if (deviceClass === 'mobile' && activeSection === 'api') {
+      // [2026-05-04 Roy] 첫 마운트: 모바일 폭이거나 좁은 viewport면 무조건 메뉴(null).
+      // window.innerWidth로 직접 체크 — useDeviceClass가 'unknown' 반환하는 순간도 커버.
+      const isNarrow = typeof window !== 'undefined' && window.innerWidth < 768;
+      if ((deviceClass === 'mobile' || isNarrow) && activeSection === 'api') {
         setActiveSection(null);
       }
       return;
@@ -833,6 +845,19 @@ export function D1SettingsView() {
             <D1VoiceQualitySelector lang={lang} t={t} />
           </section>
 
+          {/* ── 5c. Image (Generation quality) ──────────────────── */}
+          {/* [2026-05-03 Roy] 이미지 생성 품질 — '프리미엄' (GPT Image 2) / '표준'
+              (DALL-E 3). localStorage 'd1:image-quality'. 첫 이미지 요청 시 모달로
+              먼저 받지만, 변경은 이 섹션에서. 변경 시 d1:image-quality-changed 이벤트
+              dispatch → chat-view가 즉시 반영. */}
+          <section style={{ display: visible('image') ? undefined : 'none' }}>
+            <SectionH id="image" label={t('settings.image')} />
+            <p className="mb-4 text-[13px]" style={{ color: tokens.textDim }}>
+              {t('settings.image_desc')}
+            </p>
+            <D1ImageQualitySelector lang={lang} t={t} />
+          </section>
+
           {/* ── 6. Data ───────────────────────────────────────── */}
           <section style={{ display: visible('data') ? undefined : 'none' }}>
             <SectionH id="data" label={t('settings.data_storage')} />
@@ -877,12 +902,75 @@ export function D1SettingsView() {
             </Card>
           </section>
 
-          {/* ── 7. Info ───────────────────────────────────────── */}
-          <section style={{ display: visible('info') ? undefined : 'none' }}>
-            <SectionH id="info" label={t('settings.info')} />
+          {/* ── 7. About (구 Info 흡수) ──────────────────────── */}
+          {/* [2026-05-04 Roy #16] About을 사이드바 바깥에서 Settings 안으로 통합. */}
+          <section style={{ display: visible('about') ? undefined : 'none' }}>
+            <SectionH id="about" label={t('settings.about')} />
             <Card>
-              <Row label={t('settings.version')} noBorder />
-              <Row label={t('app.tagline')} noBorder />
+              <div className="px-5 py-6">
+                {/* Tagline */}
+                <div className="mb-6">
+                  <div
+                    aria-hidden="true"
+                    className="mb-2 text-[44px] leading-none"
+                    style={{ color: tokens.text, fontFamily: '"Instrument Serif", serif', fontWeight: 400 }}
+                  >
+                    B
+                  </div>
+                  <h3 className="text-[20px] font-medium tracking-tight" style={{ color: tokens.text }}>Blend</h3>
+                  <p className="mt-2 text-[13.5px]" style={{ color: tokens.textDim }}>
+                    {lang === 'ko' ? 'AI들을 하나로, 더 저렴하게, 더 똑똑하게.' : 'One AI app — more affordable and smarter.'}
+                  </p>
+                </div>
+
+                {/* Why we built */}
+                <div className="mb-5">
+                  <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+                    {lang === 'ko' ? '왜 만들었나' : 'Why we built this'}
+                  </h4>
+                  {lang === 'ko' ? (
+                    <>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>매월 AI 구독료로 12만원을 쓰고 있었습니다.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>이제는 월 12,000원이면 충분합니다.</p>
+                      <p className="mt-1 text-[13.5px] font-medium leading-[1.7]" style={{ color: tokens.text }}>이게 Blend입니다.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>We were spending $90 a month on AI subscriptions.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Now it&apos;s just $9 a month.</p>
+                      <p className="mt-1 text-[13.5px] font-medium leading-[1.7]" style={{ color: tokens.text }}>That&apos;s Blend.</p>
+                    </>
+                  )}
+                </div>
+
+                {/* Made by */}
+                <div className="mb-5">
+                  <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+                    {lang === 'ko' ? '만든 곳' : 'Made by'}
+                  </h4>
+                  <p className="text-[13.5px]" style={{ color: tokens.text }}>MIN Company</p>
+                </div>
+
+                {/* Contact */}
+                <div className="mb-5">
+                  <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+                    {lang === 'ko' ? '연락' : 'Contact'}
+                  </h4>
+                  <a href="mailto:blend@ai4min.com" className="text-[13.5px]" style={{ color: tokens.accent }}>
+                    blend@ai4min.com
+                  </a>
+                </div>
+
+                {/* Version */}
+                <div>
+                  <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
+                    {lang === 'ko' ? '버전' : 'Version'}
+                  </h4>
+                  <p className="text-[13.5px]" style={{ color: tokens.textDim }}>
+                    {process.env.NEXT_PUBLIC_BUILD_VERSION || 'v0.9.x'} · {process.env.NEXT_PUBLIC_BUILD_DATE || '2026-05-04'}
+                  </p>
+                </div>
+              </div>
             </Card>
           </section>
 
@@ -985,6 +1073,13 @@ function D1VoiceQualitySelector({ lang, t }: { lang: 'ko' | 'en'; t: (k: string)
     }
   }
   void lang;
+  // [2026-05-03 Roy Fully Agentic] {{voice_model}} placeholder를 voice-chat.ts의
+  // 가족 상수 기반 라벨로 치환. Google이 Chirp4-HD 출시 시 PREMIUM_VOICE_FAMILY
+  // 한 줄만 바꾸면 카드 카피도 자동 갱신.
+  const labelByQ = {
+    standard: getVoiceModelLabel('standard'),
+    premium:  getVoiceModelLabel('premium'),
+  };
   return (
     <Card>
       <div className="flex flex-col gap-2 p-4">
@@ -1005,7 +1100,66 @@ function D1VoiceQualitySelector({ lang, t }: { lang: 'ko' | 'en'; t: (k: string)
                 {t(`settings.voice_quality_${q}`)}
               </span>
               <span className="mt-0.5 text-[12.5px]" style={{ color: tokens.textDim }}>
-                {t(`settings.voice_quality_${q}_desc`)}
+                {t(`settings.voice_quality_${q}_desc`).replace('{{voice_model}}', labelByQ[q])}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// D1ImageQualitySelector — 이미지 생성 품질 선택 (2026-05-03 Roy)
+// localStorage 'd1:image-quality'. 변경 시 d1:image-quality-changed 이벤트
+// dispatch — chat-view가 즉시 state 갱신. (TTS와 같은 패턴)
+// [2026-05-03 Roy Agentic] {{model}} placeholder를 registry-derived 라벨로 치환 →
+// 신모델(gpt-image-3 등) 출시 시 카피 자동 갱신. 카드 하단에 현재 사용 모델 표시 + 'auto-updated' 안내.
+// ════════════════════════════════════════════════════════════════
+function D1ImageQualitySelector({ lang, t }: { lang: 'ko' | 'en'; t: (k: string) => string }) {
+  const [quality, setQuality] = useState<'premium' | 'standard'>('standard');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem('d1:image-quality');
+    if (stored === 'premium' || stored === 'standard') setQuality(stored);
+  }, []);
+  function pick(q: 'premium' | 'standard') {
+    setQuality(q);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('d1:image-quality', q);
+      localStorage.setItem('d1:image-quality-chosen', 'true');
+      // chat-view가 즉시 반영 (모달 다시 안 띄우게)
+      window.dispatchEvent(new CustomEvent('d1:image-quality-changed', { detail: { quality: q } }));
+    }
+  }
+  // registry에서 현재 standard/premium에 매칭되는 실제 모델 라벨 도출.
+  // cron(3시간 주기)으로 새 모델 추가되면 다음 사용 시 자동 적용.
+  const standardLabel = getImageModelLabel(getImageModelByQuality('standard'), lang);
+  const premiumLabel  = getImageModelLabel(getImageModelByQuality('premium'),  lang);
+  const labelByQ = { standard: standardLabel, premium: premiumLabel };
+  return (
+    <Card>
+      <div className="flex flex-col gap-2 p-4">
+        {(['standard', 'premium'] as const).map((q) => (
+          <button
+            key={q}
+            onClick={() => pick(q)}
+            className="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors"
+            style={{
+              background: quality === q ? tokens.accentSoft : 'transparent',
+              borderColor: quality === q ? tokens.accent : tokens.borderMid,
+            }}
+          >
+            <div className="mt-0.5 h-4 w-4 shrink-0 rounded-full border-2"
+                 style={{ borderColor: quality === q ? tokens.accent : tokens.borderMid, background: quality === q ? tokens.accent : 'transparent' }} />
+            <div className="flex flex-col">
+              <span className="text-[14px] font-medium" style={{ color: tokens.text }}>
+                {t(`settings.image_quality_${q}`)}
+              </span>
+              <span className="mt-0.5 text-[12.5px]" style={{ color: tokens.textDim }}>
+                {/* {{model}} placeholder를 registry 라벨로 치환 */}
+                {t(`settings.image_quality_${q}_desc`).replace('{{model}}', labelByQ[q])}
               </span>
             </div>
           </button>

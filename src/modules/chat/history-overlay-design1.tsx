@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useProjectStore, PROJECT_COLORS, type ActiveProject } from '@/stores/project-store';
+import { useD1ChatStore } from '@/stores/d1-chat-store';
 
 const tokens = {
   bg:          '#fafaf9',
@@ -25,6 +27,8 @@ export interface ChatSummary {
   // P3.1 — 조직화 메타
   pinned?: boolean;
   tags?: string[];
+  /** [2026-05-04 Roy 안 3] 프로젝트 라벨 — d1-chat-store의 `folder` 필드 재사용. */
+  projectId?: string | null;
 }
 
 interface D1HistoryOverlayProps {
@@ -52,6 +56,21 @@ export function D1HistoryOverlay({
   const [filter, setFilter] = useState<FilterRange>('all');
   const [highlightIdx, setHighlightIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  // [2026-05-04 Roy 안 3] 프로젝트 셀렉터/할당 — store에서 직접 read.
+  // history-overlay만 store-aware로 가서 chat-view 측 prop 폭증을 피한다.
+  const projects = useProjectStore((s) => s.projects);
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const setActiveProject = useProjectStore((s) => s.setActiveProject);
+  const createProject = useProjectStore((s) => s.createProject);
+  const renameProject = useProjectStore((s) => s.renameProject);
+  const deleteProject = useProjectStore((s) => s.deleteProject);
+  const getColor = useProjectStore((s) => s.getColor);
+  const getName = useProjectStore((s) => s.getName);
+  const setChatFolder = useD1ChatStore((s) => s.setChatFolder);
+  const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const [pickerForChatId, setPickerForChatId] = useState<string | null>(null);
+  const projectMenuRef = useRef<HTMLDivElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
   // [2026-05-02 Roy] 첫 1회 코치마크 — '북마크 클릭 → 채팅 기억하기' 안내.
   // localStorage 'd1:memory-coachmark-seen' 가드. 사용자가 어느 한 곳에서 한 번
   // 보면 영구 안 나옴. 4초 후 자동 dismiss.
@@ -112,9 +131,15 @@ export function D1HistoryOverlay({
       const hay = `${c.title} ${c.allText ?? ''} ${c.preview ?? ''}`.toLowerCase();
       return hay.includes(q);
     };
+    // [2026-05-04 Roy 안 3] 활성 프로젝트가 'all' 외면 그 프로젝트의 채팅만 표시.
+    const inProject = (c: ChatSummary) => {
+      if (activeProjectId === 'all') return true;
+      return c.projectId === activeProjectId;
+    };
     return chats
       .filter(inRange)
       .filter(matches)
+      .filter(inProject)
       // P3.1 — 핀 우선 정렬, 그 다음 최신순
       .sort((a, b) => {
         const ap = a.pinned ? 1 : 0;
@@ -122,7 +147,23 @@ export function D1HistoryOverlay({
         if (ap !== bp) return bp - ap;
         return b.updatedAt - a.updatedAt;
       });
-  }, [chats, filter, query, startOfToday, startOfWeek, startOfMonth]);
+  }, [chats, filter, query, startOfToday, startOfWeek, startOfMonth, activeProjectId]);
+
+  // 외부 클릭 시 셀렉터/picker 닫기
+  useEffect(() => {
+    if (!showProjectMenu && !pickerForChatId) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (showProjectMenu && projectMenuRef.current && !projectMenuRef.current.contains(t)) {
+        setShowProjectMenu(false);
+      }
+      if (pickerForChatId && pickerRef.current && !pickerRef.current.contains(t)) {
+        setPickerForChatId(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showProjectMenu, pickerForChatId]);
 
   // Keyboard nav + ESC
   useEffect(() => {
@@ -176,6 +217,17 @@ export function D1HistoryOverlay({
         untitled: '제목 없음',
         msgs: (n: number) => `${n}개 메시지`,
         delete: '삭제',
+        // 안 3 — 프로젝트
+        project: '프로젝트',
+        allChats: '모든 채팅',
+        newProject: '+ 새 프로젝트',
+        newProjectPrompt: '새 프로젝트 이름',
+        renamePrompt: '프로젝트 이름 변경',
+        deleteConfirm: (name: string) => `"${name}" 프로젝트를 삭제할까요? (채팅은 유지)`,
+        unassigned: '프로젝트 없음',
+        moveTo: '프로젝트 이동',
+        rename: '이름 변경',
+        deleteProject: '프로젝트 삭제',
       }
     : {
         placeholder: 'Search all conversations...',
@@ -188,6 +240,17 @@ export function D1HistoryOverlay({
         untitled: 'Untitled',
         msgs: (n: number) => `${n} msgs`,
         delete: 'Delete',
+        // Plan 3 — projects
+        project: 'Project',
+        allChats: 'All chats',
+        newProject: '+ New project',
+        newProjectPrompt: 'New project name',
+        renamePrompt: 'Rename project',
+        deleteConfirm: (name: string) => `Delete project "${name}"? (chats are kept)`,
+        unassigned: 'No project',
+        moveTo: 'Move to project',
+        rename: 'Rename',
+        deleteProject: 'Delete project',
       };
 
   const formatRelative = (ts: number): string => {
@@ -234,6 +297,58 @@ export function D1HistoryOverlay({
               className="group flex items-start gap-2 px-4 py-2.5 transition-colors"
               style={{ background: isActive ? tokens.accentSoft : 'transparent' }}
             >
+              {/* [2026-05-04 Roy 안 3] 채팅 카드 좌측 프로젝트 컬러 점 — 클릭 시
+                  picker 열림. 점 자체가 인디케이터 + 변경 핸들. 새 메뉴 항목 추가
+                  없이 단일 컨트롤로 통합. */}
+              <div className="relative shrink-0 pt-1.5" ref={pickerForChatId === c.id ? pickerRef : undefined}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPickerForChatId(pickerForChatId === c.id ? null : c.id);
+                  }}
+                  className="block h-2.5 w-2.5 rounded-full ring-1 ring-black/5 transition-transform hover:scale-125"
+                  style={{ background: getColor(c.projectId) }}
+                  title={c.projectId ? getName(c.projectId) || L.unassigned : L.moveTo}
+                  aria-label={L.moveTo}
+                />
+                {pickerForChatId === c.id && (
+                  <div
+                    className="absolute left-0 top-5 z-30 min-w-[180px] rounded-lg border py-1 shadow-lg"
+                    style={{ background: tokens.surface, borderColor: tokens.border }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setChatFolder(c.id, null);
+                        setPickerForChatId(null);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] hover:bg-black/5"
+                      style={{ color: tokens.text }}
+                    >
+                      <span className="inline-block h-2 w-2 rounded-full" style={{ background: '#cbd5e1' }} />
+                      {L.unassigned}
+                    </button>
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setChatFolder(c.id, p.id);
+                          setPickerForChatId(null);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] hover:bg-black/5"
+                        style={{ color: tokens.text }}
+                      >
+                        <span
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{ background: PROJECT_COLORS[p.colorIdx % PROJECT_COLORS.length] }}
+                        />
+                        <span className="truncate">{p.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => { onSelect(c.id); onClose(); }}
                 className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
@@ -295,10 +410,11 @@ export function D1HistoryOverlay({
                         viewBox="0 0 24 24"
                         fill={selected ? 'currentColor' : 'none'}
                         stroke="currentColor"
-                        strokeWidth={1.6}
+                        strokeWidth={1.8}
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        style={{ opacity: selected ? 1 : 0.45 }}
+                        // [2026-05-03 Roy] opacity 0.45 → 0.75 + stroke 1.6 → 1.8 — 너무 흐려 잘 안 보인다는 신고. 살짝 진하게.
+                        style={{ opacity: selected ? 1 : 0.75 }}
                         className="transition-opacity group-hover:!opacity-100"
                       >
                         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
@@ -314,11 +430,13 @@ export function D1HistoryOverlay({
                   </div>
                 );
               })()}
-              {/* P3.1 — 핀 토글 */}
+              {/* P3.1 — 핀 토글
+                  [2026-05-04 Roy #19] 모바일에서는 hover가 없어 항상 노출(opacity-60).
+                  데스크탑은 기존대로 hover 노출. group-hover:opacity-100은 둘 다 적용. */}
               {onTogglePin && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onTogglePin(c.id); }}
-                  className="shrink-0 rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/5"
+                  className="shrink-0 rounded-md p-1 opacity-60 transition-opacity hover:bg-black/5 md:opacity-0 md:group-hover:opacity-100"
                   title={c.pinned ? (lang === 'ko' ? '고정 해제' : 'Unpin') : (lang === 'ko' ? '고정' : 'Pin')}
                   aria-label={c.pinned ? 'unpin' : 'pin'}
                   style={{ color: c.pinned ? tokens.accent : tokens.textFaint }}
@@ -331,7 +449,7 @@ export function D1HistoryOverlay({
               {onDelete && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
-                  className="shrink-0 rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/5"
+                  className="shrink-0 rounded-md p-1 opacity-60 transition-opacity hover:bg-black/5 md:opacity-0 md:group-hover:opacity-100"
                   title={L.delete}
                   aria-label={L.delete}
                 >
@@ -425,6 +543,111 @@ export function D1HistoryOverlay({
               <path d="M18 6 6 18" /><path d="m6 6 12 12" />
             </svg>
           </button>
+        </div>
+
+        {/* [2026-05-04 Roy 안 3] 프로젝트 셀렉터 — 검색바 아래 1줄. 미니멀.
+            드롭다운: 모든 채팅 / 각 프로젝트 / + 새 프로젝트.
+            현재 활성 프로젝트의 컬러 점 + 이름 + ▾.  */}
+        <div className="relative flex items-center gap-2 border-b px-5 py-2" style={{ borderColor: tokens.border }}>
+          <div ref={projectMenuRef} className="relative">
+            <button
+              onClick={() => setShowProjectMenu((v) => !v)}
+              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12.5px] transition-colors hover:bg-black/5"
+              style={{ color: tokens.text, background: 'transparent', border: `1px solid ${tokens.border}` }}
+            >
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: activeProjectId === 'all' ? tokens.textFaint : getColor(activeProjectId) }}
+              />
+              <span className="max-w-[140px] truncate">
+                {activeProjectId === 'all' ? L.allChats : (getName(activeProjectId) || L.allChats)}
+              </span>
+              <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ color: tokens.textFaint }}>
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            {showProjectMenu && (
+              <div
+                className="absolute left-0 top-full z-20 mt-1 min-w-[220px] rounded-lg border py-1 shadow-lg"
+                style={{ background: tokens.surface, borderColor: tokens.border }}
+              >
+                <button
+                  onClick={() => {
+                    setActiveProject('all');
+                    setShowProjectMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] hover:bg-black/5"
+                  style={{ color: tokens.text }}
+                >
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: tokens.textFaint }} />
+                  {L.allChats}
+                </button>
+                {projects.length > 0 && (
+                  <div className="my-1 h-px" style={{ background: tokens.border }} />
+                )}
+                {projects.map((p) => (
+                  <div key={p.id} className="group/proj flex items-center">
+                    <button
+                      onClick={() => {
+                        setActiveProject(p.id);
+                        setShowProjectMenu(false);
+                      }}
+                      className="flex flex-1 items-center gap-2 px-3 py-1.5 text-left text-[12.5px] hover:bg-black/5"
+                      style={{ color: tokens.text }}
+                    >
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ background: PROJECT_COLORS[p.colorIdx % PROJECT_COLORS.length] }}
+                      />
+                      <span className="truncate">{p.name}</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const next = window.prompt(L.renamePrompt, p.name);
+                        if (next && next.trim()) renameProject(p.id, next);
+                      }}
+                      className="px-1.5 py-1 opacity-0 transition-opacity group-hover/proj:opacity-60 hover:!opacity-100"
+                      title={L.rename}
+                      style={{ color: tokens.textFaint }}
+                    >
+                      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(L.deleteConfirm(p.name))) deleteProject(p.id);
+                      }}
+                      className="px-1.5 py-1 mr-1 opacity-0 transition-opacity group-hover/proj:opacity-60 hover:!opacity-100"
+                      title={L.deleteProject}
+                      style={{ color: tokens.textFaint }}
+                    >
+                      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                <div className="my-1 h-px" style={{ background: tokens.border }} />
+                <button
+                  onClick={() => {
+                    const name = window.prompt(L.newProjectPrompt, '');
+                    if (name && name.trim()) {
+                      const p = createProject(name);
+                      setActiveProject(p.id);
+                    }
+                    setShowProjectMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] hover:bg-black/5"
+                  style={{ color: tokens.accent }}
+                >
+                  {L.newProject}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Filter tabs */}

@@ -23,6 +23,10 @@ interface MeetingJob {
   stage: AnalyzeStage;
   /** 사용자에게 보일 진행 라벨 — '음성 변환 중', '화자 분리 중' 등 */
   label: string;
+  /** [2026-05-04 Roy] 0~100 진행률 — 데이터소스 동기화처럼 사용자에게 실제 % 노출.
+   *  stage 단계 진입 시 setStage가 자동으로 stage별 기준 %로 갱신, runner는 stage
+   *  내부 추가 진행 시 setProgress로 미세조정. */
+  progress: number;
   /** stage='error'면 사용자에게 보일 사유 */
   errorMsg?: string;
   /** stage='done'면 결과 — 컴포넌트가 history에 push */
@@ -36,8 +40,10 @@ interface MeetingJobState {
 
   /** runner가 호출 — 분석 시작 */
   beginJob: (id: string, label: string) => void;
-  /** runner가 호출 — stage 갱신 */
+  /** runner가 호출 — stage 갱신 (stage별 기준 %로 자동 점프) */
   setStage: (id: string, stage: AnalyzeStage, label?: string) => void;
+  /** runner가 호출 — stage 내부 미세 진행 갱신 (예: STT 청크별 누적) */
+  setProgress: (id: string, progress: number) => void;
   /** runner가 호출 — 완료 (result는 컴포넌트에서 history에 push) */
   finishJob: (id: string, result: MeetingResult) => void;
   /** runner가 호출 — 실패 */
@@ -46,31 +52,49 @@ interface MeetingJobState {
   clearJob: () => void;
 }
 
+// [2026-05-04 Roy] stage별 진행률 기준점 — 사용자 인지 기준 (transcribing이 가장 오래
+// 걸려 50% 할당, diarizing 25%, analyzing 25%).
+const STAGE_PROGRESS: Record<AnalyzeStage, number> = {
+  idle: 0,
+  transcribing: 5,
+  diarizing: 55,
+  analyzing: 80,
+  done: 100,
+  error: 0,
+};
+
 export const useMeetingJobStore = create<MeetingJobState>((set, get) => ({
   job: null,
 
   beginJob: (id, label) =>
     set({
-      job: { id, stage: 'transcribing', label, startedAt: Date.now() },
+      job: { id, stage: 'transcribing', label, progress: STAGE_PROGRESS.transcribing, startedAt: Date.now() },
     }),
 
   setStage: (id, stage, label) => {
     const cur = get().job;
-    // 동일 job만 갱신 — 새 job이 시작됐으면 옛 단계 콜백은 무시.
     if (!cur || cur.id !== id) return;
-    set({ job: { ...cur, stage, label: label ?? cur.label } });
+    set({ job: { ...cur, stage, label: label ?? cur.label, progress: STAGE_PROGRESS[stage] } });
+  },
+
+  setProgress: (id, progress) => {
+    const cur = get().job;
+    if (!cur || cur.id !== id) return;
+    const clamped = Math.max(0, Math.min(99, progress)); // 100은 finishJob 전용
+    if (clamped <= cur.progress) return; // 단조 증가 — 후퇴 방지
+    set({ job: { ...cur, progress: clamped } });
   },
 
   finishJob: (id, result) => {
     const cur = get().job;
     if (!cur || cur.id !== id) return;
-    set({ job: { ...cur, stage: 'done', label: '', result } });
+    set({ job: { ...cur, stage: 'done', label: '', progress: 100, result } });
   },
 
   failJob: (id, errorMsg) => {
     const cur = get().job;
     if (!cur || cur.id !== id) return;
-    set({ job: { ...cur, stage: 'error', errorMsg, label: '' } });
+    set({ job: { ...cur, stage: 'error', errorMsg, label: '', progress: 0 } });
   },
 
   clearJob: () => set({ job: null }),

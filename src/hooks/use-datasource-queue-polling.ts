@@ -225,7 +225,13 @@ export function useDataSourceQueuePolling() {
           try {
             await syncOneSource(src, embeddingKey, embeddingProvider);
           } catch (e) {
-            console.warn('[queue-polling] source failed:', src.id, (e as Error).message);
+            // [2026-05-04] 'Failed to fetch'(네트워크 unreachable / DNS 실패 / CORS 차단)는
+            // worker 미배포·오프라인·방화벽 등 환경적 원인이라 5분마다 노이즈만 됨 → debug로 강등.
+            // 진짜 서버 오류(4xx/5xx body 또는 throw 메시지에 status 포함)는 warn 유지.
+            const msg = (e as Error)?.message ?? '';
+            const isNetwork = /failed to fetch|networkerror|load failed|fetch is not defined/i.test(msg);
+            const log = isNetwork ? console.debug : console.warn;
+            log('[queue-polling] source failed:', src.id, msg);
           }
         }
       } finally {

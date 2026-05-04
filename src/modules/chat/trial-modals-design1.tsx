@@ -110,10 +110,11 @@ export function D1TrialExhaustedModal({
   onOpenOnboarding: () => void;
   onClose: () => void;
 }) {
+  // [2026-05-03 Roy] 무료 체험 한도 50회/일로 상향 (이전 10회).
   const copy = lang === 'ko'
     ? {
         title: '오늘 무료 체험이 끝났어요',
-        subtitle: '10회 모두 사용하셨습니다. 내일 다시 충전되거나, 키를 연결해 무제한으로 쓸 수 있어요.',
+        subtitle: '50회 모두 사용하셨습니다. 내일 다시 충전되거나, 키를 연결해 무제한으로 쓸 수 있어요.',
         primary: 'Google 무료 키 받기',
         primaryNote: '30초면 됩니다',
         secondary: '이미 있음, 입력하기',
@@ -121,7 +122,7 @@ export function D1TrialExhaustedModal({
       }
     : {
         title: "Today's trial is used up",
-        subtitle: "You've used all 10 turns. They refill tomorrow — or connect a key for unlimited access.",
+        subtitle: "You've used all 50 turns. They refill tomorrow — or connect a key for unlimited access.",
         primary: 'Get a free Google key',
         primaryNote: '30 seconds',
         secondary: 'I have one — enter it',
@@ -244,11 +245,89 @@ export function D1KeyRequiredModal({
 }
 
 // ============================================================
-// TTS quality first-time modal — 사용자가 처음 음성 답변 사용할 때.
-// [2026-05-02 Roy] 둘 중 하나 선택 — '프리미엄' (Chirp3-HD, 사람 같은 음성) /
-// '표준' (Neural2 + OpenAI gpt-4o-mini-tts). default = 표준 (안전한 시작).
-// 한 번 선택하면 localStorage에 저장 — 변경은 설정에서.
+// [2026-05-03 Roy] Image quality first-time modal — 처음 이미지 생성 요청 시.
+// Steve Jobs 식 simple: 큰 타이틀 + 두 카드, 각 1줄 설명.
+// 표준 = 가장 최신 dall-e-* (verification 불필요, 빠르고 안정)
+// 프리미엄 = 가장 최신 gpt-image-* (더 정교, 한도/인증 미흡 시 자동 표준 fallback)
+// 모델 ID/라벨은 registry에서 동적 도출 — cron이 신모델 추가하면 자동 반영.
+// localStorage 'd1:image-quality' + 'd1:image-quality-chosen' — 변경은 설정에서.
 // ============================================================
+import { getImageModelByQuality, getImageModelLabel } from '@/data/available-models';
+
+export function D1ImageQualityModal({
+  lang,
+  onChoose,
+  onClose,
+}: {
+  lang: 'ko' | 'en';
+  onChoose: (quality: 'premium' | 'standard') => void;
+  onClose: () => void;
+}) {
+  // registry에서 현재 standard / premium에 해당하는 모델 라벨 동적 도출.
+  // 새 버전 출시 시(cron 갱신) 모달 카피도 자동 따라감.
+  const standardLabel = getImageModelLabel(getImageModelByQuality('standard'), lang);
+  const premiumLabel  = getImageModelLabel(getImageModelByQuality('premium'),  lang);
+  const c = lang === 'ko'
+    ? {
+        title: '이미지 품질을 선택하세요',
+        subtitle: '나중에 설정 → 이미지에서 변경 가능합니다.',
+        premiumTitle: '프리미엄',
+        premiumDesc: `${premiumLabel} — 더 정교하고 디테일`,
+        standardTitle: '표준',
+        standardDesc: `${standardLabel} — 빠르고 안정적`,
+      }
+    : {
+        title: 'Pick image quality',
+        subtitle: 'You can change this later in Settings → Image.',
+        premiumTitle: 'Premium',
+        premiumDesc: `${premiumLabel} — sharper and more detailed`,
+        standardTitle: 'Standard',
+        standardDesc: `${standardLabel} — fast and reliable`,
+      };
+
+  return (
+    <D1ModalShell
+      lang={lang}
+      title={c.title}
+      subtitle={c.subtitle}
+      onClose={onClose}
+    >
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={() => { onChoose('standard'); onClose(); }}
+          className="flex flex-col items-start gap-1 rounded-[12px] p-4 text-left transition-transform hover:-translate-y-px"
+          style={{ background: tokens.text, color: tokens.bg }}
+        >
+          <span className="text-[14px] font-medium">{c.standardTitle}</span>
+          <span className="text-[12px] opacity-70">{c.standardDesc}</span>
+        </button>
+        <button
+          onClick={() => { onChoose('premium'); onClose(); }}
+          className="flex flex-col items-start gap-1 rounded-[12px] p-4 text-left transition-colors hover:bg-black/5"
+          style={{
+            background: 'transparent',
+            color: tokens.text,
+            border: `1px solid ${tokens.borderStrong}`,
+          }}
+        >
+          <span className="text-[14px] font-medium">{c.premiumTitle}</span>
+          <span className="text-[12px]" style={{ color: tokens.textDim }}>{c.premiumDesc}</span>
+        </button>
+      </div>
+    </D1ModalShell>
+  );
+}
+
+// ============================================================
+// TTS quality first-time modal — 사용자가 처음 음성 답변 사용할 때.
+// [2026-05-02 Roy] 둘 중 하나 선택 — '프리미엄' / '표준'. default = 표준 (안전한 시작).
+// 한 번 선택하면 localStorage에 저장 — 변경은 설정에서.
+// [2026-05-03 Roy Fully Agentic] 모델명 하드코딩 제거 — getVoiceModelLabel()로
+// voice-chat.ts의 PREMIUM_VOICE_FAMILY 상수에서 자동 도출. Google이 Chirp4-HD
+// 출시 시 한 줄 변경으로 모달 카피도 자동 갱신.
+// ============================================================
+import { getVoiceModelLabel } from '@/lib/voice-chat';
+
 export function D1TtsQualityModal({
   lang,
   onChoose,
@@ -258,22 +337,24 @@ export function D1TtsQualityModal({
   onChoose: (quality: 'premium' | 'standard') => void;
   onClose: () => void;
 }) {
+  const premiumLabel  = getVoiceModelLabel('premium');
+  const standardLabel = getVoiceModelLabel('standard');
   const c = lang === 'ko'
     ? {
         title: '음성 답변 품질을 선택하세요',
         subtitle: '나중에 설정 → 음성에서 변경 가능합니다.',
         premiumTitle: '프리미엄',
-        premiumDesc: '사람 같은 자연스러운 음성 (Google Chirp3-HD)',
+        premiumDesc: `사람 같은 자연스러운 음성 (${premiumLabel})`,
         standardTitle: '표준',
-        standardDesc: '자연스러운 AI 음성 (Google Neural2 / OpenAI)',
+        standardDesc: `자연스러운 AI 음성 (${standardLabel})`,
       }
     : {
         title: 'Choose voice quality',
         subtitle: 'You can change this later in Settings → Voice.',
         premiumTitle: 'Premium',
-        premiumDesc: 'Human-like natural voice (Google Chirp3-HD)',
+        premiumDesc: `Human-like natural voice (${premiumLabel})`,
         standardTitle: 'Standard',
-        standardDesc: 'Natural AI voice (Google Neural2 / OpenAI)',
+        standardDesc: `Natural AI voice (${standardLabel})`,
       };
 
   return (

@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import hljs from 'highlight.js';
@@ -19,12 +19,13 @@ import { sendChatRequest } from '@/modules/chat/chat-api';
 import type { AIProvider } from '@/types';
 import { useTrialStore } from '@/stores/trial-store';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
-import { D1TrialExhaustedModal, D1KeyRequiredModal, D1TtsQualityModal } from '@/modules/chat/trial-modals-design1';
-import { AVAILABLE_MODELS, getFeaturedModels, getAutoFallbackChain, getBestImageModel, isImageGenModel, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
+import { D1TrialExhaustedModal, D1KeyRequiredModal, D1TtsQualityModal, D1ImageQualityModal } from '@/modules/chat/trial-modals-design1';
+import { AVAILABLE_MODELS, getFeaturedModels, getAutoFallbackChain, getBestImageModel, getImageModelByQuality, isImageGenModel, FEATURED_PROVIDER_ORDER, PROVIDER_LABELS, type ProviderId } from '@/data/available-models';
 import { trackEvent } from '@/lib/analytics';
 // [2026-05-02 Roy] trackUsage / calculateCost 호출 제거 — chat-api.ts가 자체적으로
 // 모든 sendChatRequest 호출에 대해 자동 트래킹. 여기서 또 호출하면 이중 누적.
 import { useD1ChatStore, type D1Chat, type D1Message } from '@/stores/d1-chat-store';
+import { useProjectStore } from '@/stores/project-store';
 import { D1HistoryOverlay, type ChatSummary } from '@/modules/chat/history-overlay-design1';
 import { useD1MemoryStore, D1_MEMORY_LIMIT } from '@/stores/d1-memory-store';
 import { D1ExportDropdown } from '@/modules/chat/export-dropdown-design1';
@@ -50,6 +51,8 @@ import { detectCategory as routerDetectCategory, getCategoryPreferredModels } fr
 import { inferProvider as routerInferProvider } from '@/data/available-models';
 // [2026-05-01 Roy] Blend 정체성 — 모든 AI에 system prompt로 주입
 import { getBlendIdentityPrompt, BLEND_INTRO_QUESTION } from '@/lib/blend-identity';
+// [2026-05-04 Roy] 채팅 세션 부하 추적 — 응답 지연 예측 기반 0~100% 진행 바.
+import { computeSessionLoad, getLoadColor, getLoadStage, getLoadStageMessage, estimateTokens } from '@/lib/session-load';
 
 // [2026-05-02 Roy] AI 도구 한국어 라벨 — indicator 표시용. 영어는 raw name 그대로.
 const TOOL_LABEL_KO: Record<string, string> = {
@@ -91,7 +94,7 @@ const copy = {
     emptyTitle: '',
     emptyTitleAccent: 'AI들에게',
     emptyTitleEnd: '묻고, 문서를 찾고, 회의를 정리하세요.',
-    emptySubtitle: '하나로, 더 싸게, 더 스마트하게.',
+    emptySubtitle: '하나로, 더 저렴하게, 더 똑똑하게.',
     placeholder: '질문을 입력하세요',
     placeholderActive: 'Blend에게 계속 질문하세요',
     suggestions: ['이메일 초안 써줘', '이 이미지 분석해줘', '코드 리뷰 해줘', '긴 글 요약해줘'],
@@ -113,7 +116,7 @@ const copy = {
     emptyTitle: 'Ask',
     emptyTitleAccent: 'multiple AIs,',
     emptyTitleEnd: 'search documents, summarize meetings.',
-    emptySubtitle: 'One AI app — cheaper and smarter.',
+    emptySubtitle: 'One AI app — more affordable and smarter.',
     placeholder: 'Ask anything',
     placeholderActive: 'Ask Blend anything',
     suggestions: ['Draft an email', 'Analyze this image', 'Review my code', 'Summarize a long text'],
@@ -181,7 +184,7 @@ function pickSuggestedModel(category: 'small' | 'vision' | 'coding' | 'long'): s
 // [2026-04-26] Sprint 2 (16384367 §3.2) — 6 카드로 확장 + 툴팁 + routeOverride
 const SUGGESTIONS_WITH_MODEL = [
   { id: 'email',   ko: '이메일 초안 써줘',    en: 'Draft an email',          suggestedModel: pickSuggestedModel('small'),
-    icon: '✉️', tooltipKo: 'GPT-4o mini가 가장 빠르고 저렴해요',  tooltipEn: 'GPT-4o mini is fastest and cheapest' },
+    icon: '✉️', tooltipKo: 'GPT-4o mini가 가장 빠르고 저렴해요',  tooltipEn: 'GPT-4o mini is the fastest and most affordable' },
   { id: 'image',   ko: '이 이미지 분석해줘',  en: 'Analyze this image',      suggestedModel: pickSuggestedModel('vision'),
     icon: '🖼️', tooltipKo: 'Gemini가 이미지 이해를 가장 잘해요',   tooltipEn: 'Gemini understands images best' },
   { id: 'code',    ko: '코드 리뷰 해줘',      en: 'Review my code',          suggestedModel: pickSuggestedModel('coding'),
@@ -300,6 +303,11 @@ type Message = {
   // [Tori 18644993 PR #5] Cross-Model Bridge — UI Badge 표시용
   bridgeApplied?: boolean;
   bridgeFromCache?: boolean;
+  // [Roy v8 — 2026-05-03] 생성된 이미지 URL 별도 필드 — markdown 우회.
+  // base64 data URL이 100K+ 자라 ReactMarkdown 안에서 truncated되어 broken icon
+  // 표시되던 회귀 차단. 별도 필드로 두면 <img>로 직접 렌더 가능.
+  imageUrl?: string;
+  imagePrompt?: string;
 };
 
 // ============================================================
@@ -397,6 +405,56 @@ export default function D1ChatView({
     }
   }
 
+  // [2026-05-03 Roy] 이미지 생성 품질 — TTS와 동일 패턴.
+  // 첫 이미지 요청 시 D1ImageQualityModal로 선택 (default 'standard' = DALL-E 3).
+  // 'premium' = gpt-image-2 (한도/인증 시 image-gen.tsx의 자동 fallback이 처리).
+  // localStorage 'd1:image-quality' + 'd1:image-quality-chosen' — 변경은 설정에서.
+  // 모달에서 선택 후 자동 재발사 흐름: setState는 비동기라 setTimeout(0) 시점에
+  // imageQualityChosen state가 아직 false일 수 있음 → 모달 재호출 회귀.
+  // 동기 보장 위해 ref 패턴 추가 (state는 UI 렌더용, ref는 handleSend 분기용).
+  const [imageQuality, setImageQuality] = useState<'premium' | 'standard'>('standard');
+  const [imageQualityChosen, setImageQualityChosen] = useState<boolean>(false);
+  const [showImageQualityModal, setShowImageQualityModal] = useState<boolean>(false);
+  const imageQualityRef = useRef<'premium' | 'standard'>('standard');
+  const imageQualityChosenRef = useRef<boolean>(false);
+  // 첫 모달 닫힘 후 자동으로 발사할 이미지 프롬프트.
+  const pendingImagePromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = localStorage.getItem('d1:image-quality');
+    if (q === 'premium' || q === 'standard') {
+      setImageQuality(q);
+      imageQualityRef.current = q;
+    }
+    const chosen = localStorage.getItem('d1:image-quality-chosen');
+    if (chosen === 'true') {
+      setImageQualityChosen(true);
+      imageQualityChosenRef.current = true;
+    }
+    // 설정 화면에서 변경 시 알림 받기 — 즉시 반영.
+    const onChange = (e: Event) => {
+      const detail = (e as CustomEvent<{ quality?: 'premium' | 'standard' }>).detail;
+      if (detail?.quality === 'premium' || detail?.quality === 'standard') {
+        setImageQuality(detail.quality);
+        setImageQualityChosen(true);
+        imageQualityRef.current = detail.quality;
+        imageQualityChosenRef.current = true;
+      }
+    };
+    window.addEventListener('d1:image-quality-changed', onChange);
+    return () => window.removeEventListener('d1:image-quality-changed', onChange);
+  }, []);
+  function setImageQualityAndPersist(q: 'premium' | 'standard'): void {
+    setImageQuality(q);
+    setImageQualityChosen(true);
+    imageQualityRef.current = q;          // 동기 — handleSend가 즉시 참조
+    imageQualityChosenRef.current = true; // 동기 — 모달 재호출 회귀 차단
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('d1:image-quality', q);
+      localStorage.setItem('d1:image-quality-chosen', 'true');
+    }
+  }
+
   // [2026-05-02 Roy] 입력바 토글 클릭 시 — OFF→ON 전환 + 첫 사용이면 품질 모달.
   // 첫 사용 시 모달 먼저, 사용자가 품질 선택해야 ON 활성화. 모달 닫기 → OFF 유지
   // (의도적 cancel 보호). 이미 chosen된 상태면 즉시 토글.
@@ -426,12 +484,15 @@ export default function D1ChatView({
   /** 외부에서 호출되는 TTS 핵심 — 자동/수동 모두 이 함수 통과 */
   async function playTTS(text: string): Promise<void> {
     if (!ttsEnabled) return;
-    if (ttsCount >= TTS_LIMIT) {
-      setToastMsg(lang === 'ko'
-        ? `이번 채팅 음성 한도(${TTS_LIMIT}회) 도달. 새 채팅 시작하면 리셋돼요.`
-        : `Voice limit (${TTS_LIMIT}) reached for this chat. Start a new chat to reset.`);
-      return;
-    }
+    // [2026-05-04 Roy] 50회/채팅 한도 비활성 — 채팅 세션 부하 진행 바가 종합 사용량을
+    // 책임짐. 향후 재활용 가능성 위해 코드는 주석으로 보존 (TTS_LIMIT, ttsCount,
+    // setTtsCount, ttsLimit prop 모두 그대로 유지).
+    // if (ttsCount >= TTS_LIMIT) {
+    //   setToastMsg(lang === 'ko'
+    //     ? `이번 채팅 음성 한도(${TTS_LIMIT}회) 도달. 새 채팅 시작하면 리셋돼요.`
+    //     : `Voice limit (${TTS_LIMIT}) reached for this chat. Start a new chat to reset.`);
+    //   return;
+    // }
     const cleaned = cleanForTTS(text);
     if (!cleaned) return;
 
@@ -449,6 +510,7 @@ export default function D1ChatView({
         setToastMsg(lang === 'ko'
           ? '🔑 OpenAI 또는 Google 키를 설정 → API 키 관리에 등록하면 음성 답변 들을 수 있어요.'
           : '🔑 Register an OpenAI or Google key in Settings → API Keys to enable voice playback.');
+        setTimeout(() => setToastMsg(null), 4500);
         return;
       }
       const url = await synthesizeTTS(cleaned, ttsQuality, openaiKey, googleKey);
@@ -501,6 +563,15 @@ export default function D1ChatView({
   }, []);
   // v3 회귀 복구 (P0.4 비전): 첨부 이미지 base64 data URL 배열
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+
+  // [2026-05-04 Roy] 채팅 세션 부하 — STT 호출 / RAG 청크 누적 카운터.
+  // TTS는 ttsCount, 이미지는 attachedImages + 메시지 내 imageUrl, 메모리/데이터소스는
+  // useD1MemoryStore.selectedIds로 추적. 100% 도달 시 sessionFull로 입력 차단 + 3초
+  // 후 새 채팅 자동 이동. 새 채팅 시작 시 모두 0으로 리셋.
+  const [sttCount, setSttCount] = useState(0);
+  const [ragChunkCount, setRagChunkCount] = useState(0);
+  const [sessionFull, setSessionFull] = useState(false);
+  const lastLoadStageRef = useRef<0 | 70 | 90 | 100>(0);
   // P3.3 + Tori 통합 RAG — race-safe 활성 문서 로딩 보장
   const getActiveDocs = useDocumentStore((s) => s.getActiveDocs);
   const docsEnsureLoaded = useDocumentStore((s) => s.ensureLoaded);
@@ -509,6 +580,28 @@ export default function D1ChatView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const modelChipRef = useRef<HTMLButtonElement>(null);
   const prevModelRef = useRef(currentModel);
+
+  // [2026-05-03 Roy] 답변 끝부분이 floating 입력창에 가려지던 버그 수정.
+  // 이전: 메시지 컨테이너 pb-[180px] 고정 → 입력창 + 첨부 + 메모리 chips + RAG
+  // 배너 활성 시 패널 높이가 180px 초과해 본문 마지막 줄이 가려짐.
+  // 신규: 입력 패널을 callback ref로 받아 ResizeObserver 부착 → 패널 높이 변할
+  // 때마다 state 갱신 → 메시지 컨테이너 paddingBottom 동적 적용 (+24px 여백).
+  // useEffect 의존성 패턴은 panel이 hasMessages && ... 조건부 렌더라 mount 시점에
+  // ref.current가 null이라 옵저버 부착 못 했음 → callback ref로 변경.
+  const [inputPanelHeight, setInputPanelHeight] = useState(180);
+  const roRef = useRef<ResizeObserver | null>(null);
+  const inputPanelCbRef = useCallback((el: HTMLDivElement | null) => {
+    if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height ?? 0;
+      setInputPanelHeight(Math.max(180, Math.ceil(h) + 24));
+    });
+    ro.observe(el);
+    roRef.current = ro;
+    // 즉시 1회 측정 — observer 첫 콜백 전 초기값 보정
+    setInputPanelHeight(Math.max(180, Math.ceil(el.getBoundingClientRect().height) + 24));
+  }, []);
 
   // isMobile detection
   useEffect(() => {
@@ -619,13 +712,28 @@ export default function D1ChatView({
 
   useEffect(() => { d1Load(); }, [d1Load]);
 
+  // [2026-05-04 Roy 안 3] 프로젝트 store 로드 — 새 채팅 시 활성 프로젝트 자동 할당.
+  const projectsLoad = useProjectStore((s) => s.loadFromStorage);
+  useEffect(() => { projectsLoad(); }, [projectsLoad]);
+
   // Save whenever messages change (if we have any messages)
   useEffect(() => {
     if (!d1Loaded) return;
     if (messages.length === 0) return;
     const id = activeChatId ?? `d1_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-    if (!activeChatId) setActiveChatId(id);
+    const isNewChat = !activeChatId;
+    if (isNewChat) setActiveChatId(id);
     const now = Date.now();
+    // [2026-05-04 Roy 안 3] 새 채팅이면 현재 활성 프로젝트로 자동 라벨링.
+    // 기존 채팅이면 기존 folder 유지 (사용자가 점 picker로 명시 변경).
+    const existing = isNewChat ? null : useD1ChatStore.getState().getChat(id);
+    let folder: string | null;
+    if (isNewChat) {
+      const active = useProjectStore.getState().activeProjectId;
+      folder = active === 'all' ? null : active;
+    } else {
+      folder = existing?.folder ?? null;
+    }
     const persisted: D1Chat = {
       id,
       title: d1DeriveTitle(messages as D1Message[]) || '',
@@ -635,15 +743,77 @@ export default function D1ChatView({
         content: m.content,
         modelUsed: m.modelUsed,
         createdAt: now,
+        // [Roy v9 PM-21] 생성된 이미지 영구 보존 — imageUrl + imagePrompt 저장.
+        imageUrl: m.imageUrl,
+        imagePrompt: m.imagePrompt,
       })),
       model: currentModel,
-      createdAt: activeChatId ? chatCreatedAt : now,
+      createdAt: isNewChat ? now : chatCreatedAt,
       updatedAt: now,
+      folder,
     };
-    if (!activeChatId) setChatCreatedAt(now);
+    if (isNewChat) setChatCreatedAt(now);
     d1Upsert(persisted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, d1Loaded]);
+
+  // [2026-05-04 Roy] 채팅 세션 부하 계산 — messages, attached images, TTS/STT/RAG/메모리
+  // 카운트 종합. 응답 지연 예측 모델: 100% = baseLatency × 1.10 (10% 느려짐).
+  const sessionLoad = useMemo(() => {
+    const totalTokens = messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+    const messageImageCount = messages.reduce(
+      (sum, m) => sum + (m.imageUrl ? 1 : 0),
+      0,
+    );
+    return computeSessionLoad({
+      messageCount: messages.length,
+      totalTokens,
+      ragChunks: ragChunkCount,
+      dataSources: selectedMemoryIds.length,
+      imageCount: attachedImages.length + messageImageCount,
+      sttCalls: sttCount,
+      ttsCalls: ttsCount,
+      modelId: currentModel,
+    });
+  }, [messages, ragChunkCount, selectedMemoryIds.length, attachedImages.length, sttCount, ttsCount, currentModel]);
+
+  const sessionLoadColor = useMemo(() => getLoadColor(sessionLoad.loadPct), [sessionLoad.loadPct]);
+
+  // [2026-05-04 Roy] 70/90/100 임계점 도달 시 자동 시스템 메시지(C 옵션 — 입력창 안
+  // 건드리고 대화창에 직접 추가) + 100%면 sessionFull 켜고 3초 후 자동 새 채팅(B 옵션).
+  // lastLoadStageRef로 한 번만 발화 (이미 90 발화 후엔 다시 90 진입 안 함).
+  useEffect(() => {
+    const stage = getLoadStage(sessionLoad.loadPct);
+    if (stage === 0 || stage === lastLoadStageRef.current) return;
+    if (stage <= lastLoadStageRef.current) return; // 이미 더 높은 단계 발화함
+    lastLoadStageRef.current = stage;
+    const body = getLoadStageMessage(stage as 70 | 90 | 100, lang === 'ko' ? 'ko' : 'en');
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `sys_load_${stage}_${Date.now()}`,
+        role: 'assistant',
+        content: body,
+      },
+    ]);
+    if (stage === 100) {
+      setSessionFull(true);
+      setTimeout(() => {
+        setActiveChatId(null);
+        setMessages([]);
+        setValue('');
+        setTtsCount(0);
+        setSttCount(0);
+        setRagChunkCount(0);
+        setSessionFull(false);
+        lastLoadStageRef.current = 0;
+        if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+        useD1MemoryStore.getState().clear();
+        memorySummaryCache.current.clear();
+      }, 3000);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionLoad.loadPct, lang]);
 
   // Cmd/Ctrl+K → open history
   useEffect(() => {
@@ -669,6 +839,8 @@ export default function D1ChatView({
       allText: c.messages.map((m) => m.content).join(' '),
       pinned: c.pinned,
       tags: c.tags,
+      // [2026-05-04 Roy 안 3] 채팅 그룹화 — Chat.folder 필드를 projectId로 재사용.
+      projectId: c.folder ?? null,
     }));
   }, [d1Chats]);
 
@@ -697,6 +869,9 @@ export default function D1ChatView({
       role: m.role,
       content: m.content,
       modelUsed: m.modelUsed,
+      // [Roy v9 PM-21] 저장된 이미지 복원 — 채팅 다시 열어도 이미지 그대로.
+      imageUrl: m.imageUrl,
+      imagePrompt: m.imagePrompt,
     })));
   };
 
@@ -714,6 +889,8 @@ export default function D1ChatView({
         content: m.content,
         modelUsed: m.modelUsed,
         createdAt: now,
+        imageUrl: m.imageUrl,
+        imagePrompt: m.imagePrompt,
       })),
       model: currentModel,
       createdAt: chatCreatedAt,
@@ -934,6 +1111,7 @@ export default function D1ChatView({
         title: d1DeriveTitle(messages as D1Message[]) || '',
         messages: messages.map<D1Message>((m) => ({
           id: m.id, role: m.role, content: m.content, modelUsed: m.modelUsed, createdAt: now,
+          imageUrl: m.imageUrl, imagePrompt: m.imagePrompt,
         })),
         model: currentModel,
         createdAt: now,
@@ -1141,11 +1319,48 @@ export default function D1ChatView({
     if (finalImgPrompt) {
       const openaiKey = getKey('openai') || '';
       if (!openaiKey) {
-        setToastMsg(t.noApiKey);
+        // [2026-05-03 Roy] 사용자 신고 — "어떤 API?" t.noApiKey가 어떤 키인지
+        // 안 알려줌. 이미지 생성은 OpenAI 키 필수 → 토스트는 짧게 명시 + 채팅에
+        // 친절 마크다운(발급 링크 + 등록 위치) 추가해 사용자가 즉시 행동 가능.
+        setToastMsg(lang === 'ko' ? '🔑 OpenAI 키가 필요해요' : '🔑 OpenAI key required');
+        setTimeout(() => setToastMsg(null), 4500);
+        const friendly = lang === 'ko'
+          ? `🎨 **이미지 생성에는 OpenAI API 키가 필요해요.**\n\n` +
+            `**바로 해결하기**:\n` +
+            `1. [OpenAI 콘솔에서 키 발급](https://platform.openai.com/api-keys) (30초)\n` +
+            `2. 발급된 키 복사 (sk-... 로 시작)\n` +
+            `3. **설정 → API 키 관리 → OpenAI** 칸에 붙여넣고 [테스트] 클릭\n\n` +
+            `ℹ️ 키는 이 브라우저에만 저장돼요. Blend 서버는 키를 보지 못합니다.`
+          : `🎨 **Image generation requires an OpenAI API key.**\n\n` +
+            `**Get started**:\n` +
+            `1. [Create a key on OpenAI console](https://platform.openai.com/api-keys) (30 sec)\n` +
+            `2. Copy the key (starts with sk-...)\n` +
+            `3. Paste into **Settings → API Keys → OpenAI**, click [Test]\n\n` +
+            `ℹ️ Keys stay only in this browser — Blend's server never sees them.`;
+        setMessages((prev) => [...prev, {
+          id: Date.now().toString() + '_no_key',
+          role: 'assistant',
+          content: friendly,
+        }]);
         return;
       }
-      // 사용자가 명시적으로 image 모델 골랐으면 그 모델 사용, 그렇지 않으면 registry-derived 최신
-      const imageModel = isUserPickedImageModel ? currentModel : getBestImageModel();
+      // [2026-05-03 Roy] 첫 이미지 요청이면 품질 선택 모달 — 사용자가 모델 직접
+      // 고른 경우는 모달 skip(이미 의도 명확). pendingImagePromptRef에 content 보관 →
+      // 모달에서 선택 후 자동 재호출(handleSend(content)). ref 사용해 setState 비동기
+      // race 회피 — 직전 setImageQualityAndPersist가 sync로 ref 갱신했으므로 즉시 반영.
+      if (!isUserPickedImageModel && !imageQualityChosenRef.current) {
+        pendingImagePromptRef.current = content;
+        setShowImageQualityModal(true);
+        return;
+      }
+      // 사용자가 명시적으로 image 모델 골랐으면 그 모델 사용. 그렇지 않으면 사용자가
+      // 선택한 quality 기반으로 registry에서 동적 도출 → standard/premium 가족별 최신 모델.
+      // [2026-05-03 Roy] 하드코딩(`'gpt-image-2'`) 제거 — 3시간 cron이 신모델(gpt-image-3 등)
+      // 추가하면 코드 수정 없이 자동 사용. premium 호출 시 image-gen.tsx 자동 fallback이
+      // verification/rate-limit 대응.
+      const imageModel = isUserPickedImageModel
+        ? currentModel
+        : getImageModelByQuality(imageQualityRef.current);
       setValue('');
       setAttachedImages([]);
       const userMsg: Message = { id: Date.now().toString(), role: 'user', content };
@@ -1181,10 +1396,28 @@ export default function D1ChatView({
           try {
             const res = await generateImage(promptToSend, openaiKey, imageModel);
             if (!res.error) {
+              // [2026-05-03 Roy v2 — Seamless Auto-Downgrade]
+              // 프리미엄(gpt-image)에서 표준(dall-e)으로 자동 fallback 발동 시:
+              // (1) 다음 요청부터 처음부터 표준 사용하도록 imageQuality state + ref + localStorage
+              //     자동 다운그레이드 (사용자가 매번 같은 fallback 거치지 않게)
+              // (2) 설정 → 이미지 메뉴도 즉시 갱신되도록 d1:image-quality-changed 이벤트 dispatch
+              // (3) 사용자에게 자연스러운 안내 — 무엇이 일어났는지 + 왜 + 다시 프리미엄 쓰려면 어떻게
+              if (res.fallbackFrom) {
+                if (imageQualityRef.current === 'premium') {
+                  setImageQualityAndPersist('standard');
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('d1:image-quality-changed', { detail: { quality: 'standard' } }));
+                  }
+                }
+              }
               const note = res.fallbackFrom
                 ? (lang === 'ko'
-                    ? `> ℹ️ ${res.fallbackFrom}는 OpenAI 조직 인증이 필요한 신규 모델이라, ${res.modelUsed ?? 'DALL-E 3'}로 자동 전환했어요.\n\n`
-                    : `> ℹ️ ${res.fallbackFrom} requires OpenAI org verification — auto-switched to ${res.modelUsed ?? 'DALL-E 3'}.\n\n`)
+                    ? `> 🔄 **프리미엄(${res.fallbackFrom})으로 시도하다 ${res.modelUsed ?? 'DALL-E 3'}(표준)으로 자동 전환했어요.**\n` +
+                      `> 보통 OpenAI 조직 인증이 안 되어 있을 때 발생해요. 설정도 표준으로 바꿔뒀으니 다음엔 바로 그려져요.\n` +
+                      `> 프리미엄을 다시 쓰려면 [OpenAI 콘솔에서 Verify Organization](https://platform.openai.com/settings/organization/general) 완료 후 (약 15분), 설정 → 이미지에서 프리미엄으로 변경.\n\n`
+                    : `> 🔄 **Tried Premium (${res.fallbackFrom}), auto-switched to ${res.modelUsed ?? 'DALL-E 3'} (Standard).**\n` +
+                      `> Usually happens when your OpenAI organization isn't verified. Your setting is now Standard so next time it draws right away.\n` +
+                      `> To use Premium again: [Verify your OpenAI Organization](https://platform.openai.com/settings/organization/general) (~15 min), then Settings → Image → Premium.\n\n`)
                 : '';
               return { ok: true, res, modelUsed: res.modelUsed ?? imageModel, fallbackNote: note };
             }
@@ -1255,7 +1488,7 @@ export default function D1ChatView({
         };
 
         tryImageWithFallback()
-          .then((r) => {
+          .then(async (r) => {
             if (!r.ok) {
               setMessages((prev) => [...prev, {
                 id: Date.now().toString() + '_err',
@@ -1264,11 +1497,120 @@ export default function D1ChatView({
               }]);
               return;
             }
+            // [2026-05-03 Roy] 사용자 신고 — gpt-image-2 응답이 200 OK이지만 url이
+            // 빈 문자열/invalid이라 ![...]() markdown으로 broken image icon만 보였음.
+            // r.res.url 유효성 가드 + 친절 에러 + 직링크 안내.
+            // [2026-05-03 v2] 1차 가드 통과 후 broken icon 재발 신고 → 검증 강화:
+            //  - http(s) URL: 길이 ≥ 20 (https://x 같은 너무 짧은 건 가짜)
+            //  - data URL: 'data:image/' + base64 컨텐츠 ≥ 100자 (실제 이미지는 수만 자,
+            //    100자 미만이면 빈 비트맵 또는 invalid).
+            const url = r.res.url ?? '';
+            const isHttp = /^https?:\/\/.{10,}/.test(url);
+            const dataMatch = url.match(/^data:image\/[a-z+]+;base64,(.+)$/);
+            const isValidData = !!(dataMatch && dataMatch[1].length > 100);
+            const isValid = isHttp || isValidData;
+            if (!isValid) {
+              const friendly = lang === 'ko'
+                ? `🎨 ${r.modelUsed}가 이미지를 받아왔지만 비어있어요. 보통 두 가지 원인입니다:\n\n` +
+                  `1. **OpenAI 조직 인증이 안 되어 있을 때** — gpt-image 시리즈는 Verify Organization 필수예요. ` +
+                  `[platform.openai.com/settings/organization/general](https://platform.openai.com/settings/organization/general) ` +
+                  `→ [Verify Organization] 클릭 후 약 15분 대기.\n\n` +
+                  `2. **분당 토큰 한도(TPM) 초과** — OpenAI 콘솔에서 Tier 상승. ` +
+                  `[platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits)\n\n` +
+                  `**즉시 해결**: 설정 → 이미지에서 **표준(DALL-E 3)** 으로 바꾸면 인증/한도 문제 없이 바로 그릴 수 있어요.`
+                : `🎨 ${r.modelUsed} returned an empty image. Usually one of two reasons:\n\n` +
+                  `1. **Your OpenAI organization isn't verified** — gpt-image series requires Verify Organization. ` +
+                  `[platform.openai.com/settings/organization/general](https://platform.openai.com/settings/organization/general) ` +
+                  `→ click [Verify Organization], wait ~15 min.\n\n` +
+                  `2. **Tokens-per-minute (TPM) limit reached** — raise your tier on OpenAI console. ` +
+                  `[platform.openai.com/settings/organization/limits](https://platform.openai.com/settings/organization/limits)\n\n` +
+                  `**Immediate fix**: switch to **Standard (DALL-E 3)** in Settings → Image — no verification needed.`;
+              setMessages((prev) => [...prev, {
+                id: Date.now().toString() + '_err',
+                role: 'assistant',
+                content: friendly,
+              }]);
+              return;
+            }
+            // [2026-05-03 Roy v6] 가드 통과 후 실제 Image() preload — 브라우저가 진짜
+            // 디코드 가능한지 검증. URL/base64 형식이 valid해도 디코드 실패하는 케이스
+            // (PNG header 깨짐, 만료된 url, CORS 차단 등) 모두 잡음.
+            // [Roy 명시 요구 v7] "요청은 받았으니 작성해서 보여줘야 해" → 디코드 실패
+            // 시 침묵하지 않고 1회 자동 재시도 → 그래도 실패면 매우 상세한 단계별 가이드.
+            // [Roy v7] naturalWidth ≥ 64 강제 — 0이거나 1x1 placeholder는 invalid
+            // (1024x1024 정상 이미지가 와야 함). onload firing 됐어도 깨진 PNG는
+            // naturalWidth 0인 채로 통과하던 회귀 차단.
+            const tryDecode = (testUrl: string) => new Promise<boolean>((resolve) => {
+              if (typeof Image === 'undefined') return resolve(true);
+              const img = new Image();
+              const timer = setTimeout(() => resolve(false), 8000);
+              img.onload  = () => { clearTimeout(timer); resolve(img.naturalWidth >= 64 && img.naturalHeight >= 64); };
+              img.onerror = () => { clearTimeout(timer); resolve(false); };
+              img.src = testUrl;
+            });
+            let finalUrl = url;
+            let finalModelUsed = r.modelUsed;
+            let finalFallbackNote = r.fallbackNote;
+            let canDecode = await tryDecode(url);
+            if (!canDecode) {
+              // 1차 재시도 — 같은 fallback chain (보통 OpenAI 일시 장애는 몇 초 후 회복)
+              console.warn('[image-gen] decode failed, auto-retrying once');
+              const retry = await tryImageWithFallback();
+              if (retry.ok) {
+                const retryUrl = retry.res.url ?? '';
+                if (retryUrl && await tryDecode(retryUrl)) {
+                  finalUrl = retryUrl;
+                  finalModelUsed = retry.modelUsed;
+                  // 재시도로 성공한 경우 사용자에게 솔직히 안내 (프리미엄→표준 전환 메시지가 있다면 유지)
+                  finalFallbackNote = (retry.fallbackNote || '') +
+                    (lang === 'ko'
+                      ? `> ✅ 첫 시도 결과가 깨져 자동으로 한 번 더 그렸어요.\n\n`
+                      : `> ✅ First attempt was corrupted, so Blend retried once.\n\n`);
+                  canDecode = true;
+                }
+              }
+            }
+            if (!canDecode) {
+              // 둘 다 실패 — Roy 명시 요구 "어떻게든 그려주거나 가이드를 잘 해주거나"
+              // 가이드를 매우 자세히: 왜 발생 + 즉시 사용자가 할 수 있는 3가지 행동.
+              const friendly = lang === 'ko'
+                ? `🎨 **요청하신 "${finalImgPrompt.slice(0, 40)}${finalImgPrompt.length > 40 ? '…' : ''}" 이미지를 두 번 시도했지만 모두 깨진 응답을 받았어요.**\n\n` +
+                  `**원인 (가능성 순)**:\n` +
+                  `1. **OpenAI 서버 일시 장애** — 가장 흔한 케이스. [OpenAI 상태 페이지](https://status.openai.com)에서 빨간 점 있는지 확인.\n` +
+                  `2. **OpenAI 조직 인증 미완료** — gpt-image 시리즈는 [Verify Organization](https://platform.openai.com/settings/organization/general) 필수 (15분 대기).\n` +
+                  `3. **분당 한도(TPM) 초과** — [Tier 상승](https://platform.openai.com/settings/organization/limits)으로 한도 늘리기.\n\n` +
+                  `**지금 바로 할 수 있는 것**:\n` +
+                  `• **A. 같은 요청을 한 번 더 보내기** — 일시 장애면 1-2분 후 회복 (가장 빠른 해결책)\n` +
+                  `• **B. 프롬프트 단순화** — "${finalImgPrompt.slice(0, 30)}..." → 핵심 키워드만 짧게 다시\n` +
+                  `• **C. 설정 → 이미지에서 표준(DALL-E 3) 확인** — 이미 표준이라면 잠시 후 재시도\n\n` +
+                  `<sub>요청한 모델: ${finalModelUsed} · Blend가 자동 재시도까지 시도했지만 OpenAI 응답이 계속 깨져있었어요.</sub>`
+                : `🎨 **Tried twice for "${finalImgPrompt.slice(0, 40)}${finalImgPrompt.length > 40 ? '…' : ''}" but both responses came back corrupted.**\n\n` +
+                  `**Likely causes (in order)**:\n` +
+                  `1. **Transient OpenAI outage** — most common. Check [OpenAI status](https://status.openai.com) for red dots.\n` +
+                  `2. **OpenAI org not verified** — gpt-image series needs [Verify Organization](https://platform.openai.com/settings/organization/general) (15 min).\n` +
+                  `3. **TPM rate limit** — [raise your tier](https://platform.openai.com/settings/organization/limits).\n\n` +
+                  `**What to try right now**:\n` +
+                  `• **A. Send the same request again** — fastest fix if it's a transient hiccup (1-2 min)\n` +
+                  `• **B. Simplify the prompt** — shorten "${finalImgPrompt.slice(0, 30)}..." to core keywords\n` +
+                  `• **C. Check Settings → Image → Standard (DALL-E 3)** — if already Standard, retry in a moment\n\n` +
+                  `<sub>Model used: ${finalModelUsed} · Blend already auto-retried once but OpenAI kept returning corrupted bytes.</sub>`;
+              setMessages((prev) => [...prev, {
+                id: Date.now().toString() + '_decode_err',
+                role: 'assistant',
+                content: friendly,
+              }]);
+              return;
+            }
+            // [Roy v8] markdown img 우회 — content에는 fallbackNote만, 이미지는
+            // imageUrl 필드로 별도 저장. D1AssistantMessage가 <img>로 직접 렌더.
+            // base64 data URL 100K+ 자가 ReactMarkdown 안에서 truncated되던 회귀 차단.
             setMessages((prev) => [...prev, {
               id: Date.now().toString() + '_img',
               role: 'assistant',
-              content: `${r.fallbackNote}![${finalImgPrompt.slice(0, 80)}](${r.res.url})`,
-              modelUsed: r.modelUsed,
+              content: finalFallbackNote || '',
+              imageUrl: finalUrl,
+              imagePrompt: finalImgPrompt.slice(0, 80),
+              modelUsed: finalModelUsed,
               bridgeApplied: adapt.bridgeApplied,
               bridgeFromCache: adapt.fromCache,
             }]);
@@ -1749,7 +2091,9 @@ The [Active...] sections below are the user's activated sources. Use them as you
     // ── Trial path (Gemini 2.5 Flash, no user key) ───────────────
     if (isTrialMode) {
       sendTrialMessage({
-        messages: bridgedMessages.map(m => ({ role: m.role, content: m.content })),
+        // [2026-05-02 Roy 핫픽스] toApiContent로 이미지 보존 — 이전엔 m.content만
+        // 넘겨 비전 첨부가 누락 ("어떤 텍스트를 읽어야 할지 알 수 없습니다" 환각).
+        messages: bridgedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
         // [2026-05-01 Roy] trial path도 Blend identity 주입 — '블렌드가 뭐냐' 답변 일관성.
         systemPrompt: getBlendIdentityPrompt(lang),
         signal: controller.signal,
@@ -2005,7 +2349,10 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
             : `> 🔄 ${resolvedProvider} key issue — auto-switched to free Gemini.\n\n`;
           let fbAccumulated = '';
           sendTrialMessage({
-            messages: bridgedMessages.map(m => ({ role: m.role, content: m.content })),
+            // [2026-05-02 Roy 핫픽스] toApiContent로 이미지 보존 — 이전엔 m.content만
+            // 넘겨 멀티모달 첨부 누락 + history에 남은 이미지 메시지 처리 깨짐 → 후속
+            // 메시지에서 "📡 네트워크 연결 확인" 오류로 이어지던 회귀.
+            messages: bridgedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
             systemPrompt: blendIdentity,
             signal: controller.signal,
             onChunk: (text) => {
@@ -2069,6 +2416,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // [2026-05-04 Roy] 모바일은 Enter=줄바꿈, 데스크탑은 Enter=전송 유지.
+    if (isMobile) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSend();
@@ -2105,14 +2454,17 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
             {MODELS.find((m) => m.id === currentModel)?.name ?? t.modelAuto}
             <ChevronIcon />
           </button>
-          {/* [2026-04-26] Sprint 2 — 트라이얼 단계화 (🟢7-/🟡8-9/🔴10) */}
+          {/* [2026-04-26] Sprint 2 — 트라이얼 단계화 (🟢/🟡 80%+/🔴 0).
+              [2026-05-03 Roy] 한도 50회/일로 변경 — trialMaxPerDay 기반 동적 임계값.
+              warnThreshold = 80% 사용 시점부터 amber + '곧 종료'. 50회 기준 40회. */}
           {isTrialMode && (() => {
             const used = trialMaxPerDay - trialRemaining;
-            const tone = trialRemaining === 0 ? 'red' : used >= 8 ? 'amber' : 'green';
+            const warnThreshold = Math.ceil(trialMaxPerDay * 0.8);
+            const tone = trialRemaining === 0 ? 'red' : used >= warnThreshold ? 'amber' : 'green';
             const bg = tone === 'red' ? '#fee2e2' : tone === 'amber' ? '#fef3c7' : tokens.accentSoft;
             const fg = tone === 'red' ? '#991b1b' : tone === 'amber' ? '#92400e' : tokens.accent;
-            const trailKo = trialRemaining === 0 ? '' : (used >= 8 ? ' · 곧 종료' : '');
-            const trailEn = trialRemaining === 0 ? '' : (used >= 8 ? ' · almost done' : '');
+            const trailKo = trialRemaining === 0 ? '' : (used >= warnThreshold ? ' · 곧 종료' : '');
+            const trailEn = trialRemaining === 0 ? '' : (used >= warnThreshold ? ' · almost done' : '');
             return (
             <span
               className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium"
@@ -2123,8 +2475,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                 {trialRemaining === 0
                   ? (lang === 'ko' ? '무료 체험 종료' : 'Free trial ended')
                   : lang === 'ko'
-                  ? (isMobile ? `무료 · ${trialRemaining}/10${trailKo}` : `무료 체험중 · ${trialRemaining}/10${trailKo}`)
-                  : (isMobile ? `Trial · ${trialRemaining}/10${trailEn}` : `Free trial · ${trialRemaining}/10${trailEn}`)}
+                  ? (isMobile ? `무료 · ${trialRemaining}/${trialMaxPerDay}${trailKo}` : `무료 체험중 · ${trialRemaining}/${trialMaxPerDay}${trailKo}`)
+                  : (isMobile ? `Trial · ${trialRemaining}/${trialMaxPerDay}${trailEn}` : `Free trial · ${trialRemaining}/${trialMaxPerDay}${trailEn}`)}
               </span>
             </span>
             );
@@ -2141,6 +2493,11 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               setValue('');
               // [2026-05-02 Roy] 새 채팅 시 TTS 카운터 리셋 (50회/채팅 한도)
               setTtsCount(0);
+              // [2026-05-04 Roy] 세션 부하 카운터 함께 리셋
+              setSttCount(0);
+              setRagChunkCount(0);
+              setSessionFull(false);
+              lastLoadStageRef.current = 0;
               if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
               // [2026-05-02 Roy] 메모리 선택 자동 초기화 — 새 채팅마다 다시 선택해야 함
               useD1MemoryStore.getState().clear();
@@ -2203,7 +2560,17 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           className="flex-1 overflow-y-auto"
           style={{ fontFamily: fontStack }}
         >
-          <div className="mx-auto w-full max-w-[760px] px-8 py-8 pb-[180px]">
+          {/* [2026-05-02 Roy 핫픽스] 모바일 좌우 패딩 축소 — 이전 px-8(32px)이 375px
+              화면에서 답변 텍스트가 80px+에서 시작되어 가독성 저하. 데스크탑 md:px-8
+              유지. py도 살짝 축소해 시각 균형 맞춤.
+              [2026-05-03 Roy 핫픽스] paddingBottom 동적 — inputPanelHeight 기반.
+              이전 pb-[180px] 고정값 → 답변 끝부분이 입력창에 가려졌음.
+              [2026-05-04 Roy] 모바일 px-3(12px)도 답변이 세로로 길게 짜이는 원인.
+              px-2(8px)까지 축소 — 화면 좌측 끝에서 살짝만 띄움. */}
+          <div
+            className="mx-auto w-full max-w-[760px] px-2 md:px-8 py-6 md:py-8"
+            style={{ paddingBottom: `${inputPanelHeight}px` }}
+          >
             {messages.map((msg) => (
               <D1MessageRow
                 key={msg.id}
@@ -2314,11 +2681,14 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
               onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
-              onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; }}
+              onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; setSttCount((c) => c + 1); }}
               ttsActive={ttsEnabled}
               onToggleTts={handleToggleTts}
               ttsCount={ttsCount}
               ttsLimit={TTS_LIMIT}
+              sessionLoadPct={sessionLoad.loadPct}
+              sessionLoadColor={sessionLoadColor}
+              sessionDisabled={sessionFull}
             />
 
             {/* Suggestions — desktop only. Sprint 2 (16384367): 6 카드 + icon + ⓘ 툴팁 */}
@@ -2390,9 +2760,13 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
 
       {/* Sticky bottom input (only when messages exist) */}
       {hasMessages && (
-        <div className="absolute bottom-0 left-0 right-0 pb-6" style={{
-          background: `linear-gradient(to bottom, transparent, ${tokens.bg} 40%)`,
-        }}>
+        <div
+          ref={inputPanelCbRef}
+          className="absolute bottom-0 left-0 right-0 pb-6"
+          style={{
+            background: `linear-gradient(to bottom, transparent, ${tokens.bg} 40%)`,
+          }}
+        >
           <div className="mx-auto w-full max-w-[760px] px-8">
             <D1RagProgressBanner lang={lang} />
             <ActiveSourcesBar
@@ -2433,23 +2807,35 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               onVoiceFallbackRecorded={handleVoiceFallbackRecorded}
               onVoiceError={(msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 4500); }}
               onAskBlend={() => handleSend(BLEND_INTRO_QUESTION[lang])}
-              onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; }}
+              onVoiceUsed={() => { lastUserSourceRef.current = 'voice'; setSttCount((c) => c + 1); }}
               ttsActive={ttsEnabled}
               onToggleTts={handleToggleTts}
               ttsCount={ttsCount}
               ttsLimit={TTS_LIMIT}
+              sessionLoadPct={sessionLoad.loadPct}
+              sessionLoadColor={sessionLoadColor}
+              sessionDisabled={sessionFull}
             />
           </div>
         </div>
       )}
 
-      {/* Toast */}
+      {/* [2026-05-04 Roy] Toast — rounded-full(원형) → rounded-2xl(둥근 사각형) 변경.
+          이전: 텍스트가 길면 동그란 모양에 강제로 줄바꿈돼 글자 잘림.
+          신규: 양옆 더 넓게(min-w 280px), 둥근 모서리만 살짝, 줄바꿈 정상.
+          클릭 또는 ✕ 버튼으로 닫을 수 있음. */}
       {toastMsg && (
         <div
-          className="pointer-events-none fixed bottom-24 left-1/2 -translate-x-1/2 rounded-full px-4 py-2 text-[13px] shadow-lg z-50"
+          role="button"
+          tabIndex={0}
+          onClick={() => setToastMsg(null)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') setToastMsg(null); }}
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 flex min-w-[280px] max-w-[90vw] items-start gap-3 rounded-2xl px-5 py-3 text-[13.5px] leading-relaxed shadow-lg z-50 cursor-pointer"
           style={{ background: tokens.text, color: tokens.bg, fontFamily: fontStack }}
+          title={lang === 'ko' ? '눌러서 닫기' : 'Tap to dismiss'}
         >
-          {toastMsg}
+          <span className="flex-1 break-words whitespace-pre-wrap">{toastMsg}</span>
+          <span aria-hidden className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[14px] leading-none opacity-80 hover:opacity-100" style={{ background: 'rgba(255,255,255,0.15)' }}>×</span>
         </div>
       )}
 
@@ -2477,6 +2863,25 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
           lang={lang}
           onChoose={(q) => setTtsQualityAndPersist(q)}
           onClose={() => setShowTtsQualityModal(false)}
+        />
+      )}
+
+      {/* [2026-05-03 Roy] 이미지 품질 첫 사용 모달 — '표준'(DALL-E 3) / '프리미엄'(GPT Image 2).
+          선택 후 pending prompt 자동 재발사. 모달 닫기로 cancel 시 prompt 폐기. */}
+      {showImageQualityModal && (
+        <D1ImageQualityModal
+          lang={lang}
+          onChoose={(q) => {
+            setImageQualityAndPersist(q);
+            const pending = pendingImagePromptRef.current;
+            pendingImagePromptRef.current = null;
+            // setState는 비동기 — 다음 tick에 handleSend 재호출 (imageQualityChosen=true 반영 후)
+            if (pending) setTimeout(() => handleSend(pending), 0);
+          }}
+          onClose={() => {
+            setShowImageQualityModal(false);
+            pendingImagePromptRef.current = null;
+          }}
         />
       )}
 
@@ -2629,8 +3034,12 @@ function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: {
   onTryAnother: (newModel?: string) => void;
   onFork?: () => void; onShare?: () => void;
 }) {
+  // [Roy v11 PM-22] 메시지 완료 시간 추출 — id가 Date.now()로 시작하는 패턴.
+  // (예: '1717123456789_ai' → 1717123456789). parseInt가 첫 숫자 시퀀스만 잡음.
+  const ts = parseInt(message.id, 10);
+  const messageTime = isFinite(ts) && ts > 1_000_000_000_000 ? ts : null;
   if (message.role === 'user') {
-    return <D1UserMessage content={message.content} lang={lang} />;
+    return <D1UserMessage content={message.content} lang={lang} createdAt={messageTime} />;
   }
   return (
     <D1AssistantMessage
@@ -2641,6 +3050,9 @@ function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: {
       sources={message.sources}
       bridgeApplied={message.bridgeApplied}
       bridgeFromCache={message.bridgeFromCache}
+      imageUrl={message.imageUrl}
+      imagePrompt={message.imagePrompt}
+      createdAt={messageTime}
       lang={lang}
       t={t}
       onTryAnother={onTryAnother}
@@ -2650,12 +3062,42 @@ function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: {
   );
 }
 
-function D1UserMessage({ content, lang }: { content: string; lang: Lang }) {
+// [Roy v11 PM-22] 메시지 완료 시간.
+// [2026-05-04 Roy #18] 절대 시각 → 상대 시간으로 표준화. 다국가/타임존 사용자에게
+// 일관된 인지 (timezone 차이 무관). 분/시간/일/주/개월/년 단위로 단일 표시.
+function formatMessageTime(ts: number, lang: Lang): string {
+  const diff = Math.max(0, Date.now() - ts);
+  const min = Math.floor(diff / 60_000);
+  const hr  = Math.floor(diff / 3_600_000);
+  const day = Math.floor(diff / 86_400_000);
+  const wk  = Math.floor(day / 7);
+  const mo  = Math.floor(day / 30);
+  const yr  = Math.floor(day / 365);
+  if (lang === 'ko') {
+    if (min < 1)   return '방금 전';
+    if (min < 60)  return `${min}분 전`;
+    if (hr  < 24)  return `${hr}시간 전`;
+    if (day < 7)   return `${day}일 전`;
+    if (day < 30)  return `${wk}주 전`;
+    if (day < 365) return `${mo}개월 전`;
+    return `${yr}년 전`;
+  }
+  // EN
+  if (min < 1)   return 'just now';
+  if (min < 60)  return `${min}m ago`;
+  if (hr  < 24)  return `${hr}h ago`;
+  if (day < 7)   return `${day}d ago`;
+  if (day < 30)  return `${wk}w ago`;
+  if (day < 365) return `${mo}mo ago`;
+  return `${yr}y ago`;
+}
+
+function D1UserMessage({ content, lang, createdAt }: { content: string; lang: Lang; createdAt: number | null }) {
   const fontStack = lang === 'ko'
     ? '"Pretendard Variable", Pretendard, sans-serif'
     : '"Geist", sans-serif';
   return (
-    <div className="mb-8 flex justify-end">
+    <div className="mb-8 flex flex-col items-end">
       <div
         className="max-w-[80%] rounded-[18px] px-5 py-3 text-[15.5px] leading-[1.6] tracking-[-0.005em]"
         style={{
@@ -2668,6 +3110,12 @@ function D1UserMessage({ content, lang }: { content: string; lang: Lang }) {
       >
         {content}
       </div>
+      {/* [Roy v11 PM-22] 메시지 완료 시간 — 작은 회색으로 우측 아래 */}
+      {createdAt && (
+        <div className="mt-1 px-1 text-[11px]" style={{ color: tokens.textFaint, fontFamily: fontStack }}>
+          {formatMessageTime(createdAt, lang)}
+        </div>
+      )}
     </div>
   );
 }
@@ -2684,6 +3132,9 @@ function D1AssistantMessage({
   sources,
   bridgeApplied,
   bridgeFromCache,
+  imageUrl,
+  imagePrompt,
+  createdAt,
   lang,
   t,
   onTryAnother,
@@ -2698,6 +3149,9 @@ function D1AssistantMessage({
   sources?: string[];
   bridgeApplied?: boolean;
   bridgeFromCache?: boolean;
+  imageUrl?: string;
+  imagePrompt?: string;
+  createdAt?: number | null;
   lang: Lang;
   t: CopyObj;
   onTryAnother?: (newModel?: string) => void;
@@ -2728,10 +3182,15 @@ function D1AssistantMessage({
   };
 
   return (
-    <div className="group mb-10 flex gap-4">
-      {/* Avatar */}
+    // [2026-05-02 Roy 핫픽스] B 로고와 답변 텍스트 사이 gap 모바일 축소 —
+    // gap-4(16px)는 모바일에서 너무 떨어져 보여 가독성 저하. md: 이상은 그대로.
+    // [2026-05-04 Roy] 모바일에서 Avatar(B 로고) hide — 답변 본문이 화면 폭 100%
+    // 활용. user/assistant 시각 구분은 우측 정렬·배경(user) vs 좌측·플레인(assistant)
+    // 으로 충분. 모델명은 footer 액션바의 ↻ 버튼 옆 배지에 이미 표시.
+    <div className="group mb-10 flex md:gap-4">
+      {/* Avatar — 데스크탑만 (모바일에선 본문이 화면 좌측 끝까지 사용) */}
       <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center"
+        className="hidden md:flex h-8 w-8 shrink-0 items-center justify-center"
         style={{
           fontFamily: '"Instrument Serif", Georgia, serif',
           fontSize: 22,
@@ -2744,15 +3203,51 @@ function D1AssistantMessage({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="d1-prose min-w-0">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              pre: ({ children }) => <>{children}</>,
-              code: CodeRenderer as React.ComponentType<React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }>,
-            }}
-          >
-            {content}
-          </ReactMarkdown>
+          {content && (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                pre: ({ children }) => <>{children}</>,
+                code: CodeRenderer as React.ComponentType<React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }>,
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          )}
+          {/* [Roy v8] 생성된 이미지는 markdown 우회해서 <img>로 직접 렌더.
+              base64 data URL이 100K+ 자라 ReactMarkdown 안에서 truncated → broken icon
+              회귀 방지. img alt에 prompt, max-width로 반응형. onError로 실제 디코드 실패 잡음. */}
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt={imagePrompt || ''}
+              className="mt-2 max-w-full rounded-lg"
+              style={{ maxHeight: '512px', display: 'block' }}
+              onError={(e) => {
+                // 디코드 실패 시 broken icon 대신 친절 메시지 노출
+                const target = e.currentTarget;
+                target.style.display = 'none';
+                const next = target.nextElementSibling as HTMLElement | null;
+                if (next && next.dataset.imgErr === 'true') next.style.display = 'block';
+              }}
+            />
+          )}
+          {imageUrl && (
+            <div
+              data-img-err="true"
+              className="mt-2 rounded-lg p-4 text-[13px]"
+              style={{
+                display: 'none',
+                background: '#fef3c7',
+                color: '#92400e',
+                border: '1px solid #fde68a',
+              }}
+            >
+              {lang === 'ko'
+                ? `🎨 이미지를 표시할 수 없어요. "다른 AI로" 버튼을 누르거나 같은 요청을 다시 보내주세요.`
+                : `🎨 Couldn't display the image. Try "Try another AI" or send the same request again.`}
+            </div>
+          )}
           {streaming && <span className="d1-cursor" />}
         </div>
 
@@ -2767,6 +3262,12 @@ function D1AssistantMessage({
           //   ↳ 좌측 'Message meta footer'(모델·토큰·비용) + 우측 modelUsed 모델명
           //     중복 회귀 → 좌측 footer 제거, 우측만 유지.
           <div className="mt-3 flex flex-wrap items-center gap-1" style={{ color: tokens.textFaint }}>
+            {/* [Roy v11 PM-22] 메시지 완료 시간 — 액션바 맨 왼쪽 */}
+            {createdAt && (
+              <span className="px-2 py-1 text-[11px]" style={{ color: tokens.textFaint }}>
+                {formatMessageTime(createdAt, lang)}
+              </span>
+            )}
             <button
               onClick={handleCopy}
               className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5 hover:text-current"
@@ -2857,27 +3358,43 @@ function D1AssistantMessage({
                   ↻ {t.tryAnother}
                 </button>
                 {showModelPicker && (
+                  // [2026-05-04 Roy] 모델명만 나열돼 사용자가 "이게 뭔 AI인지" 모름.
+                  // 각 행에 짧은 설명(description_ko/en) 추가 — registry가 자동
+                  // 생성·갱신하므로 신모델 추가돼도 코드 수정 불필요.
                   <div
                     className="absolute bottom-full right-0 mb-1 z-50 rounded-xl border py-1.5 shadow-lg"
-                    style={{ background: tokens.surface, borderColor: tokens.border, minWidth: 180 }}
+                    style={{ background: tokens.surface, borderColor: tokens.border, minWidth: 240, maxWidth: 320 }}
                   >
-                    {MODELS.filter((m) => m.id !== 'auto').slice(0, 8).map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => {
-                          setShowModelPicker(false);
-                          onTryAnother(m.id);
-                        }}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] transition-colors hover:bg-black/5"
-                        style={{ color: tokens.text }}
-                      >
-                        <span
-                          className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
-                          style={{ background: BRAND_COLORS[m.brand] ?? tokens.accent }}
-                        />
-                        {m.name}
-                      </button>
-                    ))}
+                    {MODELS.filter((m) => m.id !== 'auto').slice(0, 8).map((m) => {
+                      const desc = lang === 'ko' ? m.desc_ko : m.desc_en;
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            setShowModelPicker(false);
+                            onTryAnother(m.id);
+                          }}
+                          className="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-black/5"
+                          style={{ color: tokens.text }}
+                        >
+                          <span
+                            className="mt-1.5 inline-block h-1.5 w-1.5 rounded-full shrink-0"
+                            style={{ background: BRAND_COLORS[m.brand] ?? tokens.accent }}
+                          />
+                          <span className="flex min-w-0 flex-col">
+                            <span className="text-[12.5px] font-medium leading-tight">{m.name}</span>
+                            {desc && (
+                              <span
+                                className="mt-0.5 text-[11px] leading-snug"
+                                style={{ color: tokens.textDim }}
+                              >
+                                {desc}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -3009,6 +3526,9 @@ function D1InputBar({
   onToggleTts,
   ttsCount,
   ttsLimit,
+  sessionLoadPct,
+  sessionLoadColor,
+  sessionDisabled,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -3040,6 +3560,12 @@ function D1InputBar({
   onToggleTts?: () => void;
   ttsCount?: number;
   ttsLimit?: number;
+  // [2026-05-04 Roy] 채팅 세션 부하 — 입력바 하단 테두리 그라디에이션 진행 바.
+  // 0~70% 검은색 / 70~90% 주황 / 90~100% 빨강. 100% 도달 시 sessionDisabled로
+  // 입력 차단. 부모에서 computeSessionLoad로 계산 후 prop으로 내려줌.
+  sessionLoadPct?: number;
+  sessionLoadColor?: string;
+  sessionDisabled?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -3206,12 +3732,21 @@ function D1InputBar({
       <textarea
         ref={textareaRef}
         value={value}
-        onChange={(e) => { voiceBaseRef.current = ''; onChange(e.target.value); }}
+        onChange={(e) => {
+          voiceBaseRef.current = '';
+          onChange(e.target.value);
+          // [2026-05-04 Roy] 한 줄 기본 + 입력 따라 자동 grow (max 240px). max 초과 시
+          // textarea 내부 스크롤. 한 줄로 줄인 뒤에도 자연스러운 입력 UX 보장.
+          const el = e.currentTarget;
+          el.style.height = 'auto';
+          el.style.height = Math.min(el.scrollHeight, 240) + 'px';
+        }}
         onKeyDown={onKeyDown}
         onPaste={handlePaste}
-        placeholder={placeholder}
-        rows={3}
-        className="w-full resize-none border-none bg-transparent text-[15px] md:text-base leading-[1.5] tracking-[-0.01em] outline-none placeholder:text-[--d1-placeholder] min-h-[88px] md:min-h-[96px] max-h-[240px]"
+        placeholder={sessionDisabled ? (lang === 'ko' ? '이 채팅은 사용량 한도에 도달했어요. 새 채팅으로 이동 중…' : 'Chat capacity reached. Moving to a new chat…') : placeholder}
+        rows={1}
+        disabled={sessionDisabled}
+        className="w-full resize-none border-none bg-transparent text-[15px] md:text-base leading-[1.5] tracking-[-0.01em] outline-none placeholder:text-[--d1-placeholder] min-h-[28px] md:min-h-[32px] max-h-[240px] disabled:opacity-60 disabled:cursor-not-allowed"
         style={{ color: tokens.text, '--d1-placeholder': tokens.textFaint } as React.CSSProperties}
       />
       <div className="mt-2.5 flex items-center justify-between">
@@ -3224,7 +3759,7 @@ function D1InputBar({
               onTranscript={handleVoiceTranscript}
               onFallbackRecorded={onVoiceFallbackRecorded}
               onError={onVoiceError}
-              disabled={isStreaming}
+              disabled={isStreaming || !!sessionDisabled}
               lang={lang}
             />
           )}
@@ -3235,29 +3770,29 @@ function D1InputBar({
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); onToggleTts(); }}
-              disabled={isStreaming || (ttsCount !== undefined && ttsCount >= ttsLimit!)}
-              className="ml-0.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={isStreaming}
+              // [2026-05-04 Roy] 50회 음성 한도 비활성 — 세션 부하 진행 바가 종합
+              // 사용량을 책임짐. ttsCount/ttsLimit 표시·체크는 주석 (다른 곳에 재활용
+              // 가능성 보존). 듣기 버튼 UX: 기본=스피커+대각선(비활성 표시),
+              // 클릭=연하늘색 바탕(활성).
+              className="ml-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
-                // [2026-05-02 Roy] ON일 때 더 연한 파랑(blue-50) — 첫 시도 sky-100이 너무
-                // 진했음. blue-50으로 연하게. 메모리(노랑)와 음성(파랑) 의미 분리 유지.
-                background: ttsActive ? '#EFF6FF' : 'transparent',
-                color:      ttsActive ? '#1E40AF' : 'var(--d1-text-dim)',
-                border:     ttsActive ? '1px solid #BFDBFE' : '1px solid var(--d1-border-strong)',
+                background: ttsActive ? '#E0F2FE' : 'transparent',  // sky-100 (연하늘색)
+                color:      ttsActive ? '#075985' : 'var(--d1-text-dim)',  // sky-800 텍스트
               }}
               title={
-                ttsCount !== undefined && ttsCount >= ttsLimit!
-                  ? (lang === 'ko' ? `이번 채팅 음성 한도(${ttsLimit})` : `Voice limit reached`)
-                  : ttsActive
-                    ? (lang === 'ko' ? '음성 답변 끄기' : 'Turn off voice')
-                    : (lang === 'ko' ? '음성 답변 켜기' : 'Turn on voice')
+                ttsActive
+                  ? (lang === 'ko' ? '듣기 끄기' : 'Turn off listen')
+                  : (lang === 'ko' ? '듣기 켜기' : 'Turn on listen')
               }
+              aria-pressed={ttsActive}
             >
               {ttsActive ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
-              {ttsActive && ttsCount !== undefined && (
-                <span className="text-[11px] tabular-nums">
-                  {ttsCount}/{ttsLimit}
-                </span>
-              )}
+              {/* [2026-05-04 Roy] 50회 카운터 노출 비활성. 향후 재활용 시 주석 해제.
+                  {ttsActive && ttsCount !== undefined && (
+                    <span className="text-[11px] tabular-nums">{ttsCount}/{ttsLimit}</span>
+                  )}
+              */}
             </button>
           )}
           {/* [2026-05-01 Roy] '블렌드 서비스란?' 칩 — 음성 버튼 오른쪽.
@@ -3276,7 +3811,7 @@ function D1InputBar({
               title={lang === 'en' ? 'About Blend' : '블렌드 서비스 소개'}
             >
               <span aria-hidden>✦</span>
-              {lang === 'en' ? 'What is Blend?' : '블렌드란?'}
+              {lang === 'en' ? 'Blend?' : '블렌드란?'}
             </button>
           )}
         </div>
@@ -3292,11 +3827,11 @@ function D1InputBar({
             else onSend();
           }}
           type="button"
-          disabled={!isStreaming && !canSend}
+          disabled={(!isStreaming && !canSend) || !!sessionDisabled}
           // [2026-05-02 Roy] isStreaming 시 'd1-pulse-morph' 애니메이션 — 버튼이
           // 일그러지며 brething → '답변 준비 중' 시각 피드백. 정적 버튼이라 사용자가
           // 'stuck/버그'로 오인하던 문제 해결. globals.css에 keyframe 정의.
-          className={`flex h-[34px] w-[34px] items-center justify-center rounded-full border-none hover:-translate-y-px disabled:cursor-not-allowed disabled:translate-y-0 ${isStreaming ? 'd1-pulse-morph' : 'transition-[transform,background] duration-150'}`}
+          className={`flex h-[34px] w-[34px] shrink-0 aspect-square items-center justify-center rounded-full border-none hover:-translate-y-px disabled:cursor-not-allowed disabled:translate-y-0 ${isStreaming ? 'd1-pulse-morph' : 'transition-[transform,background] duration-150'}`}
           style={{
             background: isStreaming ? tokens.accent : canSend ? tokens.text : tokens.borderStrong,
             color: isStreaming || canSend ? tokens.bg : tokens.textFaint,
@@ -3307,6 +3842,37 @@ function D1InputBar({
           {isStreaming ? <StopIcon /> : <SendIcon />}
         </button>
       </div>
+
+      {/* [2026-05-04 Roy] 채팅 세션 부하 진행 바 — 입력바 하단 테두리 자체가 부하 표시.
+          0~70% 검은색 / 70~90% 주황(#F97316) / 90~100% 빨강(#DC2626).
+          색상·너비 모두 CSS transition으로 천천히 그라디에이션 변화.
+          % 텍스트는 진행 끝 옆에, 같은 색상으로 작게 (10% 면 10% 위치 옆에 검은 "10%"). */}
+      {sessionLoadPct !== undefined && sessionLoadPct >= 0.5 && (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-0 bottom-0 rounded-bl-[20px] rounded-br-[20px]"
+            style={{
+              height: '3px',
+              width: `${sessionLoadPct}%`,
+              background: sessionLoadColor ?? '#1F2937',
+              transition: 'width 600ms ease, background-color 800ms ease',
+            }}
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute text-[10px] font-medium tabular-nums select-none"
+            style={{
+              bottom: '6px',
+              left: `calc(min(${sessionLoadPct}%, 92%) + 6px)`,
+              color: sessionLoadColor ?? '#1F2937',
+              transition: 'left 600ms ease, color 800ms ease',
+            }}
+          >
+            {Math.round(sessionLoadPct)}%
+          </span>
+        </>
+      )}
     </div>
   );
 }

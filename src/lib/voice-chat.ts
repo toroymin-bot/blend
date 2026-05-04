@@ -78,22 +78,34 @@ export function detectLanguageFromText(text: string): DetectedLang {
 // Google Chirp3-HD (2025 GA): 'Aoede' = 그리스 신화 뮤즈, feminine + lively + warm.
 // 모든 언어에 Aoede 사용 → 사용자가 어느 언어로 답변받아도 같은 캐릭터.
 // $60 / 1M chars (premium).
-const CHIRP3_HD_VOICE: Partial<Record<DetectedLang, string>> = {
-  ko: 'ko-KR-Chirp3-HD-Aoede',
-  en: 'en-US-Chirp3-HD-Aoede',
-  ja: 'ja-JP-Chirp3-HD-Aoede',
-  zh: 'cmn-CN-Chirp3-HD-Aoede',
-  vi: 'vi-VN-Chirp3-HD-Aoede',
-  th: 'th-TH-Chirp3-HD-Aoede',
-  hi: 'hi-IN-Chirp3-HD-Aoede',
-  es: 'es-ES-Chirp3-HD-Aoede',
-  fr: 'fr-FR-Chirp3-HD-Aoede',
-  de: 'de-DE-Chirp3-HD-Aoede',
-  pt: 'pt-BR-Chirp3-HD-Aoede',
-  ar: 'ar-XA-Chirp3-HD-Aoede',
-  id: 'id-ID-Chirp3-HD-Aoede',
+//
+// [2026-05-03 Roy Fully Agentic] 가족명을 단일 상수로 추출 — Google이 Chirp4-HD
+// 출시 시 PREMIUM_VOICE_FAMILY 한 줄만 바꾸면 모든 언어 ID + 사용자 카피 + Blend FAQ
+// 답변 모두 자동 갱신. 카피는 i18n placeholder + getVoiceFamilyLabel() 치환.
+export const PREMIUM_VOICE_FAMILY  = 'Chirp3-HD';
+export const STANDARD_VOICE_FAMILY = 'Wavenet/Neural2';
+export const PREMIUM_VOICE_CHARACTER = 'Aoede';
+
+// 언어별 voice ID는 가족명을 합성해 생성 — family 변경 시 자동 반영.
+const CHIRP3_HD_LANGS: Array<{ key: DetectedLang; locale: string }> = [
+  { key: 'ko', locale: 'ko-KR' },
+  { key: 'en', locale: 'en-US' },
+  { key: 'ja', locale: 'ja-JP' },
+  { key: 'zh', locale: 'cmn-CN' },
+  { key: 'vi', locale: 'vi-VN' },
+  { key: 'th', locale: 'th-TH' },
+  { key: 'hi', locale: 'hi-IN' },
+  { key: 'es', locale: 'es-ES' },
+  { key: 'fr', locale: 'fr-FR' },
+  { key: 'de', locale: 'de-DE' },
+  { key: 'pt', locale: 'pt-BR' },
+  { key: 'ar', locale: 'ar-XA' },
+  { key: 'id', locale: 'id-ID' },
   // fil 미지원 → fallback
-};
+];
+const CHIRP3_HD_VOICE: Partial<Record<DetectedLang, string>> = Object.fromEntries(
+  CHIRP3_HD_LANGS.map(({ key, locale }) => [key, `${locale}-${PREMIUM_VOICE_FAMILY}-${PREMIUM_VOICE_CHARACTER}`]),
+) as Partial<Record<DetectedLang, string>>;
 
 // 표준 품질 — Wavenet/Neural2. 언어마다 다른 ID 체계라 일관 voice ID 사용 불가.
 // 각 언어별 가장 자연스러운 여자 voice (Wavenet-A는 대부분 언어에서 female 기본).
@@ -123,6 +135,17 @@ const LANG_TO_BCP47: Record<DetectedLang, string> = {
 };
 
 export type TTSQuality = 'premium' | 'standard';
+
+/**
+ * [2026-05-03 Roy Fully Agentic] 사용자에게 보일 음성 모델 라벨 — i18n placeholder
+ * `{{voice_model}}` 치환에 사용. 가족 변수(PREMIUM_VOICE_FAMILY 등) 변경 시 자동 갱신.
+ *   - 'premium'  → "Google Chirp3-HD" (또는 향후 가족 변경 시 그대로 따라감)
+ *   - 'standard' → "Google Wavenet/Neural2 + OpenAI"
+ */
+export function getVoiceModelLabel(quality: TTSQuality): string {
+  if (quality === 'premium') return `Google ${PREMIUM_VOICE_FAMILY}`;
+  return `Google ${STANDARD_VOICE_FAMILY} + OpenAI`;
+}
 
 // [2026-05-02 Roy] TTS 재생 속도 + 톤(피치) — 모든 provider 통일.
 // 속도: 1.0 = 정상, 1.15 = 약간 빠름. OpenAI/Google 모두 0.25-4.0 지원.

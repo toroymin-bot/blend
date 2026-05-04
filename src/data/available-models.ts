@@ -181,6 +181,47 @@ export function getBestImageModel(): string {
   return candidates[0]?.id ?? 'dall-e-3';
 }
 
+/**
+ * [2026-05-03 Roy] Quality-aware image model resolver — registry에서 동적 도출.
+ * 사용자가 'standard'(verification 불필요, 안정) / 'premium'(고품질, 인증 필요) 중 선택하면,
+ * 3시간 cron이 새 모델 추가/구모델 폐기 시도 자동 반영. 카피/모달/설정도 dynamic 라벨 사용.
+ *
+ * - standard: 가장 최신 dall-e-* (alias)
+ * - premium: 가장 최신 gpt-image-* (alias)
+ * 못 찾으면 안전 fallback (dall-e-3 / gpt-image-2 — 코드 수정 시점 LTS).
+ */
+export function getImageModelByQuality(quality: 'standard' | 'premium'): string {
+  const family = quality === 'premium' ? /^gpt-image-/ : /^dall-e-/;
+  const candidates = AVAILABLE_MODELS.filter((m) =>
+    m.provider === 'openai' &&
+    !m.deprecated &&
+    family.test(m.id) &&
+    !/-\d{4}-\d{2}-\d{2}$/.test(m.id), // dated snapshot 제외
+  );
+  candidates.sort((a, b) => imageModelScore(b.id) - imageModelScore(a.id));
+  return candidates[0]?.id ?? (quality === 'premium' ? 'gpt-image-2' : 'dall-e-3');
+}
+
+/**
+ * [2026-05-03 Roy] 사용자에게 보여줄 모델 라벨 (한 줄). 카피 하드코딩 회피.
+ * registry의 displayName 우선, 없으면 model id에서 친근한 라벨 도출.
+ */
+export function getImageModelLabel(modelId: string, lang: 'ko' | 'en' = 'en'): string {
+  const m = AVAILABLE_MODELS.find((x) => x.id === modelId);
+  if (m?.displayName) return m.displayName;
+  // ID에서 친근한 라벨 도출 (예: 'gpt-image-2' → 'GPT Image 2', 'dall-e-3' → 'DALL-E 3')
+  if (modelId.startsWith('gpt-image-')) {
+    const v = modelId.replace('gpt-image-', '');
+    return `GPT Image ${v}`;
+  }
+  if (modelId.startsWith('dall-e-')) {
+    const v = modelId.replace('dall-e-', '');
+    return `DALL-E ${v}`;
+  }
+  void lang; // 향후 KR/EN description 분기에 사용 예정
+  return modelId;
+}
+
 export function getAutoFallbackChain(): Array<{ provider: ProviderId; apiModel: string }> {
   return AUTO_PROVIDER_PRIORITY.flatMap((provider) => {
     const ofProvider = AVAILABLE_MODELS.filter(

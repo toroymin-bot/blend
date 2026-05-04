@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 const SITE_URL = "https://blend.ai4min.com";
-const SITE_TITLE = "Blend — One AI app, cheaper and smarter";
+const SITE_TITLE = "Blend — One AI app, more affordable and smarter";
 const SITE_DESC_EN = "Use ChatGPT, Claude, Gemini, DeepSeek, Groq from one app. BYOK — pay only for what you use. Average $5/month.";
 const SITE_DESC_KO = "ChatGPT, Claude, Gemini, DeepSeek, Groq를 하나의 앱에서. 내 API 키로 쓴 만큼만. 평균 월 $5.";
 

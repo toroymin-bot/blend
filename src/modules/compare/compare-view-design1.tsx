@@ -586,7 +586,9 @@ export default function D1CompareView({
               return (
                 <div
                   key={col.modelId}
-                  className="flex min-h-0 flex-col overflow-y-auto"
+                  // [2026-05-04 Roy] 모바일은 column 자체 overflow 제거 — body가 max-h로
+                  // 자체 스크롤. 데스크탑은 기존 그대로(가로 비교 시 column 전체 스크롤).
+                  className={`flex min-h-0 flex-col ${isMobile ? '' : 'overflow-y-auto'}`}
                   style={{
                     flex: 1,
                     borderRight: !isMobile && !isLast ? `1px solid ${tokens.border}` : undefined,
@@ -624,8 +626,17 @@ export default function D1CompareView({
                     )}
                   </div>
 
-                  {/* Column body */}
-                  <div className="flex-1 overflow-y-auto px-4 py-4">
+                  {/* [2026-05-04 Roy] Column body — 모바일에서 기본 3줄(약 88px),
+                      답변 길어지면 10줄(약 260px)까지 자동 확장. 10줄 초과 시 우측에
+                      스크롤바로 내부 스크롤(드래그 가능). 데스크탑은 flex-1 그대로. */}
+                  <div
+                    className="overflow-y-auto px-4 py-4"
+                    style={
+                      isMobile
+                        ? { minHeight: 88, maxHeight: 260 }
+                        : { flex: 1 }
+                    }
+                  >
                     {col.error ? (
                       <p className="text-[13px]" style={{ color: tokens.textFaint }}>
                         {col.error}

@@ -421,7 +421,8 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                           }}
                           aria-label={memorySelected ? (lang === 'ko' ? '기억에서 제외' : 'Remove from memory') : (lang === 'ko' ? '채팅 기억하기' : 'Remember this chat')}
                         >
-                          <svg width={12} height={12} viewBox="0 0 24 24" fill={memorySelected ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: memorySelected ? 1 : 0.45 }} className="transition-opacity group-hover:!opacity-100">
+                          {/* [2026-05-03 Roy] opacity 0.45 → 0.75 + stroke 1.6 → 1.8 — 너무 흐려 잘 안 보인다는 신고. 살짝 진하게. */}
+                          <svg width={12} height={12} viewBox="0 0 24 24" fill={memorySelected ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: memorySelected ? 1 : 0.75 }} className="transition-opacity group-hover:!opacity-100">
                             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                           </svg>
                         </button>
@@ -486,14 +487,9 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: tokens.textDim }}>🎬</span>
                   {lang === 'ko' ? '60초 둘러보기' : '60-second tour'}
                 </button>
-                <div className="mx-3 my-1" style={{ height: 1, background: tokens.border }} />
-                <button onClick={() => nav('about')}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-black/5"
-                  style={{ color: activeView === 'about' ? tokens.accent : tokens.text }}
-                >
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: activeView === 'about' ? tokens.accent : tokens.textDim }}><AboutIcon /></span>
-                  {t.about}
-                </button>
+                {/* [2026-05-04 Roy #16] 사이드바 About 항목 제거 — Settings 안 About
+                    섹션으로 통합. 두 곳에서 같은 정보를 노출하면 사용자가 선택 부담을
+                    느낌. Settings 진입 후 About 섹션 클릭으로 일관 액세스. */}
               </div>
             )}
           </div>
@@ -589,14 +585,8 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' })
               <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" aria-hidden style={{ color: tokens.textDim }}>🎬</span>
               {lang === 'ko' ? '60초 둘러보기' : '60-second tour'}
             </button>
-            <button
-              onClick={() => { nav('about'); setDrawerOpen(false); }}
-              className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none pl-4 pr-3 text-[13px] transition-colors hover:bg-black/5"
-              style={{ color: activeView === 'about' ? tokens.accent : tokens.text }}
-            >
-              <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" style={{ color: activeView === 'about' ? tokens.accent : tokens.textDim }}><AboutIcon /></span>
-              {t.about}
-            </button>
+            {/* [2026-05-04 Roy #16] 모바일 drawer About 항목 제거 — Settings 안
+                About 섹션으로 통합. 데스크탑 ··· 팝오버와 동일 처리. */}
           </aside>
         </div>
       )}
