@@ -699,7 +699,6 @@ export default {
                    SUM(double1) AS cost
             FROM blend_usage ${where}
             GROUP BY blob5
-            ORDER BY blob5
           `),
         ]);
 
