@@ -42,14 +42,25 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 // ── Period ───────────────────────────────────────────────────────
-type Period = 'week' | 'month' | 'year' | 'all';
+// [2026-05-05 PM-46 Roy] 기간 정의 = rolling window (달력 단위 X).
+// today=최근24h, yesterday=24~48h 전, week=최근7일, month=최근30일, year=최근365일, all=전체.
+// 이전 month는 "이번 달 1일부터" / year는 "1월 1일부터"였는데, 사용자가 데이터 추세를
+// 균등하게 비교하려면 rolling window가 더 직관적. 라벨에도 "(최근 N)" 명시.
+type Period = 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'all';
 
 // ── Copy ─────────────────────────────────────────────────────────
 const copy = {
   ko: {
     title:        '대시보드',
     subtitle:     '당신이 AI를 어떻게 쓰는지 한눈에.',
-    periods:      { week: '이번 주', month: '이번 달', year: '올해', all: '전체' } as Record<Period, string>,
+    periods:      {
+      today:     '오늘(최근 24시간)',
+      yesterday: '어제',
+      week:      '이번 주(최근 7일)',
+      month:     '이번 달(최근 30일)',
+      year:      '올해(최근 1년간)',
+      all:       '전체',
+    } as Record<Period, string>,
     chats:        '대화',
     messages:     '메시지',
     modelsUsed:   '사용한 모델',
@@ -71,7 +82,14 @@ const copy = {
   en: {
     title:        'Dashboard',
     subtitle:     'How you use AI at a glance.',
-    periods:      { week: 'This week', month: 'This month', year: 'This year', all: 'All time' } as Record<Period, string>,
+    periods:      {
+      today:     'Today (24h)',
+      yesterday: 'Yesterday',
+      week:      'This week (7d)',
+      month:     'This month (30d)',
+      year:      'This year (365d)',
+      all:       'All time',
+    } as Record<Period, string>,
     chats:        'Chats',
     messages:     'Messages',
     modelsUsed:   'Models used',
@@ -93,12 +111,18 @@ const copy = {
 } as const;
 
 // ── Helpers ──────────────────────────────────────────────────────
-function periodCutoff(p: Period): number {
-  const now = new Date();
-  if (p === 'week')  { const d = new Date(now); d.setDate(d.getDate() - 7);    return d.getTime(); }
-  if (p === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  if (p === 'year')  return new Date(now.getFullYear(), 0, 1).getTime();
-  return 0;
+// [2026-05-05 PM-46 Roy] cutoff(단일 lower bound) → range(start+end) 리팩터.
+// yesterday는 24h~48h 전 구간이라 upper bound도 필요. month/year는 rolling window
+// 변경(이전 "달력 단위" 폐기). 모든 period가 동일한 인터페이스로 필터됨.
+const DAY_MS = 24 * 60 * 60 * 1000;
+function periodRange(p: Period): { start: number; end: number } {
+  const now = Date.now();
+  if (p === 'today')     return { start: now -   1 * DAY_MS, end: now };
+  if (p === 'yesterday') return { start: now -   2 * DAY_MS, end: now - 1 * DAY_MS };
+  if (p === 'week')      return { start: now -   7 * DAY_MS, end: now };
+  if (p === 'month')     return { start: now -  30 * DAY_MS, end: now };
+  if (p === 'year')      return { start: now - 365 * DAY_MS, end: now };
+  return { start: 0, end: now };
 }
 
 function modelDisplayName(id: string): string {
@@ -164,11 +188,12 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
     }
   }, [loadFromStorage]);
 
+  // [2026-05-05 PM-46 Roy] 기본값 = '이번 달(최근 30일)' 유지. today/yesterday는 옵션 추가만.
   const [period, setPeriod] = useState<Period>('month');
 
   const filtered = useMemo(() => {
-    const cutoff = periodCutoff(period);
-    return records.filter((r) => r.timestamp >= cutoff);
+    const { start, end } = periodRange(period);
+    return records.filter((r) => r.timestamp >= start && r.timestamp < end);
   }, [records, period]);
 
   const stats = useMemo(() => {
@@ -183,11 +208,17 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
     const activeDays = new Set(filtered.map((r) => new Date(r.timestamp).toDateString()));
     const activeDayCount = activeDays.size;
 
-    // KV summary에서 period 매칭 — 'year'은 KV month 누적 가까움, 정확 없으면 'all' fallback.
+    // [2026-05-05 PM-46 Roy] KV 매핑 확장:
+    //   today      → KV에 today 버킷 없음 → records 사용 (이 디바이스만).
+    //   yesterday  → KV.yesterday (providers 필드 없음 → modelsUsed는 records).
+    //   week/month → KV 동명 버킷.
+    //   year/all   → KV.all (year 별도 버킷 없으므로 all로 fallback).
     const kvForPeriod = kvSummary
-      ? (period === 'week'   ? kvSummary.week
-      :  period === 'month'  ? kvSummary.month
-      :  /* year/all */        kvSummary.all)
+      ? (period === 'today'     ? null
+      :  period === 'yesterday' ? kvSummary.yesterday
+      :  period === 'week'      ? kvSummary.week
+      :  period === 'month'     ? kvSummary.month
+      :  /* year/all */           kvSummary.all)
       : null;
     const kvMessages = kvForPeriod?.totalRequests ?? null;
     const kvProviderRecord = (kvForPeriod && 'providers' in kvForPeriod) ? kvForPeriod.providers : undefined;
@@ -223,10 +254,13 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
   // 이전엔 records (이 디바이스 4건만)로 집계 → 메시지 카드 171건과 모순. 데이터 일관성
   // 위반. 이제 KV providers count를 사용해 메시지 카드 합과 정확히 일치.
   const topModels = useMemo(() => {
+    // [2026-05-05 PM-46 Roy] today/yesterday는 KV providers 없음 → records fallback.
     const kvForPeriod = kvSummary
-      ? (period === 'week'  ? kvSummary.week
-      :  period === 'month' ? kvSummary.month
-      :  /* year/all */       kvSummary.all)
+      ? (period === 'today'     ? null
+      :  period === 'yesterday' ? null  // KV.yesterday엔 providers 필드 없음
+      :  period === 'week'      ? kvSummary.week
+      :  period === 'month'     ? kvSummary.month
+      :  /* year/all */           kvSummary.all)
       : null;
     const kvProviderRecord = (kvForPeriod && 'providers' in kvForPeriod) ? kvForPeriod.providers : undefined;
     if (kvProviderRecord && Object.keys(kvProviderRecord).length > 0) {
@@ -280,7 +314,7 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
 
         {/* Period chips */}
         <div className="mb-8 flex flex-wrap gap-2">
-          {(['week', 'month', 'year', 'all'] as Period[]).map((p) => (
+          {(['today', 'yesterday', 'week', 'month', 'year', 'all'] as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
@@ -373,6 +407,19 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
             {/* Heatmap */}
             <Card title={t.whenLabel}>
               <Heatmap grid={heatmap.grid} max={heatmap.max} weekdayLabels={t.weekdays} />
+              {/* [2026-05-05 PM-46 Roy] sparse-data 안내 — records가 KV 총합 대비
+                  현저히 적으면 "과거 메시지는 추적 누락됨" 명시. PM-46 이전 chat-api는
+                  usage 데이터 없는 provider(Gemini stream 등) 메시지를 skip → records가
+                  비어 히트맵 거의 빈 그리드. 신규 메시지부터 정상 기록됨을 안내. */}
+              {stats.hasKv && stats.messages >= 10 && filtered.length < stats.messages * 0.3 && (
+                <p className="mt-3 text-[11px]" style={{ color: tokens.textFaint }}>
+                  {lang === 'ko'
+                    ? `* 이 디바이스에 ${filtered.length}건 / 전체 ${stats.messages}건. 과거 메시지 일부는 시간대 분포 추적 누락(PM-46 이전 회귀). 신규 메시지부터 정확히 기록됩니다.`
+                    : lang === 'ph'
+                    ? `* ${filtered.length} / ${stats.messages} sa device na ito. Ilang lumang mensahe walang time data — magsisimula ang tamang tracking sa bagong messages.`
+                    : `* ${filtered.length} of ${stats.messages} on this device. Some past messages lack time data (pre-PM-46 regression). Future messages tracked correctly.`}
+                </p>
+              )}
             </Card>
 
             {/* [2026-05-05 PM-44 Roy] AI 회사별 사용 분포 — KV 합산 기반.
@@ -524,7 +571,12 @@ function Heatmap({
           row.map((count, hr) => {
             const x = labelW + hr * (cell + gap);
             const y = wd * (cell + gap);
-            const opacity = max > 0 ? Math.max(0.06, count / max) : 0;
+            // [2026-05-05 PM-46 Roy] sqrt scaling + min 0.22 — 카운트 분산 클 때 시인성 보장.
+            // 이전: linear count/max + min 0.06 → max=100, count=1이면 opacity=0.06 (거의
+            // 보이지 않음). sqrt 변환으로 작은 값도 visible 하게. min 0.22로 zero 셀(0.05)
+            // 와 명확히 구분.
+            const ratio = max > 0 ? count / max : 0;
+            const opacity = count > 0 ? Math.max(0.22, Math.sqrt(ratio)) : 0;
             return (
               <rect
                 key={`${wd}-${hr}`}

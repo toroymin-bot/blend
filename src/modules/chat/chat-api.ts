@@ -196,35 +196,46 @@ export async function sendChatRequest(req: ChatRequest) {
   // 자동정지 enforcement도 여기서 동작.
   const trackingOnDone: typeof onDone = (fullText, usage) => {
     try {
-      if (usage && (usage.input > 0 || usage.output > 0)) {
-        const m = getModelById(model);
-        const cost = m ? calculateCost(m, usage.input, usage.output) : 0;
-        // 1) Cloudflare counter (Telegram 비즈니스 리포트용)
+      // [2026-05-05 PM-46 Roy] usage 미제공 provider도 record 항상 생성.
+      // 이전 회귀: usage 없으면 addRecord skip → Gemini/DeepSeek 스트리밍처럼 usage
+      // 안 보내는 경로는 records 누락 → dashboard 히트맵 거의 빈 그리드 (수백건 사용해도
+      // 셀 1~2개만 점등). KV는 trackUsage가 같은 if문 안이라 KV는 차도 records가 비는
+      // 비대칭 발생. 수정: fullText 있으면 무조건 record 생성, usage 없으면 추정 토큰
+      // (응답 글자수 / 4) 사용. cost는 usage 있을 때만 계산(추정 cost는 신뢰 불가).
+      const hasRealUsage = !!(usage && (usage.input > 0 || usage.output > 0));
+      const inputTokens  = usage?.input  ?? 0;
+      const outputTokens = usage?.output ?? Math.max(1, Math.ceil((fullText?.length ?? 0) / 4));
+      const m = getModelById(model);
+      const cost = (hasRealUsage && m) ? calculateCost(m, usage!.input, usage!.output) : 0;
+
+      // 1) Cloudflare counter (Telegram 비즈니스 리포트용) — 정확한 cost 필요하므로
+      //    실제 usage 있을 때만 호출 (이전 동일 동작 유지).
+      if (hasRealUsage) {
         trackUsage({
           provider,
           model,
-          inputTokens: usage.input,
-          outputTokens: usage.output,
+          inputTokens: usage!.input,
+          outputTokens: usage!.output,
           cost,
         });
-        // 2) localStorage usage-store (앱 내부 Billing 화면용 + 한도 enforcement)
-        if (typeof window !== 'undefined') {
-          import('@/stores/usage-store').then(({ useUsageStore }) => {
-            useUsageStore.getState().addRecord({
-              timestamp: Date.now(),
-              model,
-              provider,
-              inputTokens: usage.input,
-              outputTokens: usage.output,
-              cost,
-              // [2026-05-05 PM-44 Roy] caller chatId 우선 — dashboard 대화 카운트 정확.
-              // 미전달 시 'unknown' (hardcoded 'chat' 회귀 차단 — 모든 record 같은 chatId로
-              // 들어가던 버그).
-              chatId: chatId ?? 'unknown',
-            });
-            // 한도 enforcement는 enforceLimits()가 다음 호출 직전 체크 (이건 사후 기록)
-          }).catch(() => {});
-        }
+      }
+
+      // 2) localStorage usage-store — 메시지 발생 자체를 기록 (히트맵/시간대/모델 분포용).
+      //    fullText 있으면 = 응답 완료 = 메시지 1건. usage 있든 없든 record 생성.
+      //    fullText 비어있으면 abort/error로 간주, skip.
+      if (typeof window !== 'undefined' && fullText && fullText.length > 0) {
+        import('@/stores/usage-store').then(({ useUsageStore }) => {
+          useUsageStore.getState().addRecord({
+            timestamp: Date.now(),
+            model,
+            provider,
+            inputTokens,
+            outputTokens,
+            cost,
+            // [2026-05-05 PM-44 Roy] caller chatId 우선 — dashboard 대화 카운트 정확.
+            chatId: chatId ?? 'unknown',
+          });
+        }).catch(() => {});
       }
     } catch {
       // 추적 실패는 본 응답 흐름 절대 막지 않음

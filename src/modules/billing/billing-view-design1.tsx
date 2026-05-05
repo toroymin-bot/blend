@@ -687,8 +687,10 @@ export default function D1BillingView({
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <KvCol label={lang === 'ko' ? '어제' : 'Yesterday'}    cost={kvSummary.yesterday.totalCost} reqs={kvSummary.yesterday.totalRequests} lang={lang} isPh={isPh} />
-                <KvCol label={lang === 'ko' ? '이번 주(7일)' : 'This week'}   cost={kvSummary.week.totalCost}      reqs={kvSummary.week.totalRequests}      lang={lang} isPh={isPh} />
+                {/* [2026-05-05 PM-46 Roy] 기간 라벨에 rolling window 명시 — 어제/이번주가
+                    "달력 단위"가 아닌 "최근 N시간/일" 임을 사용자에 직접 노출. */}
+                <KvCol label={lang === 'ko' ? '어제(최근 24시간)' : 'Yesterday (24h)'}    cost={kvSummary.yesterday.totalCost} reqs={kvSummary.yesterday.totalRequests} lang={lang} isPh={isPh} />
+                <KvCol label={lang === 'ko' ? '이번 주(최근 7일)' : 'This week (7d)'}    cost={kvSummary.week.totalCost}      reqs={kvSummary.week.totalRequests}      lang={lang} isPh={isPh} />
                 <KvCol label={lang === 'ko' ? '전체 누적' : 'All time'}    cost={kvSummary.all.totalCost}       reqs={kvSummary.all.totalRequests}       lang={lang} isPh={isPh} />
               </div>
               {Object.keys(kvSummary.all.providers).length > 0 && (
