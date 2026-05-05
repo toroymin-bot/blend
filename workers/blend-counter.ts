@@ -6,6 +6,10 @@
 
 export interface Env {
   STATS: KVNamespace;
+  // [2026-05-05 PM-46 Roy] Workers Analytics Engine — KV race lost update 정정용.
+  // Phase 1: KV write에 추가로 dual-write (try/catch 격리, KV path 그대로). 실패해도
+  // 기존 동작 영향 0. Phase 2/3에서 read 경로 v2 신설 + 검증 후 cutover.
+  USAGE_AE: AnalyticsEngineDataset;
 }
 
 const ALLOWED_EVENTS = [
@@ -201,6 +205,23 @@ export default {
         await incr(`${base}:country:${country}:requests`, 1);
         await incr(`${base}:os:${os}:cost`, costMicro);
         await incr(`${base}:os:${os}:requests`, 1);
+
+        // [2026-05-05 PM-46 Roy] Workers Analytics Engine dual-write — KV race 정정용.
+        // KV write는 위에 그대로 유지(완전 무영향). AE는 append-only이므로 race 없음.
+        // try/catch 격리 — AE 실패해도 KV 응답에 영향 0 ('OK' 그대로 반환).
+        // 스키마: indexes=[provider] (검색/GROUP BY 키), blobs=[model, country, os, date, hour],
+        //         doubles=[cost USD, inputTokens, outputTokens]. timestamp 자동.
+        // Phase 2에서 SELECT index1, SUM(_sample_interval), SUM(double1) GROUP BY index1
+        // 로 provider별 집계 가능 (race 없는 정확한 합).
+        try {
+          env.USAGE_AE.writeDataPoint({
+            indexes: [provider],
+            blobs:   [model, country, os, today, HH],
+            doubles: [cost, inputTokens, outputTokens],
+          });
+        } catch {
+          // AE 실패는 본 응답 흐름 절대 막지 않음. KV path는 위에서 이미 완료됨.
+        }
 
         return new Response('OK', { status: 200, headers: corsHeaders });
       } catch {

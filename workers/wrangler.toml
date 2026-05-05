@@ -9,3 +9,11 @@ compatibility_date = "2026-04-25"
 [[kv_namespaces]]
 binding = "STATS"
 id = "PLACEHOLDER_KV_ID"
+
+# [2026-05-05 PM-46 Roy] Workers Analytics Engine binding — KV race lost update 회귀 정정용.
+# 데이터셋 이름은 첫 writeDataPoint 호출 시 자동 생성됨 (사전 콘솔 작업 불필요).
+# 무료 한도: 100K events/day write + 10K queries/day. Blend 현재 사용량(일 ~24건)에 충분.
+# 출시 후 트래픽 증가 시에도 paid plan 한도(월 10M write)에 여유 큼.
+[[analytics_engine_datasets]]
+binding = "USAGE_AE"
+dataset = "blend_usage"
