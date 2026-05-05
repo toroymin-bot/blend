@@ -59,12 +59,26 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const promise = (async () => {
       try {
         const [docs, activeIds] = await Promise.all([getAllDocuments(), getActiveDocIds()]);
+        // [2026-05-05 PM-38 Roy] 🧬 자동 sanitize — activeDocIds 중 documents에 없는
+        // orphan ID 자동 제거. 이전: "모두 삭제" 후 race 또는 IDB 정리 누락으로
+        // settings.activeDocIds에 stale ID가 남아 푸터에 "63개 활성" 같은 잘못된
+        // 카운트가 표시되던 버그. 자동 복구 + IDB settings도 정리해 다음 로드 시 깨끗.
+        const docIdSet = new Set(docs.map((d) => d.id));
+        const validActiveIds = activeIds.filter((id) => docIdSet.has(id));
+        const hasOrphans = validActiveIds.length !== activeIds.length;
         set({
           documents: docs,
-          activeDocIds: new Set(activeIds),
+          activeDocIds: new Set(validActiveIds),
           isLoaded: true,
           loadPromise: null,
         });
+        // orphan 발견 시 IDB settings도 정리 — 다음 로드 시 같은 sanitize 반복 방지.
+        if (hasOrphans) {
+          const orphanCount = activeIds.length - validActiveIds.length;
+          // eslint-disable-next-line no-console
+          console.warn(`[document-store] 자동 정리: orphan activeDocIds ${orphanCount}개 제거 (documents 없음)`);
+          setActiveDocIds(validActiveIds).catch(() => {});
+        }
       } catch {
         set({ isLoaded: true, loadPromise: null });
       }
@@ -106,9 +120,16 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         activeDocIds: next,
       };
     });
-    deleteDocument(id).catch(() => {});
-    const remaining = get().activeDocIds;
-    setActiveDocIds([...remaining]).catch(() => {});
+    // [2026-05-05 PM-38 Roy] race 회피 — sequential await chain. 이전엔 두 비동기
+    // write가 독립으로 발사돼 for-loop 65회 호출 시 IDB write 순서 비결정 →
+    // settings.activeDocIds에 stale ID 누락 가능. 이제 deleteDocument 후 setActiveDocIds.
+    void (async () => {
+      try {
+        await deleteDocument(id);
+        const remaining = get().activeDocIds;
+        await setActiveDocIds([...remaining]);
+      } catch { /* ignore — loadFromDB sanitize가 다음 로드 시 자동 복구 */ }
+    })();
   },
 
   toggleActive: (id) => {
