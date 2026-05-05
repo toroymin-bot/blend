@@ -8,9 +8,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useUsageStore } from '@/stores/usage-store';
 import { useLicenseStore } from '@/stores/license-store';
-import { fetchUsageSummary } from '@/lib/usage-summary';
+import { fetchUsageSummary, fetchUsageDaily, type UsageSummary, type UsageDaily } from '@/lib/usage-summary';
 
 // ── Design tokens (same as chat-view-design1) ───────────────────
 const tokens = {
@@ -513,33 +512,30 @@ export default function D1BillingView({
   // copy lookup은 rawLang 사용 — copy.ph가 직접 매칭돼 따갈로그 카피 노출.
   const t = copy[rawLang];
 
-  // ── Usage data ────────────────────────────────────────────────
-  const records         = useUsageStore((s) => s.records);
-  const getThisMonth    = useUsageStore((s) => s.getThisMonthCost);
-  const getDaily        = useUsageStore((s) => s.getCostByDay);
-  const getByModel      = useUsageStore((s) => s.getCostByModel);
-  const loadFromStorage = useUsageStore((s) => s.loadFromStorage);
-
-  // [2026-05-02 Roy] Cloudflare KV 통합 뷰 — 모든 디바이스(Mac/iPhone/PC) 합산.
-  // localStorage는 per-device, KV는 cross-device. KV 응답은 1분 캐시되므로
-  // 약간의 지연 OK. 실패 시 silent fallback (localStorage만 표시).
-  const [kvSummary, setKvSummary] = useState<null | {
-    yesterday: { totalCost: number; totalRequests: number };
-    week: { totalCost: number; totalRequests: number; providers: Record<string, { cost: number; requests: number }> };
-    month: { totalCost: number; totalRequests: number };
-    all: { totalCost: number; totalRequests: number; providers: Record<string, { cost: number; requests: number }> };
-  }>(null);
+  // ── Usage data (PM-46 Phase 5: WAE 단일 소스) ─────────────────────
+  // [2026-05-05 Roy] localStorage useUsageStore 의존 모두 제거. 모든 사용량 데이터는
+  // Cloudflare WAE에서 fetch (모든 디바이스 합산, race lost 없음). cost-limit
+  // enforcement는 chat-api에서 records 그대로 사용 (다른 모듈) — 이 view는 read-only.
+  const [kvSummary, setKvSummary] = useState<UsageSummary | null>(null);
+  const [dailyHistory, setDailyHistory] = useState<UsageDaily[]>([]);
 
   useEffect(() => {
-    loadFromStorage();
-    // [2026-05-05 PM-46 Phase 3 Roy] 공통 util fetchUsageSummary 사용. Dashboard와 동일
-    // 함수 → v2(WAE) 우선 + KV fallback 자동. 양쪽 카드 데이터 일관성 자동 보장.
-    fetchUsageSummary().then((data) => { if (data) setKvSummary(data); });
-  }, [loadFromStorage]);
+    fetchUsageSummary().then((data) => setKvSummary(data));
+    fetchUsageDaily(30).then((data) => setDailyHistory(data));
+  }, []);
 
-  const monthCostUsd  = getThisMonth();
-  const dailyHistory  = useMemo(() => getDaily(30), [records, getDaily]);
-  const byModel       = useMemo(() => getByModel(), [records, getByModel]);
+  // 월간 비용 = WAE month 합산 (모든 디바이스)
+  const monthCostUsd = kvSummary?.month?.totalCost ?? 0;
+
+  // 모델별 비용 = WAE month.models
+  const modelEntries = useMemo(() => {
+    const models = kvSummary?.month?.models ?? {};
+    const arr = Object.entries(models)
+      .map(([model, v]) => ({ model, usd: v.cost }))
+      .sort((a, b) => b.usd - a.usd);
+    const total = arr.reduce((s, x) => s + x.usd, 0);
+    return { items: arr.slice(0, 5), total };
+  }, [kvSummary]);
 
   const dailyAvgUsd = dailyHistory.length > 0
     ? dailyHistory.reduce((s, d) => s + d.cost, 0) / dailyHistory.length
@@ -553,23 +549,15 @@ export default function D1BillingView({
     return best && best.cost > 0 ? best : null;
   }, [dailyHistory]);
 
-  const modelEntries = useMemo(() => {
-    const arr = Object.entries(byModel)
-      .map(([model, usd]) => ({ model, usd }))
-      .sort((a, b) => b.usd - a.usd);
-    const total = arr.reduce((s, x) => s + x.usd, 0);
-    return { items: arr.slice(0, 5), total };
-  }, [byModel]);
+  // [2026-05-05 PM-46 Phase 5 Roy] hasUsage 판정 = WAE 합산 기준. records 0건이라도
+  // 다른 디바이스에서 사용했으면 표시.
+  const hasUsage = (kvSummary?.month?.totalRequests ?? 0) > 0 && monthCostUsd >= 0;
 
-  const hasUsage = records.length > 0 && monthCostUsd > 0;
-
-  // v3 — 사용 일수 + 절약액 계산 (Tori 명세)
+  // 사용 일수 = dailyHistory에서 비용 발생일 카운트. 절약액 계산용 (구독 일할 환산).
   const daysSince = useMemo(() => {
-    if (records.length === 0) return 0;
-    const earliest = records.reduce((min, r) => Math.min(min, r.timestamp), records[0].timestamp);
-    const diffMs = Date.now() - earliest;
-    return Math.max(1, Math.floor(diffMs / 86400000));
-  }, [records]);
+    const activeDays = dailyHistory.filter((d) => d.requests > 0).length;
+    return Math.max(0, activeDays);
+  }, [dailyHistory]);
 
   // 구독 시 일할 환산 — actualSpent 차감 = 절약액
   const wouldHavePaidUsd = (SUB_TOTAL_USD / 30) * daysSince;
@@ -669,8 +657,8 @@ export default function D1BillingView({
           <EmptyState lang={lang} />
         )}
 
-        {/* [2026-05-02 Roy] 모든 디바이스 통합 뷰 — Cloudflare KV에서 모든 단말이
-            푸시한 사용량 합산. localStorage(이 디바이스만)와 별도로 표시. */}
+        {/* [2026-05-05 PM-46 Phase 5 Roy] 모든 디바이스 통합 뷰 — WAE 단일 소스.
+            KV/localStorage 잔재 라벨 제거. 모든 카드가 동일 소스라 자동 일관성. */}
         {mode === 'savings' && kvSummary && kvSummary.all.totalCost > 0 && (
           <section className="mb-12">
             <div
@@ -679,12 +667,10 @@ export default function D1BillingView({
             >
               <div className="mb-6 flex items-center gap-2">
                 <span className="text-[13px]" style={{ color: tokens.textDim }}>
-                  {lang === 'ko' ? '모든 디바이스 합산 (Mac · iPhone · PC)' : 'All devices combined'}
+                  {lang === 'ko' ? '모든 디바이스 합산 (Mac · iPhone · PC)' : 'All devices combined (Mac · iPhone · PC)'}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-4">
-                {/* [2026-05-05 PM-46 Roy] 기간 라벨에 rolling window 명시 — 어제/이번주가
-                    "달력 단위"가 아닌 "최근 N시간/일" 임을 사용자에 직접 노출. */}
                 <KvCol label={lang === 'ko' ? '어제(최근 24시간)' : 'Yesterday (24h)'}    cost={kvSummary.yesterday.totalCost} reqs={kvSummary.yesterday.totalRequests} lang={lang} isPh={isPh} />
                 <KvCol label={lang === 'ko' ? '이번 주(최근 7일)' : 'This week (7d)'}    cost={kvSummary.week.totalCost}      reqs={kvSummary.week.totalRequests}      lang={lang} isPh={isPh} />
                 <KvCol label={lang === 'ko' ? '전체 누적' : 'All time'}    cost={kvSummary.all.totalCost}       reqs={kvSummary.all.totalRequests}       lang={lang} isPh={isPh} />
@@ -704,11 +690,6 @@ export default function D1BillingView({
                   </div>
                 </div>
               )}
-              <div className="mt-3 text-[13px]" style={{ color: tokens.textFaint }}>
-                {lang === 'ko'
-                  ? '아래는 이 디바이스 기록만. 위는 모든 디바이스 합산 (Cloudflare KV).'
-                  : 'Below: this device only. Above: all devices combined (Cloudflare KV).'}
-              </div>
             </div>
           </section>
         )}

@@ -410,29 +410,43 @@ export default {
           return json.data ?? [];
         };
 
-        // 한 기간 (date 범위)에 대한 provider별 집계 + total 합산.
+        // 한 기간 (date 범위)에 대한 provider/model 집계 + total 합산.
         // blob4 = KST date string (track-usage 시점에 저장됨). 범위 비교로 필터.
         // _sample_interval = AE의 정확한 카운트(샘플링 적용 시 자동 보정)
+        // [2026-05-05 PM-46 Phase 5] models 필드 추가 — Dashboard 카테고리/category-by-model
+        // 분석을 records 의존 없이 WAE만으로 수행 가능하게.
         const summarizePeriod = async (startDate: string | null, endDate: string | null) => {
           const where = startDate && endDate
             ? `WHERE blob4 >= '${startDate}' AND blob4 <= '${endDate}'`
-            : ''; // all = no filter (90일 자연 만료 안에 있는 모든 데이터)
+            : '';
 
-          const rows = await querySql(`
-            SELECT
-              index1 AS provider,
-              SUM(_sample_interval) AS requests,
-              SUM(double1) AS cost,
-              SUM(double2) AS input_tokens,
-              SUM(double3) AS output_tokens
-            FROM blend_usage
-            ${where}
-            GROUP BY index1
-          `);
+          const [providerRows, modelRows] = await Promise.all([
+            querySql(`
+              SELECT
+                index1 AS provider,
+                SUM(_sample_interval) AS requests,
+                SUM(double1) AS cost,
+                SUM(double2) AS input_tokens,
+                SUM(double3) AS output_tokens
+              FROM blend_usage
+              ${where}
+              GROUP BY index1
+            `),
+            querySql(`
+              SELECT
+                blob1 AS model,
+                SUM(_sample_interval) AS requests,
+                SUM(double1) AS cost,
+                SUM(double2 + double3) AS tokens
+              FROM blend_usage
+              ${where}
+              GROUP BY blob1
+            `),
+          ]);
 
           let totalCost = 0, totalTokens = 0, totalRequests = 0;
           const providers: Record<string, { cost: number; tokens: number; requests: number }> = {};
-          for (const r of rows) {
+          for (const r of providerRows) {
             const p = String(r.provider || 'unknown');
             const requests = Number(r.requests) || 0;
             const cost = Number(r.cost) || 0;
@@ -442,7 +456,16 @@ export default {
             totalRequests += requests;
             providers[p] = { cost, tokens, requests };
           }
-          return { totalCost, totalTokens, totalRequests, providers };
+          const models: Record<string, { cost: number; tokens: number; requests: number }> = {};
+          for (const r of modelRows) {
+            const m = String(r.model || 'unknown');
+            models[m] = {
+              cost: Number(r.cost) || 0,
+              tokens: Number(r.tokens) || 0,
+              requests: Number(r.requests) || 0,
+            };
+          }
+          return { totalCost, totalTokens, totalRequests, providers, models };
         };
 
         const [yesterday, week, month, all] = await Promise.all([
@@ -478,6 +501,144 @@ export default {
     // [2026-05-05 PM-46 Phase 2] /usage-summary-diff endpoint 제거 — 워커가 자기 URL
     // fetch 시 CF가 loop 차단(error 1042). 검증은 외부 curl 두 번(/usage-summary +
     // /usage-summary-v2)으로 충분.
+
+    // ═══ /usage-grid — period 내 일×시간 분포 (Phase 5, 2026-05-05 Roy) ═══
+    // Dashboard 히트맵 전용. records(이 디바이스) 의존 제거 → WAE만으로 모든 디바이스
+    // 활동 시간대 시각화. blob4 (KST date) + blob5 (KST hour) 그룹.
+    if (url.pathname === '/usage-grid' && req.method === 'GET') {
+      try {
+        const from = url.searchParams.get('from');
+        const to = url.searchParams.get('to');
+        if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+          return new Response(JSON.stringify({ error: 'from/to params required (YYYY-MM-DD)' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+
+        const querySql = async (sql: string): Promise<Array<Record<string, unknown>>> => {
+          const res = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${env.AE_QUERY_TOKEN}`,
+                'Content-Type': 'text/plain',
+              },
+              body: sql,
+            },
+          );
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`AE SQL ${res.status}: ${txt.slice(0, 300)}`);
+          }
+          const json = await res.json() as { data?: Array<Record<string, unknown>> };
+          return json.data ?? [];
+        };
+
+        const rows = await querySql(`
+          SELECT blob4 AS date, blob5 AS hour,
+                 SUM(_sample_interval) AS requests
+          FROM blend_usage
+          WHERE blob4 >= '${from}' AND blob4 <= '${to}'
+          GROUP BY blob4, blob5
+        `);
+
+        const grid = rows.map((r) => ({
+          date: String(r.date || ''),
+          hour: String(r.hour || '00'),
+          requests: Number(r.requests) || 0,
+        }));
+        return new Response(JSON.stringify({ from, to, grid }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+            'Cache-Control': 'public, max-age=120',
+          },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
+
+    // ═══ /usage-daily — 최근 N일 일별 cost/requests (Phase 5, 2026-05-05 Roy) ═══
+    // Billing 차트 전용. records.getCostByDay() 대체 → 모든 디바이스 합산.
+    if (url.pathname === '/usage-daily' && req.method === 'GET') {
+      try {
+        const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10)));
+        const today = kstDate();
+        const startDate = (() => {
+          const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+          d.setUTCDate(d.getUTCDate() - (days - 1));
+          return d.toISOString().slice(0, 10);
+        })();
+
+        const querySql = async (sql: string): Promise<Array<Record<string, unknown>>> => {
+          const res = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${env.AE_QUERY_TOKEN}`,
+                'Content-Type': 'text/plain',
+              },
+              body: sql,
+            },
+          );
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`AE SQL ${res.status}: ${txt.slice(0, 300)}`);
+          }
+          const json = await res.json() as { data?: Array<Record<string, unknown>> };
+          return json.data ?? [];
+        };
+
+        const rows = await querySql(`
+          SELECT blob4 AS date,
+                 SUM(_sample_interval) AS requests,
+                 SUM(double1) AS cost
+          FROM blend_usage
+          WHERE blob4 >= '${startDate}' AND blob4 <= '${today}'
+          GROUP BY blob4
+          ORDER BY blob4
+        `);
+
+        // 비어있는 날도 포함 (UI 그래프 X축 균등)
+        const byDate = new Map<string, { requests: number; cost: number }>();
+        for (const r of rows) {
+          byDate.set(String(r.date || ''), {
+            requests: Number(r.requests) || 0,
+            cost: Number(r.cost) || 0,
+          });
+        }
+        const daily: Array<{ date: string; requests: number; cost: number }> = [];
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+          d.setUTCDate(d.getUTCDate() - i);
+          const dateStr = d.toISOString().slice(0, 10);
+          const v = byDate.get(dateStr) ?? { requests: 0, cost: 0 };
+          daily.push({ date: dateStr, ...v });
+        }
+
+        return new Response(JSON.stringify({ from: startDate, to: today, daily }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+            'Cache-Control': 'public, max-age=120',
+          },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
 
     // ═══ /usage-detailed — 1일 상세 분석 (PM-46 Phase 4, 2026-05-05 Roy) ═══
     // Telegram 일일 리포트 워커가 호출 → provider/model/hour breakdown 반환.

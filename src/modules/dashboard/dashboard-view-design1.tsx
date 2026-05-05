@@ -4,13 +4,13 @@
  * D1DashboardView — Design1 Dashboard view
  * "당신이 AI를 어떻게 쓰는지 한눈에."
  *
- * Self-contained. useUsageStore.records 단일 데이터 소스.
+ * [2026-05-05 PM-46 Phase 5 Roy] WAE 전용. 모든 KPI/패턴 분석은 Cloudflare Workers
+ * Analytics Engine에서 fetch. localStorage records는 cost-limit enforcement 외 사용 X.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useUsageStore } from '@/stores/usage-store';
 import { AVAILABLE_MODELS } from '@/data/available-models';
-import { fetchUsageSummary } from '@/lib/usage-summary';
+import { fetchUsageSummary, fetchUsageGrid, type UsageSummary, type UsageGridCell } from '@/lib/usage-summary';
 
 // ── Design tokens ────────────────────────────────────────────────
 const tokens = {
@@ -113,32 +113,36 @@ const copy = {
 } as const;
 
 // ── Helpers ──────────────────────────────────────────────────────
-// [2026-05-05 PM-46 Roy] cutoff(단일 lower bound) → range(start+end) 리팩터.
-// yesterday는 24h~48h 전 구간이라 upper bound도 필요. month/year는 rolling window
-// 변경(이전 "달력 단위" 폐기). 모든 period가 동일한 인터페이스로 필터됨.
-const DAY_MS = 24 * 60 * 60 * 1000;
-function periodRange(p: Period): { start: number; end: number } {
-  const now = Date.now();
-  if (p === 'today')     return { start: now -   1 * DAY_MS, end: now };
-  if (p === 'yesterday') return { start: now -   2 * DAY_MS, end: now - 1 * DAY_MS };
-  if (p === 'week')      return { start: now -   7 * DAY_MS, end: now };
-  if (p === 'month')     return { start: now -  30 * DAY_MS, end: now };
-  if (p === 'year')      return { start: now - 365 * DAY_MS, end: now };
-  return { start: 0, end: now };
+// [2026-05-05 PM-46 Phase 5 Roy] period → KST 날짜 범위 변환. WAE의 blob4가 KST date
+// string이므로 from/to를 'YYYY-MM-DD' 형식으로 만들어 endpoint에 전달.
+function kstToday(): string {
+  const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return d.toISOString().slice(0, 10);
+}
+function kstDateOffset(daysAgo: number): string {
+  const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
 }
 
-// [2026-05-05 PM-46 Roy] 일평균 분모 = 명목 period 일수.
-// 이전엔 records 기반 active days 사용했는데 이 디바이스 활동일이라 KV 메시지 카드와
-// 분모/분자 불일치 → 사용자 혼란("171건인데 왜 3?"). KPI는 모든 디바이스 합산이므로
-// 분모도 명목 일수로 통일 → 171/7=24.4 직관적.
-function periodDayCount(p: Period, recordsOldestTs: number | null): number {
+function periodDateRange(p: Period): { from: string; to: string } {
+  const today = kstToday();
+  if (p === 'today')     return { from: today, to: today };
+  if (p === 'yesterday') return { from: kstDateOffset(1), to: kstDateOffset(1) };
+  if (p === 'week')      return { from: kstDateOffset(6), to: today };
+  if (p === 'month')     return { from: kstDateOffset(29), to: today };
+  if (p === 'year')      return { from: kstDateOffset(364), to: today };
+  // all: WAE 90일 자연 만료 — 90일 전부터 오늘까지로 충분
+  return { from: kstDateOffset(89), to: today };
+}
+
+// 일평균 분모 = 명목 period 일수. KPI 메시지(WAE 합산)와 분모/분자 같은 소스로 통일.
+function periodDayCount(p: Period): number {
   if (p === 'today' || p === 'yesterday') return 1;
   if (p === 'week')  return 7;
   if (p === 'month') return 30;
   if (p === 'year')  return 365;
-  // all: 가장 오래된 record 시점부터 지금까지 일수. records 비어있으면 1 (div/0 회피).
-  if (recordsOldestTs == null) return 1;
-  return Math.max(1, Math.ceil((Date.now() - recordsOldestTs) / DAY_MS));
+  return 90; // all = WAE 보유 90일
 }
 
 function modelDisplayName(id: string): string {
@@ -178,157 +182,92 @@ function categoryOfModel(id: string): keyof typeof CATEGORY_COLORS {
 export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
   const t = lang === 'ko' ? copy.ko : copy.en;
 
-  const records         = useUsageStore((s) => s.records);
-  const loadFromStorage = useUsageStore((s) => s.loadFromStorage);
-
-  // [2026-05-05 PM-42 Roy] Cloudflare KV summary 통합 — 모든 디바이스 합산.
-  // 이전 dashboard는 records (이 디바이스 localStorage)만 사용 → 비용 절감 메뉴와
-  // 데이터 불일치 (대시보드 5건 vs 비용절감 233건). 데이터 아키텍처 결함 정정.
-  // KV에 시간대별/카테고리별 분포 없음 → KPI 카드만 KV 합산 사용, 패턴 분석은 records.
-  const [kvSummary, setKvSummary] = useState<null | {
-    yesterday: { totalCost: number; totalRequests: number };
-    week: { totalCost: number; totalRequests: number; providers: Record<string, { cost: number; requests: number }> };
-    month: { totalCost: number; totalRequests: number; providers?: Record<string, { cost: number; requests: number }> };
-    all: { totalCost: number; totalRequests: number; providers: Record<string, { cost: number; requests: number }> };
-  }>(null);
-
-  useEffect(() => {
-    loadFromStorage();
-    // [2026-05-05 PM-46 Phase 3 Roy] 공통 util fetchUsageSummary 사용 → 자동 v2(WAE) 우선,
-    // 실패 시 KV fallback. Billing 카드와 동일 함수 호출이라 데이터 일관성 자동 보장.
-    fetchUsageSummary().then((data) => { if (data) setKvSummary(data); });
-  }, [loadFromStorage]);
-
-  // [2026-05-05 PM-46 Roy] 기본값 = '이번 달(최근 30일)' 유지. today/yesterday는 옵션 추가만.
+  const [summary, setSummary] = useState<UsageSummary | null>(null);
+  const [grid, setGrid]       = useState<UsageGridCell[]>([]);
+  // [2026-05-05 PM-46 Phase 5 Roy] period 변경 시 grid도 새로 fetch (이전 records 의존
+  // 제거). period에 해당하는 KST 날짜 범위로 WAE에서 일×시간 분포 가져옴.
   const [period, setPeriod] = useState<Period>('month');
 
-  const filtered = useMemo(() => {
-    const { start, end } = periodRange(period);
-    return records.filter((r) => r.timestamp >= start && r.timestamp < end);
-  }, [records, period]);
+  useEffect(() => {
+    fetchUsageSummary().then((data) => setSummary(data));
+  }, []);
+
+  useEffect(() => {
+    const { from, to } = periodDateRange(period);
+    fetchUsageGrid(from, to).then((g) => setGrid(g));
+  }, [period]);
+
+  // 선택 period에 해당하는 WAE 집계.
+  const periodData = useMemo(() => {
+    if (!summary) return null;
+    if (period === 'today') {
+      // 오늘은 v2에 별도 버킷 없음 → grid에서 합산 (오늘 KST의 모든 시간 합)
+      const today = kstToday();
+      const todayCells = grid.filter((c) => c.date === today);
+      const totalRequests = todayCells.reduce((s, c) => s + c.requests, 0);
+      return totalRequests > 0 ? {
+        totalCost: 0, totalRequests, totalTokens: 0,
+        providers: {}, models: {},
+      } : null;
+    }
+    if (period === 'yesterday') return summary.yesterday;
+    if (period === 'week')      return summary.week;
+    if (period === 'month')     return summary.month;
+    return summary.all; // year/all
+  }, [summary, period, grid]);
 
   const stats = useMemo(() => {
-    // [2026-05-05 PM-42/46 Roy] 단일 데이터 통합 — 비용 절감 메뉴와 일치하는 KV 합산 사용.
-    // 이전: 모든 KPI가 records (이 디바이스 localStorage)만 사용 → 비용 절감 233건인데
-    // dashboard 5건 같은 데이터 불일치 = 데이터 아키텍처 결함.
-    // 신규: KPI '메시지' / '사용 모델'은 KV summary 우선 (모든 디바이스 합산),
-    //       '일평균'은 KV 메시지 / 명목 period 일수 (PM-46: 분모/분자 일관).
-    //       sub 라벨에 데이터 출처 명시 — 사용자가 어떤 디바이스 기준인지 인지.
-    //       PM-46: 대화 카드 제거 — chats는 chatId 기반(이 디바이스만 한정) + 사용자
-    //       관심도 낮음.
-    const models = new Set(filtered.map((r) => r.model).filter(Boolean));
-    const recordsOldestTs = records.length > 0
-      ? Math.min(...records.map((r) => r.timestamp))
-      : null;
-
-    // [2026-05-05 PM-46 Roy] KV 매핑:
-    //   today      → KV에 today 버킷 없음 → records (이 디바이스만).
-    //   yesterday  → KV.yesterday(달력 어제)로 KPI 카드 표시. 필터는 rolling 24~48h라
-    //                완전 일치 X 이지만 ±수시간 차이로 사용자 인지 가능 범위. records-only
-    //                fallback은 이 디바이스 한정이라 사용 적은 사용자에 "데이터 없음" 빈
-    //                화면 → KV가 더 풍부.
-    //   week/month → KV 동명 버킷.
-    //   year/all   → KV.all (year 별도 버킷 없으므로 all로 fallback).
-    const kvForPeriod = kvSummary
-      ? (period === 'today'     ? null
-      :  period === 'yesterday' ? kvSummary.yesterday
-      :  period === 'week'      ? kvSummary.week
-      :  period === 'month'     ? kvSummary.month
-      :  /* year/all */           kvSummary.all)
-      : null;
-    const kvProviderRecord = (kvForPeriod && 'providers' in kvForPeriod) ? kvForPeriod.providers : undefined;
-    const kvProviders = kvProviderRecord ? Object.keys(kvProviderRecord).length : null;
-
-    // [2026-05-05 PM-46 Roy] 메시지 카드 vs AI 회사별 사용 분포 카드 숫자 불일치 회귀 fix.
-    // 원인: KV 워커 incr()이 read-modify-write라 race lost update 발생 → 같은 trackUsage
-    // 호출에서 total:requests와 provider:{p}:requests가 독립적으로 ±drift. 예: 171 vs 165.
-    // 같은 KV 인프라 한계라 워커 단에서 atomic 보장 어려움(Durable Objects 도입 시 가능).
-    // UI 단 해결: messages KPI를 Σprovider.requests로 통일 → 자동으로 분포 카드 합과 일치.
-    // total:requests는 providers 비어있을 때 fallback으로만 사용.
-    const kvProvidersSum = kvProviderRecord
-      ? Object.values(kvProviderRecord).reduce((s, p) => s + (p as { requests: number }).requests, 0)
-      : 0;
-    const kvMessages = kvProvidersSum > 0
-      ? kvProvidersSum
-      : (kvForPeriod?.totalRequests ?? null);
-
-    const messages = kvMessages !== null ? kvMessages : filtered.length;
-    const days = periodDayCount(period, recordsOldestTs);
+    const messages = periodData?.totalRequests ?? 0;
+    const days = periodDayCount(period);
+    const providers = periodData?.providers ?? {};
+    const modelsCount = periodData?.models ? Object.keys(periodData.models).length : Object.keys(providers).length;
     return {
       messages,
-      modelsUsed: kvProviders !== null ? kvProviders : models.size,
+      modelsUsed: modelsCount,
       dailyAvg: days > 0 ? Math.round((messages / days) * 10) / 10 : 0,
       periodDays: days,
-      hasKv: kvMessages !== null,
     };
-  }, [filtered, kvSummary, period, records]);
+  }, [periodData, period]);
 
-  // 7×24 heatmap
+  // 7×24 heatmap — WAE grid(date×hour)를 day-of-week로 그룹.
   const heatmap = useMemo(() => {
-    const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    const out: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
     let max = 0;
-    for (const r of filtered) {
-      const d = new Date(r.timestamp);
-      const wd = d.getDay();
-      const hr = d.getHours();
-      grid[wd][hr]++;
-      if (grid[wd][hr] > max) max = grid[wd][hr];
+    for (const cell of grid) {
+      const wd = new Date(cell.date + 'T00:00:00+09:00').getDay();
+      const hr = parseInt(cell.hour, 10);
+      if (Number.isNaN(hr) || hr < 0 || hr > 23) continue;
+      out[wd][hr] += cell.requests;
+      if (out[wd][hr] > max) max = out[wd][hr];
     }
-    return { grid, max };
-  }, [filtered]);
+    return { grid: out, max };
+  }, [grid]);
 
-  // [2026-05-05 PM-44 Roy] AI 회사별 사용 분포 — KV providers (모든 디바이스 합산) 우선.
-  // 이전엔 records (이 디바이스 4건만)로 집계 → 메시지 카드 171건과 모순. 데이터 일관성
-  // 위반. 이제 KV providers count를 사용해 메시지 카드 합과 정확히 일치.
-  // [2026-05-05 PM-46 Roy] fromKv 플래그 반환 → UI 단에서 제목/footer 조건 일관 처리.
-  // 이전엔 stats.hasKv 글로벌 체크가 yesterday/today에서도 true라(totalRequests는 있음)
-  // KV provider 분포 ≠ records 분포인데도 "AI 회사별 사용 분포 — 메시지 카드 합과 일치"
-  // 잘못된 제목/footer 노출. fromKv로 분기.
-  const topModels = useMemo<{ items: { id: string; count: number }[]; fromKv: boolean }>(() => {
-    const kvForPeriod = kvSummary
-      ? (period === 'today'     ? null
-      :  period === 'yesterday' ? null  // KV.yesterday엔 providers 필드 없음
-      :  period === 'week'      ? kvSummary.week
-      :  period === 'month'     ? kvSummary.month
-      :  /* year/all */           kvSummary.all)
-      : null;
-    const kvProviderRecord = (kvForPeriod && 'providers' in kvForPeriod) ? kvForPeriod.providers : undefined;
-    if (kvProviderRecord && Object.keys(kvProviderRecord).length > 0) {
-      const items = Object.entries(kvProviderRecord)
-        .map(([provider, v]) => ({ id: provider, count: (v as { requests: number }).requests }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-      return { items, fromKv: true };
-    }
-    // KV 없으면 records 기반 모델별 (이 디바이스만)
-    const counts: Record<string, number> = {};
-    for (const r of filtered) counts[r.model] = (counts[r.model] || 0) + 1;
-    const items = Object.entries(counts)
-      .map(([id, count]) => ({ id, count }))
+  // AI 회사별 사용 분포 — providers 직접 사용 (race 없음, 메시지 KPI와 정확 일치)
+  const topModels = useMemo(() => {
+    const providers = periodData?.providers ?? {};
+    return Object.entries(providers)
+      .map(([provider, v]) => ({ id: provider, count: v.requests }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
-    return { items, fromKv: false };
-  }, [filtered, kvSummary, period]);
+  }, [periodData]);
 
-  // [2026-05-05 PM-44 Roy] 카테고리 분석 (창작/일반/코딩 등)은 records 기반 — KV에 카테고리 없음.
-  // 데이터 일관성을 위해: records 카운트가 메시지 카드 (KV 합산)와 너무 차이나면
-  // 표시 안 함 (사용자 혼란 차단). records.length / messages 비율 < 30%면 숨김.
+  // 카테고리 분포 — period의 모델별 사용 횟수에 model→category heuristic 적용
   const categories = useMemo(() => {
+    const models = periodData?.models;
+    if (!models) return { entries: [] as [string, number][], total: 0 };
     const counts: Record<string, number> = {};
-    for (const r of filtered) {
-      const c = categoryOfModel(r.model);
-      counts[c] = (counts[c] || 0) + 1;
+    for (const [modelId, v] of Object.entries(models)) {
+      const c = categoryOfModel(modelId);
+      counts[c] = (counts[c] || 0) + v.requests;
     }
     const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
     const total = entries.reduce((s, [, n]) => s + n, 0);
     return { entries, total };
-  }, [filtered]);
+  }, [periodData]);
 
-  // [2026-05-05 PM-46 Roy] empty 판정 = records AND KV 둘 다 없을 때만.
-  // 이전엔 records만 보고 판단 → KV에 데이터 있는 어제/이번주에도 "아직 사용 기록이
-  // 없어요" 빈 화면 표시되던 회귀. 이제 KPI는 KV로 표시하고 패턴 분석만 records 기반
-  // 영역에서 자동 숨김.
-  const isEmpty = filtered.length === 0 && stats.messages === 0;
+  // empty 판정 — WAE에 해당 period 메시지 0이면 빈 상태
+  const isEmpty = stats.messages === 0;
 
   return (
     <div
@@ -374,105 +313,59 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
           </div>
         ) : (
           <>
-            {/* [2026-05-05 PM-42 Roy] 데이터 출처 명시 — 사용자가 어떤 디바이스 기준인지
-                즉시 인지. KV 사용 시 "모든 디바이스 합산" / 미사용 시 "이 디바이스" 안내. */}
+            {/* [2026-05-05 PM-46 Phase 5 Roy] 모든 데이터 = WAE 단일 소스 (모든 디바이스 합산).
+                KV 잔재 라벨 제거. 사용자에 "어디서 온 숫자인지" 단순/명확. */}
             <div className="mb-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px]"
                  style={{ background: tokens.surfaceAlt, color: tokens.textDim }}>
-              <span aria-hidden>{stats.hasKv ? '☁' : '💻'}</span>
+              <span aria-hidden>☁</span>
               <span>
-                {stats.hasKv
-                  ? (lang === 'ko' ? '메시지/모델 = 모든 디바이스 합산 (Cloudflare KV)'
-                     : lang === 'ph' ? 'Messages/Models = lahat ng devices (KV)'
-                     : 'Messages/Models = all devices combined (Cloudflare KV)')
-                  : (lang === 'ko' ? '이 디바이스 기록만 (KV 미연결)'
-                     : lang === 'ph' ? 'Device na ito lang (walang KV)'
-                     : 'This device only (KV not connected)')}
+                {lang === 'ko' ? '모든 디바이스 합산 (Mac · iPhone · PC)'
+                  : lang === 'ph' ? 'Lahat ng devices (Mac · iPhone · PC)'
+                  : 'All devices combined (Mac · iPhone · PC)'}
               </span>
             </div>
 
-            {/* [2026-05-05 PM-46 Roy] KPI 3카드 — 대화 카드 제거 (chatId는 이 디바이스만이라
-                KV 메시지와 비교 불가, 사용자 혼란). 일평균은 KV 메시지 / 명목 period 일수
-                로 통일 (이전: filtered/activeDays = 이 디바이스 한정 분모) → 분모/분자 일관. */}
+            {/* KPI 3카드 — 모두 WAE에서 가져옴, 동일 소스라 자동 일관성. */}
             <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <KpiCard
-                label={t.messages}
-                value={stats.messages}
-                sub={stats.hasKv
-                  ? (lang === 'ko' ? `${t.periods[period]} · 모든 디바이스`
-                    : lang === 'ph' ? `${t.periods[period]} · lahat ng devices`
-                    : `${t.periods[period]} · all devices`)
-                  : t.periods[period]}
-              />
-              <KpiCard
-                label={t.modelsUsed}
-                value={stats.modelsUsed}
-                sub={stats.hasKv
-                  ? (lang === 'ko' ? `${t.periods[period]} · 모든 디바이스`
-                    : lang === 'ph' ? `${t.periods[period]} · lahat ng devices`
-                    : `${t.periods[period]} · all devices`)
-                  : t.periods[period]}
-              />
+              <KpiCard label={t.messages}    value={stats.messages}   sub={t.periods[period]} />
+              <KpiCard label={t.modelsUsed}  value={stats.modelsUsed} sub={t.periods[period]} />
               <KpiCard
                 label={t.dailyAvg}
                 value={stats.dailyAvg}
                 sub={lang === 'ko'
                   ? `${stats.messages}건 ÷ ${stats.periodDays}일`
-                  : lang === 'ph'
-                  ? `${stats.messages} msgs ÷ ${stats.periodDays}d`
                   : `${stats.messages} msgs ÷ ${stats.periodDays}d`}
               />
             </div>
 
-            {/* [PM-42] 패턴 분석 카드 (heatmap/top models/categories)는 records 기반 — KV에 분포 없음.
-                [2026-05-05 PM-46 Roy] filtered.length > 0 가드 — 어제처럼 이 디바이스에
-                records 0건일 때 패턴 분석 영역 자체를 숨김. 빈 그리드/도넛 회피. */}
-            {filtered.length > 0 && (
-              <>
-                <p className="mb-3 text-[11.5px]" style={{ color: tokens.textFaint }}>
-                  {lang === 'ko' ? '* 아래 패턴 분석은 이 디바이스 기록만 (KV에 시간/모델별 분포 없음)'
-                    : lang === 'ph' ? '* Pattern analysis sa baba — device na ito lang'
-                    : '* Pattern analysis below — this device only'}
-                </p>
-
-                {/* Heatmap */}
-                <Card title={t.whenLabel}>
-                  <Heatmap grid={heatmap.grid} max={heatmap.max} weekdayLabels={t.weekdays} />
-              {/* [2026-05-05 PM-46 Roy] sparse-data 안내 — records가 KV 총합 대비
-                  현저히 적으면 "과거 메시지는 추적 누락됨" 명시. PM-46 이전 chat-api는
-                  usage 데이터 없는 provider(Gemini stream 등) 메시지를 skip → records가
-                  비어 히트맵 거의 빈 그리드. 신규 메시지부터 정상 기록됨을 안내. */}
-              {stats.hasKv && stats.messages >= 10 && filtered.length < stats.messages * 0.3 && (
+            {/* Heatmap — WAE grid 기반. 시간 분포가 비면 안내 표시 (period 내 활동 없음). */}
+            <Card title={t.whenLabel}>
+              <Heatmap grid={heatmap.grid} max={heatmap.max} weekdayLabels={t.weekdays} />
+              {heatmap.max === 0 && (
                 <p className="mt-3 text-[11px]" style={{ color: tokens.textFaint }}>
-                  {lang === 'ko'
-                    ? `* 이 디바이스에 ${filtered.length}건 / 전체 ${stats.messages}건. 과거 메시지 일부는 시간대 분포 추적 누락(PM-46 이전 회귀). 신규 메시지부터 정확히 기록됩니다.`
-                    : lang === 'ph'
-                    ? `* ${filtered.length} / ${stats.messages} sa device na ito. Ilang lumang mensahe walang time data — magsisimula ang tamang tracking sa bagong messages.`
-                    : `* ${filtered.length} of ${stats.messages} on this device. Some past messages lack time data (pre-PM-46 regression). Future messages tracked correctly.`}
+                  {lang === 'ko' ? '* 이 기간에 활동 없음.'
+                    : lang === 'ph' ? '* Walang aktibidad sa panahong ito.'
+                    : '* No activity in this period.'}
                 </p>
               )}
             </Card>
 
-            {/* [2026-05-05 PM-44/46 Roy] AI 회사별 사용 분포 — fromKv 분기.
-                fromKv=true: 모든 디바이스 합산 + 메시지 KPI(=Σproviders)와 정확히 일치.
-                fromKv=false: 이 디바이스 records 기반 모델별 (이전 동작). */}
-            {topModels.items.length > 0 && (
+            {/* AI 회사별 사용 분포 — WAE providers 직접. 메시지 KPI 합과 정확 일치. */}
+            {topModels.length > 0 && (
               <Card title={
-                topModels.fromKv
-                  ? (lang === 'ko' ? 'AI 회사별 사용 분포'
-                    : lang === 'ph' ? 'Sa AI company sukat'
-                    : 'Usage by provider')
-                  : t.topModels
+                lang === 'ko' ? 'AI 회사별 사용 분포'
+                  : lang === 'ph' ? 'Sa AI company sukat'
+                  : 'Usage by provider'
               }>
                 <ul className="space-y-2.5">
-                  {topModels.items.map(({ id, count }) => {
-                    const total = topModels.items.reduce((s, m) => s + m.count, 0);
+                  {topModels.map(({ id, count }) => {
+                    const total = topModels.reduce((s, m) => s + m.count, 0);
                     const pct = total > 0 ? (count / total) * 100 : 0;
-                    const color = BRAND_COLORS[topModels.fromKv ? id : modelProvider(id)] || tokens.accent;
-                    const displayName = topModels.fromKv ? id : modelDisplayName(id);
+                    const color = BRAND_COLORS[id] || tokens.accent;
                     return (
                       <li key={id}>
                         <div className="flex items-baseline justify-between text-[13px] mb-1">
-                          <span style={{ color: tokens.text }}>{displayName}</span>
+                          <span style={{ color: tokens.text }}>{id}</span>
                           <span style={{ color: tokens.textDim }}>{count} · {pct.toFixed(0)}%</span>
                         </div>
                         <div className="h-1.5 rounded-full" style={{ background: tokens.surfaceAlt }}>
@@ -482,23 +375,15 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
                     );
                   })}
                 </ul>
-                {topModels.fromKv && (
-                  <p className="mt-3 text-[11px]" style={{ color: tokens.textFaint }}>
-                    {lang === 'ko' ? '* 모든 디바이스 합산 (Cloudflare KV) — 메시지 카드 합과 일치.'
-                      : lang === 'ph' ? '* Lahat ng devices (Cloudflare KV) — tugma sa Messages card.'
-                      : '* All devices (Cloudflare KV) — matches Messages card total.'}
-                  </p>
-                )}
               </Card>
             )}
 
-            {/* [PM-44] 카테고리 분포 — records 기반. 메시지 카드 합과 차이 크면 사용자 혼란
-                방지 위해 records 비율 명시. records.length / messages 비율 표시. */}
+            {/* 카테고리 분포 — WAE models의 모델 ID에 categoryOfModel heuristic 적용. */}
             {categories.total > 0 && (
               <Card title={
-                lang === 'ko' ? '용도별 분포 (이 디바이스)'
-                : lang === 'ph' ? 'Sa kategoriya (device na ito)'
-                : 'By category (this device)'
+                lang === 'ko' ? '용도별 분포'
+                : lang === 'ph' ? 'Sa kategoriya'
+                : 'By category'
               }>
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   <Donut entries={categories.entries} total={categories.total} />
@@ -520,32 +405,7 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
                     })}
                   </ul>
                 </div>
-                {/* [PM-44] 데이터 일관성 — categories.total은 records (이 디바이스) 합.
-                    메시지 카드 (KV 합산)과 차이 명시 → 사용자 혼란 차단. */}
-                {stats.hasKv && stats.messages !== categories.total && (
-                  <p className="mt-3 text-[11px]" style={{ color: tokens.textFaint }}>
-                    {lang === 'ko'
-                      ? `* 이 디바이스 ${categories.total}건 분석. 전체 메시지 ${stats.messages}건 중 분류는 이 디바이스 기록만 가능 (KV에 카테고리 메타 없음).`
-                      : lang === 'ph'
-                      ? `* ${categories.total} mga record sa device na ito. Sa ${stats.messages} mensahe sa lahat — kategoriya ng device na ito lang.`
-                      : `* ${categories.total} records on this device. Of ${stats.messages} total messages — categories from this device only (KV lacks category meta).`}
-                  </p>
-                )}
               </Card>
-            )}
-              </>
-            )}
-            {/* [2026-05-05 PM-46 Roy] filtered 비어있을 때 패턴 분석 자리에 안내 노트.
-                KV에는 데이터 있어도 이 디바이스에 records 0건이면 시간대/모델 분포 표시
-                불가. 사용자가 "왜 KPI는 있는데 그래프는 비었지?" 헷갈리지 않게 명시. */}
-            {filtered.length === 0 && stats.messages > 0 && (
-              <p className="mb-3 text-[12px]" style={{ color: tokens.textFaint }}>
-                {lang === 'ko'
-                  ? `* 이 기간에 이 디바이스 활동 기록 없음 — 시간대/모델 분포 표시 불가 (다른 디바이스 사용 분량은 위 KPI에 반영됨).`
-                  : lang === 'ph'
-                  ? `* Walang aktibidad sa device na ito sa panahong ito — walang time/model graph (KPI sa itaas mula sa ibang devices).`
-                  : `* No activity from this device in this period — time/model distribution unavailable (other devices' usage shown in KPI above).`}
-              </p>
             )}
           </>
         )}
