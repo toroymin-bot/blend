@@ -1507,8 +1507,16 @@ function SavingsPlanCard({ t, lang }: {
                 </span>
               </div>
             </div>
-            <span className="text-[20px] transition-transform group-hover:translate-x-1" style={{ color: tokens.accent }}>
-              →
+            {/* [2026-05-05 PM-45 Roy] 잡스 스타일 — 채워진 pill 안에 chevron.
+                Smarter 카드는 accent (#d97757) 채워진 원, hover 시 살짝 슬라이드. */}
+            <span
+              aria-hidden
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 group-hover:translate-x-0.5 group-hover:scale-105"
+              style={{ background: '#d97757', color: '#fff' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </span>
           </button>
 
@@ -1533,8 +1541,16 @@ function SavingsPlanCard({ t, lang }: {
                 </span>
               </div>
             </div>
-            <span className="text-[20px] transition-transform group-hover:translate-x-1" style={{ color: tokens.textDim }}>
-              →
+            {/* [2026-05-05 PM-45 Roy] 잡스 스타일 — outlined pill (월간 카드).
+                옅은 border + chevron, hover 시 살짝 슬라이드. Smarter와 hierarchy 차이. */}
+            <span
+              aria-hidden
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all duration-200 group-hover:translate-x-0.5 group-hover:bg-black/[0.04]"
+              style={{ borderColor: tokens.borderStrong, color: tokens.text }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </span>
           </button>
         </div>
