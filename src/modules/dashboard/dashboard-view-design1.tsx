@@ -126,6 +126,20 @@ function periodRange(p: Period): { start: number; end: number } {
   return { start: 0, end: now };
 }
 
+// [2026-05-05 PM-46 Roy] 일평균 분모 = 명목 period 일수.
+// 이전엔 records 기반 active days 사용했는데 이 디바이스 활동일이라 KV 메시지 카드와
+// 분모/분자 불일치 → 사용자 혼란("171건인데 왜 3?"). KPI는 모든 디바이스 합산이므로
+// 분모도 명목 일수로 통일 → 171/7=24.4 직관적.
+function periodDayCount(p: Period, recordsOldestTs: number | null): number {
+  if (p === 'today' || p === 'yesterday') return 1;
+  if (p === 'week')  return 7;
+  if (p === 'month') return 30;
+  if (p === 'year')  return 365;
+  // all: 가장 오래된 record 시점부터 지금까지 일수. records 비어있으면 1 (div/0 회피).
+  if (recordsOldestTs == null) return 1;
+  return Math.max(1, Math.ceil((Date.now() - recordsOldestTs) / DAY_MS));
+}
+
 function modelDisplayName(id: string): string {
   const found = AVAILABLE_MODELS.find((m) => m.id === id)?.displayName;
   if (found) return found;
@@ -198,16 +212,18 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
   }, [records, period]);
 
   const stats = useMemo(() => {
-    // [2026-05-05 PM-42 Roy] 단일 데이터 통합 — 비용 절감 메뉴와 일치하는 KV 합산 사용.
+    // [2026-05-05 PM-42/46 Roy] 단일 데이터 통합 — 비용 절감 메뉴와 일치하는 KV 합산 사용.
     // 이전: 모든 KPI가 records (이 디바이스 localStorage)만 사용 → 비용 절감 233건인데
     // dashboard 5건 같은 데이터 불일치 = 데이터 아키텍처 결함.
     // 신규: KPI '메시지' / '사용 모델'은 KV summary 우선 (모든 디바이스 합산),
-    //       '대화' / 일평균은 records (KV에 chat 단위 / day 단위 분포 없음, 이 디바이스).
+    //       '일평균'은 KV 메시지 / 명목 period 일수 (PM-46: 분모/분자 일관).
     //       sub 라벨에 데이터 출처 명시 — 사용자가 어떤 디바이스 기준인지 인지.
-    const chats = new Set(filtered.map((r) => r.chatId).filter(Boolean));
+    //       PM-46: 대화 카드 제거 — chats는 chatId 기반(이 디바이스만 한정) + 사용자
+    //       관심도 낮음.
     const models = new Set(filtered.map((r) => r.model).filter(Boolean));
-    const activeDays = new Set(filtered.map((r) => new Date(r.timestamp).toDateString()));
-    const activeDayCount = activeDays.size;
+    const recordsOldestTs = records.length > 0
+      ? Math.min(...records.map((r) => r.timestamp))
+      : null;
 
     // [2026-05-05 PM-46 Roy] KV 매핑:
     //   today      → KV에 today 버킷 없음 → records (이 디바이스만).
@@ -228,17 +244,16 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
     const kvProviderRecord = (kvForPeriod && 'providers' in kvForPeriod) ? kvForPeriod.providers : undefined;
     const kvProviders = kvProviderRecord ? Object.keys(kvProviderRecord).length : null;
 
+    const messages = kvMessages !== null ? kvMessages : filtered.length;
+    const days = periodDayCount(period, recordsOldestTs);
     return {
-      chats: chats.size,
-      messages: kvMessages !== null ? kvMessages : filtered.length,
+      messages,
       modelsUsed: kvProviders !== null ? kvProviders : models.size,
-      dailyAvg: activeDayCount > 0
-        ? Math.round((filtered.length / activeDayCount) * 10) / 10
-        : 0,
-      activeDayCount,
+      dailyAvg: days > 0 ? Math.round((messages / days) * 10) / 10 : 0,
+      periodDays: days,
       hasKv: kvMessages !== null,
     };
-  }, [filtered, kvSummary, period]);
+  }, [filtered, kvSummary, period, records]);
 
   // 7×24 heatmap
   const heatmap = useMemo(() => {
@@ -364,17 +379,10 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
               </span>
             </div>
 
-            {/* KPI cards */}
-            <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-              {/* [PM-40] dailyAvg sub 라벨 — 명목 period 대신 실제 활동일 표시.
-                  [PM-42] messages/modelsUsed는 KV 합산, chats/dailyAvg는 records (이 디바이스). */}
-              <KpiCard
-                label={t.chats}
-                value={stats.chats}
-                sub={lang === 'ko' ? `${t.periods[period]} · 이 디바이스`
-                  : lang === 'ph' ? `${t.periods[period]} · device na ito`
-                  : `${t.periods[period]} · this device`}
-              />
+            {/* [2026-05-05 PM-46 Roy] KPI 3카드 — 대화 카드 제거 (chatId는 이 디바이스만이라
+                KV 메시지와 비교 불가, 사용자 혼란). 일평균은 KV 메시지 / 명목 period 일수
+                로 통일 (이전: filtered/activeDays = 이 디바이스 한정 분모) → 분모/분자 일관. */}
+            <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <KpiCard
                 label={t.messages}
                 value={stats.messages}
@@ -397,10 +405,10 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
                 label={t.dailyAvg}
                 value={stats.dailyAvg}
                 sub={lang === 'ko'
-                  ? `${stats.activeDayCount}일 활동 · 이 디바이스`
+                  ? `${stats.messages}건 ÷ ${stats.periodDays}일`
                   : lang === 'ph'
-                  ? `${stats.activeDayCount} active days · device na ito`
-                  : `${stats.activeDayCount} active days · this device`}
+                  ? `${stats.messages} msgs ÷ ${stats.periodDays}d`
+                  : `${stats.messages} msgs ÷ ${stats.periodDays}d`}
               />
             </div>
 
