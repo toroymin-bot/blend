@@ -1007,6 +1007,8 @@ function PricingSection({
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+        {/* [2026-05-05 PM-34 Roy] 4 카드 파란 그라데이션 — Free 흰색 / Pro 아주 아주 연한 /
+            Smarter 6개월 아주 연한 / Smarter 1년 연한 (점점 진해짐). */}
         <PlanCard
           plan="free"
           name={t.plan_free}
@@ -1027,6 +1029,7 @@ function PricingSection({
           features={t.plan_pro_features}
           cta={proCta.label}
           ctaDisabled={proCta.disabled}
+          bgTint="pro"
           onChoose={(p) => onChoose(p, 'monthly')}
         />
         <PlanCard
@@ -1039,9 +1042,9 @@ function PricingSection({
           cta={lifetimeCta.label}
           ctaDisabled={lifetimeCta.disabled}
           highlight
+          bgTint="semi"
           onChoose={onChoose}
         />
-        {/* [2026-05-05 PM-31 Roy] 신규 — Smarter 1년 (30% off, best value). */}
         <PlanCard
           plan="pro"
           name={t.plan_yearly}
@@ -1051,6 +1054,7 @@ function PricingSection({
           features={t.plan_yearly_features}
           cta={yearlyCta.label}
           ctaDisabled={yearlyCta.disabled}
+          bgTint="yearly"
           onChoose={(p) => onChoose(p, 'yearly')}
         />
       </div>
@@ -1100,8 +1104,18 @@ function CycleToggle({
   );
 }
 
+// [2026-05-05 PM-34 Roy] 요금제 카드 파란 그라데이션 — Pro / 6개월 / 1년 점점 진해짐.
+// 무료 카드는 흰색 그대로 (현재 플랜 표시).
+const PLAN_BG_TINTS = {
+  pro:    '#f3f8ff', // 아주 아주 연한 파랑 (5% 톤)
+  semi:   '#dde9fb', // 아주 연한 파랑 (12% 톤) — Smarter 6개월
+  yearly: '#c2d8f5', // 연한 파랑 (22% 톤) — Smarter 1년
+} as const;
+type PlanBgTint = keyof typeof PLAN_BG_TINTS;
+
 function PlanCard({
   plan, name, desc, priceLabel, priceSuffix, features, cta, ctaDisabled, highlight, onChoose,
+  bgTint,
 }: {
   plan: PlanId;
   name: string;
@@ -1113,14 +1127,18 @@ function PlanCard({
   ctaDisabled?: boolean;
   highlight?: boolean;
   onChoose: (plan: PlanId) => void;
+  bgTint?: PlanBgTint;
 }) {
+  const bg = bgTint ? PLAN_BG_TINTS[bgTint] : tokens.surface;
+  // [PM-34] highlight (6개월 추천 카드)는 파란 border + shadow로 강조 — 그라데이션과 통일.
+  const borderColor = highlight ? '#2563eb' : tokens.border;
   return (
     <div
       className="flex flex-col rounded-2xl border p-6"
       style={{
-        background: highlight ? tokens.accentSoft : tokens.surface,
-        borderColor: highlight ? tokens.accent : tokens.border,
-        boxShadow: highlight ? '0 8px 24px rgba(0,0,0,0.06)' : 'none',
+        background: bg,
+        borderColor,
+        boxShadow: highlight ? '0 8px 24px rgba(37, 99, 235, 0.12)' : 'none',
       }}
     >
       <div className="mb-1 text-[14px] font-semibold" style={{ color: tokens.text }}>
