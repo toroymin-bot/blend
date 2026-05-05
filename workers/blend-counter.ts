@@ -597,6 +597,9 @@ export default {
           return json.data ?? [];
         };
 
+        // [2026-05-05 PM-46 Phase 5] ORDER BY blob4 제거 — WAE SQL이 ORDER BY blob 컬럼
+        // 타입 추론 실패하는 케이스 있음 ("unable to find type of column: blob4"). 정렬은
+        // 클라이언트에서 수행.
         const rows = await querySql(`
           SELECT blob4 AS date,
                  SUM(_sample_interval) AS requests,
@@ -604,7 +607,6 @@ export default {
           FROM blend_usage
           WHERE blob4 >= '${startDate}' AND blob4 <= '${today}'
           GROUP BY blob4
-          ORDER BY blob4
         `);
 
         // 비어있는 날도 포함 (UI 그래프 X축 균등)
