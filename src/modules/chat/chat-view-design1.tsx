@@ -576,9 +576,10 @@ export default function D1ChatView({
       .slice(0, 1500);
   }
 
-  /** 외부에서 호출되는 TTS 핵심 — 자동/수동 모두 이 함수 통과 */
-  async function playTTS(text: string): Promise<void> {
-    if (!ttsEnabled) return;
+  /** 외부에서 호출되는 TTS 핵심 — 자동/수동 모두 이 함수 통과.
+   *  [2026-05-05 PM-35 Roy] force=true → 마스터 토글 OFF여도 한 번 재생 (per-message '듣기' 버튼). */
+  async function playTTS(text: string, force = false): Promise<void> {
+    if (!ttsEnabled && !force) return;
     // [2026-05-04 Roy] 50회/채팅 한도 비활성 — 채팅 세션 부하 진행 바가 종합 사용량을
     // 책임짐. 향후 재활용 가능성 위해 코드는 주석으로 보존 (TTS_LIMIT, ttsCount,
     // setTtsCount, ttsLimit prop 모두 그대로 유지).
@@ -2702,6 +2703,9 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                 onTryAnother={(newModel?: string) => regenerateAssistantMessage(msg.id, newModel)}
                 onFork={msg.role === 'assistant' ? () => forkChatAtMessage(msg.id) : undefined}
                 onShare={msg.role === 'assistant' ? () => setShareOpen(true) : undefined}
+                // [2026-05-05 Roy PM-35] '듣기' 버튼 — 메시지 텍스트를 TTS 1회 재생.
+                // force=true로 마스터 토글 OFF여도 동작. cleanForTTS로 마크다운 정리.
+                onListen={msg.role === 'assistant' ? () => playTTS(cleanForTTS(msg.content), true) : undefined}
               />
             ))}
             {isStreaming && streamingContent && (
@@ -3171,13 +3175,13 @@ function D1MemoryChipsBar({
   );
 }
 
-function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: {
+function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare, onListen }: {
   message: Message; lang: Lang; t: CopyObj;
   onTryAnother: (newModel?: string) => void;
   onFork?: () => void; onShare?: () => void;
+  onListen?: () => void;
 }) {
   // [Roy v11 PM-22] 메시지 완료 시간 추출 — id가 Date.now()로 시작하는 패턴.
-  // (예: '1717123456789_ai' → 1717123456789). parseInt가 첫 숫자 시퀀스만 잡음.
   const ts = parseInt(message.id, 10);
   const messageTime = isFinite(ts) && ts > 1_000_000_000_000 ? ts : null;
   if (message.role === 'user') {
@@ -3200,6 +3204,7 @@ function D1MessageRow({ message, lang, t, onTryAnother, onFork, onShare }: {
       onTryAnother={onTryAnother}
       onFork={onFork}
       onShare={onShare}
+      onListen={onListen}
     />
   );
 }
@@ -3282,6 +3287,7 @@ function D1AssistantMessage({
   onTryAnother,
   onFork,
   onShare,
+  onListen,
 }: {
   content: string;
   streaming?: boolean;
@@ -3299,7 +3305,8 @@ function D1AssistantMessage({
   onTryAnother?: (newModel?: string) => void;
   onFork?: () => void;
   onShare?: () => void;
-  // [2026-05-02 Roy] per-message TTS 버튼 제거 — 입력바 마스터 토글로만 제어.
+  // [2026-05-05 Roy PM-35] per-message TTS 부활 — 한 번 클릭 시 1회 재생 (마스터 토글과 별개).
+  onListen?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -3458,10 +3465,24 @@ function D1AssistantMessage({
               {copied ? <CheckIcon /> : <CopyIcon />}
               {copied ? t.copied : t.copy}
             </button>
-            {/* [2026-05-02 Roy] '다시 생성' 버튼 제거 — 불필요한 기능. '다른 AI로'
-                재생성 + 자동 fallback이 같은 역할을 더 똑똑하게 처리.
-                per-message '듣기' 버튼도 제거 — Roy 결정으로 입력바 마스터 토글 ON/OFF만
-                사용 (모든 답변 자동 재생 또는 전부 비활성). */}
+
+            {/* [2026-05-05 Roy PM-35] 듣기 버튼 부활 — 복사 ↔ 공유 사이.
+                클릭 시 해당 답변을 TTS로 1회 재생 (마스터 토글 OFF여도 force=true로 동작).
+                같은 색상/스타일 (color: inherit, hover:bg-black/5). 스트리밍 중에는 숨김. */}
+            {onListen && !streaming && (
+              <button
+                onClick={onListen}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-black/5"
+                style={{ color: 'inherit' }}
+                title={lang === 'ko' ? '듣기' : lang === 'ph' ? 'Pakinggan' : 'Listen'}
+              >
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                </svg>
+                {lang === 'ko' ? '듣기' : lang === 'ph' ? 'Pakinggan' : 'Listen'}
+              </button>
+            )}
 
             {/* [2026-04-26] Sprint 3 (16384367) — Share button */}
             {onShare && (
