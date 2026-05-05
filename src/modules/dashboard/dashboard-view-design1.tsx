@@ -240,9 +240,21 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
       :  period === 'month'     ? kvSummary.month
       :  /* year/all */           kvSummary.all)
       : null;
-    const kvMessages = kvForPeriod?.totalRequests ?? null;
     const kvProviderRecord = (kvForPeriod && 'providers' in kvForPeriod) ? kvForPeriod.providers : undefined;
     const kvProviders = kvProviderRecord ? Object.keys(kvProviderRecord).length : null;
+
+    // [2026-05-05 PM-46 Roy] 메시지 카드 vs AI 회사별 사용 분포 카드 숫자 불일치 회귀 fix.
+    // 원인: KV 워커 incr()이 read-modify-write라 race lost update 발생 → 같은 trackUsage
+    // 호출에서 total:requests와 provider:{p}:requests가 독립적으로 ±drift. 예: 171 vs 165.
+    // 같은 KV 인프라 한계라 워커 단에서 atomic 보장 어려움(Durable Objects 도입 시 가능).
+    // UI 단 해결: messages KPI를 Σprovider.requests로 통일 → 자동으로 분포 카드 합과 일치.
+    // total:requests는 providers 비어있을 때 fallback으로만 사용.
+    const kvProvidersSum = kvProviderRecord
+      ? Object.values(kvProviderRecord).reduce((s, p) => s + (p as { requests: number }).requests, 0)
+      : 0;
+    const kvMessages = kvProvidersSum > 0
+      ? kvProvidersSum
+      : (kvForPeriod?.totalRequests ?? null);
 
     const messages = kvMessages !== null ? kvMessages : filtered.length;
     const days = periodDayCount(period, recordsOldestTs);
@@ -272,8 +284,11 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
   // [2026-05-05 PM-44 Roy] AI 회사별 사용 분포 — KV providers (모든 디바이스 합산) 우선.
   // 이전엔 records (이 디바이스 4건만)로 집계 → 메시지 카드 171건과 모순. 데이터 일관성
   // 위반. 이제 KV providers count를 사용해 메시지 카드 합과 정확히 일치.
-  const topModels = useMemo(() => {
-    // [2026-05-05 PM-46 Roy] today/yesterday는 KV providers 없음 → records fallback.
+  // [2026-05-05 PM-46 Roy] fromKv 플래그 반환 → UI 단에서 제목/footer 조건 일관 처리.
+  // 이전엔 stats.hasKv 글로벌 체크가 yesterday/today에서도 true라(totalRequests는 있음)
+  // KV provider 분포 ≠ records 분포인데도 "AI 회사별 사용 분포 — 메시지 카드 합과 일치"
+  // 잘못된 제목/footer 노출. fromKv로 분기.
+  const topModels = useMemo<{ items: { id: string; count: number }[]; fromKv: boolean }>(() => {
     const kvForPeriod = kvSummary
       ? (period === 'today'     ? null
       :  period === 'yesterday' ? null  // KV.yesterday엔 providers 필드 없음
@@ -283,20 +298,20 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
       : null;
     const kvProviderRecord = (kvForPeriod && 'providers' in kvForPeriod) ? kvForPeriod.providers : undefined;
     if (kvProviderRecord && Object.keys(kvProviderRecord).length > 0) {
-      // KV provider 합산 — 모델 단위가 아닌 provider 단위지만 사용자 직관 OK ('AI 회사별').
-      // 레이블도 t.topModels → t.byProvider 분기 (아래 UI 참조).
-      return Object.entries(kvProviderRecord)
+      const items = Object.entries(kvProviderRecord)
         .map(([provider, v]) => ({ id: provider, count: (v as { requests: number }).requests }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
+      return { items, fromKv: true };
     }
-    // KV 없으면 records 기반 모델별 (이 디바이스만, 작은 데이터)
+    // KV 없으면 records 기반 모델별 (이 디바이스만)
     const counts: Record<string, number> = {};
     for (const r of filtered) counts[r.model] = (counts[r.model] || 0) + 1;
-    return Object.entries(counts)
+    const items = Object.entries(counts)
       .map(([id, count]) => ({ id, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
+    return { items, fromKv: false };
   }, [filtered, kvSummary, period]);
 
   // [2026-05-05 PM-44 Roy] 카테고리 분석 (창작/일반/코딩 등)은 records 기반 — KV에 카테고리 없음.
@@ -441,23 +456,23 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
               )}
             </Card>
 
-            {/* [2026-05-05 PM-44 Roy] AI 회사별 사용 분포 — KV 합산 기반.
-                메시지 카드 합과 정확히 일치 (데이터 일관성). 라벨도 '가장 많이' 어휘 제거 →
-                '사용 분포'. */}
-            {topModels.length > 0 && (
+            {/* [2026-05-05 PM-44/46 Roy] AI 회사별 사용 분포 — fromKv 분기.
+                fromKv=true: 모든 디바이스 합산 + 메시지 KPI(=Σproviders)와 정확히 일치.
+                fromKv=false: 이 디바이스 records 기반 모델별 (이전 동작). */}
+            {topModels.items.length > 0 && (
               <Card title={
-                stats.hasKv
+                topModels.fromKv
                   ? (lang === 'ko' ? 'AI 회사별 사용 분포'
                     : lang === 'ph' ? 'Sa AI company sukat'
                     : 'Usage by provider')
                   : t.topModels
               }>
                 <ul className="space-y-2.5">
-                  {topModels.map(({ id, count }) => {
-                    const total = topModels.reduce((s, m) => s + m.count, 0);
+                  {topModels.items.map(({ id, count }) => {
+                    const total = topModels.items.reduce((s, m) => s + m.count, 0);
                     const pct = total > 0 ? (count / total) * 100 : 0;
-                    const color = BRAND_COLORS[stats.hasKv ? id : modelProvider(id)] || tokens.accent;
-                    const displayName = stats.hasKv ? id : modelDisplayName(id);
+                    const color = BRAND_COLORS[topModels.fromKv ? id : modelProvider(id)] || tokens.accent;
+                    const displayName = topModels.fromKv ? id : modelDisplayName(id);
                     return (
                       <li key={id}>
                         <div className="flex items-baseline justify-between text-[13px] mb-1">
@@ -471,7 +486,7 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
                     );
                   })}
                 </ul>
-                {stats.hasKv && (
+                {topModels.fromKv && (
                   <p className="mt-3 text-[11px]" style={{ color: tokens.textFaint }}>
                     {lang === 'ko' ? '* 모든 디바이스 합산 (Cloudflare KV) — 메시지 카드 합과 일치.'
                       : lang === 'ph' ? '* Lahat ng devices (Cloudflare KV) — tugma sa Messages card.'
