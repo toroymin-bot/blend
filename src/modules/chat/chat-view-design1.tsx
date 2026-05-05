@@ -460,6 +460,8 @@ export default function D1ChatView({
     setTtsQualityChosen(true);
     // 첫 모달에서 품질 선택 = ON 활성화 의도. 마스터 토글도 ON으로.
     setTtsEnabled(true);
+    // [2026-05-05 PM-33 Roy] 모달 onChoose도 user gesture — audio context unlock.
+    unlockAudioContext();
     if (typeof window !== 'undefined') {
       localStorage.setItem('d1:tts-quality', q);
       localStorage.setItem('d1:tts-quality-chosen', 'true');
@@ -518,6 +520,33 @@ export default function D1ChatView({
   }
 
   // [2026-05-02 Roy] 입력바 토글 클릭 시 — OFF→ON 전환 + 첫 사용이면 품질 모달.
+  // [2026-05-05 PM-33 Roy] iOS audio unlock — user gesture 직후 silent audio play로
+  // audio context 활성. 이후 자동 재생 시 autoplay 차단 없음.
+  // iOS Safari/Chrome 모바일은 사용자 직접 상호작용 없이 audio.play() 차단.
+  // 첫 user gesture에서 한번만 unlock하면 같은 audioRef로 이후 모두 자유 재생.
+  // 1초 silent WAV (44 byte) data URL — 모든 모바일 브라우저 호환.
+  const SILENT_AUDIO_DATA_URL =
+    'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+  const audioUnlockedRef = useRef<boolean>(false);
+  function unlockAudioContext(): void {
+    if (audioUnlockedRef.current || !audioRef.current) return;
+    try {
+      audioRef.current.src = SILENT_AUDIO_DATA_URL;
+      const playPromise = audioRef.current.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.then(() => {
+          audioUnlockedRef.current = true;
+        }).catch(() => {
+          // 일부 환경(브라우저 정책)에서 silent도 거부 — 다음 실제 TTS 호출 때 다시 시도.
+        });
+      } else {
+        audioUnlockedRef.current = true;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   // 첫 사용 시 모달 먼저, 사용자가 품질 선택해야 ON 활성화. 모달 닫기 → OFF 유지
   // (의도적 cancel 보호). 이미 chosen된 상태면 즉시 토글.
   function handleToggleTts(): void {
@@ -525,6 +554,10 @@ export default function D1ChatView({
       // 첫 ON 시도 — 모달부터. ttsEnabled은 onChoose에서 true로 셋팅.
       setShowTtsQualityModal(true);
       return;
+    }
+    // [PM-33] user gesture 직후 audio unlock — 이후 자동 재생이 차단 없이 동작.
+    if (!ttsEnabled) {
+      unlockAudioContext();
     }
     setTtsEnabled((v) => !v);
   }
@@ -579,10 +612,32 @@ export default function D1ChatView({
       setTtsCount((c) => c + 1);
       if (audioRef.current) {
         audioRef.current.src = url;
-        await audioRef.current.play().catch(() => {
+        await audioRef.current.play().then(() => {
+          // 성공 — audio context unlocked.
+          audioUnlockedRef.current = true;
+        }).catch(() => {
+          // [2026-05-05 PM-33 Roy] iOS autoplay 차단 — 사용자에게 탭 안내 + 다음 탭 시 unlock + 자동 재생.
+          // 이전에는 토스트만 떴고 탭해도 실제로 음성 재생 안 됐음. 이제 first-tap listener로 retry.
           setToastMsg(lang === 'ko'
             ? '🔊 음성 재생을 위해 한 번 화면을 탭해주세요'
+            : lang === 'ph' ? '🔊 I-tap ang screen para sa audio'
             : '🔊 Tap the screen once to enable audio playback');
+          if (typeof window !== 'undefined') {
+            const pendingUrl = url;
+            const onFirstTap = () => {
+              document.removeEventListener('click', onFirstTap);
+              document.removeEventListener('touchstart', onFirstTap);
+              setToastMsg(null);
+              if (audioRef.current) {
+                audioRef.current.src = pendingUrl;
+                audioRef.current.play().then(() => {
+                  audioUnlockedRef.current = true;
+                }).catch(() => {});
+              }
+            };
+            document.addEventListener('click', onFirstTap, { once: true });
+            document.addEventListener('touchstart', onFirstTap, { once: true });
+          }
         });
       }
     } catch (e) {

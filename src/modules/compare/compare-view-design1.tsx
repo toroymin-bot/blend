@@ -343,15 +343,23 @@ export default function D1CompareView({
     const friendlyCompareError = (raw: string): string => {
       const e = (raw ?? '').toLowerCase();
       const ko = lang === 'ko';
-      if (/401|unauthorized|invalid.*api.?key|incorrect.*api.?key|invalid.*key/.test(e)) {
+      // [2026-05-05 PM-33 Roy] Gemini "API key not valid" 패턴 보강 (PM-26 meeting-runner와 동일).
+      if (/401|unauthorized|invalid.*api.?key|incorrect.*api.?key|invalid.*key|key.?not.?valid|not.?valid.*key|api_key_invalid|authentication.?error/.test(e)) {
         return ko
           ? '🔑 API 키가 올바르지 않아요. 설정 → API 키에서 다시 확인해주세요.'
           : '🔑 Invalid API key. Re-enter in Settings → API keys.';
       }
-      if (/403|forbidden|verify|verification.required/.test(e)) {
+      if (/403|forbidden|verify|verification.required|permission.?denied/.test(e)) {
         return ko
           ? '🚫 이 모델 접근 권한이 없어요. 일부 모델은 organization 인증 필요.'
           : '🚫 No access to this model. Some require org verification.';
+      }
+      // [2026-05-05 PM-33 Roy] OpenAI Reasoning 모델 (gpt-5.5-pro 등)은 v1/chat/completions
+      // 미지원 — v1/responses endpoint 필요. Compare에선 chat completions 호출이라 실패.
+      if (/not.?a.?chat.?model|not.?supported.*chat\.?completions|v1.?responses|reasoning.?model.*not.?supported/.test(e)) {
+        return ko
+          ? '⚙️ 이 모델은 채팅 비교에 사용할 수 없어요. OpenAI Reasoning 모델(o1/o3/gpt-5.5-pro 등)은 별도 endpoint 사용 — 다른 모델을 선택해주세요.'
+          : '⚙️ This model is not supported in chat comparison. OpenAI Reasoning models (o1/o3/gpt-5.5-pro etc.) use a separate endpoint — pick another.';
       }
       if (/429|rate.?limit|quota/.test(e)) {
         return ko
@@ -703,14 +711,14 @@ export default function D1CompareView({
                     )}
                   </div>
 
-                  {/* [2026-05-04 Roy] Column body — 모바일에서 기본 3줄(약 88px),
-                      답변 길어지면 10줄(약 260px)까지 자동 확장. 10줄 초과 시 우측에
-                      스크롤바로 내부 스크롤(드래그 가능). 데스크탑은 flex-1 그대로. */}
+                  {/* [2026-05-05 Roy PM-33] Column body — 모바일 기본 6줄(약 132px,
+                      이전 4줄 88px에서 50% 증가). 답변 길면 10줄(260px)까지 자동 확장,
+                      그 이상은 우측 스크롤. 데스크탑은 flex-1 그대로. */}
                   <div
                     className="overflow-y-auto px-4 py-4"
                     style={
                       isMobile
-                        ? { minHeight: 88, maxHeight: 260 }
+                        ? { minHeight: 132, maxHeight: 260 }
                         : { flex: 1 }
                     }
                   >
