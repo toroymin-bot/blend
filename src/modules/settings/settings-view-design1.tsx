@@ -339,6 +339,15 @@ export function D1SettingsView() {
     }
     // network / fetch / timeout / aborted
     if (status === null || /fetch|network|load failed|connection|timeout|timed out|aborted/.test(body)) {
+      // [2026-05-05 PM-39 Roy] Anthropic은 브라우저 CORS 정책 영향으로 키/권한 문제도
+      // catch로 떨어지는 케이스 다수. "네트워크" 단정 X — provider별 분기.
+      if (providerId === 'anthropic') {
+        return ko
+          ? `🔑 키 검증 실패. ${consoleUrl}에서 ① 키 활성 상태 ② Plans & Billing 결제 등록 ③ 키 권한(Default/Restricted) 확인 — 셋 중 하나가 미설정인 경우 다수.`
+          : ph
+          ? `🔑 Hindi nag-verify ang key. Sa ${consoleUrl} i-check ang ① key status ② Plans & Billing payment ③ key permission.`
+          : `🔑 Key verification failed. At ${consoleUrl} check: ① key status ② Plans & Billing payment ③ key permission (Default/Restricted).`;
+      }
       return ko
         ? `📡 네트워크 연결 확인 후 다시 시도. VPN / 방화벽이 ${providerName} 차단할 수 있어요.`
         : ph

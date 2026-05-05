@@ -56,6 +56,8 @@ import { getBlendIdentityPrompt, BLEND_INTRO_QUESTION } from '@/lib/blend-identi
 import { computeSessionLoad, getLoadColor, getLoadStage, getLoadStageMessage, estimateTokens } from '@/lib/session-load';
 // [2026-05-05 PM-30 Roy] 단일 통화 표시 — lang별 ₩/$/₱.
 import { getCurrentFxRates } from '@/lib/currency';
+// [2026-05-05 PM-39 Roy] 사용자 위치 자동 감지 — IP geo. "오늘 날씨/현재 위치" 질문 정확.
+import { useUserLocation, buildLocationPrompt } from '@/lib/use-user-location';
 
 // [2026-05-02 Roy] AI 도구 한국어 라벨 — indicator 표시용. 영어는 raw name 그대로.
 const TOOL_LABEL_KO: Record<string, string> = {
@@ -387,13 +389,16 @@ export default function D1ChatView({
   useEffect(() => { trialResetIfNewDay(); }, []);
 
   // [2026-05-05 PM-31 Roy] FAQ → "블렌드에게 물어보기" 외부 진입점.
-  // d1:ask-blend 이벤트 → 채팅 'Blend?' 버튼 클릭과 동일 동작 (BLEND_INTRO_QUESTION 자동 발송).
   const askBlendRef = useRef<() => void>(() => {});
   useEffect(() => {
     const handler = () => askBlendRef.current?.();
     window.addEventListener('d1:ask-blend', handler);
     return () => window.removeEventListener('d1:ask-blend', handler);
   }, []);
+
+  // [2026-05-05 PM-39 Roy] 사용자 위치 IP geo (city/country/timezone) — system prompt 주입.
+  // "오늘 날씨" / "지금 시간" / "내 위치" 질문에 AI가 정확 답변.
+  const { location: userLocation } = useUserLocation();
 
   const [showTrialExhausted, setShowTrialExhausted] = useState(false);
   const [showKeyRequired, setShowKeyRequired] = useState<{ providerName: string } | null>(null);
@@ -2207,7 +2212,8 @@ The [Active...] sections below are the user's activated sources. Use them as you
         // 넘겨 비전 첨부가 누락 ("어떤 텍스트를 읽어야 할지 알 수 없습니다" 환각).
         messages: bridgedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
         // [2026-05-01 Roy] trial path도 Blend identity 주입 — '블렌드가 뭐냐' 답변 일관성.
-        systemPrompt: getBlendIdentityPrompt(lang),
+        // [2026-05-05 PM-39 Roy] 사용자 위치 prefix 추가 — "오늘 날씨" 등 질문 정확 답변.
+        systemPrompt: getBlendIdentityPrompt(lang) + buildLocationPrompt(userLocation, lang),
         signal: controller.signal,
         onChunk: (text) => {
           accumulated += text;
@@ -2357,7 +2363,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
     const langHeader = getLangEnforcementHeader(lang);
     // [2026-05-01 Roy] Blend identity — 모든 AI에 'Blend 서비스' 정체성 주입.
     // 사용자가 "너는 누구냐" / "블렌드가 뭐냐" 등 메타 질문하면 일관된 답변.
-    const blendIdentity = getBlendIdentityPrompt(lang);
+    // [2026-05-05 PM-39 Roy] 사용자 위치 prefix 추가 — "오늘 날씨/지금 시간/내 위치" 질문 정확.
+    const blendIdentity = getBlendIdentityPrompt(lang) + buildLocationPrompt(userLocation, lang);
 
     // [2026-05-02 Roy] 선택된 이전 세션 메모리 컨텍스트 — system prompt에 주입.
     // 각 chat을 1회만 요약 (memorySummaryCache) → 후속 메시지는 캐시 재사용.
