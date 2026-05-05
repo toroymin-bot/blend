@@ -338,21 +338,43 @@ export function D1SettingsView() {
         : `🔧 ${providerName} server hiccup. Try again in 1-2 min.`;
     }
     // network / fetch / timeout / aborted
-    if (status === null || /fetch|network|load failed|connection|timeout|timed out|aborted/.test(body)) {
-      // [2026-05-05 PM-39 Roy] Anthropic은 브라우저 CORS 정책 영향으로 키/권한 문제도
-      // catch로 떨어지는 케이스 다수. "네트워크" 단정 X — provider별 분기.
-      if (providerId === 'anthropic') {
+    if (status === null || /fetch|network|load failed|connection|timeout|timed out|aborted|offline|limited|cors-or-auth/.test(body)) {
+      // [2026-05-05 PM-40 Roy] networkSanityCheck 결과 반영 — 진짜 네트워크 끊김인지
+      // provider 특이 케이스(CORS/권한/키)인지 확실 분기.
+      const isOffline = /offline/.test(body);
+      const isLimited = /limited|firewall|vpn/.test(body);
+      const isProviderSpecific = /cors-or-auth/.test(body);
+
+      if (isOffline) {
         return ko
-          ? `🔑 키 검증 실패. ${consoleUrl}에서 ① 키 활성 상태 ② Plans & Billing 결제 등록 ③ 키 권한(Default/Restricted) 확인 — 셋 중 하나가 미설정인 경우 다수.`
+          ? `📡 인터넷 연결이 끊겼어요. Wi-Fi / 셀룰러 확인 후 다시 시도해주세요.`
           : ph
-          ? `🔑 Hindi nag-verify ang key. Sa ${consoleUrl} i-check ang ① key status ② Plans & Billing payment ③ key permission.`
-          : `🔑 Key verification failed. At ${consoleUrl} check: ① key status ② Plans & Billing payment ③ key permission (Default/Restricted).`;
+          ? `📡 Walang internet. I-check ang Wi-Fi / cellular at subukan muli.`
+          : `📡 Internet disconnected. Check Wi-Fi / cellular and retry.`;
+      }
+      // Anthropic은 CORS 정책 영향으로 키/권한 문제도 catch로 떨어지는 케이스 다수.
+      // 다른 provider는 네트워크 정상이어도 CORS로 catch 가능 — sanity check가 ok면
+      // provider 특이 케이스로 단정.
+      if (providerId === 'anthropic' && (isProviderSpecific || isLimited || status === null)) {
+        return ko
+          ? `🔑 키 검증 실패. ${consoleUrl}에서 ① 키 활성 상태 ② Plans & Billing 결제 등록 ③ 키 권한(Default/Restricted) 확인 — 셋 중 하나가 미설정인 경우 다수. (브라우저는 정상이지만 Anthropic이 응답 거부)`
+          : ph
+          ? `🔑 Hindi nag-verify ang key. Sa ${consoleUrl} i-check ang ① key status ② Plans & Billing payment ③ key permission. (Browser OK, Anthropic response failed)`
+          : `🔑 Key verification failed. At ${consoleUrl} check: ① key status ② Plans & Billing payment ③ key permission (Default/Restricted). (Browser OK, Anthropic response refused)`;
+      }
+      // 다른 provider도 sanity ok면 키 의심 — 사용자 행동: 키 재발급 / 콘솔 확인.
+      if (isProviderSpecific) {
+        return ko
+          ? `🔑 키 검증 실패 (브라우저는 정상). ${providerName} 콘솔에서 키 활성·결제·권한 확인 후 재발급 추천.`
+          : ph
+          ? `🔑 Hindi nag-verify ang key (browser OK). I-check sa ${providerName} console.`
+          : `🔑 Key verification failed (browser OK). Check key status / billing / permissions at ${providerName} console.`;
       }
       return ko
-        ? `📡 네트워크 연결 확인 후 다시 시도. VPN / 방화벽이 ${providerName} 차단할 수 있어요.`
+        ? `📡 네트워크 일부 차단 가능. VPN / 방화벽이 ${providerName} 막을 수 있어요. 다른 네트워크에서 재시도 또는 VPN 끄고 다시.`
         : ph
-        ? `📡 I-check ang network connection. Maaaring naka-block ang ${providerName} ng VPN / firewall.`
-        : `📡 Check network. VPN / firewall may block ${providerName}.`;
+        ? `📡 Maaaring naka-block ang ${providerName} ng VPN / firewall. Subukan sa ibang network.`
+        : `📡 ${providerName} may be blocked by VPN / firewall. Try a different network or disable VPN.`;
     }
     // generic
     return ko
@@ -360,6 +382,23 @@ export function D1SettingsView() {
       : ph
       ? `❗ Hindi nag-test ang key (status ${status ?? '?'}). I-check sa ${providerName} console.`
       : `❗ Test failed (status ${status ?? '?'}). Check key status at ${providerName} console.`;
+  };
+
+  // [2026-05-05 PM-40 Roy] catch 떨어졌을 때 진짜 네트워크인지 sanity check.
+  // navigator.onLine + neutral CORS-허용 endpoint ping → 둘 다 OK면 네트워크 X →
+  // provider 특이 케이스 (CORS / 키 / 권한). Anthropic catch 진단 정확화 목적.
+  const networkSanityCheck = async (): Promise<'ok' | 'offline' | 'limited'> => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+    try {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 3000);
+      // Cloudflare trace — CORS 허용 (* origin), 어디서나 fetch 가능, 빠름.
+      const res = await fetch('https://1.1.1.1/cdn-cgi/trace', { signal: ctrl.signal });
+      clearTimeout(timeout);
+      return res.ok ? 'ok' : 'limited';
+    } catch {
+      return 'limited';
+    }
   };
 
   const handleTestKey = async (providerId: AIProvider) => {
@@ -392,7 +431,17 @@ export function D1SettingsView() {
       }
       setTestResult((s) => ({ ...s, [providerId]: ok ? 'ok' : 'fail' }));
     } catch (e) {
-      const friendly = friendlyKeyTestError(providerId, null, (e as Error)?.message ?? '');
+      // [PM-40] catch 떨어진 진짜 원인 진단 — 네트워크 sanity check.
+      const networkState = await networkSanityCheck();
+      // ok면 네트워크 정상 → 진짜 provider 특이 케이스 (CORS/권한/키)
+      // offline → 진짜 네트워크 끊김
+      // limited → fetch 가능하지만 일부 차단 (방화벽/VPN)
+      const synthBody = networkState === 'offline'
+        ? 'network offline'
+        : networkState === 'limited'
+        ? 'network limited (firewall/vpn)'
+        : `provider-specific cors-or-auth-${(e as Error)?.message ?? 'unknown'}`;
+      const friendly = friendlyKeyTestError(providerId, null, synthBody);
       setTestErrorMsg((s) => ({ ...s, [providerId]: friendly }));
       setTestResult((s) => ({ ...s, [providerId]: 'fail' }));
     } finally {

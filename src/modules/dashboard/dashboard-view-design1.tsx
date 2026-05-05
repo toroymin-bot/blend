@@ -153,16 +153,25 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
   }, [records, period]);
 
   const stats = useMemo(() => {
-    const chats = new Set(filtered.map((r) => r.chatId));
-    const models = new Set(filtered.map((r) => r.model));
-    const dayCount = period === 'week' ? 7 : period === 'month' ? 30 : period === 'year' ? 365 : Math.max(1, Math.ceil((Date.now() - (records[0]?.timestamp ?? Date.now())) / 86400000));
+    // [2026-05-05 PM-40 Roy] dailyAvg 계산 정확화.
+    // 이전: period 명목 일수(7/30/365)로 나눔 → 사용자가 5일만 활동했어도 monthly에서는
+    // /30로 나눠 평균이 6배 낮게 나옴. 명백한 부정확 데이터.
+    // 신규: filtered 안의 distinct active days로 나눔 → "활동한 날 평균 X 메시지" 직관 일치.
+    // chatId 누락된 record 방어 — undefined 1개로 카운트되던 회귀 차단.
+    const chats = new Set(filtered.map((r) => r.chatId).filter(Boolean));
+    const models = new Set(filtered.map((r) => r.model).filter(Boolean));
+    const activeDays = new Set(filtered.map((r) => new Date(r.timestamp).toDateString()));
+    const activeDayCount = activeDays.size;
     return {
       chats: chats.size,
       messages: filtered.length,
       modelsUsed: models.size,
-      dailyAvg: dayCount > 0 ? Math.round((filtered.length / dayCount) * 10) / 10 : 0,
+      dailyAvg: activeDayCount > 0
+        ? Math.round((filtered.length / activeDayCount) * 10) / 10
+        : 0,
+      activeDayCount,
     };
-  }, [filtered, period, records]);
+  }, [filtered]);
 
   // 7×24 heatmap
   const heatmap = useMemo(() => {
@@ -246,10 +255,20 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
           <>
             {/* KPI cards */}
             <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* [2026-05-05 PM-40 Roy] dailyAvg sub 라벨 — 명목 period 대신 실제 활동일 표시.
+                  사용자가 "왜 평균이 이렇게 낮아?" 의심 차단. */}
               <KpiCard label={t.chats}      value={stats.chats}      sub={t.periods[period]} />
               <KpiCard label={t.messages}   value={stats.messages}   sub={t.periods[period]} />
               <KpiCard label={t.modelsUsed} value={stats.modelsUsed} sub={t.periods[period]} />
-              <KpiCard label={t.dailyAvg}   value={stats.dailyAvg}   sub={t.periods[period]} />
+              <KpiCard
+                label={t.dailyAvg}
+                value={stats.dailyAvg}
+                sub={lang === 'ko'
+                  ? `${stats.activeDayCount}일 활동 기준`
+                  : lang === 'ph'
+                  ? `${stats.activeDayCount} active days`
+                  : `over ${stats.activeDayCount} active days`}
+              />
             </div>
 
             {/* Heatmap */}
