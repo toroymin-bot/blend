@@ -43,9 +43,10 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 // ── Period ───────────────────────────────────────────────────────
 // [2026-05-05 PM-46 Roy] 기간 정의 = rolling window (달력 단위 X).
-// today=최근24h, yesterday=24~48h 전, week=최근7일, month=최근30일, year=최근365일, all=전체.
-// 이전 month는 "이번 달 1일부터" / year는 "1월 1일부터"였는데, 사용자가 데이터 추세를
-// 균등하게 비교하려면 rolling window가 더 직관적. 라벨에도 "(최근 N)" 명시.
+// today=최근24h, yesterday=24~48h 전(어제 하루), week=최근7일, month=최근30일,
+// year=최근365일, all=전체.
+// '어제' 라벨에 (최근 N) 미부착 의도적 — 다른 칩의 "(최근 N)"은 "지금부터 N 단위
+// 거슬러" 의미라 모호성 제거에 필요하지만, '어제'는 의미가 단일이므로 사족.
 type Period = 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'all';
 
 // ── Copy ─────────────────────────────────────────────────────────
@@ -208,9 +209,12 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
     const activeDays = new Set(filtered.map((r) => new Date(r.timestamp).toDateString()));
     const activeDayCount = activeDays.size;
 
-    // [2026-05-05 PM-46 Roy] KV 매핑 확장:
-    //   today      → KV에 today 버킷 없음 → records 사용 (이 디바이스만).
-    //   yesterday  → KV.yesterday (providers 필드 없음 → modelsUsed는 records).
+    // [2026-05-05 PM-46 Roy] KV 매핑:
+    //   today      → KV에 today 버킷 없음 → records (이 디바이스만).
+    //   yesterday  → KV.yesterday(달력 어제)로 KPI 카드 표시. 필터는 rolling 24~48h라
+    //                완전 일치 X 이지만 ±수시간 차이로 사용자 인지 가능 범위. records-only
+    //                fallback은 이 디바이스 한정이라 사용 적은 사용자에 "데이터 없음" 빈
+    //                화면 → KV가 더 풍부.
     //   week/month → KV 동명 버킷.
     //   year/all   → KV.all (year 별도 버킷 없으므로 all로 fallback).
     const kvForPeriod = kvSummary
@@ -294,7 +298,11 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
     return { entries, total };
   }, [filtered]);
 
-  const isEmpty = filtered.length === 0;
+  // [2026-05-05 PM-46 Roy] empty 판정 = records AND KV 둘 다 없을 때만.
+  // 이전엔 records만 보고 판단 → KV에 데이터 있는 어제/이번주에도 "아직 사용 기록이
+  // 없어요" 빈 화면 표시되던 회귀. 이제 KPI는 KV로 표시하고 패턴 분석만 records 기반
+  // 영역에서 자동 숨김.
+  const isEmpty = filtered.length === 0 && stats.messages === 0;
 
   return (
     <div
@@ -397,16 +405,19 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
             </div>
 
             {/* [PM-42] 패턴 분석 카드 (heatmap/top models/categories)는 records 기반 — KV에 분포 없음.
-                작은 안내 라벨 추가. */}
-            <p className="mb-3 text-[11.5px]" style={{ color: tokens.textFaint }}>
-              {lang === 'ko' ? '* 아래 패턴 분석은 이 디바이스 기록만 (KV에 시간/모델별 분포 없음)'
-                : lang === 'ph' ? '* Pattern analysis sa baba — device na ito lang'
-                : '* Pattern analysis below — this device only'}
-            </p>
+                [2026-05-05 PM-46 Roy] filtered.length > 0 가드 — 어제처럼 이 디바이스에
+                records 0건일 때 패턴 분석 영역 자체를 숨김. 빈 그리드/도넛 회피. */}
+            {filtered.length > 0 && (
+              <>
+                <p className="mb-3 text-[11.5px]" style={{ color: tokens.textFaint }}>
+                  {lang === 'ko' ? '* 아래 패턴 분석은 이 디바이스 기록만 (KV에 시간/모델별 분포 없음)'
+                    : lang === 'ph' ? '* Pattern analysis sa baba — device na ito lang'
+                    : '* Pattern analysis below — this device only'}
+                </p>
 
-            {/* Heatmap */}
-            <Card title={t.whenLabel}>
-              <Heatmap grid={heatmap.grid} max={heatmap.max} weekdayLabels={t.weekdays} />
+                {/* Heatmap */}
+                <Card title={t.whenLabel}>
+                  <Heatmap grid={heatmap.grid} max={heatmap.max} weekdayLabels={t.weekdays} />
               {/* [2026-05-05 PM-46 Roy] sparse-data 안내 — records가 KV 총합 대비
                   현저히 적으면 "과거 메시지는 추적 누락됨" 명시. PM-46 이전 chat-api는
                   usage 데이터 없는 provider(Gemini stream 등) 메시지를 skip → records가
@@ -502,6 +513,20 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
                   </p>
                 )}
               </Card>
+            )}
+              </>
+            )}
+            {/* [2026-05-05 PM-46 Roy] filtered 비어있을 때 패턴 분석 자리에 안내 노트.
+                KV에는 데이터 있어도 이 디바이스에 records 0건이면 시간대/모델 분포 표시
+                불가. 사용자가 "왜 KPI는 있는데 그래프는 비었지?" 헷갈리지 않게 명시. */}
+            {filtered.length === 0 && stats.messages > 0 && (
+              <p className="mb-3 text-[12px]" style={{ color: tokens.textFaint }}>
+                {lang === 'ko'
+                  ? `* 이 기간에 이 디바이스 활동 기록 없음 — 시간대/모델 분포 표시 불가 (다른 디바이스 사용 분량은 위 KPI에 반영됨).`
+                  : lang === 'ph'
+                  ? `* Walang aktibidad sa device na ito sa panahong ito — walang time/model graph (KPI sa itaas mula sa ibang devices).`
+                  : `* No activity from this device in this period — time/model distribution unavailable (other devices' usage shown in KPI above).`}
+              </p>
             )}
           </>
         )}
