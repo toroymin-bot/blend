@@ -2,16 +2,18 @@
  * [2026-05-05 PM-46 Phase 3 Roy] Cloudflare counter usage-summary 통합 fetcher.
  *
  * Dashboard + Billing 양쪽이 동일 함수 사용 → 자동으로 데이터 일관성 보장.
- * 이전엔 두 컴포넌트가 각자 fetch(`/usage-summary`)해서 코드 중복 + 향후 endpoint
- * 변경 시 한쪽 누락 위험 있었음.
  *
- * Phase 3 동작:
- *   1) /usage-summary-v2 (WAE SQL 집계, race 없는 정확한 값) 우선 호출
- *   2) v2 실패/에러 응답 시 /usage-summary (KV) fallback — race lost로 약간 부정확하지만
- *      빈 화면보다 낫고 사용자 경험 보호
- *   3) 둘 다 실패 시 null
+ * 결정 (2026-05-05 Roy): "WAE로 새로 시작. KV는 사용하지 말자."
+ * 런칭 직전 = 사실상 모든 사용자가 신규 → KV의 historical 데이터(=Roy 본인 테스트)는
+ * 사용자에 의미 없음. WAE는 race 없는 정확한 값을 첫 메시지부터 누적 → 신규 사용자에게
+ * 100% 정확한 통계 제공.
  *
- * 응답 shape는 두 endpoint가 동일하게 설계되어 있어 호출자는 차이를 몰라도 됨.
+ * 동작:
+ *   - /usage-summary-v2 (WAE) **단독** 호출. KV fallback 없음.
+ *   - 실패 시 null 반환 (UI는 빈 상태 표시 → 첫 메시지부터 정상 누적되면 자연 회복).
+ *
+ * KV는 워커 백엔드에서 dual-write 계속됨 (Telegram 일일 리포트가 KV /usage-summary
+ * 사용 중). 향후 Telegram도 v2로 옮기면 KV write 제거 가능.
  */
 export interface UsageSummary {
   generatedAt: string;
@@ -22,12 +24,11 @@ export interface UsageSummary {
   all:       { totalCost: number; totalRequests: number; providers:  Record<string, { cost: number; requests: number; tokens?: number }> };
 }
 
-/** 실제 fetch — counter URL 기반. 두 endpoint 시도 후 첫 성공 반환. */
+/** 실제 fetch — counter URL 기반. WAE 단독, fallback 없음. */
 export async function fetchUsageSummary(): Promise<UsageSummary | null> {
   const counterUrl = process.env.NEXT_PUBLIC_BLEND_COUNTER_URL;
   if (!counterUrl) return null;
 
-  // 1차: WAE 기반 (정확)
   try {
     const r = await fetch(`${counterUrl}/usage-summary-v2`);
     if (r.ok) {
@@ -36,16 +37,7 @@ export async function fetchUsageSummary(): Promise<UsageSummary | null> {
         return { ...data, source: 'analytics_engine' };
       }
     }
-  } catch { /* fallthrough to KV */ }
-
-  // 2차: KV 기반 (race로 ±수건 drift 가능)
-  try {
-    const r = await fetch(`${counterUrl}/usage-summary`);
-    if (r.ok) {
-      const data = await r.json() as UsageSummary;
-      return { ...data, source: 'kv' };
-    }
-  } catch { /* fallthrough to null */ }
+  } catch { /* WAE 실패 시 null 반환 — UI는 빈 상태 표시 */ }
 
   return null;
 }
