@@ -475,75 +475,9 @@ export default {
       }
     }
 
-    // ═══ /usage-summary-diff — KV vs WAE 비교 (PM-46 Phase 2 검증용) ═══
-    // 두 엔드포인트의 응답을 가져와 같은 기간에서 totalRequests / providers 차이 계산.
-    // KV가 race lost로 더 적게 나오면 (kv < ae) WAE가 더 정확. 클라이언트 swap 결정 근거.
-    if (url.pathname === '/usage-summary-diff' && req.method === 'GET') {
-      try {
-        const baseUrl = `${url.protocol}//${url.host}`;
-        const [kvRes, aeRes] = await Promise.all([
-          fetch(`${baseUrl}/usage-summary`).then((r) => r.json() as Promise<any>),
-          fetch(`${baseUrl}/usage-summary-v2`).then((r) => r.json() as Promise<any>),
-        ]);
-
-        const periods = ['yesterday', 'week', 'month', 'all'] as const;
-        const diff: Record<string, unknown> = {};
-
-        for (const p of periods) {
-          const kv = kvRes[p];
-          const ae = aeRes[p];
-          if (!kv || !ae) {
-            diff[p] = { error: 'one side missing', kv: !!kv, ae: !!ae };
-            continue;
-          }
-
-          const kvProviders = kv.providers || {};
-          const aeProviders = ae.providers || {};
-          const allProviders = new Set([
-            ...Object.keys(kvProviders),
-            ...Object.keys(aeProviders),
-          ]);
-          const providersDiff: Record<string, { kv: number; ae: number; lost: number }> = {};
-          for (const prov of allProviders) {
-            const kvR = kvProviders[prov]?.requests || 0;
-            const aeR = aeProviders[prov]?.requests || 0;
-            providersDiff[prov] = { kv: kvR, ae: aeR, lost: aeR - kvR };
-          }
-
-          diff[p] = {
-            totalRequests: {
-              kv: kv.totalRequests || 0,
-              ae: ae.totalRequests || 0,
-              lost: (ae.totalRequests || 0) - (kv.totalRequests || 0),
-            },
-            totalCost: {
-              kv: kv.totalCost || 0,
-              ae: ae.totalCost || 0,
-              lostUsd: (ae.totalCost || 0) - (kv.totalCost || 0),
-            },
-            providers: providersDiff,
-          };
-        }
-
-        return new Response(JSON.stringify({
-          generatedAt: new Date().toISOString(),
-          note: 'lost = ae - kv. positive lost means KV race lost update.',
-          diff,
-        }, null, 2), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders,
-            'Cache-Control': 'no-store', // 검증용 — 항상 최신 비교
-          },
-        });
-      } catch (e) {
-        return new Response(JSON.stringify({ error: String(e) }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        });
-      }
-    }
+    // [2026-05-05 PM-46 Phase 2] /usage-summary-diff endpoint 제거 — 워커가 자기 URL
+    // fetch 시 CF가 loop 차단(error 1042). 검증은 외부 curl 두 번(/usage-summary +
+    // /usage-summary-v2)으로 충분.
 
     // ═══ /track — 이벤트 추적 ═══
     if (url.pathname === '/track' && req.method === 'POST') {

@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useUsageStore } from '@/stores/usage-store';
 import { useLicenseStore } from '@/stores/license-store';
+import { fetchUsageSummary } from '@/lib/usage-summary';
 
 // ── Design tokens (same as chat-view-design1) ───────────────────
 const tokens = {
@@ -531,14 +532,9 @@ export default function D1BillingView({
 
   useEffect(() => {
     loadFromStorage();
-    // KV 통합 뷰 fetch — Cloudflare counter endpoint
-    const counterUrl = process.env.NEXT_PUBLIC_BLEND_COUNTER_URL;
-    if (counterUrl) {
-      fetch(`${counterUrl}/usage-summary`)
-        .then((r) => r.ok ? r.json() : null)
-        .then((data) => { if (data) setKvSummary(data); })
-        .catch(() => {});
-    }
+    // [2026-05-05 PM-46 Phase 3 Roy] 공통 util fetchUsageSummary 사용. Dashboard와 동일
+    // 함수 → v2(WAE) 우선 + KV fallback 자동. 양쪽 카드 데이터 일관성 자동 보장.
+    fetchUsageSummary().then((data) => { if (data) setKvSummary(data); });
   }, [loadFromStorage]);
 
   const monthCostUsd  = getThisMonth();

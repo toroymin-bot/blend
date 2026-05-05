@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useUsageStore } from '@/stores/usage-store';
 import { AVAILABLE_MODELS } from '@/data/available-models';
+import { fetchUsageSummary } from '@/lib/usage-summary';
 
 // ── Design tokens ────────────────────────────────────────────────
 const tokens = {
@@ -193,14 +194,9 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
 
   useEffect(() => {
     loadFromStorage();
-    // [PM-42] KV 통합 fetch — billing-view와 동일 endpoint, 일관성 보장.
-    const counterUrl = process.env.NEXT_PUBLIC_BLEND_COUNTER_URL;
-    if (counterUrl) {
-      fetch(`${counterUrl}/usage-summary`)
-        .then((r) => r.ok ? r.json() : null)
-        .then((data) => { if (data) setKvSummary(data); })
-        .catch(() => {});
-    }
+    // [2026-05-05 PM-46 Phase 3 Roy] 공통 util fetchUsageSummary 사용 → 자동 v2(WAE) 우선,
+    // 실패 시 KV fallback. Billing 카드와 동일 함수 호출이라 데이터 일관성 자동 보장.
+    fetchUsageSummary().then((data) => { if (data) setKvSummary(data); });
   }, [loadFromStorage]);
 
   // [2026-05-05 PM-46 Roy] 기본값 = '이번 달(최근 30일)' 유지. today/yesterday는 옵션 추가만.
