@@ -257,9 +257,11 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' | 
   }, []);
 
   // [2026-04-26] Sprint 1 (16384367) — Welcome Demo
-  // 신규 사용자 첫 진입 시 자동 노출 + 사이드바 도움말에서 재진입.
+  // [2026-05-05 PM-30 → PM-43 Roy] 첫 진입 자동 트리거 + replay 이벤트 모두 ENABLE_WELCOME_TOUR
+  // 통제. PM-30에서 메뉴 버튼만 비활성하고 자동 트리거는 그대로 남겨둔 회귀 정정.
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   useEffect(() => {
+    if (!ENABLE_WELCOME_TOUR) return;  // [PM-43] 비활성 시 첫 진입 자동 노출도 차단
     if (typeof window === 'undefined') return;
     if (!hasSeenWelcome()) {
       // showOnboarding이 다른 흐름과 충돌하지 않도록 약간 지연
@@ -268,6 +270,7 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' | 
     }
   }, []);
   useEffect(() => {
+    if (!ENABLE_WELCOME_TOUR) return;  // [PM-43] replay 이벤트도 비활성 시 무시
     if (typeof window === 'undefined') return;
     const handler = () => setWelcomeOpen(true);
     window.addEventListener('blend:replay-welcome', handler as EventListener);
