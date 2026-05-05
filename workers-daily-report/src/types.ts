@@ -70,3 +70,12 @@ export interface UsageDetailed {
   models: Record<string, { requests: number; cost: number; tokens: number }>;
   hourly: Array<{ hour: string; requests: number; cost: number }>;
 }
+
+// [2026-05-05 PM-46 Phase 5] /usage-summary-v2 month 부분 — 월말 추정용
+export interface MonthSummary {
+  totalCost: number;
+  totalRequests: number;
+  totalTokens?: number;
+  providers: Record<string, { cost: number; requests: number; tokens?: number }>;
+  models?: Record<string, { cost: number; requests: number; tokens?: number }>;
+}

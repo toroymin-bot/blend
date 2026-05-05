@@ -642,6 +642,140 @@ export default {
       }
     }
 
+    // ═══ /usage-by-country — 국가별 분포 (Phase 6, 2026-05-05 Roy) ═══
+    // blob2 = country (CF-IPCountry). date 범위 내 합산.
+    if (url.pathname === '/usage-by-country' && req.method === 'GET') {
+      try {
+        const from = url.searchParams.get('from');
+        const to = url.searchParams.get('to');
+        if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+          return new Response(JSON.stringify({ error: 'from/to required' }), {
+            status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+        const querySql = async (sql: string) => {
+          const r = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+            { method: 'POST', headers: { Authorization: `Bearer ${env.AE_QUERY_TOKEN}`, 'Content-Type': 'text/plain' }, body: sql },
+          );
+          if (!r.ok) throw new Error(`AE ${r.status}`);
+          const j = await r.json() as { data?: Array<Record<string, unknown>> };
+          return j.data ?? [];
+        };
+        const rows = await querySql(`
+          SELECT blob2 AS country, SUM(_sample_interval) AS requests, SUM(double1) AS cost
+          FROM blend_usage WHERE blob4 >= '${from}' AND blob4 <= '${to}'
+          GROUP BY blob2
+        `);
+        const countries = rows.map((r) => ({
+          code: String(r.country || 'XX'),
+          requests: Number(r.requests) || 0,
+          cost: Number(r.cost) || 0,
+        }));
+        return new Response(JSON.stringify({ from, to, countries }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders, 'Cache-Control': 'public, max-age=120' },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
+
+    // ═══ /usage-by-os — OS별 분포 ═══
+    if (url.pathname === '/usage-by-os' && req.method === 'GET') {
+      try {
+        const from = url.searchParams.get('from');
+        const to = url.searchParams.get('to');
+        if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+          return new Response(JSON.stringify({ error: 'from/to required' }), {
+            status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+        const querySql = async (sql: string) => {
+          const r = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+            { method: 'POST', headers: { Authorization: `Bearer ${env.AE_QUERY_TOKEN}`, 'Content-Type': 'text/plain' }, body: sql },
+          );
+          if (!r.ok) throw new Error(`AE ${r.status}`);
+          const j = await r.json() as { data?: Array<Record<string, unknown>> };
+          return j.data ?? [];
+        };
+        const rows = await querySql(`
+          SELECT blob3 AS os, SUM(_sample_interval) AS requests, SUM(double1) AS cost
+          FROM blend_usage WHERE blob4 >= '${from}' AND blob4 <= '${to}'
+          GROUP BY blob3
+        `);
+        const oses = rows.map((r) => ({
+          os: String(r.os || 'other'),
+          requests: Number(r.requests) || 0,
+          cost: Number(r.cost) || 0,
+        }));
+        return new Response(JSON.stringify({ from, to, oses }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders, 'Cache-Control': 'public, max-age=120' },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
+
+    // ═══ /retention-cohorts — 코호트 리텐션 (KV /track-visit 데이터 기반) ═══
+    // KV `cohort:{date}:users` = 그날 가입한 userId[]
+    // KV `active:{cohortDate}:{checkDate}` = checkDate에 활성한 cohort 멤버
+    // 최근 30일 코호트 모두 조회 → D+1 D+7 D+30 계산.
+    if (url.pathname === '/retention-cohorts' && req.method === 'GET') {
+      try {
+        const today = kstDate();
+        const days = Math.min(60, Math.max(7, parseInt(url.searchParams.get('days') || '30', 10)));
+        const start = (() => {
+          const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+          d.setUTCDate(d.getUTCDate() - days);
+          return d.toISOString().slice(0, 10);
+        })();
+
+        // 가입 코호트 list
+        const list = await env.STATS.list({ prefix: 'cohort:', limit: 100 });
+        const cohortDates = list.keys
+          .map((k) => k.name.match(/^cohort:(\d{4}-\d{2}-\d{2}):users$/)?.[1])
+          .filter((d): d is string => !!d && d >= start && d <= today)
+          .sort();
+
+        const addDays = (date: string, n: number): string => {
+          const d = new Date(date + 'T00:00:00Z');
+          d.setUTCDate(d.getUTCDate() + n);
+          return d.toISOString().slice(0, 10);
+        };
+
+        const cohorts = await Promise.all(cohortDates.map(async (cd) => {
+          const usersJson = await env.STATS.get(`cohort:${cd}:users`);
+          const users: string[] = usersJson ? JSON.parse(usersJson) : [];
+          const cohortSize = users.length;
+          const checkActive = async (offset: number): Promise<number> => {
+            const checkDate = addDays(cd, offset);
+            if (checkDate > today) return 0; // 아직 안 지남
+            const json = await env.STATS.get(`active:${cd}:${checkDate}`);
+            const active: string[] = json ? JSON.parse(json) : [];
+            return active.length;
+          };
+          const [d1, d7, d30] = await Promise.all([checkActive(1), checkActive(7), checkActive(30)]);
+          return { cohortDate: cd, cohortSize, d1Active: d1, d7Active: d7, d30Active: d30 };
+        }));
+
+        return new Response(JSON.stringify({ from: start, to: today, cohorts }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders, 'Cache-Control': 'public, max-age=300' },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
+
     // ═══ /usage-detailed — 1일 상세 분석 (PM-46 Phase 4, 2026-05-05 Roy) ═══
     // Telegram 일일 리포트 워커가 호출 → provider/model/hour breakdown 반환.
     // KST 날짜 기준 (date param = YYYY-MM-DD). WAE SQL 3개 쿼리 병렬.
