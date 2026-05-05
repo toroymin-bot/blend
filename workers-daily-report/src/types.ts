@@ -55,8 +55,9 @@ export interface Env {
   TELEGRAM_CHAT_ID: string;
   GITHUB_REPO_URL: string;
   TIMEZONE: string;
-  // [2026-05-05 PM-46 Phase 4 Roy] WAE-backed 사용 통계용
-  BLEND_COUNTER_URL: string;
+  // [2026-05-05 PM-46 Phase 5 Roy] blend-counter service binding (worker→worker internal).
+  // public URL fetch는 CF가 loop 감지로 차단(error 1042) — service binding 필수.
+  BLEND_COUNTER: Fetcher;
 }
 
 // [2026-05-05 PM-46 Phase 4] blend-counter /usage-detailed 응답 shape

@@ -29,22 +29,18 @@ export default {
       return new Response('ok', { status: 200 });
     }
 
-    // [2026-05-05 PM-46 Phase 5] 진단용 — env + fetch 결과 확인.
+    // [2026-05-05 PM-46 Phase 5] 진단용 — service binding fetch 결과 확인.
     if (url.pathname === '/diag') {
       const date = url.searchParams.get('date') ?? new Date().toISOString().slice(0, 10);
-      const counterUrl = env.BLEND_COUNTER_URL ?? '<UNSET>';
-      let fetchInfo: any = { url: `${counterUrl}/usage-detailed?date=${date}` };
+      let fetchInfo: any = { binding: env.BLEND_COUNTER ? 'present' : 'MISSING' };
       try {
-        const r = await fetch(`${counterUrl}/usage-detailed?date=${date}&_t=${Date.now()}`);
+        const r = await env.BLEND_COUNTER.fetch(`https://internal/usage-detailed?date=${date}`);
         fetchInfo.status = r.status;
         fetchInfo.body = (await r.text()).slice(0, 500);
       } catch (e) {
         fetchInfo.error = String(e);
       }
-      return new Response(JSON.stringify({
-        BLEND_COUNTER_URL: env.BLEND_COUNTER_URL ?? null,
-        date, fetchInfo,
-      }, null, 2), {
+      return new Response(JSON.stringify({ date, fetchInfo }, null, 2), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
