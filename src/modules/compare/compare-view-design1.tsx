@@ -264,7 +264,7 @@ export default function D1CompareView({
   // chat-api는 onError로 raw err.message를 던짐 → 사용자에게 'OpenAI API error: 429'
   // 같은 raw 노출. 카테고리 정규식으로 친절 변환 + 일시 장애(rate/network/5xx)는
   // 자동 1회 retry. provider 무관 동일 처리.
-  const streamOneModel = useCallback(async (modelId: string, question: string, attempt = 0) => {
+  const streamOneModel = useCallback(async (modelId: string, question: string, attempt = 0, forceTrial = false) => {
     const model = MODELS.find((m) => m.id === modelId);
     if (!model) return;
 
@@ -272,11 +272,14 @@ export default function D1CompareView({
     const abort = new AbortController();
     abortRefs.current[modelId] = abort;
 
+    // [2026-05-05 PM-36 Roy] forceTrial=true → 사용자 키가 invalid해서 trial fallback으로
+    // 호출됨. Gemini 전용 (trial 키는 google 모델만 지원).
     const isTrialGemini =
-      model.isTrial &&
-      !hasKey('google') &&
-      TRIAL_KEY_AVAILABLE &&
-      trialRemaining > 0;
+      forceTrial ||
+      (model.isTrial &&
+        !hasKey('google') &&
+        TRIAL_KEY_AVAILABLE &&
+        trialRemaining > 0);
 
     const apiKey = getKey(model.apiProv);
 
@@ -398,11 +401,40 @@ export default function D1CompareView({
         : `❗ Request failed. ${short}`;
     };
 
+    // [2026-05-05 PM-36 Roy] 사용자 Gemini 키 invalid → trial 키로 자동 fallback.
+    // Compare에서 PM-26-4 회의 분석과 비슷한 자동 복구 패턴 — 다만 다른 provider 모델로
+    // 바꾸지 않고 같은 모델 (Gemini)만 trial 키로 재시도. "비교" 의도 보존.
+    // OpenAI/Anthropic은 trial 키 없음 → friendly error 그대로 (키 재등록 필요).
+    const AUTH_INVALID_RE = /401|unauthorized|invalid.*api.?key|incorrect.*api.?key|invalid.*key|key.?not.?valid|not.?valid.*key|api_key_invalid|authentication.?error/i;
+
     const handleErr = (raw: string) => {
       // RETRYABLE 카테고리이고 첫 시도면 자동 재시도.
       if (attempt === 0 && RETRYABLE.test(raw ?? '')) {
         // 약간의 backoff (300ms) 후 재시도.
         setTimeout(() => streamOneModel(modelId, question, 1), 300);
+        return;
+      }
+      // [PM-36] Gemini auth 실패 + trial 가능 모델 + trial 한도 있으면 자동 trial fallback.
+      const canTrialFallback =
+        attempt === 0 &&
+        !forceTrial &&
+        AUTH_INVALID_RE.test(raw ?? '') &&
+        model.isTrial &&
+        model.apiProv === 'google' &&
+        TRIAL_KEY_AVAILABLE &&
+        trialRemaining > 0;
+      if (canTrialFallback) {
+        // content reset + trial 키로 재시도 (forceTrial=true).
+        colContentRef.current[modelId] = '';
+        setSession((prev) => prev && ({
+          ...prev,
+          columns: prev.columns.map((c) =>
+            c.modelId === modelId
+              ? { ...c, content: '', isStreaming: true, done: false, error: undefined }
+              : c,
+          ),
+        }));
+        setTimeout(() => streamOneModel(modelId, question, 1, true), 300);
         return;
       }
       markError(friendlyCompareError(raw));
