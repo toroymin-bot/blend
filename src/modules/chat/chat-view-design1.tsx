@@ -386,6 +386,15 @@ export default function D1ChatView({
   const trialRemaining  = Math.max(0, trialMaxPerDay - trialDailyCount);
   useEffect(() => { trialResetIfNewDay(); }, []);
 
+  // [2026-05-05 PM-31 Roy] FAQ → "블렌드에게 물어보기" 외부 진입점.
+  // d1:ask-blend 이벤트 → 채팅 'Blend?' 버튼 클릭과 동일 동작 (BLEND_INTRO_QUESTION 자동 발송).
+  const askBlendRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const handler = () => askBlendRef.current?.();
+    window.addEventListener('d1:ask-blend', handler);
+    return () => window.removeEventListener('d1:ask-blend', handler);
+  }, []);
+
   const [showTrialExhausted, setShowTrialExhausted] = useState(false);
   const [showKeyRequired, setShowKeyRequired] = useState<{ providerName: string } | null>(null);
 
@@ -1332,6 +1341,9 @@ export default function D1ChatView({
   }
 
   // [2026-04-26 Tori 16220538 §1] override — 음성 자동 전송용
+  // [2026-05-05 PM-31 Roy] askBlendRef 매 렌더 갱신 — listener에서 최신 handleSend 호출 안전.
+  askBlendRef.current = () => handleSend(BLEND_INTRO_QUESTION[narrowLang]);
+
   function handleSend(override?: string) {
     // [2026-04-28] 방어 코드: 호출자가 실수로 SyntheticEvent를 넘기면
     // (event).trim() TypeError로 silent crash 났던 회귀 차단.

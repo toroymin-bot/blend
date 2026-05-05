@@ -961,25 +961,30 @@ export function D1SettingsView() {
                   <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
                     {lang === 'ko' ? '왜 만들었나' : lang === 'ph' ? 'Bakit ginawa namin ito' : 'Why we built this'}
                   </h4>
+                  {/* [2026-05-05 PM-31 Roy] 가격 카피 업데이트 — 멤버십 $8/월 ($39/6mo, $68/yr).
+                      평균 = 멤버십 + API $5 ≈ $13 vs $60 구독. */}
                   {lang === 'ko' ? (
                     <>
                       <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>매일 모든 AI를. 쓴 만큼만 내세요.</p>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>블렌드의 멤버로서 Claude + ChatGPT + Gemini의 API를 원가로 이용하세요.</p>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>이제 매달 $60 대신 평균 $5.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>블렌드 멤버십 월 $8 (또는 6개월 $39 / 1년 $68).</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Claude + ChatGPT + Gemini의 API를 원가 그대로.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>이제 매달 $60 구독 대신 평균 $13.</p>
                       <p className="mt-1 text-[13.5px] font-medium leading-[1.7]" style={{ color: tokens.text }}>이게 Blend입니다.</p>
                     </>
                   ) : lang === 'ph' ? (
                     <>
                       <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Lahat ng AI araw-araw. Bayaran lamang ang ginagamit.</p>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Bilang miyembro ng Blend, gamitin ang API ng Claude + ChatGPT + Gemini sa presyo lang.</p>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Ngayon, sa halip na $60 kada buwan, $5 na lang sa average.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Membership ng Blend $8/buwan (o $39/6 buwan / $68/1 taon).</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>API ng Claude + ChatGPT + Gemini sa presyo lang.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Ngayon, sa halip na $60 kada buwan, average ay $13.</p>
                       <p className="mt-1 text-[13.5px] font-medium leading-[1.7]" style={{ color: tokens.text }}>Iyan ang Blend.</p>
                     </>
                   ) : (
                     <>
                       <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Every AI, every day. Pay only for what you use.</p>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>As a Blend member, use Claude + ChatGPT + Gemini APIs at cost.</p>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Now $5 a month on average, instead of $60.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Blend membership $8/month (or $39/6mo / $68/year).</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Claude + ChatGPT + Gemini APIs at cost.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Now $13/month on average, instead of $60.</p>
                       <p className="mt-1 text-[13.5px] font-medium leading-[1.7]" style={{ color: tokens.text }}>That&apos;s Blend.</p>
                     </>
                   )}
@@ -1224,6 +1229,50 @@ function D1FaqList({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
         );
       })}
       <div className="border-t" style={{ borderColor: tokens.border }} />
+
+      {/* [2026-05-05 PM-31 Roy] FAQ footer — 추가 문의 안내. 잡스식 심플:
+          1) "더 궁금한 게 있나요?" 한 줄
+          2) "[블렌드에게 물어보기 →]" 큰 액센트 링크 — 클릭 시 채팅으로 이동 + Blend 소개 자동 발송
+          3) "또는 [blend@ai4min.com]으로 메일" 작은 라인 — mailto 링크 */}
+      <div className="mt-12 md:mt-16 text-center">
+        <p className="mb-4 text-[14px] md:text-[15px]" style={{ color: tokens.textDim }}>
+          {lang === 'ko' ? '더 궁금한 게 있나요?'
+            : lang === 'ph' ? 'May iba pang tanong?'
+            : 'Still have questions?'}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            // 채팅 메뉴로 이동 + Blend 소개 자동 발송
+            window.dispatchEvent(new CustomEvent('d1:nav-to', { detail: { view: 'chat' } }));
+            // chat-view-design1가 listener를 통해 BLEND_INTRO_QUESTION 자동 send.
+            // 약간의 지연으로 nav 후 mount 완료 보장.
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('d1:ask-blend'));
+            }, 150);
+          }}
+          className="inline-flex items-center gap-1.5 text-[16px] md:text-[18px] font-medium underline underline-offset-[4px] decoration-1 transition-opacity hover:opacity-70"
+          style={{ color: tokens.accent }}
+        >
+          {lang === 'ko' ? '블렌드에게 물어보기'
+            : lang === 'ph' ? 'Tanungin ang Blend'
+            : 'Ask Blend'}
+          <span aria-hidden style={{ transform: 'translateY(-1px)' }}>→</span>
+        </button>
+        <p className="mt-6 text-[13px] md:text-[14px]" style={{ color: tokens.textFaint }}>
+          {lang === 'ko' ? '또는 '
+            : lang === 'ph' ? 'O mag-email sa '
+            : 'Or email '}
+          <a
+            href="mailto:blend@ai4min.com"
+            className="underline underline-offset-[3px] decoration-1 transition-opacity hover:opacity-70"
+            style={{ color: tokens.text }}
+          >
+            blend@ai4min.com
+          </a>
+          {lang === 'ko' ? '으로 메일 주세요.' : ''}
+        </p>
+      </div>
     </div>
   );
 }

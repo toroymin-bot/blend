@@ -66,16 +66,23 @@ const DEFAULT_LIMIT: SpendingLimit = {
 type PlanId = 'free' | 'pro' | 'lifetime';
 type BillingCycle = 'monthly' | 'yearly';
 
-// [2026-05-05 PM-30 Roy] PRICING은 USD 기준 single source of truth.
+// [2026-05-05 PM-31 Roy] PRICING USD source of truth — 3-tier 할인 구조:
+//   - 월간: $8 (정가)
+//   - 6개월: $8 × 6 × 0.80 = $38.40 → ceil $39 (20% 할인)
+//   - 연간: $8 × 12 × 0.70 = $67.20 → ceil $68 (30% 할인)
 // KRW/PHP는 getCurrentFxRates()로 화면 표시 시점에 변환 (xe.com 매월 1일 기준).
-// Pro 월 $9, 연간 $90 (= $9 × 10 = 2개월 무료), Smarter 6개월 $39 (28% off vs $9 × 6 = $54).
 const PRICING = {
   pro: {
-    monthlyUsd: 9,
-    yearlyUsd:  90,
+    monthlyUsd: 8,
+    yearlyUsd:  68, // $96 × 0.70 = $67.20 → ceil
   },
   lifetime: {
-    onceUsd: 39,
+    onceUsd: 39,    // $48 × 0.80 = $38.40 → ceil — 6개월 1회 결제
+  },
+  /** 할인율 — 카드 badge / 카피에 노출 */
+  discount: {
+    yearlyPct:    30,
+    semiYearlyPct: 20,
   },
 } as const;
 
@@ -83,27 +90,28 @@ const PRICING = {
 const copy = {
   ko: {
     head:          '모든 AI를 하나의 키로.',
-    sub:           '하나로, 더 저렴하게, 더 똑똑하게.',
+    sub:           '한달에 커피 한 잔 비용으로. 매일 모든 AI를.',
     // [2026-05-05 Roy PM-29] Savings 모드 hero — 가격 가치 전면.
     savingsHead:    '한 달에 커피 한 잔. 매일 모든 AI를.',
     savingsHeadCta: '쓴 만큼만 내세요',
     savingsHeadSuffix: '.',
-    // [2026-05-05 Roy PM-29] Savings 상단 플랜 카드 — billing 페이지로 유도.
+    // [2026-05-05 Roy PM-29~31] Savings 상단 플랜 카드 — billing 페이지로 유도.
+    // PM-31: 가격 string 제거 → SavingsPlanCard에서 fmtMoney(usd, lang)로 동적 변환.
+    // perMo는 effective monthly (6개월 가격 ÷ 6) — 동적 계산.
     savingsPlanTitle: '플랜',
     savingsPlanSemiName: 'Smarter — 6개월',
-    savingsPlanSemiPrice: '$39',
-    savingsPlanSemiPerMo: '$6.50/월',
     savingsPlanSemiBadge: '추천',
     savingsPlanMonthName: '월간',
-    savingsPlanMonthPrice: '$9',
     savingsPlanFootnote: '* AI 사용료는 원가 그대로 (마진 0%)',
     savingsPlanGoTitle: '결제 페이지로 이동',
+    savingsPlanPerMoSuffix: '/월',
+    savingsPlanDiscountFmt: (pct: number) => `${pct}% 할인`,
     // Pricing v2
     plansHead:     '요금제',
     plansSub:      '필요한 만큼만, 평생 한 번, 또는 매달 — 골라쓰세요.',
     monthly:       '월간',
     yearly:        '연간',
-    yearlyBadge:   '2개월 무료',
+    yearlyBadge:   '30% 할인',
     perMonth:      '/월',
     perYear:       '/년',
     once:          '1회 결제',
@@ -111,9 +119,13 @@ const copy = {
     plan_free:     '무료',
     plan_pro:      'Pro',
     plan_lifetime: 'Smarter - 6개월',
-    plan_free_desc: 'API 키 BYOK · 핵심 기능 무제한.',
-    plan_pro_desc:  '체험 키 + 우선 신모델 + 고급 RAG.',
-    plan_lifetime_desc: 'Pro의 모든 기능을 6개월간 — 1회 결제 (28% 할인).',
+    // [2026-05-05 PM-31 Roy] plan 설명 짧게 — 카드 한 줄 요약.
+    plan_free_desc: '키만 있으면 무제한.',
+    plan_pro_desc:  '유연하게, 매달.',
+    plan_lifetime_desc: '20% 절약 · 인기.',
+    // [2026-05-05 PM-31 Roy] 연간 요금제 신규 — 30% 할인.
+    plan_yearly: 'Smarter - 1년',
+    plan_yearly_desc: '30% 절약 · 베스트.',
     plan_free_features: [
       '내 API 키로 모든 AI 무제한',
       '회의 분석 · 문서 RAG',
@@ -128,13 +140,20 @@ const copy = {
     ],
     plan_lifetime_features: [
       'Pro의 모든 기능',
-      '6개월 이용권 (1회 결제 · 28% 할인)',
+      '6개월 이용권 (1회 결제 · 20% 할인)',
       '미래 신기능 자동 포함',
     ],
+    plan_yearly_features: [
+      'Pro의 모든 기능',
+      '1년 이용권 (1회 결제 · 30% 할인)',
+      '미래 신기능 자동 포함',
+    ],
+    cta_yearly_prefix: '1년 구매 — ',
     cta_current:    '현재 플랜',
     cta_choose:     '선택하기',
     cta_upgrade:    '업그레이드',
-    cta_lifetime:   '6개월 구매 — $39',
+    // PM-31: 가격 string 제거 — 호출 시 fmtMoney(lifetime price, lang)로 lang별 변환.
+    cta_lifetime_prefix: '6개월 구매 — ',
     payTitle:       '결제 준비 중',
     payDesc:        '결제 시스템(Toss / Xendit / 카드)을 곧 연결해요. 출시 알림을 받으시려면 아래 버튼을 눌러주세요.',
     payNotify:      '출시 알림 받기',
@@ -180,25 +199,24 @@ const copy = {
   },
   en: {
     head:          'Every AI, with one key.',
-    sub:           'One AI app — more affordable and smarter.',
+    sub:           'One coffee a month. Every AI, every day.',
     // [2026-05-05 Roy PM-29] Savings hero copy.
     savingsHead:    'One coffee a month. Every AI, every day.',
     savingsHeadCta: 'Pay only for what you use',
     savingsHeadSuffix: '.',
     savingsPlanTitle: 'Plans',
     savingsPlanSemiName: 'Smarter — 6 months',
-    savingsPlanSemiPrice: '$39',
-    savingsPlanSemiPerMo: '$6.50/mo',
     savingsPlanSemiBadge: 'Recommended',
     savingsPlanMonthName: 'Monthly',
-    savingsPlanMonthPrice: '$9',
     savingsPlanFootnote: '* AI usage billed at cost (0% markup)',
     savingsPlanGoTitle: 'Go to checkout',
+    savingsPlanPerMoSuffix: '/mo',
+    savingsPlanDiscountFmt: (pct: number) => `${pct}% off`,
     plansHead:     'Plans',
     plansSub:      'Pay-as-you-go, once forever, or monthly — pick what fits.',
     monthly:       'Monthly',
     yearly:        'Yearly',
-    yearlyBadge:   '2 months free',
+    yearlyBadge:   '30% off',
     perMonth:      '/mo',
     perYear:       '/yr',
     once:          'One-time',
@@ -206,9 +224,11 @@ const copy = {
     plan_free:     'Free',
     plan_pro:      'Pro',
     plan_lifetime: 'Smarter - 6 Months',
-    plan_free_desc: 'BYOK · unlimited core features.',
-    plan_pro_desc:  'Trial key + priority new models + advanced RAG.',
-    plan_lifetime_desc: 'All Pro features for 6 months — pay once (28% off).',
+    plan_free_desc: 'Bring your key. Go unlimited.',
+    plan_pro_desc:  'Flexible. Monthly.',
+    plan_lifetime_desc: '20% off · Popular.',
+    plan_yearly: 'Smarter - 1 Year',
+    plan_yearly_desc: '30% off · Best value.',
     plan_free_features: [
       'Unlimited AI with your own keys',
       'Meeting analysis · document RAG',
@@ -223,13 +243,19 @@ const copy = {
     ],
     plan_lifetime_features: [
       'All Pro features',
-      '6-month access (one-time · 28% off)',
+      '6-month access (one-time · 20% off)',
       'Future features included',
     ],
+    plan_yearly_features: [
+      'All Pro features',
+      '1-year access (one-time · 30% off)',
+      'Future features included',
+    ],
+    cta_yearly_prefix: 'Get 1-Year Access — ',
     cta_current:    'Current plan',
     cta_choose:     'Choose',
     cta_upgrade:    'Upgrade',
-    cta_lifetime:   'Get 6-Month Access — $39',
+    cta_lifetime_prefix: 'Get 6-Month Access — ',
     payTitle:       'Payment coming soon',
     payDesc:        'Toss / Xendit / Card checkout will be wired up shortly. Tap below to get a launch notification.',
     payNotify:      'Notify me at launch',
@@ -274,25 +300,24 @@ const copy = {
   // 기술 용어 (API key, subscription, BYOK 등)는 영어 — Taglish 자연스러움.
   ph: {
     head:          'Lahat ng AI, sa iisang key.',
-    sub:           'Isang AI app — mas mura at mas matalino.',
+    sub:           'Isang kape kada buwan. Lahat ng AI araw-araw.',
     // [2026-05-05 Roy PM-29] Savings hero (Filipino).
     savingsHead:    'Isang kape kada buwan. Lahat ng AI araw-araw.',
     savingsHeadCta: 'Bayaran lamang ang ginagamit',
     savingsHeadSuffix: '.',
     savingsPlanTitle: 'Mga Plan',
     savingsPlanSemiName: 'Smarter — 6 buwan',
-    savingsPlanSemiPrice: '$39',
-    savingsPlanSemiPerMo: '$6.50/buwan',
     savingsPlanSemiBadge: 'Inirerekomenda',
     savingsPlanMonthName: 'Buwanan',
-    savingsPlanMonthPrice: '$9',
     savingsPlanFootnote: '* AI usage sa presyo lang (0% markup)',
     savingsPlanGoTitle: 'Pumunta sa checkout',
+    savingsPlanPerMoSuffix: '/buwan',
+    savingsPlanDiscountFmt: (pct: number) => `${pct}% off`,
     plansHead:     'Mga Plan',
     plansSub:      'Pay-as-you-go, isang beses, o buwanan — pumili ng akma.',
     monthly:       'Buwanan',
     yearly:        'Taunan',
-    yearlyBadge:   '2 buwan libre',
+    yearlyBadge:   '30% off',
     perMonth:      '/buwan',
     perYear:       '/taon',
     once:          'Isang beses na bayad',
@@ -300,9 +325,11 @@ const copy = {
     plan_free:     'Libre',
     plan_pro:      'Pro',
     plan_lifetime: 'Smarter - 6 Buwan',
-    plan_free_desc: 'BYOK · walang limit na core features.',
-    plan_pro_desc:  'Trial key + priority na bagong models + advanced RAG.',
-    plan_lifetime_desc: 'Lahat ng Pro features sa 6 na buwan — minsan lang magbayad (28% off).',
+    plan_free_desc: 'Dalhin ang key mo. Walang limit.',
+    plan_pro_desc:  'Flexible. Buwanan.',
+    plan_lifetime_desc: '20% off · Popular.',
+    plan_yearly: 'Smarter - 1 Taon',
+    plan_yearly_desc: '30% off · Pinakasulit.',
     plan_free_features: [
       'Walang limit na AI gamit ang sarili mong keys',
       'Pagsusuri ng meeting · document RAG',
@@ -317,13 +344,19 @@ const copy = {
     ],
     plan_lifetime_features: [
       'Lahat ng Pro features',
-      '6-buwang access (isang beses · 28% off)',
+      '6-buwang access (isang beses · 20% off)',
       'Future features kasama na',
     ],
+    plan_yearly_features: [
+      'Lahat ng Pro features',
+      '1-taong access (isang beses · 30% off)',
+      'Future features kasama na',
+    ],
+    cta_yearly_prefix: 'Kumuha ng 1-Taon — ',
     cta_current:    'Kasalukuyang plan',
     cta_choose:     'Piliin',
     cta_upgrade:    'Mag-upgrade',
-    cta_lifetime:   'Kumuha ng 6-Buwan — $39',
+    cta_lifetime_prefix: 'Kumuha ng 6-Buwan — ',
     payTitle:       'Malapit nang magkaroon ng payment',
     payDesc:        'Malapit nang ikonekta ang Toss / Xendit / Card checkout. I-tap sa baba para makatanggap ng launch notification.',
     payNotify:      'Abisuhan ako sa launch',
@@ -616,7 +649,7 @@ export default function D1BillingView({
 
         {/* [2026-05-05 Roy PM-29] Savings 모드 — 최상단 플랜 카드 (billing 페이지로 유도) */}
         {mode === 'savings' && (
-          <SavingsPlanCard t={t} />
+          <SavingsPlanCard t={t} lang={lang} />
         )}
 
         {/* ══ [2026-04-26] Pricing v2 — Free / Pro / Lifetime ══ */}
@@ -628,7 +661,10 @@ export default function D1BillingView({
             billingCycle={billingCycle}
             setBillingCycle={setBillingCycle}
             activePlan={activePlan}
-            onChoose={(p) => setPayPlan(p)}
+            onChoose={(p, cycle) => {
+              if (cycle) setBillingCycle(cycle);
+              setPayPlan(p);
+            }}
           />
         )}
 
@@ -929,52 +965,47 @@ export default function D1BillingView({
 }
 
 // ── [2026-04-26] PricingSection ──────────────────────────────────
+// [2026-05-05 PM-31 Roy] PricingSection — 4 카드 구조:
+//   Free / Pro 월간 / Smarter 6개월 (20% off) / Smarter 1년 (30% off)
+// Cycle 토글 폐기 — 각 카드가 cycle 고유. lifetime/yearly는 1회 결제.
 function PricingSection({
   lang, isPh, t, billingCycle, setBillingCycle, activePlan, onChoose,
 }: {
   lang: 'ko' | 'en' | 'ph';
-  // [2026-05-05 PM-30 Roy] isPh 의미 변경 — 더 이상 동반 표시 안 함. lang === 'ph'와 동일.
-  // backward-compat 위해 prop은 유지하되 내부 로직은 lang 직접 사용.
   isPh: boolean;
   t: typeof copy[keyof typeof copy];
   billingCycle: BillingCycle;
   setBillingCycle: (c: BillingCycle) => void;
   activePlan: PlanId;
-  onChoose: (plan: PlanId) => void;
+  onChoose: (plan: PlanId, cycle?: BillingCycle) => void;
 }) {
-  // [2026-05-05 PM-30 Roy] 단일 통화 표시 — 혼합 ($ (₱)) 금지.
-  // PRICING은 USD source of truth. 표시 시점에 lang에 따라 변환.
   void isPh;
+  void billingCycle;
+  void setBillingCycle;
   const money = (usd: number) => fmtMoney(usd, lang);
 
-  const proPriceUsd = billingCycle === 'monthly' ? PRICING.pro.monthlyUsd : PRICING.pro.yearlyUsd;
-  const proSuffix   = billingCycle === 'monthly' ? t.perMonth : t.perYear;
-
-  // [2026-04-26] F-2 — 현재 플랜 vs 카드 플랜 매칭 시 "현재 플랜" 표시
   const ctaFor = (plan: PlanId, defaultLabel: string): { label: string; disabled: boolean } => {
     if (activePlan === plan) return { label: t.cta_current, disabled: true };
-    // lifetime 보유자는 다른 카드 모두 "현재 플랜" (downgrade 의미 없음)
     if (activePlan === 'lifetime') return { label: t.cta_current, disabled: true };
     return { label: defaultLabel, disabled: false };
   };
   const proCta      = ctaFor('pro', t.cta_upgrade);
-  const lifetimeCta = ctaFor('lifetime', t.cta_lifetime);
+  const lifetimeCta = ctaFor('lifetime', `${t.cta_lifetime_prefix}${fmtMoney(PRICING.lifetime.onceUsd, lang)}`);
+  // [PM-31] yearly는 'pro' planId + 'yearly' cycle 조합.
+  const yearlyCta   = ctaFor('pro', `${t.cta_yearly_prefix}${fmtMoney(PRICING.pro.yearlyUsd, lang)}`);
 
   return (
     <section className="mb-12 md:mb-14">
-      <div className="mb-5 flex items-end justify-between">
-        <div>
-          <h2 className="text-[22px] md:text-[24px] font-medium tracking-tight" style={{ color: tokens.text }}>
-            {t.plansHead}
-          </h2>
-          <p className="mt-1 text-[13px]" style={{ color: tokens.textDim }}>
-            {t.plansSub}
-          </p>
-        </div>
-        <CycleToggle billingCycle={billingCycle} setBillingCycle={setBillingCycle} t={t} />
+      <div className="mb-5">
+        <h2 className="text-[22px] md:text-[24px] font-medium tracking-tight" style={{ color: tokens.text }}>
+          {t.plansHead}
+        </h2>
+        <p className="mt-1 text-[13px]" style={{ color: tokens.textDim }}>
+          {t.plansSub}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
         <PlanCard
           plan="free"
           name={t.plan_free}
@@ -990,13 +1021,12 @@ function PricingSection({
           plan="pro"
           name={t.plan_pro}
           desc={t.plan_pro_desc}
-          priceLabel={money(proPriceUsd)}
-          priceSuffix={proSuffix}
+          priceLabel={money(PRICING.pro.monthlyUsd)}
+          priceSuffix={t.perMonth}
           features={t.plan_pro_features}
           cta={proCta.label}
           ctaDisabled={proCta.disabled}
-          highlight
-          onChoose={onChoose}
+          onChoose={(p) => onChoose(p, 'monthly')}
         />
         <PlanCard
           plan="lifetime"
@@ -1007,7 +1037,20 @@ function PricingSection({
           features={t.plan_lifetime_features}
           cta={lifetimeCta.label}
           ctaDisabled={lifetimeCta.disabled}
+          highlight
           onChoose={onChoose}
+        />
+        {/* [2026-05-05 PM-31 Roy] 신규 — Smarter 1년 (30% off, best value). */}
+        <PlanCard
+          plan="pro"
+          name={t.plan_yearly}
+          desc={t.plan_yearly_desc}
+          priceLabel={money(PRICING.pro.yearlyUsd)}
+          priceSuffix={` · ${t.once}`}
+          features={t.plan_yearly_features}
+          cta={yearlyCta.label}
+          ctaDisabled={yearlyCta.disabled}
+          onChoose={(p) => onChoose(p, 'yearly')}
         />
       </div>
     </section>
@@ -1140,15 +1183,22 @@ function PaymentStubModal({
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
 
-  const planName = plan === 'pro' ? t.plan_pro : plan === 'lifetime' ? t.plan_lifetime : t.plan_free;
+  // [2026-05-05 PM-31 Roy] yearly cycle은 'pro' planId + yearly = Smarter 1년 (1회 결제).
+  const isYearlyOneTime = plan === 'pro' && billingCycle === 'yearly';
+  const planName = isYearlyOneTime
+    ? t.plan_yearly
+    : plan === 'pro' ? t.plan_pro : plan === 'lifetime' ? t.plan_lifetime : t.plan_free;
   // [2026-05-05 PM-30 Roy] USD 기반. 화면 표시는 lang에 따라 단일 통화.
   const priceUsd = plan === 'lifetime'
     ? PRICING.lifetime.onceUsd
     : billingCycle === 'monthly' ? PRICING.pro.monthlyUsd : PRICING.pro.yearlyUsd;
   const priceLabel = fmtMoney(priceUsd, lang);
   // Toss Payments는 KRW 결제 — 표시 통화와 별개로 KRW로 환산 (xe.com 매월 1일 기준).
-  const priceKrwForToss = Math.round(priceUsd * getCurrentFxRates().krwPerUsd);
-  const suffix = plan === 'lifetime' ? t.once : (billingCycle === 'monthly' ? t.perMonth : t.perYear);
+  const priceKrwForToss = Math.ceil(priceUsd * getCurrentFxRates().krwPerUsd);
+  // suffix: lifetime/yearly 1회 결제는 t.once, monthly만 t.perMonth.
+  const suffix = (plan === 'lifetime' || isYearlyOneTime)
+    ? t.once
+    : t.perMonth;
 
   // [2026-04-26] F-1 — Toss Payments 결제 활성 여부 (ENV로 제어)
   const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? '';
@@ -1375,10 +1425,25 @@ function KvCol({ label, cost, reqs, lang, isPh = false }: { label: string; cost:
 // ── [2026-05-05 Roy PM-29] Savings 메뉴 최상단 플랜 카드 ───────────────
 // 6개월 $39 ($6.50/월) [추천] / 월간 $9 — 화살표 클릭 시 billing 메뉴 이동.
 // AI 사용료는 원가 그대로 (마진 0%) footnote.
-function SavingsPlanCard({ t }: { t: typeof copy.ko | typeof copy.en | typeof copy.ph }) {
+// [2026-05-05 PM-31 Roy] SavingsPlanCard — PRICING USD에서 동적 가격 + lang 단일 통화.
+// 이전 PM-29: 카피에 '$39' / '$9' / '$6.50/월' 하드코딩 → ph 페이지에 $ 노출 원인.
+// 6개월 카드: 가격 + 월 단가 (= 6개월 가격 ÷ 6, ceil) + 할인 % badge.
+function SavingsPlanCard({ t, lang }: {
+  t: typeof copy.ko | typeof copy.en | typeof copy.ph;
+  lang: 'ko' | 'en' | 'ph';
+}) {
   const goBilling = () => {
     window.dispatchEvent(new CustomEvent('d1:nav-to', { detail: { view: 'billing' } }));
   };
+  // 6개월 가격은 1회 결제 — 월 단가는 표시용 effective rate (정확 환율 기반 ceil).
+  // 6개월 USD → effective monthly USD → fmtMoney로 lang 변환.
+  const semiTotalUsd  = PRICING.lifetime.onceUsd;
+  const semiPerMoUsd  = semiTotalUsd / 6;
+  const monthlyUsd    = PRICING.pro.monthlyUsd;
+  const semiPriceLabel  = fmtMoney(semiTotalUsd, lang);
+  const semiPerMoLabel  = fmtMoney(semiPerMoUsd, lang);
+  const monthlyLabel    = fmtMoney(monthlyUsd, lang);
+  const discountLabel   = t.savingsPlanDiscountFmt(PRICING.discount.semiYearlyPct);
   return (
     <section className="mb-10">
       <div
@@ -1389,7 +1454,7 @@ function SavingsPlanCard({ t }: { t: typeof copy.ko | typeof copy.en | typeof co
           {t.savingsPlanTitle}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Smarter — 6개월 (추천) */}
+          {/* Smarter — 6개월 (추천 + 할인 %) */}
           <button
             type="button"
             onClick={goBilling}
@@ -1402,21 +1467,22 @@ function SavingsPlanCard({ t }: { t: typeof copy.ko | typeof copy.en | typeof co
             }}
           >
             <span
-              className="absolute -top-2 left-4 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              className="absolute -top-2 left-4 flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
               style={{ background: tokens.accent, color: '#fff' }}
             >
               {t.savingsPlanSemiBadge}
+              <span style={{ opacity: 0.85 }}>· {discountLabel}</span>
             </span>
             <div className="flex flex-col gap-1">
               <span className="text-[13px]" style={{ color: tokens.textDim }}>
                 {t.savingsPlanSemiName}
               </span>
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-[28px] md:text-[32px] font-semibold leading-none" style={{ color: tokens.text }}>
-                  {t.savingsPlanSemiPrice}
+                  {semiPriceLabel}
                 </span>
                 <span className="text-[13px]" style={{ color: tokens.textDim }}>
-                  ({t.savingsPlanSemiPerMo})
+                  ({semiPerMoLabel}{t.savingsPlanPerMoSuffix})
                 </span>
               </div>
             </div>
@@ -1439,7 +1505,10 @@ function SavingsPlanCard({ t }: { t: typeof copy.ko | typeof copy.en | typeof co
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-[28px] md:text-[32px] font-semibold leading-none" style={{ color: tokens.text }}>
-                  {t.savingsPlanMonthPrice}
+                  {monthlyLabel}
+                </span>
+                <span className="text-[13px]" style={{ color: tokens.textDim }}>
+                  {t.savingsPlanPerMoSuffix}
                 </span>
               </div>
             </div>

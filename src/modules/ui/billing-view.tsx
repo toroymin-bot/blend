@@ -45,7 +45,8 @@ const PLANS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: { monthly: 9, yearly: 7 },
+    // [2026-05-05 PM-31 Roy] $9 → $8 (정가). yearly toggle은 별개 'yearly' 카드로 분리.
+    price: { monthly: 8, yearly: 8 },
     descKey: 'billing.plan_pro_subtitle',
     features: [
       { textKey: 'billing.feature_unlimited_msg' },
@@ -79,6 +80,26 @@ const PLANS = [
       { textKey: 'billing.feature_priority_support' },
     ],
     ctaKey: 'billing.lifetime_cta',
+    highlighted: false,
+    isLifetime: true,
+  },
+  {
+    // [2026-05-05 PM-31 Roy] Smarter 1년 신규 — $68 (30% off vs $96 base, 1회 결제).
+    id: 'lifetime',
+    name: 'Smarter - 1 Year',
+    price: { monthly: 68, yearly: 68 },
+    descKey: 'billing.yearly_desc',
+    features: [
+      { textKey: 'billing.feature_all_in_pro' },
+      { textKey: 'billing.feature_future_updates' },
+      { textKey: 'billing.feature_unlimited_msg' },
+      { textKey: 'billing.feature_all_models' },
+      { textKey: 'billing.feature_voice_chat',  accent: true },
+      { textKey: 'billing.feature_image_gen',   accent: true },
+      { textKey: 'billing.feature_meeting',     accent: true },
+      { textKey: 'billing.feature_priority_support' },
+    ],
+    ctaKey: 'billing.yearly_cta',
     highlighted: false,
     isLifetime: true,
   },

@@ -59,25 +59,30 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en' | 'ph'; onNavi
         {/* Why we built this */}
         {/* [2026-05-05 Roy PM-29] 가격 카피 변경 — "원가로 이용 / $60 → 평균 $5" */}
         <Section title={isKo ? '왜 만들었나' : isPh ? 'Bakit ginawa namin ito' : 'Why we built this'}>
+          {/* [2026-05-05 PM-31 Roy] 가격 카피 업데이트 — 멤버십 $8/월 + API 원가.
+              평균 사용자 = 멤버십 $8 + API $5 ≈ $13 vs $60 구독. */}
           {isKo ? (
             <>
               <P>매일 모든 AI를. 쓴 만큼만 내세요.</P>
-              <P>블렌드의 멤버로서 Claude + ChatGPT + Gemini의 API를 원가로 이용하세요.</P>
-              <P>이제 매달 $60 대신 평균 $5.</P>
+              <P>블렌드 멤버십 월 $8 (또는 6개월 $39 / 1년 $68).</P>
+              <P>Claude + ChatGPT + Gemini의 API를 원가 그대로.</P>
+              <P>이제 매달 $60 구독 대신 평균 $13.</P>
               <PStrong>이게 Blend입니다.</PStrong>
             </>
           ) : isPh ? (
             <>
               <P>Lahat ng AI araw-araw. Bayaran lamang ang ginagamit.</P>
-              <P>Bilang miyembro ng Blend, gamitin ang API ng Claude + ChatGPT + Gemini sa presyo lang.</P>
-              <P>Ngayon, sa halip na $60 kada buwan, $5 na lang sa average.</P>
+              <P>Membership ng Blend $8/buwan (o $39/6 buwan / $68/1 taon).</P>
+              <P>API ng Claude + ChatGPT + Gemini sa presyo lang.</P>
+              <P>Ngayon, sa halip na $60 kada buwan, average ay $13.</P>
               <PStrong>Iyan ang Blend.</PStrong>
             </>
           ) : (
             <>
               <P>Every AI, every day. Pay only for what you use.</P>
-              <P>As a Blend member, use Claude + ChatGPT + Gemini APIs at cost.</P>
-              <P>Now $5 a month on average, instead of $60.</P>
+              <P>Blend membership $8/month (or $39/6mo / $68/year).</P>
+              <P>Claude + ChatGPT + Gemini APIs at cost.</P>
+              <P>Now $13/month on average, instead of $60.</P>
               <PStrong>That&apos;s Blend.</PStrong>
             </>
           )}
