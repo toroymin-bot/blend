@@ -66,15 +66,15 @@ type PlanId = 'free' | 'pro' | 'lifetime';
 type BillingCycle = 'monthly' | 'yearly';
 
 // [2026-05-04 Roy PM-25 + 후속] Lifetime → 6개월 패키지로 전환. id 'lifetime' 유지
-// (license-store/payment 호환). 가격: Pro 월 $9 × 6 = $54 → $29 (≈ 46% off — Roy 결정).
-// 39730 = $29 × 1370 KRW_PER_USD.
+// (license-store/payment 호환). 가격: Pro 월 $9 × 6 = $54 → $39 (≈ 28% off — Roy PM-29 결정).
+// 53430 = $39 × 1370 KRW_PER_USD.
 const PRICING = {
   pro: {
     monthlyKrw: 12420,
     yearlyKrw:  124200, // 10x = 2개월 무료
   },
   lifetime: {
-    onceKrw: 39730, // $29 — 6개월 패키지 (46% off)
+    onceKrw: 53430, // $39 — 6개월 패키지 (28% off — Roy PM-29)
   },
 } as const;
 
@@ -83,6 +83,20 @@ const copy = {
   ko: {
     head:          '모든 AI를 하나의 키로.',
     sub:           '하나로, 더 저렴하게, 더 똑똑하게.',
+    // [2026-05-05 Roy PM-29] Savings 모드 hero — 가격 가치 전면.
+    savingsHead:    '한 달에 커피 한 잔. 매일 모든 AI를.',
+    savingsHeadCta: '쓴 만큼만 내세요',
+    savingsHeadSuffix: '.',
+    // [2026-05-05 Roy PM-29] Savings 상단 플랜 카드 — billing 페이지로 유도.
+    savingsPlanTitle: '플랜',
+    savingsPlanSemiName: 'Smarter — 6개월',
+    savingsPlanSemiPrice: '$39',
+    savingsPlanSemiPerMo: '$6.50/월',
+    savingsPlanSemiBadge: '추천',
+    savingsPlanMonthName: '월간',
+    savingsPlanMonthPrice: '$9',
+    savingsPlanFootnote: '* AI 사용료는 원가 그대로 (마진 0%)',
+    savingsPlanGoTitle: '결제 페이지로 이동',
     // Pricing v2
     plansHead:     '요금제',
     plansSub:      '필요한 만큼만, 평생 한 번, 또는 매달 — 골라쓰세요.',
@@ -95,10 +109,10 @@ const copy = {
     free:          '무료',
     plan_free:     '무료',
     plan_pro:      'Pro',
-    plan_lifetime: 'Discount - 6개월',
+    plan_lifetime: 'Smarter - 6개월',
     plan_free_desc: 'API 키 BYOK · 핵심 기능 무제한.',
     plan_pro_desc:  '체험 키 + 우선 신모델 + 고급 RAG.',
-    plan_lifetime_desc: 'Pro의 모든 기능을 6개월간 — 1회 결제 (46% 할인).',
+    plan_lifetime_desc: 'Pro의 모든 기능을 6개월간 — 1회 결제 (28% 할인).',
     plan_free_features: [
       '내 API 키로 모든 AI 무제한',
       '회의 분석 · 문서 RAG',
@@ -113,13 +127,13 @@ const copy = {
     ],
     plan_lifetime_features: [
       'Pro의 모든 기능',
-      '6개월 이용권 (1회 결제 · 46% 할인)',
+      '6개월 이용권 (1회 결제 · 28% 할인)',
       '미래 신기능 자동 포함',
     ],
     cta_current:    '현재 플랜',
     cta_choose:     '선택하기',
     cta_upgrade:    '업그레이드',
-    cta_lifetime:   '6개월 구매 — $29',
+    cta_lifetime:   '6개월 구매 — $39',
     payTitle:       '결제 준비 중',
     payDesc:        '결제 시스템(Toss / Xendit / 카드)을 곧 연결해요. 출시 알림을 받으시려면 아래 버튼을 눌러주세요.',
     payNotify:      '출시 알림 받기',
@@ -166,6 +180,19 @@ const copy = {
   en: {
     head:          'Every AI, with one key.',
     sub:           'One AI app — more affordable and smarter.',
+    // [2026-05-05 Roy PM-29] Savings hero copy.
+    savingsHead:    'One coffee a month. Every AI, every day.',
+    savingsHeadCta: 'Pay only for what you use',
+    savingsHeadSuffix: '.',
+    savingsPlanTitle: 'Plans',
+    savingsPlanSemiName: 'Smarter — 6 months',
+    savingsPlanSemiPrice: '$39',
+    savingsPlanSemiPerMo: '$6.50/mo',
+    savingsPlanSemiBadge: 'Recommended',
+    savingsPlanMonthName: 'Monthly',
+    savingsPlanMonthPrice: '$9',
+    savingsPlanFootnote: '* AI usage billed at cost (0% markup)',
+    savingsPlanGoTitle: 'Go to checkout',
     plansHead:     'Plans',
     plansSub:      'Pay-as-you-go, once forever, or monthly — pick what fits.',
     monthly:       'Monthly',
@@ -177,10 +204,10 @@ const copy = {
     free:          'Free',
     plan_free:     'Free',
     plan_pro:      'Pro',
-    plan_lifetime: 'Discount - 6 Months',
+    plan_lifetime: 'Smarter - 6 Months',
     plan_free_desc: 'BYOK · unlimited core features.',
     plan_pro_desc:  'Trial key + priority new models + advanced RAG.',
-    plan_lifetime_desc: 'All Pro features for 6 months — pay once (46% off).',
+    plan_lifetime_desc: 'All Pro features for 6 months — pay once (28% off).',
     plan_free_features: [
       'Unlimited AI with your own keys',
       'Meeting analysis · document RAG',
@@ -195,13 +222,13 @@ const copy = {
     ],
     plan_lifetime_features: [
       'All Pro features',
-      '6-month access (one-time · 46% off)',
+      '6-month access (one-time · 28% off)',
       'Future features included',
     ],
     cta_current:    'Current plan',
     cta_choose:     'Choose',
     cta_upgrade:    'Upgrade',
-    cta_lifetime:   'Get 6-Month Access — $29',
+    cta_lifetime:   'Get 6-Month Access — $39',
     payTitle:       'Payment coming soon',
     payDesc:        'Toss / Xendit / Card checkout will be wired up shortly. Tap below to get a launch notification.',
     payNotify:      'Notify me at launch',
@@ -247,6 +274,19 @@ const copy = {
   ph: {
     head:          'Lahat ng AI, sa iisang key.',
     sub:           'Isang AI app — mas mura at mas matalino.',
+    // [2026-05-05 Roy PM-29] Savings hero (Filipino).
+    savingsHead:    'Isang kape kada buwan. Lahat ng AI araw-araw.',
+    savingsHeadCta: 'Bayaran lamang ang ginagamit',
+    savingsHeadSuffix: '.',
+    savingsPlanTitle: 'Mga Plan',
+    savingsPlanSemiName: 'Smarter — 6 buwan',
+    savingsPlanSemiPrice: '$39',
+    savingsPlanSemiPerMo: '$6.50/buwan',
+    savingsPlanSemiBadge: 'Inirerekomenda',
+    savingsPlanMonthName: 'Buwanan',
+    savingsPlanMonthPrice: '$9',
+    savingsPlanFootnote: '* AI usage sa presyo lang (0% markup)',
+    savingsPlanGoTitle: 'Pumunta sa checkout',
     plansHead:     'Mga Plan',
     plansSub:      'Pay-as-you-go, isang beses, o buwanan — pumili ng akma.',
     monthly:       'Buwanan',
@@ -258,10 +298,10 @@ const copy = {
     free:          'Libre',
     plan_free:     'Libre',
     plan_pro:      'Pro',
-    plan_lifetime: 'Discount - 6 Buwan',
+    plan_lifetime: 'Smarter - 6 Buwan',
     plan_free_desc: 'BYOK · walang limit na core features.',
     plan_pro_desc:  'Trial key + priority na bagong models + advanced RAG.',
-    plan_lifetime_desc: 'Lahat ng Pro features sa 6 na buwan — minsan lang magbayad (46% off).',
+    plan_lifetime_desc: 'Lahat ng Pro features sa 6 na buwan — minsan lang magbayad (28% off).',
     plan_free_features: [
       'Walang limit na AI gamit ang sarili mong keys',
       'Pagsusuri ng meeting · document RAG',
@@ -276,13 +316,13 @@ const copy = {
     ],
     plan_lifetime_features: [
       'Lahat ng Pro features',
-      '6-buwang access (isang beses · 46% off)',
+      '6-buwang access (isang beses · 28% off)',
       'Future features kasama na',
     ],
     cta_current:    'Kasalukuyang plan',
     cta_choose:     'Piliin',
     cta_upgrade:    'Mag-upgrade',
-    cta_lifetime:   'Kumuha ng 6-Buwan — $29',
+    cta_lifetime:   'Kumuha ng 6-Buwan — $39',
     payTitle:       'Malapit nang magkaroon ng payment',
     payDesc:        'Malapit nang ikonekta ang Toss / Xendit / Card checkout. I-tap sa baba para makatanggap ng launch notification.',
     payNotify:      'Abisuhan ako sa launch',
@@ -533,20 +573,43 @@ export default function D1BillingView({
       <div className="mx-auto w-full max-w-3xl px-6 py-12 md:py-16">
 
         {/* ══ Hero ══ */}
+        {/* [2026-05-05 Roy PM-29] mode='savings' 헤더는 "한 달에 커피 한 잔. 매일 모든 AI를. [쓴 만큼만 내세요]." */}
         <header className="mb-10 md:mb-12">
-          <h1
-            className="text-[32px] md:text-[40px] font-medium leading-[1.15] tracking-tight"
-            style={{ color: tokens.text }}
-          >
-            {t.head}
-          </h1>
-          <p
-            className="mt-3 text-[15px] md:text-[16px]"
-            style={{ color: tokens.textDim }}
-          >
-            {t.sub}
-          </p>
+          {mode === 'savings' ? (
+            <>
+              <h1
+                className="text-[32px] md:text-[40px] font-medium leading-[1.15] tracking-tight"
+                style={{ color: tokens.text }}
+              >
+                {t.savingsHead}{' '}
+                <span style={{ color: tokens.accent }}>
+                  {t.savingsHeadCta}
+                </span>
+                {t.savingsHeadSuffix}
+              </h1>
+            </>
+          ) : (
+            <>
+              <h1
+                className="text-[32px] md:text-[40px] font-medium leading-[1.15] tracking-tight"
+                style={{ color: tokens.text }}
+              >
+                {t.head}
+              </h1>
+              <p
+                className="mt-3 text-[15px] md:text-[16px]"
+                style={{ color: tokens.textDim }}
+              >
+                {t.sub}
+              </p>
+            </>
+          )}
         </header>
+
+        {/* [2026-05-05 Roy PM-29] Savings 모드 — 최상단 플랜 카드 (billing 페이지로 유도) */}
+        {mode === 'savings' && (
+          <SavingsPlanCard t={t} />
+        )}
 
         {/* ══ [2026-04-26] Pricing v2 — Free / Pro / Lifetime ══ */}
         {mode === 'pricing' && (
@@ -1012,11 +1075,11 @@ function PlanCard({
       }}
     >
       <div className="mb-1 text-[14px] font-semibold" style={{ color: tokens.text }}>
-        {/* [2026-05-04 Roy] 'Discount - 6 Months' 같이 시작하면 Discount 부분만 파란색 + bold */}
-        {name.startsWith('Discount') ? (
+        {/* [2026-05-05 Roy PM-29] 'Smarter - 6개월/Months/Buwan' 처음의 'Smarter' 부분만 파란색 + bold */}
+        {name.startsWith('Smarter') ? (
           <>
-            <span style={{ color: '#2563eb', fontWeight: 700 }}>Discount</span>
-            <span>{name.slice('Discount'.length)}</span>
+            <span style={{ color: '#2563eb', fontWeight: 700 }}>Smarter</span>
+            <span>{name.slice('Smarter'.length)}</span>
           </>
         ) : (
           name
@@ -1307,6 +1370,90 @@ function KvCol({ label, cost, reqs, lang, isPh = false }: { label: string; cost:
         {reqs}{lang === 'ko' ? '건' : ' requests'}
       </div>
     </div>
+  );
+}
+
+// ── [2026-05-05 Roy PM-29] Savings 메뉴 최상단 플랜 카드 ───────────────
+// 6개월 $39 ($6.50/월) [추천] / 월간 $9 — 화살표 클릭 시 billing 메뉴 이동.
+// AI 사용료는 원가 그대로 (마진 0%) footnote.
+function SavingsPlanCard({ t }: { t: typeof copy.ko | typeof copy.en | typeof copy.ph }) {
+  const goBilling = () => {
+    window.dispatchEvent(new CustomEvent('d1:nav-to', { detail: { view: 'billing' } }));
+  };
+  return (
+    <section className="mb-10">
+      <div
+        className="rounded-2xl border p-6 md:p-8"
+        style={{ background: tokens.surface, borderColor: tokens.border }}
+      >
+        <div className="text-[13px] mb-5" style={{ color: tokens.textDim }}>
+          {t.savingsPlanTitle}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Smarter — 6개월 (추천) */}
+          <button
+            type="button"
+            onClick={goBilling}
+            title={t.savingsPlanGoTitle}
+            className="group relative flex items-center justify-between rounded-xl border p-5 text-left transition-all hover:-translate-y-0.5"
+            style={{
+              background: tokens.surfaceAlt,
+              borderColor: tokens.accent,
+              borderWidth: 1.5,
+            }}
+          >
+            <span
+              className="absolute -top-2 left-4 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              style={{ background: tokens.accent, color: '#fff' }}
+            >
+              {t.savingsPlanSemiBadge}
+            </span>
+            <div className="flex flex-col gap-1">
+              <span className="text-[13px]" style={{ color: tokens.textDim }}>
+                {t.savingsPlanSemiName}
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[28px] md:text-[32px] font-semibold leading-none" style={{ color: tokens.text }}>
+                  {t.savingsPlanSemiPrice}
+                </span>
+                <span className="text-[13px]" style={{ color: tokens.textDim }}>
+                  ({t.savingsPlanSemiPerMo})
+                </span>
+              </div>
+            </div>
+            <span className="text-[20px] transition-transform group-hover:translate-x-1" style={{ color: tokens.accent }}>
+              →
+            </span>
+          </button>
+
+          {/* 월간 */}
+          <button
+            type="button"
+            onClick={goBilling}
+            title={t.savingsPlanGoTitle}
+            className="group flex items-center justify-between rounded-xl border p-5 text-left transition-all hover:-translate-y-0.5"
+            style={{ background: tokens.surfaceAlt, borderColor: tokens.border }}
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-[13px]" style={{ color: tokens.textDim }}>
+                {t.savingsPlanMonthName}
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[28px] md:text-[32px] font-semibold leading-none" style={{ color: tokens.text }}>
+                  {t.savingsPlanMonthPrice}
+                </span>
+              </div>
+            </div>
+            <span className="text-[20px] transition-transform group-hover:translate-x-1" style={{ color: tokens.textDim }}>
+              →
+            </span>
+          </button>
+        </div>
+        <div className="mt-4 text-[12px]" style={{ color: tokens.textFaint }}>
+          {t.savingsPlanFootnote}
+        </div>
+      </div>
+    </section>
   );
 }
 

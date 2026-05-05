@@ -46,33 +46,38 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en' | 'ph'; onNavi
             B
           </div>
           <h1 className="text-[32px] md:text-[40px] font-medium tracking-tight">Blend</h1>
+          {/* [2026-05-05 Roy PM-29] tagline 변경 — "한 달에 커피 한 잔. 매일 모든 AI를." */}
           <p className="mt-5 text-[16px] md:text-[18px]" style={{ color: tokens.textDim }}>
             {isKo
-              ? 'AI들을 하나로, 더 저렴하게, 더 똑똑하게.'
+              ? '한 달에 커피 한 잔. 매일 모든 AI를.'
               : isPh
-              ? 'Iisang AI app — mas mura at mas matalino.'
-              : 'One AI app — more affordable and smarter.'}
+              ? 'Isang kape kada buwan. Lahat ng AI araw-araw.'
+              : 'One coffee a month. Every AI, every day.'}
           </p>
         </header>
 
         {/* Why we built this */}
+        {/* [2026-05-05 Roy PM-29] 가격 카피 변경 — "원가로 이용 / $60 → 평균 $5" */}
         <Section title={isKo ? '왜 만들었나' : isPh ? 'Bakit ginawa namin ito' : 'Why we built this'}>
           {isKo ? (
             <>
-              <P>매월 AI 구독료로 12만원을 쓰고 있었습니다.</P>
-              <P>이제는 월 12,000원이면 충분합니다.</P>
+              <P>매일 모든 AI를. 쓴 만큼만 내세요.</P>
+              <P>블렌드의 멤버로서 Claude + ChatGPT + Gemini의 API를 원가로 이용하세요.</P>
+              <P>이제 매달 $60 대신 평균 $5.</P>
               <PStrong>이게 Blend입니다.</PStrong>
             </>
           ) : isPh ? (
             <>
-              <P>Ginagastos namin ang ₱5,000 kada buwan sa AI subscriptions.</P>
-              <P>Ngayon, ₱500 lang kada buwan.</P>
+              <P>Lahat ng AI araw-araw. Bayaran lamang ang ginagamit.</P>
+              <P>Bilang miyembro ng Blend, gamitin ang API ng Claude + ChatGPT + Gemini sa presyo lang.</P>
+              <P>Ngayon, sa halip na $60 kada buwan, $5 na lang sa average.</P>
               <PStrong>Iyan ang Blend.</PStrong>
             </>
           ) : (
             <>
-              <P>We were spending $90 a month on AI subscriptions.</P>
-              <P>Now it&apos;s just $9 a month.</P>
+              <P>Every AI, every day. Pay only for what you use.</P>
+              <P>As a Blend member, use Claude + ChatGPT + Gemini APIs at cost.</P>
+              <P>Now $5 a month on average, instead of $60.</P>
               <PStrong>That&apos;s Blend.</PStrong>
             </>
           )}

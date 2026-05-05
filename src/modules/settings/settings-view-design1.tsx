@@ -57,7 +57,8 @@ const SHOW_ANALYTICS_SECTION = false;
 // [2026-05-04 Roy #16] 'info' 섹션을 'about'으로 통합. 사이드바 바깥 About 메뉴
 // 제거 + 일관된 진입점으로 Settings → About만 사용. 'info'(버전 단일 행)는 about
 // 안의 Version 블록으로 흡수 — 8 섹션 그대로 유지. 'info' SectionId는 호환 유지.
-type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'analytics' | 'language' | 'voice' | 'image' | 'data' | 'info' | 'about';
+// [2026-05-05 Roy PM-29] 'faq' 섹션 추가 — Settings 좌측 nav에 자주 묻는 질문 진입점.
+type SectionId = 'api' | 'models' | 'prompt' | 'theme' | 'analytics' | 'language' | 'voice' | 'image' | 'data' | 'info' | 'about' | 'faq';
 
 const SECTIONS: { id: SectionId; labelKey: string }[] = [
   { id: 'api',      labelKey: 'settings.api_keys' },
@@ -67,6 +68,7 @@ const SECTIONS: { id: SectionId; labelKey: string }[] = [
   { id: 'voice',    labelKey: 'settings.voice' },
   { id: 'image',    labelKey: 'settings.image' },
   { id: 'data',     labelKey: 'settings.data_storage' },
+  { id: 'faq',      labelKey: 'settings.faq' },
   { id: 'about',    labelKey: 'settings.about' },
 ];
 
@@ -910,6 +912,23 @@ export function D1SettingsView() {
             </Card>
           </section>
 
+          {/* ── [2026-05-05 Roy PM-29] FAQ 섹션 ─────────────────────────
+              잡스 스타일: 큰 여백, 미니멀, 굵은 헤딩 + 부드러운 답변, 아코디언 (+/−). */}
+          <section style={{ display: visible('faq') ? undefined : 'none' }}>
+            <SectionH id="faq" label={t('settings.faq')} />
+            <Card>
+              <div className="px-6 md:px-10 py-10 md:py-14">
+                <h3 className="mb-2 text-[28px] md:text-[36px] font-semibold tracking-tight" style={{ color: tokens.text, fontFamily: 'var(--d1-font-display)' }}>
+                  {lang === 'ko' ? '자주 묻는 질문' : lang === 'ph' ? 'Madalas Itanong' : 'Frequently Asked Questions'}
+                </h3>
+                <p className="mb-10 text-[14px] md:text-[15px]" style={{ color: tokens.textDim }}>
+                  {lang === 'ko' ? 'Blend에 대해 가장 자주 받는 질문들.' : lang === 'ph' ? 'Mga pinakamadalas na tanong tungkol sa Blend.' : 'The questions we hear most often about Blend.'}
+                </p>
+                <D1FaqList lang={lang} />
+              </div>
+            </Card>
+          </section>
+
           {/* ── 7. About (구 Info 흡수) ──────────────────────── */}
           {/* [2026-05-04 Roy #16] About을 사이드바 바깥에서 Settings 안으로 통합. */}
           <section style={{ display: visible('about') ? undefined : 'none' }}>
@@ -926,26 +945,41 @@ export function D1SettingsView() {
                     B
                   </div>
                   <h3 className="text-[20px] font-medium tracking-tight" style={{ color: tokens.text }}>Blend</h3>
+                  {/* [2026-05-05 Roy PM-29] tagline 변경 */}
                   <p className="mt-2 text-[13.5px]" style={{ color: tokens.textDim }}>
-                    {lang === 'ko' ? 'AI들을 하나로, 더 저렴하게, 더 똑똑하게.' : 'One AI app — more affordable and smarter.'}
+                    {lang === 'ko'
+                      ? '한 달에 커피 한 잔. 매일 모든 AI를.'
+                      : lang === 'ph'
+                      ? 'Isang kape kada buwan. Lahat ng AI araw-araw.'
+                      : 'One coffee a month. Every AI, every day.'}
                   </p>
                 </div>
 
                 {/* Why we built */}
+                {/* [2026-05-05 Roy PM-29] 본문 카피 변경 — 원가 + 평균 $5 */}
                 <div className="mb-5">
                   <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
-                    {lang === 'ko' ? '왜 만들었나' : 'Why we built this'}
+                    {lang === 'ko' ? '왜 만들었나' : lang === 'ph' ? 'Bakit ginawa namin ito' : 'Why we built this'}
                   </h4>
                   {lang === 'ko' ? (
                     <>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>매월 AI 구독료로 12만원을 쓰고 있었습니다.</p>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>이제는 월 12,000원이면 충분합니다.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>매일 모든 AI를. 쓴 만큼만 내세요.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>블렌드의 멤버로서 Claude + ChatGPT + Gemini의 API를 원가로 이용하세요.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>이제 매달 $60 대신 평균 $5.</p>
                       <p className="mt-1 text-[13.5px] font-medium leading-[1.7]" style={{ color: tokens.text }}>이게 Blend입니다.</p>
+                    </>
+                  ) : lang === 'ph' ? (
+                    <>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Lahat ng AI araw-araw. Bayaran lamang ang ginagamit.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Bilang miyembro ng Blend, gamitin ang API ng Claude + ChatGPT + Gemini sa presyo lang.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Ngayon, sa halip na $60 kada buwan, $5 na lang sa average.</p>
+                      <p className="mt-1 text-[13.5px] font-medium leading-[1.7]" style={{ color: tokens.text }}>Iyan ang Blend.</p>
                     </>
                   ) : (
                     <>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>We were spending $90 a month on AI subscriptions.</p>
-                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Now it&apos;s just $9 a month.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Every AI, every day. Pay only for what you use.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>As a Blend member, use Claude + ChatGPT + Gemini APIs at cost.</p>
+                      <p className="text-[13.5px] leading-[1.7]" style={{ color: tokens.text }}>Now $5 a month on average, instead of $60.</p>
                       <p className="mt-1 text-[13.5px] font-medium leading-[1.7]" style={{ color: tokens.text }}>That&apos;s Blend.</p>
                     </>
                   )}
@@ -954,7 +988,7 @@ export function D1SettingsView() {
                 {/* Made by */}
                 <div className="mb-5">
                   <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
-                    {lang === 'ko' ? '만든 곳' : 'Made by'}
+                    {lang === 'ko' ? '만든 곳' : lang === 'ph' ? 'Ginawa ng' : 'Made by'}
                   </h4>
                   <p className="text-[13.5px]" style={{ color: tokens.text }}>MIN Company</p>
                 </div>
@@ -962,7 +996,7 @@ export function D1SettingsView() {
                 {/* Contact */}
                 <div className="mb-5">
                   <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
-                    {lang === 'ko' ? '연락' : 'Contact'}
+                    {lang === 'ko' ? '연락' : lang === 'ph' ? 'Makipag-ugnayan' : 'Contact'}
                   </h4>
                   <a href="mailto:blend@ai4min.com" className="text-[13.5px]" style={{ color: tokens.accent }}>
                     blend@ai4min.com
@@ -972,7 +1006,7 @@ export function D1SettingsView() {
                 {/* Version */}
                 <div>
                   <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tokens.textFaint }}>
-                    {lang === 'ko' ? '버전' : 'Version'}
+                    {lang === 'ko' ? '버전' : lang === 'ph' ? 'Bersyon' : 'Version'}
                   </h4>
                   <p className="text-[13.5px]" style={{ color: tokens.textDim }}>
                     {process.env.NEXT_PUBLIC_BUILD_VERSION || 'v0.9.x'} · {process.env.NEXT_PUBLIC_BUILD_DATE || '2026-05-04'}
@@ -1058,6 +1092,138 @@ export function D1SettingsView() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// D1FaqList — Settings → FAQ 섹션 (2026-05-05 Roy PM-29)
+// 잡스 스타일 아코디언: 큰 여백 / 미니멀 / 굵은 질문 + 부드러운 답변 / +,−
+// ────────────────────────────────────────────────────────────────
+const FAQ_DATA = {
+  ko: [
+    {
+      q: '정말 마진이 0%인가요? 어떻게 수익을 내죠?',
+      a: '멤버십 비용($6.50–9/월)이 우리의 유일한 수익입니다. AI 사용료는 원가 그대로 패스스루합니다. 월간 사용 내역에서 토큰 단위로 직접 확인할 수 있고, 각 AI 회사 공식 가격표와 1대1로 매칭됩니다.',
+    },
+    {
+      q: '제가 헤비 유저면 어떻게 되나요?',
+      a: '하루 50회 이상의 대화를 하시면 ChatGPT Plus나 Claude Pro 같은 정액제가 더 유리할 수 있습니다. Blend는 라이트~미들 사용자(월 구독료가 아까운 분들)에게 최적화되어 있습니다. 절감액 계산기로 본인 패턴을 먼저 확인해보세요.',
+    },
+    {
+      q: '대화 데이터는 어떻게 처리되나요?',
+      a: 'Blend는 각 모델의 API를 호출하는 미들웨어입니다. 대화 내용은 학습에 사용되지 않으며, Anthropic·OpenAI·Google의 API 데이터 정책을 그대로 따릅니다. 대화 기록은 사용자 본인 계정에서 언제든 삭제할 수 있습니다.',
+    },
+    {
+      q: '언제든지 해지할 수 있나요?',
+      a: '월간 플랜은 즉시 해지 가능. 6개월·연간 플랜은 약정 기간 후 자동 갱신되며, 갱신 전 언제든 취소할 수 있습니다. 환불 정책은 결제일 기준 7일 내 100% 환불.',
+    },
+    {
+      q: '새 모델이 나오면 추가되나요?',
+      a: 'Anthropic, OpenAI, Google에서 새 모델이 출시되면 평균 3–7일 내 Blend에 추가됩니다. 추가 비용 없이 모든 모델에 즉시 접근할 수 있습니다.',
+    },
+  ],
+  en: [
+    {
+      q: 'Is the margin really 0%? How do you make money?',
+      a: 'Membership ($6.50–9/mo) is our only revenue. AI usage is passed through at cost. You can verify it token-by-token in your monthly history — it matches each provider’s official pricing 1:1.',
+    },
+    {
+      q: 'What if I’m a heavy user?',
+      a: 'If you have 50+ conversations a day, a flat-rate plan like ChatGPT Plus or Claude Pro may be a better fit. Blend is optimized for light-to-mid users — the people for whom monthly subscriptions feel wasteful. Try the savings calculator first to see your pattern.',
+    },
+    {
+      q: 'How is conversation data handled?',
+      a: 'Blend is a middleware that calls each model’s API. Your conversations are never used for training, and we follow Anthropic, OpenAI, and Google’s API data policies as-is. You can delete history from your own account anytime.',
+    },
+    {
+      q: 'Can I cancel anytime?',
+      a: 'Monthly plans cancel instantly. 6-month and yearly plans auto-renew at term end, and you can cancel any time before renewal. Refund: 100% within 7 days of payment.',
+    },
+    {
+      q: 'Do new models get added?',
+      a: 'New releases from Anthropic, OpenAI, and Google land in Blend on average within 3–7 days. You get every model instantly at no extra cost.',
+    },
+  ],
+  ph: [
+    {
+      q: 'Talagang 0% margin? Paano kayo kumikita?',
+      a: 'Membership ($6.50–9/buwan) ang tanging kita namin. Pass-through ang AI usage sa orihinal na presyo. Pwede mong i-check ang bawat token sa monthly history — tumutugma ito sa opisyal na price list ng bawat AI company.',
+    },
+    {
+      q: 'Paano kung heavy user ako?',
+      a: 'Kung 50+ chats araw-araw, mas swak ang flat-rate na ChatGPT Plus o Claude Pro. Optimized ang Blend para sa light-to-mid users (yung naiinis sa monthly subscription). Subukan muna ang savings calculator para makita ang pattern mo.',
+    },
+    {
+      q: 'Paano ina-handle ang conversation data?',
+      a: 'Middleware ang Blend na tumatawag sa API ng bawat model. Hindi ginagamit ang conversations para sa training, at sinusunod namin ang API data policy ng Anthropic, OpenAI, at Google nang as-is. Pwede mong burahin ang history sa account mo kahit kailan.',
+    },
+    {
+      q: 'Pwede ba i-cancel kahit kailan?',
+      a: 'Instant cancel ang monthly plan. Ang 6-buwan at yearly plan ay auto-renew pagkatapos ng term, at pwedeng i-cancel anytime bago mag-renew. Refund: 100% sa loob ng 7 araw mula sa bayad.',
+    },
+    {
+      q: 'May new model ba na nadadagdag?',
+      a: 'Bagong releases mula sa Anthropic, OpenAI, at Google ay napupunta sa Blend sa loob ng 3–7 araw average. Lahat ng model agad available, walang dagdag bayad.',
+    },
+  ],
+} as const;
+
+function D1FaqList({ lang }: { lang: 'ko' | 'en' | 'ph' }) {
+  const items = FAQ_DATA[lang] ?? FAQ_DATA.en;
+  // 잡스 패턴: 첫 번째만 기본 펼침. 나머지는 사용자 탐색.
+  const [openIdx, setOpenIdx] = useState<number | null>(0);
+  return (
+    <div className="flex flex-col">
+      {items.map((it, idx) => {
+        const isOpen = openIdx === idx;
+        return (
+          <div
+            key={idx}
+            className="border-t"
+            style={{ borderColor: tokens.border }}
+          >
+            <button
+              type="button"
+              onClick={() => setOpenIdx(isOpen ? null : idx)}
+              aria-expanded={isOpen}
+              className="flex w-full items-start justify-between gap-6 py-6 text-left transition-opacity hover:opacity-80 md:py-7"
+            >
+              <span
+                className="text-[16px] md:text-[18px] font-medium leading-[1.4] tracking-[-0.005em]"
+                style={{ color: tokens.text }}
+              >
+                {it.q}
+              </span>
+              <span
+                aria-hidden
+                className="mt-1 shrink-0 text-[20px] md:text-[22px] leading-none transition-transform duration-200"
+                style={{
+                  color: tokens.textFaint,
+                  transform: isOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+                }}
+              >
+                +
+              </span>
+            </button>
+            <div
+              className="overflow-hidden transition-[max-height,opacity] duration-300 ease-out"
+              style={{
+                maxHeight: isOpen ? '600px' : '0px',
+                opacity: isOpen ? 1 : 0,
+              }}
+            >
+              <p
+                className="pb-6 pr-10 text-[14.5px] md:text-[15.5px] leading-[1.7] md:pb-8"
+                style={{ color: tokens.textDim }}
+              >
+                {it.a}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+      <div className="border-t" style={{ borderColor: tokens.border }} />
     </div>
   );
 }

@@ -92,10 +92,14 @@ const tokens = {
 // ============================================================
 const copy = {
   ko: {
-    emptyTitle: '',
-    emptyTitleAccent: 'AI들에게',
-    emptyTitleEnd: '묻고, 문서를 찾고, 회의를 정리하세요.',
-    emptySubtitle: '하나로, 더 저렴하게, 더 똑똑하게.',
+    // [2026-05-05 Roy PM-29] 메인 헤드라인 — 가격 가치 전면 노출
+    emptyTitle: '한 달에 커피 한 잔.',
+    emptyTitleAccent: '매일 모든 AI를.',
+    emptyTitleEnd: '',
+    emptySubtitlePrefix: 'Claude + ChatGPT + Gemini, ',
+    emptySubtitleCta: '쓴 만큼만 내세요',
+    emptySubtitleSuffix: '.',
+    emptySubtitle: '',
     placeholder: '질문을 입력하세요',
     placeholderActive: 'Blend에게 계속 질문하세요',
     suggestions: ['이메일 초안 써줘', '이 이미지 분석해줘', '코드 리뷰 해줘', '긴 글 요약해줘'],
@@ -114,10 +118,14 @@ const copy = {
     tryAnother: '다른 AI로',
   },
   en: {
-    emptyTitle: 'Ask',
-    emptyTitleAccent: 'multiple AIs,',
-    emptyTitleEnd: 'search documents, summarize meetings.',
-    emptySubtitle: 'One AI app — more affordable and smarter.',
+    // [2026-05-05 Roy PM-29] Main headline — value proposition front & center
+    emptyTitle: 'One coffee a month.',
+    emptyTitleAccent: 'Every AI, every day.',
+    emptyTitleEnd: '',
+    emptySubtitlePrefix: 'Claude + ChatGPT + Gemini, ',
+    emptySubtitleCta: 'pay only for what you use',
+    emptySubtitleSuffix: '.',
+    emptySubtitle: '',
     placeholder: 'Ask anything',
     placeholderActive: 'Ask Blend anything',
     suggestions: ['Draft an email', 'Analyze this image', 'Review my code', 'Summarize a long text'],
@@ -138,10 +146,14 @@ const copy = {
   // [2026-05-04 Roy #17 후속] Filipino/Tagalog — 채팅 빈 화면 + 입력바 핵심 카피.
   // Tech 용어(API/AI/Blend)는 영어 그대로 (Taglish 자연스러움).
   ph: {
-    emptyTitle: 'Magtanong sa',
-    emptyTitleAccent: 'maraming AI,',
-    emptyTitleEnd: 'maghanap ng dokumento, magbuod ng meeting.',
-    emptySubtitle: 'Isang AI app — mas mura at mas matalino.',
+    // [2026-05-05 Roy PM-29] Main headline (Filipino) — value proposition
+    emptyTitle: 'Isang kape kada buwan.',
+    emptyTitleAccent: 'Lahat ng AI araw-araw.',
+    emptyTitleEnd: '',
+    emptySubtitlePrefix: 'Claude + ChatGPT + Gemini, ',
+    emptySubtitleCta: 'bayaran lamang ang ginagamit',
+    emptySubtitleSuffix: '.',
+    emptySubtitle: '',
     placeholder: 'Magtanong ng kahit ano',
     placeholderActive: 'Magtanong sa Blend',
     suggestions: ['Sumulat ng email draft', 'Suriin ang larawang ito', 'I-review ang code ko', 'Ibuod ang mahabang teksto'],
@@ -2637,11 +2649,16 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               className="text-center"
               style={{ animation: 'd1-rise 700ms cubic-bezier(0.16,1,0.3,1) both' }}
             >
+              {/* [2026-05-05 Roy PM-29] 헤드라인 2줄 + 액센트 CTA로 가격 가치 전면 노출.
+                  Line 1: "한 달에 커피 한 잔. 매일 모든 AI를." (큰 글자)
+                  Line 2: "Claude + ChatGPT + Gemini, [쓴 만큼만 내세요]." (작은 글자, CTA 클릭 → savings 이동) */}
               <h1
                 className="mb-3.5 text-[40px] md:text-[56px] lg:text-[64px] font-medium leading-[1.1] tracking-[-0.03em]"
                 style={{ fontFamily: fontStack, wordBreak: lang === 'ko' ? 'keep-all' : undefined }}
               >
-                {t.emptyTitle ? <>{t.emptyTitle}{' '}</> : null}
+                {t.emptyTitle}
+                <br className="hidden md:block" />
+                {' '}
                 <span
                   className="italic"
                   style={{
@@ -2652,11 +2669,20 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
                   }}
                 >
                   {t.emptyTitleAccent}
-                </span>{' '}
+                </span>
                 {t.emptyTitleEnd}
               </h1>
               <p className="text-base tracking-[-0.01em]" style={{ color: tokens.textDim }}>
-                {t.emptySubtitle}
+                {t.emptySubtitlePrefix}
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('d1:nav-to', { detail: { view: 'savings' } }))}
+                  className="underline underline-offset-[3px] decoration-1 transition-opacity hover:opacity-80"
+                  style={{ color: tokens.accent, background: 'transparent', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}
+                >
+                  {t.emptySubtitleCta}
+                </button>
+                {t.emptySubtitleSuffix}
               </p>
             </div>
           </div>
@@ -3001,7 +3027,10 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
 // ============================================================
 type CopyObj = {
   emptyTitle: string; emptyTitleAccent: string; emptyTitleEnd: string;
-  emptySubtitle: string; placeholder: string; placeholderActive: string;
+  emptySubtitle: string;
+  // [2026-05-05 Roy PM-29] 헤드라인 line 2 — Claude+ChatGPT+Gemini, [CTA].
+  emptySubtitlePrefix: string; emptySubtitleCta: string; emptySubtitleSuffix: string;
+  placeholder: string; placeholderActive: string;
   suggestions: readonly string[];
   modelAuto: string; modelAutoDesc: string; footer: string;
   copy: string; copied: string; regenerate: string; noApiKey: string;
@@ -3904,7 +3933,7 @@ function D1InputBar({
               title={lang === 'ko' ? '블렌드 서비스 소개' : lang === 'ph' ? 'Tungkol sa Blend' : 'About Blend'}
             >
               <span aria-hidden>✦</span>
-              {lang === 'ko' ? '블렌드란?' : lang === 'ph' ? 'Ano ang Blend?' : 'Blend?'}
+              {lang === 'ko' ? '블렌드란?' : 'Blend?'}
             </button>
           )}
         </div>

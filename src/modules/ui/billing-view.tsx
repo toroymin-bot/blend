@@ -61,11 +61,12 @@ const PLANS = [
   },
   {
     // [2026-05-04 Roy] Lifetime → 6개월 패키지로 전환. 'lifetime' id는 license-store /
-    // payment success client에 박혀 있어 그대로 유지 (UI 표시만 'Discount - 6 Months').
-    // 가격: Pro 월 $9 × 6 = $54 → $29 (≈ 46% 할인). 카드 이름 "Discount" 부분 파란색 강조.
+    // payment success client에 박혀 있어 그대로 유지 (UI 표시만 'Smarter - 6 Months').
+    // [2026-05-05 Roy PM-29] $29 → $39 (46% off → 28% off — 마진 0% 모델 가능 가격대).
+    // 가격: Pro 월 $9 × 6 = $54 → $39 (≈ 28% 할인). 카드 이름 "Smarter" 부분 파란색 강조.
     id: 'lifetime',
-    name: 'Discount - 6 Months',
-    price: { monthly: 29, yearly: 29 },
+    name: 'Smarter - 6 Months',
+    price: { monthly: 39, yearly: 39 },
     descKey: 'billing.lifetime_desc',
     features: [
       { textKey: 'billing.feature_all_in_pro' },
@@ -192,11 +193,11 @@ export function BillingView() {
 
                 <div className="mb-5">
                   <h2 className="text-xl font-bold mb-1">
-                    {/* [2026-05-04 Roy] 'Discount - …' 시작이면 Discount 부분만 파란 강조 */}
-                    {plan.name.startsWith('Discount') ? (
+                    {/* [2026-05-05 Roy PM-29] 'Smarter - …' 시작이면 Smarter 부분만 파란 강조 */}
+                    {plan.name.startsWith('Smarter') ? (
                       <>
-                        <span style={{ color: '#2563eb' }}>Discount</span>
-                        <span>{plan.name.slice('Discount'.length)}</span>
+                        <span style={{ color: '#2563eb' }}>Smarter</span>
+                        <span>{plan.name.slice('Smarter'.length)}</span>
                       </>
                     ) : (
                       plan.name
