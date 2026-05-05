@@ -1104,12 +1104,13 @@ function CycleToggle({
   );
 }
 
-// [2026-05-05 PM-34 Roy] 요금제 카드 파란 그라데이션 — Pro / 6개월 / 1년 점점 진해짐.
+// [2026-05-05 PM-41 Roy] 요금제 카드 주황 그라데이션 — Pro / 6개월 / 1년 점점 진해짐.
+// (이전 PM-34는 파랑 → Roy 결정으로 주황으로 변경. Anthropic accent 톤 #d97757 기반.)
 // 무료 카드는 흰색 그대로 (현재 플랜 표시).
 const PLAN_BG_TINTS = {
-  pro:    '#f3f8ff', // 아주 아주 연한 파랑 (5% 톤)
-  semi:   '#dde9fb', // 아주 연한 파랑 (12% 톤) — Smarter 6개월
-  yearly: '#c2d8f5', // 연한 파랑 (22% 톤) — Smarter 1년
+  pro:    '#fdf6f1', // 아주 아주 아주 연한 주황 (4% 톤)
+  semi:   '#fbe6d4', // 아주 아주 연한 주황 (12% 톤) — Smarter 6개월
+  yearly: '#f6c89c', // 아주 연한 주황 (24% 톤) — Smarter 1년
 } as const;
 type PlanBgTint = keyof typeof PLAN_BG_TINTS;
 
@@ -1130,22 +1131,23 @@ function PlanCard({
   bgTint?: PlanBgTint;
 }) {
   const bg = bgTint ? PLAN_BG_TINTS[bgTint] : tokens.surface;
-  // [PM-34] highlight (6개월 추천 카드)는 파란 border + shadow로 강조 — 그라데이션과 통일.
-  const borderColor = highlight ? '#2563eb' : tokens.border;
+  // [PM-41] highlight (6개월 추천 카드)는 주황 border + shadow로 강조 — 주황 그라데이션 통일.
+  const borderColor = highlight ? '#d97757' : tokens.border;
   return (
     <div
       className="flex flex-col rounded-2xl border p-6"
       style={{
         background: bg,
         borderColor,
-        boxShadow: highlight ? '0 8px 24px rgba(37, 99, 235, 0.12)' : 'none',
+        boxShadow: highlight ? '0 8px 24px rgba(217, 119, 87, 0.16)' : 'none',
       }}
     >
       <div className="mb-1 text-[14px] font-semibold" style={{ color: tokens.text }}>
-        {/* [2026-05-05 Roy PM-29] 'Smarter - 6개월/Months/Buwan' 처음의 'Smarter' 부분만 파란색 + bold */}
+        {/* [2026-05-05 PM-41 Roy] 'Smarter' 강조 — 주황 그라데이션 통일 (이전 #2563eb 파랑 →
+            #a04f2f Anthropic brick tone). 가독성 + 시각 일관성. */}
         {name.startsWith('Smarter') ? (
           <>
-            <span style={{ color: '#2563eb', fontWeight: 700 }}>Smarter</span>
+            <span style={{ color: '#a04f2f', fontWeight: 700 }}>Smarter</span>
             <span>{name.slice('Smarter'.length)}</span>
           </>
         ) : (

@@ -647,6 +647,7 @@ export default function D1DataSourcesView({ lang }: { lang: 'ko' | 'en' | 'ph' }
                 key={a.type}
                 source={a}
                 t={t}
+                lang={lang}
                 onConnect={() => {
                   setConnectErr(null);
                   // [2026-04-29] 로컬은 OAuth 권한 모달 우회하고 picker 모달 직접 띄움.
@@ -996,14 +997,37 @@ function ConnectedCard({
 }
 
 function AvailableCard({
-  source, t, onConnect,
+  source, t, onConnect, lang,
 }: {
   source: AvailableSource;
   t: typeof copy[keyof typeof copy];
   onConnect: () => void;
+  lang: 'ko' | 'en' | 'ph';
 }) {
   // [2026-04-29] 'local' 라벨은 t.localLabel 사용 (다국어), 클라우드는 source.label (브랜드명).
   const displayLabel = source.type === 'local' ? t.localLabel : source.label;
+  // [2026-05-05 PM-41 Roy] OAuth 영속성 정책 차이를 사용자에게 명확 안내.
+  // Google Drive: implicit OAuth — access token 1시간 만료 + refresh token 없음 → 재로그인 필요.
+  // OneDrive:    refresh token 보유 — 약 90일 자동 갱신 (브라우저 storage 유지 시).
+  // Local:       권한이 IndexedDB에 영구 저장 (Chrome/Edge), 새로고침 시 폴더 재선택 필요.
+  const persistenceNote = (() => {
+    if (source.type === 'google-drive') {
+      if (lang === 'ko') return '⏱ 1시간 후 재로그인';
+      if (lang === 'ph') return '⏱ Re-login pagkatapos ng 1 oras';
+      return '⏱ Re-login after 1 hour';
+    }
+    if (source.type === 'onedrive') {
+      if (lang === 'ko') return '🔄 약 90일 자동 갱신';
+      if (lang === 'ph') return '🔄 Auto-renew ~90 araw';
+      return '🔄 Auto-renews ~90 days';
+    }
+    if (source.type === 'local') {
+      if (lang === 'ko') return '💾 새로고침 시 폴더 재선택';
+      if (lang === 'ph') return '💾 Pilliin muli ang folder pag-refresh';
+      return '💾 Reselect folder on refresh';
+    }
+    return '';
+  })();
   return (
     <div
       className="rounded-2xl border p-4 text-center"
@@ -1013,6 +1037,12 @@ function AvailableCard({
       <div className="mt-2 text-[13px] font-medium truncate" style={{ color: tokens.text }}>
         {displayLabel}
       </div>
+      {/* [PM-41] OAuth 영속성 한 줄 안내 */}
+      {persistenceNote && (
+        <div className="mt-1 text-[10.5px] leading-tight" style={{ color: tokens.textFaint }}>
+          {persistenceNote}
+        </div>
+      )}
       {source.enabled ? (
         <button
           type="button"

@@ -680,6 +680,20 @@ export function D1SettingsView() {
                           <span className="text-[14px] font-semibold" style={{ color: tokens.text }}>
                             {provider.name}
                           </span>
+                          {/* [2026-05-05 PM-41 Roy] AI 회사명 옆 콘솔 링크 — 항상 노출.
+                              등록 전/후 모두 동일. 재발급 시 사용자가 즉시 콘솔 진입 가능.
+                              아이콘만 (글자 없음) — 헤더 컴팩트. */}
+                          <a
+                            href={provider.keyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={t('settings.get_api_key')}
+                            aria-label={`${provider.name} ${t('settings.get_api_key')}`}
+                            className="inline-flex items-center transition-opacity hover:opacity-70"
+                            style={{ color: tokens.accent }}
+                          >
+                            <ExternalIcon />
+                          </a>
                           {provider.noteKey && (
                             <span className="rounded px-1.5 py-0.5 text-[11px] font-medium"
                                   style={{ background: tokens.accentSoft, color: tokens.accent }}>
@@ -770,14 +784,10 @@ export function D1SettingsView() {
                     </div>
                   )}
 
-                  {/* Get key / guide */}
+                  {/* [2026-05-05 PM-41 Roy] '발급받기' 글자/링크는 헤더로 통합됨 (항상 노출).
+                      여기에선 '어떻게 받아요?' 가이드 버튼만 유지 (등록 전 도움말). */}
                   {!keys[provider.id] && (
                     <div className="flex items-center gap-4 px-5 pb-4">
-                      <a href={provider.keyUrl} target="_blank" rel="noopener noreferrer"
-                         className="flex items-center gap-1 text-[12px] transition-opacity hover:opacity-70"
-                         style={{ color: tokens.accent }}>
-                        {t('settings.get_api_key')} <ExternalIcon />
-                      </a>
                       <button onClick={() => setGuideProvider(provider.id)}
                               className="flex items-center gap-1 text-[12px] transition-opacity hover:opacity-70"
                               style={{ color: tokens.textDim }}>

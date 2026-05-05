@@ -217,7 +217,7 @@ export function BillingView() {
                     {/* [2026-05-05 Roy PM-29] 'Smarter - …' 시작이면 Smarter 부분만 파란 강조 */}
                     {plan.name.startsWith('Smarter') ? (
                       <>
-                        <span style={{ color: '#2563eb' }}>Smarter</span>
+                        <span style={{ color: '#a04f2f' }}>Smarter</span>
                         <span>{plan.name.slice('Smarter'.length)}</span>
                       </>
                     ) : (
