@@ -500,15 +500,16 @@ export default function D1BillingView({
   lang: rawLang,
   mode = 'pricing',
 }: {
-  // [2026-05-04 #17] 'ph' 받음 → 내부 displayLang 'en'으로 coerce해 텍스트 영어 표시.
-  // 화폐만 별도 분기 (USD + ₱ PHP 동반 표시) — fmtMoney에서 처리.
   lang: 'ko' | 'en' | 'ph';
   mode?: 'pricing' | 'savings';
 }) {
-  const lang: 'ko' | 'en' | 'ph' = rawLang === 'ph' ? 'en' : rawLang;
+  // [2026-05-05 PM-32 Roy] CRITICAL FIX — 이전 PM-27 시대 coerce (`rawLang === 'ph' ? 'en'`)이
+  // PM-30/PM-31 currency 통합 후에도 잔존해 ph 페이지의 모든 fmtMoney(usd, lang) 호출이
+  // 'en'으로 들어가 $ 표시되던 버그. 이제 design1 컴포넌트들이 ph 직접 받도록 PM-28에서
+  // 확장됐으므로 coerce 불필요. lang === rawLang.
+  const lang: 'ko' | 'en' | 'ph' = rawLang;
   const isPh = rawLang === 'ph';
-  // [2026-05-04 #17 후속] copy lookup은 rawLang 사용 — copy.ph가 직접 매칭돼 따갈로그 카피
-  // 노출. lang(narrow)는 fmtKrw/fmtUsd 같은 ko/en 분기에만 사용.
+  // copy lookup은 rawLang 사용 — copy.ph가 직접 매칭돼 따갈로그 카피 노출.
   const t = copy[rawLang];
 
   // ── Usage data ────────────────────────────────────────────────
