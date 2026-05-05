@@ -6,10 +6,15 @@ import { sendTelegramMessage } from '../lib/telegram';
 
 // [2026-05-05 PM-46 Phase 4 Roy] blend-counter /usage-detailed에서 어제 데이터 fetch.
 // 실패 시 null 반환 → markdown formatter가 usage 섹션 자체 생략. 본 dev-log 흐름에 영향 0.
+// [Phase 5] cache 우회 — CF edge가 이전 5xx 응답 캐싱하던 회귀 차단.
 async function fetchYesterdayUsage(env: Env, date: string): Promise<UsageDetailed | null> {
   if (!env.BLEND_COUNTER_URL) return null;
   try {
-    const res = await fetch(`${env.BLEND_COUNTER_URL}/usage-detailed?date=${date}`);
+    const url = `${env.BLEND_COUNTER_URL}/usage-detailed?date=${date}&_t=${Date.now()}`;
+    const res = await fetch(url, {
+      cf: { cacheTtl: 0, cacheEverything: false } as any,
+      headers: { 'Cache-Control': 'no-cache' },
+    });
     if (!res.ok) return null;
     const data = await res.json() as UsageDetailed & { error?: string };
     if (data.error) return null;
