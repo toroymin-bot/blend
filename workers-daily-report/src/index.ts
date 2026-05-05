@@ -22,9 +22,25 @@ export default {
 
     if (url.pathname === '/preview' && req.method === 'GET') {
       const date = url.searchParams.get('date') ?? undefined;
-      // [2026-05-05 Phase 5] ?send=1 → dryRun 끄고 실제 Telegram 발송. 평소 GET은 미리보기.
       const send = url.searchParams.get('send') === '1';
-      return handleDevLogSummary(env, { dryRun: !send, date });
+      try {
+        return await handleDevLogSummary(env, { dryRun: !send, date });
+      } catch (e) {
+        return new Response(`handler exception: ${(e as Error).message ?? String(e)}\n${(e as Error).stack ?? ''}`, {
+          status: 500,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
+    }
+
+    // 진단 — KV에 저장된 마지막 send 에러 확인
+    if (url.pathname === '/last-error') {
+      const err = await env.BLEND_STATS.get('dev_log_last_error');
+      const run = await env.BLEND_STATS.get('dev_log_last_run');
+      return new Response(JSON.stringify({ err, run }, null, 2), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (url.pathname === '/health') {
