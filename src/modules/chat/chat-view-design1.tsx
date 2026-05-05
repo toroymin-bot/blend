@@ -2454,23 +2454,111 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
         maybeAutoPlay(fullText, sourceForThisMessage);
       },
       onError: (err) => {
-        // [2026-05-02 Roy] 자동 fallback to trial Gemini — 사용자 키 401/403/404
-        // (실제 만료/잘못된 키)면 등록된 키 의심하지 말고 무료 Gemini로 자동 전환.
-        // "블렌드 핵심 원칙: 모든 질문에 끊김없이 답변" 지킴.
-        // - TRIAL_KEY_AVAILABLE = NEXT_PUBLIC_BLEND_TRIAL_GEMINI_KEY 등록된 경우만
-        // - 실패 시에만 friendlyError로 사용자 안내
+        // [2026-05-05 PM-42 Roy] 🧬 하이브리드 패턴 정정 — 이전엔 auth error 시 무조건
+        // trial Gemini로만 전환. 사용자가 OpenAI Pro/Anthropic 키 가지고 있어도 무료
+        // Gemini Flash로 가서 답변 품질 저하. PM-26-4 meeting-runner / PM-37 Compare와
+        // 동일 패턴 — 사용자 키 등록된 다른 provider 우선 시도.
         const errStr = String((err as unknown as Error)?.message ?? err);
         const isAuthError = /401|403|404|invalid.*key|unauthorized|api key|not[\s_-]?found/i.test(errStr);
-        if (isAuthError && TRIAL_KEY_AVAILABLE && !isTrialMode) {
-          // trial Gemini로 재시도 — 사용자에게 자동 전환 안내
+        if (!isAuthError) {
+          // network/5xx 등 — friendly error 즉시
+          setMessages(prev => [...prev, {
+            id: Date.now().toString() + '_err',
+            role: 'assistant',
+            content: friendlyError(err, resolvedProvider),
+          }]);
+          setIsStreaming(false);
+          setStreamingContent('');
+          abortRef.current = null;
+          return;
+        }
+
+        // [PM-42] auth error → 사용자 키 valid한 다른 provider 우선 fallback chain.
+        // chain 우선순위 (FALLBACK_ORDER): openai → anthropic → google → deepseek → groq
+        const chainAlt = FALLBACK_ORDER.find(
+          (fb) => fb.provider !== resolvedProvider && hasKey(fb.provider),
+        );
+        if (chainAlt) {
+          const altNote = lang === 'ko'
+            ? `> 🔄 ${resolvedProvider} 키 문제로 ${chainAlt.provider}로 자동 전환했어요.\n\n`
+            : lang === 'ph'
+            ? `> 🔄 ${resolvedProvider} key issue — auto-switched sa ${chainAlt.provider}.\n\n`
+            : `> 🔄 ${resolvedProvider} key issue — auto-switched to ${chainAlt.provider}.\n\n`;
+          let altAccumulated = '';
+          sendChatRequest({
+            messages: apiMessages,
+            model: chainAlt.apiModel,
+            provider: chainAlt.provider,
+            apiKey: getKey(chainAlt.provider),
+            signal: controller.signal,
+            enableTools: true,
+            onToolUse: (toolName) => {
+              setActiveToolName(toolName);
+              setTimeout(() => setActiveToolName(null), 5000);
+            },
+            onChunk: (text) => {
+              altAccumulated += text;
+              setStreamingContent(altNote + altAccumulated);
+              setActiveToolName(null);
+            },
+            onDone: (fullText) => {
+              setMessages(prev => [...prev, {
+                id: Date.now().toString() + '_ai',
+                role: 'assistant',
+                content: altNote + fullText,
+                modelUsed: chainAlt.apiModel,
+              }]);
+              setIsStreaming(false);
+              setStreamingContent('');
+              setActiveToolName(null);
+              abortRef.current = null;
+              if (messages.length === 0) triggerAutoTitle(content, fullText);
+              maybeAutoPlay(fullText, sourceForThisMessage);
+            },
+            onError: (alt2Err) => {
+              // chainAlt도 실패 → trial Gemini 마지막 시도 (있을 때만)
+              if (TRIAL_KEY_AVAILABLE && !isTrialMode) {
+                triggerTrialFallback();
+                return;
+              }
+              setMessages(prev => [...prev, {
+                id: Date.now().toString() + '_err',
+                role: 'assistant',
+                content: friendlyError(alt2Err, chainAlt.provider),
+              }]);
+              setIsStreaming(false);
+              setStreamingContent('');
+              abortRef.current = null;
+            },
+          });
+          return;
+        }
+
+        // 다른 provider 키 없음 → trial Gemini로 (기존 로직 유지)
+        if (TRIAL_KEY_AVAILABLE && !isTrialMode) {
+          triggerTrialFallback();
+          return;
+        }
+
+        // trial도 미가용 → friendly error
+        setMessages(prev => [...prev, {
+          id: Date.now().toString() + '_err',
+          role: 'assistant',
+          content: friendlyError(err, resolvedProvider),
+        }]);
+        setIsStreaming(false);
+        setStreamingContent('');
+        abortRef.current = null;
+
+        // [PM-42] trial Gemini fallback — 모든 사용자 키 실패 시만 호출.
+        function triggerTrialFallback() {
           const fallbackNote = lang === 'ko'
             ? `> 🔄 ${resolvedProvider} 키 문제로 무료 Gemini로 자동 전환했어요.\n\n`
+            : lang === 'ph'
+            ? `> 🔄 ${resolvedProvider} key issue — auto-switched sa free Gemini.\n\n`
             : `> 🔄 ${resolvedProvider} key issue — auto-switched to free Gemini.\n\n`;
           let fbAccumulated = '';
           sendTrialMessage({
-            // [2026-05-02 Roy 핫픽스] toApiContent로 이미지 보존 — 이전엔 m.content만
-            // 넘겨 멀티모달 첨부 누락 + history에 남은 이미지 메시지 처리 깨짐 → 후속
-            // 메시지에서 "📡 네트워크 연결 확인" 오류로 이어지던 회귀.
             messages: bridgedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
             systemPrompt: blendIdentity,
             signal: controller.signal,
@@ -2492,7 +2580,6 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               maybeAutoPlay(fullText, sourceForThisMessage);
             },
             onError: (fbErr) => {
-              // trial도 실패 → 그제야 friendly error
               setMessages(prev => [...prev, {
                 id: Date.now().toString() + '_err',
                 role: 'assistant',
@@ -2503,17 +2590,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
               abortRef.current = null;
             },
           });
-          return;
         }
-        // 인증 오류 외 (network, 5xx 등) 또는 trial 미가용 → friendlyError
-        setMessages(prev => [...prev, {
-          id: Date.now().toString() + '_err',
-          role: 'assistant',
-          content: friendlyError(err, resolvedProvider),
-        }]);
-        setIsStreaming(false);
-        setStreamingContent('');
-        abortRef.current = null;
       },
     });
   }

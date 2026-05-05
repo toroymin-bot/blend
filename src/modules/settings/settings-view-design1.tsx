@@ -446,11 +446,19 @@ export function D1SettingsView() {
       setTestResult((s) => ({ ...s, [providerId]: 'fail' }));
     } finally {
       setTestingKey((s) => ({ ...s, [providerId]: false }));
-      // 친절 메시지는 8초 노출 (사용자가 읽고 행동할 시간), 그 후 dismiss.
+      // [2026-05-05 PM-42 Roy] 테스트 결과 자동 dismiss 제거 — fail 상태는 사용자가 키
+      // 입력 변경 또는 재테스트할 때까지 유지. 헤더 '검증 실패' 라벨 사라지면 misleading.
+      // ok 결과는 12초 후 dismiss (사용자 인지 후 부드럽게 회색으로 fade — '등록됨'으로).
       setTimeout(() => {
-        setTestResult((s) => ({ ...s, [providerId]: null }));
-        setTestErrorMsg((s) => ({ ...s, [providerId]: null }));
-      }, 8000);
+        setTestResult((s) => {
+          if (s[providerId] === 'ok') return { ...s, [providerId]: null };
+          return s; // fail 상태는 유지
+        });
+        setTestErrorMsg((s) => {
+          if (testResult[providerId] === 'ok') return { ...s, [providerId]: null };
+          return s;
+        });
+      }, 12000);
     }
   };
 
@@ -709,10 +717,40 @@ export function D1SettingsView() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
-                      {keys[provider.id]
-                        ? <span className="flex items-center gap-1 text-[12px]" style={{ color: '#22c55e' }}><CheckIcon /> {t('settings.key_set')}</span>
-                        : <span className="flex items-center gap-1 text-[12px]" style={{ color: tokens.textFaint }}><XIcon /> {t('settings.key_not_set')}</span>
-                      }
+                      {/* [2026-05-05 PM-42 Roy] 테스트 fail 시 '설정됨' 녹색 표시 misleading.
+                          testResult==='fail' → 빨간 '검증 실패' / 'ok' → 녹색 '검증됨' /
+                          null + 키 있음 → 회색 '등록됨' (검증 미실행) / 키 없음 → '미설정'. */}
+                      {(() => {
+                        if (!keys[provider.id]) {
+                          return (
+                            <span className="flex items-center gap-1 text-[12px]" style={{ color: tokens.textFaint }}>
+                              <XIcon /> {t('settings.key_not_set')}
+                            </span>
+                          );
+                        }
+                        if (testResult[provider.id] === 'fail') {
+                          return (
+                            <span className="flex items-center gap-1 text-[12px]" style={{ color: '#dc2626' }}>
+                              <AlertIcon />
+                              {lang === 'ko' ? '검증 실패' : lang === 'ph' ? 'Hindi valid' : 'Verification failed'}
+                            </span>
+                          );
+                        }
+                        if (testResult[provider.id] === 'ok') {
+                          return (
+                            <span className="flex items-center gap-1 text-[12px]" style={{ color: '#22c55e' }}>
+                              <CheckIcon />
+                              {lang === 'ko' ? '검증됨' : lang === 'ph' ? 'Verified' : 'Verified'}
+                            </span>
+                          );
+                        }
+                        // 키 등록됨 but 검증 미실행
+                        return (
+                          <span className="flex items-center gap-1 text-[12px]" style={{ color: tokens.textDim }}>
+                            <CheckIcon /> {t('settings.key_set')}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 

@@ -141,8 +141,27 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
   const records         = useUsageStore((s) => s.records);
   const loadFromStorage = useUsageStore((s) => s.loadFromStorage);
 
+  // [2026-05-05 PM-42 Roy] Cloudflare KV summary 통합 — 모든 디바이스 합산.
+  // 이전 dashboard는 records (이 디바이스 localStorage)만 사용 → 비용 절감 메뉴와
+  // 데이터 불일치 (대시보드 5건 vs 비용절감 233건). 데이터 아키텍처 결함 정정.
+  // KV에 시간대별/카테고리별 분포 없음 → KPI 카드만 KV 합산 사용, 패턴 분석은 records.
+  const [kvSummary, setKvSummary] = useState<null | {
+    yesterday: { totalCost: number; totalRequests: number };
+    week: { totalCost: number; totalRequests: number; providers: Record<string, { cost: number; requests: number }> };
+    month: { totalCost: number; totalRequests: number; providers?: Record<string, { cost: number; requests: number }> };
+    all: { totalCost: number; totalRequests: number; providers: Record<string, { cost: number; requests: number }> };
+  }>(null);
+
   useEffect(() => {
     loadFromStorage();
+    // [PM-42] KV 통합 fetch — billing-view와 동일 endpoint, 일관성 보장.
+    const counterUrl = process.env.NEXT_PUBLIC_BLEND_COUNTER_URL;
+    if (counterUrl) {
+      fetch(`${counterUrl}/usage-summary`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data) setKvSummary(data); })
+        .catch(() => {});
+    }
   }, [loadFromStorage]);
 
   const [period, setPeriod] = useState<Period>('month');
@@ -153,25 +172,38 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
   }, [records, period]);
 
   const stats = useMemo(() => {
-    // [2026-05-05 PM-40 Roy] dailyAvg 계산 정확화.
-    // 이전: period 명목 일수(7/30/365)로 나눔 → 사용자가 5일만 활동했어도 monthly에서는
-    // /30로 나눠 평균이 6배 낮게 나옴. 명백한 부정확 데이터.
-    // 신규: filtered 안의 distinct active days로 나눔 → "활동한 날 평균 X 메시지" 직관 일치.
-    // chatId 누락된 record 방어 — undefined 1개로 카운트되던 회귀 차단.
+    // [2026-05-05 PM-42 Roy] 단일 데이터 통합 — 비용 절감 메뉴와 일치하는 KV 합산 사용.
+    // 이전: 모든 KPI가 records (이 디바이스 localStorage)만 사용 → 비용 절감 233건인데
+    // dashboard 5건 같은 데이터 불일치 = 데이터 아키텍처 결함.
+    // 신규: KPI '메시지' / '사용 모델'은 KV summary 우선 (모든 디바이스 합산),
+    //       '대화' / 일평균은 records (KV에 chat 단위 / day 단위 분포 없음, 이 디바이스).
+    //       sub 라벨에 데이터 출처 명시 — 사용자가 어떤 디바이스 기준인지 인지.
     const chats = new Set(filtered.map((r) => r.chatId).filter(Boolean));
     const models = new Set(filtered.map((r) => r.model).filter(Boolean));
     const activeDays = new Set(filtered.map((r) => new Date(r.timestamp).toDateString()));
     const activeDayCount = activeDays.size;
+
+    // KV summary에서 period 매칭 — 'year'은 KV month 누적 가까움, 정확 없으면 'all' fallback.
+    const kvForPeriod = kvSummary
+      ? (period === 'week'   ? kvSummary.week
+      :  period === 'month'  ? kvSummary.month
+      :  /* year/all */        kvSummary.all)
+      : null;
+    const kvMessages = kvForPeriod?.totalRequests ?? null;
+    const kvProviderRecord = (kvForPeriod && 'providers' in kvForPeriod) ? kvForPeriod.providers : undefined;
+    const kvProviders = kvProviderRecord ? Object.keys(kvProviderRecord).length : null;
+
     return {
       chats: chats.size,
-      messages: filtered.length,
-      modelsUsed: models.size,
+      messages: kvMessages !== null ? kvMessages : filtered.length,
+      modelsUsed: kvProviders !== null ? kvProviders : models.size,
       dailyAvg: activeDayCount > 0
         ? Math.round((filtered.length / activeDayCount) * 10) / 10
         : 0,
       activeDayCount,
+      hasKv: kvMessages !== null,
     };
-  }, [filtered]);
+  }, [filtered, kvSummary, period]);
 
   // 7×24 heatmap
   const heatmap = useMemo(() => {
@@ -253,23 +285,69 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
           </div>
         ) : (
           <>
+            {/* [2026-05-05 PM-42 Roy] 데이터 출처 명시 — 사용자가 어떤 디바이스 기준인지
+                즉시 인지. KV 사용 시 "모든 디바이스 합산" / 미사용 시 "이 디바이스" 안내. */}
+            <div className="mb-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px]"
+                 style={{ background: tokens.surfaceAlt, color: tokens.textDim }}>
+              <span aria-hidden>{stats.hasKv ? '☁' : '💻'}</span>
+              <span>
+                {stats.hasKv
+                  ? (lang === 'ko' ? '메시지/모델 = 모든 디바이스 합산 (Cloudflare KV)'
+                     : lang === 'ph' ? 'Messages/Models = lahat ng devices (KV)'
+                     : 'Messages/Models = all devices combined (Cloudflare KV)')
+                  : (lang === 'ko' ? '이 디바이스 기록만 (KV 미연결)'
+                     : lang === 'ph' ? 'Device na ito lang (walang KV)'
+                     : 'This device only (KV not connected)')}
+              </span>
+            </div>
+
             {/* KPI cards */}
             <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-              {/* [2026-05-05 PM-40 Roy] dailyAvg sub 라벨 — 명목 period 대신 실제 활동일 표시.
-                  사용자가 "왜 평균이 이렇게 낮아?" 의심 차단. */}
-              <KpiCard label={t.chats}      value={stats.chats}      sub={t.periods[period]} />
-              <KpiCard label={t.messages}   value={stats.messages}   sub={t.periods[period]} />
-              <KpiCard label={t.modelsUsed} value={stats.modelsUsed} sub={t.periods[period]} />
+              {/* [PM-40] dailyAvg sub 라벨 — 명목 period 대신 실제 활동일 표시.
+                  [PM-42] messages/modelsUsed는 KV 합산, chats/dailyAvg는 records (이 디바이스). */}
+              <KpiCard
+                label={t.chats}
+                value={stats.chats}
+                sub={lang === 'ko' ? `${t.periods[period]} · 이 디바이스`
+                  : lang === 'ph' ? `${t.periods[period]} · device na ito`
+                  : `${t.periods[period]} · this device`}
+              />
+              <KpiCard
+                label={t.messages}
+                value={stats.messages}
+                sub={stats.hasKv
+                  ? (lang === 'ko' ? `${t.periods[period]} · 모든 디바이스`
+                    : lang === 'ph' ? `${t.periods[period]} · lahat ng devices`
+                    : `${t.periods[period]} · all devices`)
+                  : t.periods[period]}
+              />
+              <KpiCard
+                label={t.modelsUsed}
+                value={stats.modelsUsed}
+                sub={stats.hasKv
+                  ? (lang === 'ko' ? `${t.periods[period]} · 모든 디바이스`
+                    : lang === 'ph' ? `${t.periods[period]} · lahat ng devices`
+                    : `${t.periods[period]} · all devices`)
+                  : t.periods[period]}
+              />
               <KpiCard
                 label={t.dailyAvg}
                 value={stats.dailyAvg}
                 sub={lang === 'ko'
-                  ? `${stats.activeDayCount}일 활동 기준`
+                  ? `${stats.activeDayCount}일 활동 · 이 디바이스`
                   : lang === 'ph'
-                  ? `${stats.activeDayCount} active days`
-                  : `over ${stats.activeDayCount} active days`}
+                  ? `${stats.activeDayCount} active days · device na ito`
+                  : `${stats.activeDayCount} active days · this device`}
               />
             </div>
+
+            {/* [PM-42] 패턴 분석 카드 (heatmap/top models/categories)는 records 기반 — KV에 분포 없음.
+                작은 안내 라벨 추가. */}
+            <p className="mb-3 text-[11.5px]" style={{ color: tokens.textFaint }}>
+              {lang === 'ko' ? '* 아래 패턴 분석은 이 디바이스 기록만 (KV에 시간/모델별 분포 없음)'
+                : lang === 'ph' ? '* Pattern analysis sa baba — device na ito lang'
+                : '* Pattern analysis below — this device only'}
+            </p>
 
             {/* Heatmap */}
             <Card title={t.whenLabel}>
