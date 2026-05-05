@@ -10,6 +10,11 @@ export interface Env {
   // Phase 1: KV write에 추가로 dual-write (try/catch 격리, KV path 그대로). 실패해도
   // 기존 동작 영향 0. Phase 2/3에서 read 경로 v2 신설 + 검증 후 cutover.
   USAGE_AE: AnalyticsEngineDataset;
+  // Phase 2: WAE SQL API 호출용 자격증명 (Worker secret).
+  // AE_QUERY_TOKEN: Account Analytics Read 권한 토큰
+  // CF_ACCOUNT_ID: 계정 ID (URL 구성용)
+  AE_QUERY_TOKEN: string;
+  CF_ACCOUNT_ID: string;
 }
 
 const ALLOWED_EVENTS = [
@@ -354,6 +359,182 @@ export default {
             ...corsHeaders,
             // 1분 캐시 — Billing 화면 새로고침 시 worker 부하 완화
             'Cache-Control': 'public, max-age=60',
+          },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
+
+    // ═══ /usage-summary-v2 — WAE SQL 기반 (PM-46 Phase 2, 2026-05-05 Roy) ═══
+    // KV race lost update 정정 — append-only WAE는 동시 쓰기에서 손실 없음.
+    // 응답 shape는 /usage-summary와 동일 → 클라이언트는 endpoint URL만 swap하면 됨.
+    // 기간은 KV 워커와 동일 의미 (yesterday=KST 어제, week=어제까지 7일, month=KST 월,
+    // all=전체) — diff 비교 정확성을 위해.
+    if (url.pathname === '/usage-summary-v2' && req.method === 'GET') {
+      try {
+        const today = kstDate();
+        const yKst = (() => {
+          const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+          d.setUTCDate(d.getUTCDate() - 1);
+          return d.toISOString().slice(0, 10);
+        })();
+        const sevenDaysAgo = (() => {
+          const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+          d.setUTCDate(d.getUTCDate() - 6);
+          return d.toISOString().slice(0, 10);
+        })();
+        const monthStart = today.slice(0, 7) + '-01';
+
+        // WAE SQL 호출 helper. 응답 형식: { data: [{...row}], meta: [{...col}], ... }
+        const querySql = async (sql: string): Promise<Array<Record<string, unknown>>> => {
+          const res = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${env.AE_QUERY_TOKEN}`,
+                'Content-Type': 'text/plain',
+              },
+              body: sql,
+            },
+          );
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`AE SQL ${res.status}: ${txt.slice(0, 300)}`);
+          }
+          const json = await res.json() as { data?: Array<Record<string, unknown>> };
+          return json.data ?? [];
+        };
+
+        // 한 기간 (date 범위)에 대한 provider별 집계 + total 합산.
+        // blob4 = KST date string (track-usage 시점에 저장됨). 범위 비교로 필터.
+        // _sample_interval = AE의 정확한 카운트(샘플링 적용 시 자동 보정)
+        const summarizePeriod = async (startDate: string | null, endDate: string | null) => {
+          const where = startDate && endDate
+            ? `WHERE blob4 >= '${startDate}' AND blob4 <= '${endDate}'`
+            : ''; // all = no filter (90일 자연 만료 안에 있는 모든 데이터)
+
+          const rows = await querySql(`
+            SELECT
+              index1 AS provider,
+              SUM(_sample_interval) AS requests,
+              SUM(double1) AS cost,
+              SUM(double2) AS input_tokens,
+              SUM(double3) AS output_tokens
+            FROM blend_usage
+            ${where}
+            GROUP BY index1
+          `);
+
+          let totalCost = 0, totalTokens = 0, totalRequests = 0;
+          const providers: Record<string, { cost: number; tokens: number; requests: number }> = {};
+          for (const r of rows) {
+            const p = String(r.provider || 'unknown');
+            const requests = Number(r.requests) || 0;
+            const cost = Number(r.cost) || 0;
+            const tokens = (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
+            totalCost += cost;
+            totalTokens += tokens;
+            totalRequests += requests;
+            providers[p] = { cost, tokens, requests };
+          }
+          return { totalCost, totalTokens, totalRequests, providers };
+        };
+
+        const [yesterday, week, month, all] = await Promise.all([
+          summarizePeriod(yKst, yKst),
+          summarizePeriod(sevenDaysAgo, yKst),
+          summarizePeriod(monthStart, today),
+          summarizePeriod(null, null),
+        ]);
+
+        return new Response(JSON.stringify({
+          generatedAt: new Date().toISOString(),
+          source: 'analytics_engine',
+          yesterday,
+          week,
+          month,
+          all,
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+            'Cache-Control': 'public, max-age=60',
+          },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e), source: 'analytics_engine' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
+
+    // ═══ /usage-summary-diff — KV vs WAE 비교 (PM-46 Phase 2 검증용) ═══
+    // 두 엔드포인트의 응답을 가져와 같은 기간에서 totalRequests / providers 차이 계산.
+    // KV가 race lost로 더 적게 나오면 (kv < ae) WAE가 더 정확. 클라이언트 swap 결정 근거.
+    if (url.pathname === '/usage-summary-diff' && req.method === 'GET') {
+      try {
+        const baseUrl = `${url.protocol}//${url.host}`;
+        const [kvRes, aeRes] = await Promise.all([
+          fetch(`${baseUrl}/usage-summary`).then((r) => r.json() as Promise<any>),
+          fetch(`${baseUrl}/usage-summary-v2`).then((r) => r.json() as Promise<any>),
+        ]);
+
+        const periods = ['yesterday', 'week', 'month', 'all'] as const;
+        const diff: Record<string, unknown> = {};
+
+        for (const p of periods) {
+          const kv = kvRes[p];
+          const ae = aeRes[p];
+          if (!kv || !ae) {
+            diff[p] = { error: 'one side missing', kv: !!kv, ae: !!ae };
+            continue;
+          }
+
+          const kvProviders = kv.providers || {};
+          const aeProviders = ae.providers || {};
+          const allProviders = new Set([
+            ...Object.keys(kvProviders),
+            ...Object.keys(aeProviders),
+          ]);
+          const providersDiff: Record<string, { kv: number; ae: number; lost: number }> = {};
+          for (const prov of allProviders) {
+            const kvR = kvProviders[prov]?.requests || 0;
+            const aeR = aeProviders[prov]?.requests || 0;
+            providersDiff[prov] = { kv: kvR, ae: aeR, lost: aeR - kvR };
+          }
+
+          diff[p] = {
+            totalRequests: {
+              kv: kv.totalRequests || 0,
+              ae: ae.totalRequests || 0,
+              lost: (ae.totalRequests || 0) - (kv.totalRequests || 0),
+            },
+            totalCost: {
+              kv: kv.totalCost || 0,
+              ae: ae.totalCost || 0,
+              lostUsd: (ae.totalCost || 0) - (kv.totalCost || 0),
+            },
+            providers: providersDiff,
+          };
+        }
+
+        return new Response(JSON.stringify({
+          generatedAt: new Date().toISOString(),
+          note: 'lost = ae - kv. positive lost means KV race lost update.',
+          diff,
+        }, null, 2), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+            'Cache-Control': 'no-store', // 검증용 — 항상 최신 비교
           },
         });
       } catch (e) {
