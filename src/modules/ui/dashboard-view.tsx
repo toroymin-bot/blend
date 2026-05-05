@@ -6,19 +6,21 @@ import { getProviderColor } from '@/modules/models/model-registry';
 import { BarChart3, DollarSign, Zap, TrendingUp, Clock, Activity, RefreshCw, ChevronDown, ExternalLink } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useCountry } from '@/lib/use-country';
-
-const KRW = 1380;
-const PHP = 56;
+// [2026-05-05 PM-30 Roy] 단일 통화 (lang 기준) — '$X (₩Y)' 동반 표시 폐기.
+import { formatPrice } from '@/lib/currency';
+import { useSettingsStore } from '@/stores/settings-store';
 
 function formatUSD(amount: number): string {
   const rounded = Math.round(amount * 10) / 10;
   return rounded % 1 === 0 ? `$${rounded}` : `$${rounded.toFixed(1)}`;
 }
-function formatDual(usd: number, country: string): string {
-  const base = formatUSD(usd);
-  if (country === 'KR') return `${base} (₩${Math.round(usd * KRW).toLocaleString()})`;
-  if (country === 'PH') return `${base} (₱${Math.round(usd * PHP).toLocaleString()})`;
-  return base;
+/**
+ * [2026-05-05 PM-30 Roy] 단일 통화 — country는 무시, lang으로 결정.
+ * 환율은 src/lib/currency.ts MONTHLY_FX_RATES (xe.com 매월 1일 기준).
+ */
+function formatDual(usd: number, _country: string, lang: string = 'en'): string {
+  void _country;
+  return formatPrice(usd, lang);
 }
 
 // ── Provider Usage Links Dropdown ─────────────────────────────────────────────
@@ -324,6 +326,7 @@ function UsageBreakdownPanel({
 export function DashboardView() {
   const { t } = useTranslation();
   const { country } = useCountry();
+  const { settings } = useSettingsStore();
   const {
     getTotalCost, getTodayCost, getThisMonthCost,
     getCostByModel, getCostByProvider, getCostByDay,
@@ -389,21 +392,21 @@ export function DashboardView() {
               <DollarSign size={16} className="text-green-400" />
               <span className="text-sm text-on-surface-muted">{t('dashboard.today_cost')}</span>
             </div>
-            <p className="text-2xl font-bold text-on-surface">{formatDual(todayCost, country)}</p>
+            <p className="text-2xl font-bold text-on-surface">{formatDual(todayCost, country, settings.language)}</p>
           </div>
           <div className="bg-surface-2 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp size={16} className="text-blue-400" />
               <span className="text-sm text-on-surface-muted">{t('dashboard.month_cost')}</span>
             </div>
-            <p className="text-2xl font-bold text-on-surface">{formatDual(monthCost, country)}</p>
+            <p className="text-2xl font-bold text-on-surface">{formatDual(monthCost, country, settings.language)}</p>
           </div>
           <div className="bg-gradient-to-br from-yellow-900/40 to-surface-2 rounded-xl p-4 border border-yellow-700/30">
             <div className="flex items-center gap-2 mb-1">
               <DollarSign size={16} className="text-yellow-400" />
               <span className="text-sm text-on-surface-muted">{t('dashboard.total_accumulated')}</span>
             </div>
-            <p className="text-3xl font-bold text-yellow-300">{formatDual(totalCost, country)}</p>
+            <p className="text-3xl font-bold text-yellow-300">{formatDual(totalCost, country, settings.language)}</p>
             <p className="text-xs text-on-surface-muted mt-1">{t('dashboard.api_calls', { count: totalRequests })}</p>
           </div>
           <div className="bg-surface-2 rounded-xl p-4">

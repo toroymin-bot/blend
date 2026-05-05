@@ -13,6 +13,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAPIKeyStore } from '@/stores/api-key-store';
 import { sendChatRequest } from '@/modules/chat/chat-api';
+// [2026-05-05 PM-30 Roy] 단일 통화 표시 — lang별 ₩/$/₱ (xe.com 매월 1일 환율).
+import { getCurrentFxRates } from '@/lib/currency';
 import { sendTrialMessage, TRIAL_KEY_AVAILABLE } from '@/modules/chat/trial-gemini-client';
 import { useTrialStore } from '@/stores/trial-store';
 import {
@@ -164,10 +166,19 @@ function estimateCost(modelId: string, totalTokens: number): number {
   return (inferPricePer1M(modelId) / 1_000_000) * totalTokens;
 }
 
+// [2026-05-05 PM-30 Roy] 단일 통화 표시 — lang별 ₩/$/₱.
+// 환율 src/lib/currency.ts (매월 1일 xe.com 기준).
 function formatKRW(usd: number | undefined, lang: 'ko' | 'en' | 'ph'): string {
   if (usd === undefined || usd === 0) return '';
   if (lang === 'en') return usd < 0.001 ? '<$0.001' : `$${usd.toFixed(3)}`;
-  const krw = Math.round(usd * 1370);
+  const fx = getCurrentFxRates();
+  if (lang === 'ph') {
+    const php = Math.ceil(usd * fx.phpPerUsd);
+    if (php < 1) return '<₱1';
+    return `₱${php.toLocaleString('en-PH')}`;
+  }
+  // ko
+  const krw = Math.ceil(usd * fx.krwPerUsd);
   if (krw < 1) return '<₩1';
   return `₩${krw.toLocaleString()}`;
 }

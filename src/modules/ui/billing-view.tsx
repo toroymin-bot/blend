@@ -11,19 +11,19 @@ import { startPaddleCheckout } from '@/lib/paddle';
 import { openTossCheckout, isTossConfigured } from '@/lib/toss';
 import { openXenditInvoice, isXenditConfigured } from '@/lib/xendit';
 import { useCountry } from '@/lib/use-country';
-
-const KRW = 1380;
-const PHP = 56;
+// [2026-05-05 PM-30 Roy] 단일 통화 표시 — lang 기준 (xe.com 매월 1일 환율).
+import { formatPrice } from '@/lib/currency';
 
 function formatUSD(amount: number): string {
   const rounded = Math.round(amount * 10) / 10;
   return rounded % 1 === 0 ? `$${rounded}` : `$${rounded.toFixed(1)}`;
 }
-function formatDual(usd: number, country: string): string {
-  const base = formatUSD(usd);
-  if (country === 'KR') return `${base} (₩${Math.round(usd * KRW).toLocaleString()})`;
-  if (country === 'PH') return `${base} (₱${Math.round(usd * PHP).toLocaleString()})`;
-  return base;
+/**
+ * [2026-05-05 PM-30 Roy] 단일 통화 표시 — formatDual('$X (₩Y)') 폐기.
+ * lang에 따라 ₩/$/₱ 중 하나만. country는 결제 탭 강조에만 사용 (별 책임).
+ */
+function formatByLang(usd: number, lang: string): string {
+  return formatPrice(usd, lang);
 }
 
 const PLANS = [
@@ -208,7 +208,8 @@ export function BillingView() {
 
                 <div className="mb-2">
                   <span className="text-5xl font-bold">
-                    {countryLoading ? `$${price}` : formatDual(price, country)}
+                    {/* [2026-05-05 PM-30 Roy] 단일 통화 (lang 기준) — '$X (₩Y)' 동반 표시 폐기. */}
+                    {formatByLang(price, settings.language)}
                   </span>
                   {!plan.isLifetime && plan.price.monthly > 0 && (
                     <span className="text-gray-400 text-sm ml-1">{t('billing.per_month')}</span>

@@ -7,16 +7,21 @@ import { DollarSign, TrendingDown, Sparkles, RefreshCw } from 'lucide-react';
 import { useUsageStore } from '@/stores/usage-store';
 import { useTranslation } from '@/lib/i18n';
 import { useCountry } from '@/lib/use-country';
+// [2026-05-05 PM-30 Roy] 단일 통화 표시 — lang 기준 (xe.com 매월 1일 환율).
+import { formatPrice } from '@/lib/currency';
+import { useSettingsStore } from '@/stores/settings-store';
 
 function formatUSD(amount: number): string {
   const rounded = Math.round(amount * 10) / 10;
   return rounded % 1 === 0 ? `$${rounded}` : `$${rounded.toFixed(1)}`;
 }
-function formatDual(usd: number, country: string): string {
-  const base = formatUSD(usd);
-  if (country === 'KR') return `${base} (₩${Math.round(usd * 1380).toLocaleString()})`;
-  if (country === 'PH') return `${base} (₱${Math.round(usd * 56).toLocaleString()})`;
-  return base;
+/**
+ * [2026-05-05 PM-30 Roy] 단일 통화 (lang 기준) — '$X (₩Y)' 동반 표시 폐기.
+ * country 파라미터는 backward-compat 유지하되 무시 — settings.language로 결정.
+ */
+function formatDual(usd: number, _country: string, lang: string = 'en'): string {
+  void _country;
+  return formatPrice(usd, lang);
 }
 
 // Monthly subscription prices (USD, 2026 market rates)
@@ -38,6 +43,7 @@ interface CostSavingsDashboardProps {
 export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: CostSavingsDashboardProps) {
   const { t } = useTranslation();
   const { country } = useCountry();
+  const { settings } = useSettingsStore();
   const { getThisMonthCost, loadFromStorage } = useUsageStore();
 
   // [2026-04-25] Fix: null initial value avoids SSR/CSR timestamp mismatch (React #418)
@@ -92,7 +98,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
               <DollarSign size={18} className="text-red-400" />
               <span className="text-sm text-on-surface-muted">{t('savings_view.individual_total')}</span>
             </div>
-            <p className="text-3xl font-bold text-red-300">{formatDual(totalIndividual, country)}</p>
+            <p className="text-3xl font-bold text-red-300">{formatDual(totalIndividual, country, settings.language)}</p>
             <p className="text-xs text-on-surface-muted mt-1">{t('savings_view.per_month')}</p>
           </div>
 
@@ -102,7 +108,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
               <span className="text-lg font-bold text-blue-400">B</span>
               <span className="text-sm text-on-surface-muted">{t('savings_view.blend_label')}</span>
             </div>
-            <p className="text-3xl font-bold text-blue-300">~{formatDual(effectiveBlendMonthly, country)}</p>
+            <p className="text-3xl font-bold text-blue-300">~{formatDual(effectiveBlendMonthly, country, settings.language)}</p>
             <p className="text-xs text-on-surface-muted mt-1">{t('savings_view.month_estimate')}</p>
           </div>
 
@@ -112,7 +118,7 @@ export function CostSavingsDashboard({ blendMonthly = BLEND_MONTHLY_ESTIMATE }: 
               <TrendingDown size={18} className="text-green-400" />
               <span className="text-sm text-on-surface-muted">{t('savings_view.savings_label')}</span>
             </div>
-            <p className="text-3xl font-bold text-green-300">{formatDual(savings, country)}</p>
+            <p className="text-3xl font-bold text-green-300">{formatDual(savings, country, settings.language)}</p>
             <p className="text-xs text-green-400 mt-1 font-medium">{t('savings_view.savings_pct', { pct: savingsPercent })}</p>
           </div>
         </div>

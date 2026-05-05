@@ -54,6 +54,8 @@ import { inferProvider as routerInferProvider } from '@/data/available-models';
 import { getBlendIdentityPrompt, BLEND_INTRO_QUESTION } from '@/lib/blend-identity';
 // [2026-05-04 Roy] 채팅 세션 부하 추적 — 응답 지연 예측 기반 0~100% 진행 바.
 import { computeSessionLoad, getLoadColor, getLoadStage, getLoadStageMessage, estimateTokens } from '@/lib/session-load';
+// [2026-05-05 PM-30 Roy] 단일 통화 표시 — lang별 ₩/$/₱.
+import { getCurrentFxRates } from '@/lib/currency';
 
 // [2026-05-02 Roy] AI 도구 한국어 라벨 — indicator 표시용. 영어는 raw name 그대로.
 const TOOL_LABEL_KO: Record<string, string> = {
@@ -238,10 +240,19 @@ const SUGGESTIONS_WITH_MODEL = [
 // ============================================================
 // Formatting utilities
 // ============================================================
+// [2026-05-05 PM-30 Roy] 단일 통화 표시 — lang에 따라 ₩/$/₱.
+// 환율은 src/lib/currency.ts MONTHLY_FX_RATES (매월 1일 xe.com 기준).
 function formatKRW(usd: number | undefined, lang: 'ko' | 'en' | 'ph'): string {
   if (usd === undefined || usd === 0) return '';
   if (lang === 'en') return usd < 0.01 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(3)}`;
-  const krw = Math.round(usd * 1370);
+  const fx = getCurrentFxRates();
+  if (lang === 'ph') {
+    const php = Math.ceil(usd * fx.phpPerUsd);
+    if (php < 1) return '<₱1';
+    return `₱${php}`;
+  }
+  // ko
+  const krw = Math.ceil(usd * fx.krwPerUsd);
   if (krw < 1) return '<₩1';
   return `₩${krw}`;
 }

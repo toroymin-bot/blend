@@ -1108,7 +1108,7 @@ const FAQ_DATA = {
     },
     {
       q: '제가 헤비 유저면 어떻게 되나요?',
-      a: '하루 50회 이상의 대화를 하시면 ChatGPT Plus나 Claude Pro 같은 정액제가 더 유리할 수 있습니다. Blend는 라이트~미들 사용자(월 구독료가 아까운 분들)에게 최적화되어 있습니다. 절감액 계산기로 본인 패턴을 먼저 확인해보세요.',
+      a: '하루 100회 이상의 대화를 하시면 ChatGPT Plus나 Claude Pro 같은 정액제가 더 유리할 수 있습니다. Blend는 라이트~미들 사용자(월 구독료가 아까운 분들)에게 최적화되어 있습니다.',
     },
     {
       q: '대화 데이터는 어떻게 처리되나요?',
@@ -1130,7 +1130,7 @@ const FAQ_DATA = {
     },
     {
       q: 'What if I’m a heavy user?',
-      a: 'If you have 50+ conversations a day, a flat-rate plan like ChatGPT Plus or Claude Pro may be a better fit. Blend is optimized for light-to-mid users — the people for whom monthly subscriptions feel wasteful. Try the savings calculator first to see your pattern.',
+      a: 'If you have 100+ conversations a day, a flat-rate plan like ChatGPT Plus or Claude Pro may be a better fit. Blend is optimized for light-to-mid users — the people for whom monthly subscriptions feel wasteful.',
     },
     {
       q: 'How is conversation data handled?',
@@ -1152,7 +1152,7 @@ const FAQ_DATA = {
     },
     {
       q: 'Paano kung heavy user ako?',
-      a: 'Kung 50+ chats araw-araw, mas swak ang flat-rate na ChatGPT Plus o Claude Pro. Optimized ang Blend para sa light-to-mid users (yung naiinis sa monthly subscription). Subukan muna ang savings calculator para makita ang pattern mo.',
+      a: 'Kung 100+ chats araw-araw, mas swak ang flat-rate na ChatGPT Plus o Claude Pro. Optimized ang Blend para sa light-to-mid users (yung naiinis sa monthly subscription).',
     },
     {
       q: 'Paano ina-handle ang conversation data?',

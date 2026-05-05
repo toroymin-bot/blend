@@ -34,7 +34,7 @@ const BRAND_COLORS: Record<string, string> = {
 };
 
 // ── Constants ────────────────────────────────────────────────────
-const KRW_PER_USD = 1370;
+// [2026-05-05 PM-30 Roy] KRW_PER_USD 하드코딩 제거 — getCurrentFxRates() 사용.
 const BASELINE_KEY = 'd1:savings-baseline';
 
 type Baseline = '3services' | '5services';
@@ -85,8 +85,12 @@ const copy = {
 } as const;
 
 // ── Helpers ──────────────────────────────────────────────────────
+// [2026-05-05 PM-30 Roy] 단일 통화 표시 — lang에 따라 ₩/$/₱ 중 하나만.
+// 환율은 매월 1일 xe.com 기준 (src/lib/currency.ts MONTHLY_FX_RATES).
+import { getCurrentFxRates } from '@/lib/currency';
+
 function fmtKrw(usd: number): string {
-  const krw = Math.round(usd * KRW_PER_USD);
+  const krw = Math.round(usd * getCurrentFxRates().krwPerUsd);
   if (krw === 0) return '₩0';
   if (krw < 1)   return '<₩1';
   return `₩${krw.toLocaleString('ko-KR')}`;
@@ -97,8 +101,17 @@ function fmtUsd(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
+function fmtPhp(usd: number): string {
+  const php = Math.round(usd * getCurrentFxRates().phpPerUsd);
+  if (php === 0) return '₱0';
+  if (php < 1)   return '<₱1';
+  return `₱${php.toLocaleString('en-PH')}`;
+}
+
 function fmtMoney(usd: number, lang: 'ko' | 'en' | 'ph'): string {
-  return lang === 'ko' ? fmtKrw(usd) : fmtUsd(usd);
+  if (lang === 'ko') return fmtKrw(usd);
+  if (lang === 'ph') return fmtPhp(usd);
+  return fmtUsd(usd);
 }
 
 function fmtDateShort(ts: number, lang: 'ko' | 'en' | 'ph'): string {

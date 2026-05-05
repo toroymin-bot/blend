@@ -34,9 +34,10 @@ const BRAND_COLORS: Record<string, string> = {
 };
 
 // ── Constants ────────────────────────────────────────────────────
-const KRW_PER_USD = 1370;
+// [2026-05-05 PM-30 Roy] KRW_PER_USD 하드코딩 제거 — getCurrentFxRates() 사용.
+// 매월 1일 xe.com 기준으로 src/lib/currency.ts MONTHLY_FX_RATES에서 갱신.
 
-// 구독 비교 (USD/월) — 한국 기준 표시 가격
+// 구독 비교 (USD/월) — 비교 baseline은 USD가 source of truth
 const SUBSCRIPTIONS = [
   { id: 'chatgpt',  ko: 'ChatGPT Plus',     en: 'ChatGPT Plus',    usd: 20 },
   { id: 'claude',   ko: 'Claude Pro',       en: 'Claude Pro',      usd: 20 },
@@ -65,16 +66,16 @@ const DEFAULT_LIMIT: SpendingLimit = {
 type PlanId = 'free' | 'pro' | 'lifetime';
 type BillingCycle = 'monthly' | 'yearly';
 
-// [2026-05-04 Roy PM-25 + 후속] Lifetime → 6개월 패키지로 전환. id 'lifetime' 유지
-// (license-store/payment 호환). 가격: Pro 월 $9 × 6 = $54 → $39 (≈ 28% off — Roy PM-29 결정).
-// 53430 = $39 × 1370 KRW_PER_USD.
+// [2026-05-05 PM-30 Roy] PRICING은 USD 기준 single source of truth.
+// KRW/PHP는 getCurrentFxRates()로 화면 표시 시점에 변환 (xe.com 매월 1일 기준).
+// Pro 월 $9, 연간 $90 (= $9 × 10 = 2개월 무료), Smarter 6개월 $39 (28% off vs $9 × 6 = $54).
 const PRICING = {
   pro: {
-    monthlyKrw: 12420,
-    yearlyKrw:  124200, // 10x = 2개월 무료
+    monthlyUsd: 9,
+    yearlyUsd:  90,
   },
   lifetime: {
-    onceKrw: 53430, // $39 — 6개월 패키지 (28% off — Roy PM-29)
+    onceUsd: 39,
   },
 } as const;
 
@@ -364,11 +365,13 @@ const copy = {
 } as const;
 
 // ── Format helpers ───────────────────────────────────────────────
-// [2026-05-04 #17] PHP 환산 — billing-view.tsx와 동일 비율 (1 USD ≈ 56 PHP).
-const PHP_PER_USD = 56;
+// [2026-05-05 Roy PM-30] 단일 통화 표시. lang에 따라 ₩ / $ / ₱ 중 하나만.
+// 환율은 src/lib/currency.ts MONTHLY_FX_RATES (xe.com 매월 1일 기준).
+import { getCurrentFxRates } from '@/lib/currency';
 
 function fmtKrw(usd: number): string {
-  const krw = Math.round(usd * KRW_PER_USD);
+  const fx = getCurrentFxRates();
+  const krw = Math.ceil(usd * fx.krwPerUsd);
   if (krw === 0) return '₩0';
   if (krw < 1) return '<₩1';
   return `₩${krw.toLocaleString('ko-KR')}`;
@@ -382,15 +385,20 @@ function fmtUsd(usd: number): string {
 }
 
 function fmtPhp(usd: number): string {
-  const php = Math.round(usd * PHP_PER_USD);
+  const fx = getCurrentFxRates();
+  const php = Math.ceil(usd * fx.phpPerUsd);
   if (php === 0) return '₱0';
   if (php < 1) return '<₱1';
   return `₱${php.toLocaleString('en-PH')}`;
 }
 
-function fmtMoney(usd: number, lang: 'ko' | 'en' | 'ph', isPh = false): string {
+/**
+ * [2026-05-05 PM-30 Roy] 단일 통화 표시 — 혼합 표시 ($ (₱)) 금지.
+ * isPh 파라미터는 backward-compat 유지하되 무시 (lang === 'ph'면 항상 PHP만).
+ */
+function fmtMoney(usd: number, lang: 'ko' | 'en' | 'ph', _isPh?: boolean): string {
   if (lang === 'ko') return fmtKrw(usd);
-  if (isPh) return `${fmtUsd(usd)} (${fmtPhp(usd)})`;
+  if (lang === 'ph') return fmtPhp(usd);
   return fmtUsd(usd);
 }
 
@@ -925,7 +933,8 @@ function PricingSection({
   lang, isPh, t, billingCycle, setBillingCycle, activePlan, onChoose,
 }: {
   lang: 'ko' | 'en' | 'ph';
-  // [2026-05-04 #17] /design1/ph 라우트 시 true → 가격 옆 ₱ PHP 동반 표시.
+  // [2026-05-05 PM-30 Roy] isPh 의미 변경 — 더 이상 동반 표시 안 함. lang === 'ph'와 동일.
+  // backward-compat 위해 prop은 유지하되 내부 로직은 lang 직접 사용.
   isPh: boolean;
   t: typeof copy[keyof typeof copy];
   billingCycle: BillingCycle;
@@ -933,16 +942,12 @@ function PricingSection({
   activePlan: PlanId;
   onChoose: (plan: PlanId) => void;
 }) {
-  const fmtKrwInline = (n: number) => `₩${n.toLocaleString('ko-KR')}`;
-  const fmtUsdInline = (krw: number) => `$${(krw / KRW_PER_USD).toFixed(0)}`;
-  const fmtPhpInline = (krw: number) => `₱${Math.round((krw / KRW_PER_USD) * PHP_PER_USD).toLocaleString('en-PH')}`;
-  const money = (krw: number) => {
-    if (lang === 'ko') return fmtKrwInline(krw);
-    if (isPh) return `${fmtUsdInline(krw)} (${fmtPhpInline(krw)})`;
-    return fmtUsdInline(krw);
-  };
+  // [2026-05-05 PM-30 Roy] 단일 통화 표시 — 혼합 ($ (₱)) 금지.
+  // PRICING은 USD source of truth. 표시 시점에 lang에 따라 변환.
+  void isPh;
+  const money = (usd: number) => fmtMoney(usd, lang);
 
-  const proPriceKrw = billingCycle === 'monthly' ? PRICING.pro.monthlyKrw : PRICING.pro.yearlyKrw;
+  const proPriceUsd = billingCycle === 'monthly' ? PRICING.pro.monthlyUsd : PRICING.pro.yearlyUsd;
   const proSuffix   = billingCycle === 'monthly' ? t.perMonth : t.perYear;
 
   // [2026-04-26] F-2 — 현재 플랜 vs 카드 플랜 매칭 시 "현재 플랜" 표시
@@ -985,7 +990,7 @@ function PricingSection({
           plan="pro"
           name={t.plan_pro}
           desc={t.plan_pro_desc}
-          priceLabel={money(proPriceKrw)}
+          priceLabel={money(proPriceUsd)}
           priceSuffix={proSuffix}
           features={t.plan_pro_features}
           cta={proCta.label}
@@ -997,7 +1002,7 @@ function PricingSection({
           plan="lifetime"
           name={t.plan_lifetime}
           desc={t.plan_lifetime_desc}
-          priceLabel={money(PRICING.lifetime.onceKrw)}
+          priceLabel={money(PRICING.lifetime.onceUsd)}
           priceSuffix={` · ${t.once}`}
           features={t.plan_lifetime_features}
           cta={lifetimeCta.label}
@@ -1136,12 +1141,13 @@ function PaymentStubModal({
   const [payError, setPayError] = useState<string | null>(null);
 
   const planName = plan === 'pro' ? t.plan_pro : plan === 'lifetime' ? t.plan_lifetime : t.plan_free;
-  const priceKrw = plan === 'lifetime'
-    ? PRICING.lifetime.onceKrw
-    : billingCycle === 'monthly' ? PRICING.pro.monthlyKrw : PRICING.pro.yearlyKrw;
-  const priceLabel = lang === 'ko'
-    ? `₩${priceKrw.toLocaleString('ko-KR')}`
-    : `$${(priceKrw / KRW_PER_USD).toFixed(0)}`;
+  // [2026-05-05 PM-30 Roy] USD 기반. 화면 표시는 lang에 따라 단일 통화.
+  const priceUsd = plan === 'lifetime'
+    ? PRICING.lifetime.onceUsd
+    : billingCycle === 'monthly' ? PRICING.pro.monthlyUsd : PRICING.pro.yearlyUsd;
+  const priceLabel = fmtMoney(priceUsd, lang);
+  // Toss Payments는 KRW 결제 — 표시 통화와 별개로 KRW로 환산 (xe.com 매월 1일 기준).
+  const priceKrwForToss = Math.round(priceUsd * getCurrentFxRates().krwPerUsd);
   const suffix = plan === 'lifetime' ? t.once : (billingCycle === 'monthly' ? t.perMonth : t.perYear);
 
   // [2026-04-26] F-1 — Toss Payments 결제 활성 여부 (ENV로 제어)
@@ -1158,7 +1164,7 @@ function PaymentStubModal({
       const orderName = `Blend ${planName} (${plan === 'lifetime' ? 'Lifetime' : billingCycle === 'monthly' ? 'Monthly' : 'Yearly'})`;
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       await tossPayments.requestPayment('카드', {
-        amount: priceKrw,
+        amount: priceKrwForToss,
         orderId,
         orderName,
         successUrl: `${origin}/${lang}/payment/success`,
@@ -1349,17 +1355,10 @@ function ProviderLimitsSection({ lang, t }: { lang: 'ko' | 'en' | 'ph'; t: Recor
 function KvCol({ label, cost, reqs, lang, isPh = false }: { label: string; cost: number; reqs: number; lang: 'ko' | 'en' | 'ph'; isPh?: boolean }) {
   // [2026-05-02 Roy] 라벨/건수 텍스트를 '이번 달' 헤더(13px)와 통일.
   // 이전: label 12px / reqs 11px → 너무 작음, 가독성 낮음.
-  // [2026-05-04 Roy #17 후속] isPh일 때 USD + ₱ PHP 동반 표시.
-  const usdLabel = cost > 0 ? `$${cost.toFixed(cost < 0.01 ? 4 : 2)}` : '$0';
-  const phpLabel = cost > 0 ? `₱${Math.round(cost * 56).toLocaleString('en-PH')}` : '₱0';
-  let priceText: string;
-  if (lang === 'ko') {
-    priceText = cost > 0 ? `₩${Math.round(cost * KRW_PER_USD).toLocaleString('ko-KR')}` : '₩0';
-  } else if (isPh) {
-    priceText = `${usdLabel} (${phpLabel})`;
-  } else {
-    priceText = usdLabel;
-  }
+  // [2026-05-05 PM-30 Roy] 단일 통화 표시 — fmtMoney가 lang별 ₩/$/₱ 처리.
+  // isPh prop은 무시 (backward compat). 작은 cost (< $0.01)는 fmtUsd가 '<$0.01'로 처리.
+  void isPh;
+  const priceText = fmtMoney(cost, lang);
   return (
     <div>
       <div className="text-[13px] mb-1" style={{ color: tokens.textDim }}>{label}</div>
@@ -1479,10 +1478,16 @@ function LimitRow({
   onSave: (usd: number) => void;
   t: typeof copy[keyof typeof copy];
 }) {
-  // Display draft in user-facing currency (KO: KRW, EN: USD)
+  // [2026-05-05 PM-30 Roy] 표시 통화는 lang에 따라 KRW / USD / PHP 단일.
+  // 입력 받을 때도 같은 통화로 받음 → USD로 변환해 저장.
+  const fxKrwPerUsd = getCurrentFxRates().krwPerUsd;
+  const fxPhpPerUsd = getCurrentFxRates().phpPerUsd;
+
   const draftFromValue = (usd: number): string => {
     if (usd <= 0) return '';
-    return lang === 'ko' ? String(Math.round(usd * KRW_PER_USD)) : String(usd);
+    if (lang === 'ko') return String(Math.round(usd * fxKrwPerUsd));
+    if (lang === 'ph') return String(Math.round(usd * fxPhpPerUsd));
+    return String(usd);
   };
 
   const [editing, setEditing] = useState(false);
@@ -1500,8 +1505,8 @@ function LimitRow({
     if (!Number.isFinite(n) || n <= 0) {
       onSave(0);
     } else {
-      const usd = lang === 'ko' ? n / KRW_PER_USD : n;
-      // Sanity cap: $10,000/day (≈ ₩13.7M/day) — clearly above any realistic limit
+      const usd = lang === 'ko' ? n / fxKrwPerUsd : lang === 'ph' ? n / fxPhpPerUsd : n;
+      // Sanity cap: $10,000/day — clearly above any realistic limit
       const capped = Math.min(usd, 10000);
       onSave(capped);
     }
@@ -1513,11 +1518,7 @@ function LimitRow({
     setDraft(draftFromValue(valueUsd));
   }
 
-  const displayLabel = valueUsd > 0
-    ? (lang === 'ko'
-        ? `₩${Math.round(valueUsd * KRW_PER_USD).toLocaleString('ko-KR')}`
-        : `$${valueUsd.toFixed(2).replace(/\.00$/, '')}`)
-    : t.notSet;
+  const displayLabel = valueUsd > 0 ? fmtMoney(valueUsd, lang) : t.notSet;
 
   return (
     <div

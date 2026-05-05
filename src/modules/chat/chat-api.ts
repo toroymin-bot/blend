@@ -132,15 +132,17 @@ async function enforceLimits(): Promise<void> {
     const monthlyOver = (limit.monthlyUsd ?? 0) > 0 && month >= limit.monthlyUsd!;
 
     if (limit.autoStop && (dailyOver || monthlyOver)) {
-      const KRW_PER_USD = 1370;
+      // [2026-05-05 PM-30 Roy] 환율은 src/lib/currency.ts (xe.com 매월 1일 기준).
+      const { getCurrentFxRates } = await import('@/lib/currency');
+      const krwPerUsd = getCurrentFxRates().krwPerUsd;
       const which = dailyOver ? '일일' : '월간';
       const limitUsd = dailyOver ? limit.dailyUsd! : limit.monthlyUsd!;
       const usedUsd = dailyOver ? today : month;
       throw new Error(
         `🛑 ${which} 비용 한도(${
-          `₩${Math.round(limitUsd * KRW_PER_USD).toLocaleString('ko-KR')}`
+          `₩${Math.round(limitUsd * krwPerUsd).toLocaleString('ko-KR')}`
         }) 초과로 자동 정지 — 현재 ${
-          `₩${Math.round(usedUsd * KRW_PER_USD).toLocaleString('ko-KR')}`
+          `₩${Math.round(usedUsd * krwPerUsd).toLocaleString('ko-KR')}`
         } 사용. 설정 → 비용 관리에서 한도 조정 또는 자동 정지 끄기.`,
       );
     }

@@ -24,16 +24,18 @@ export function estimateMonthlyCost(totalSizeBytes: number): number {
   return dailyChange * 30;
 }
 
-const KRW_PER_USD = 1370;
+// [2026-05-05 PM-30 Roy] KRW 환율 src/lib/currency.ts (xe.com 매월 1일 기준).
+import { getCurrentFxRates } from '@/lib/currency';
 
 export function estimateCost(totalSizeBytes: number): CostEstimate {
   const initialUsd = estimateInitialCost(totalSizeBytes);
   const monthlyUsd = estimateMonthlyCost(totalSizeBytes);
+  const krwPerUsd = getCurrentFxRates().krwPerUsd;
   return {
     initialUsd,
     monthlyUsd,
-    initialKrw: Math.round(initialUsd * KRW_PER_USD),
-    monthlyKrw: Math.round(monthlyUsd * KRW_PER_USD),
+    initialKrw: Math.ceil(initialUsd * krwPerUsd),
+    monthlyKrw: Math.ceil(monthlyUsd * krwPerUsd),
   };
 }
 
@@ -45,7 +47,7 @@ export function formatUsd(usd: number): string {
 }
 
 export function formatKrw(usd: number): string {
-  const krw = Math.round(usd * KRW_PER_USD);
+  const krw = Math.round(usd * getCurrentFxRates().krwPerUsd);
   if (krw === 0) return '₩0';
   if (krw < 100) return `<₩100`;
   return `₩${krw.toLocaleString('ko-KR')}`;

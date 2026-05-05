@@ -92,6 +92,10 @@ const labels = {
 // 향후 재활성화 시 한 줄 변경: SHOW_SEARCH_MENU = true
 const SHOW_SEARCH_MENU = false;
 
+// [2026-05-05 Roy PM-30] '60초 둘러보기' 메뉴 일시 비활성. 콘텐츠 정비 후 true로 복원.
+// 데스크탑 ··· 팝오버 + 모바일 drawer 두 곳 모두 자동 적용됨.
+const ENABLE_WELCOME_TOUR = false;
+
 export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' | 'ph' }) {
   const lang = urlLang;
   // [2026-05-04 #17 후속] 'ph'에 sidebar 라벨 따갈로그 적용 — labels.ph 추가됨.
@@ -476,15 +480,20 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' | 
                     {label}
                   </button>
                 ))}
-                <div className="mx-3 my-1" style={{ height: 1, background: tokens.border }} />
-                {/* [2026-04-26] Sprint 1 (16384367) — Welcome Demo 재진입 */}
-                <button onClick={() => { setShowMore(false); window.dispatchEvent(new CustomEvent('blend:replay-welcome')); }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-black/5"
-                  style={{ color: tokens.text }}
-                >
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: tokens.textDim }}>🎬</span>
-                  {lang === 'ko' ? '60초 둘러보기' : '60-second tour'}
-                </button>
+                {/* [2026-05-05 Roy PM-30] 60초 둘러보기 버튼 일시 비활성 — 콘텐츠 정비 후
+                    재활성. {ENABLE_WELCOME_TOUR && (...)} 으로 wrap, 상수 false로 차단. */}
+                {ENABLE_WELCOME_TOUR && (
+                  <>
+                    <div className="mx-3 my-1" style={{ height: 1, background: tokens.border }} />
+                    <button onClick={() => { setShowMore(false); window.dispatchEvent(new CustomEvent('blend:replay-welcome')); }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-black/5"
+                      style={{ color: tokens.text }}
+                    >
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: tokens.textDim }}>🎬</span>
+                      {lang === 'ko' ? '60초 둘러보기' : '60-second tour'}
+                    </button>
+                  </>
+                )}
                 {/* [2026-05-04 Roy #16] 사이드바 About 항목 제거 — Settings 안 About
                     섹션으로 통합. 두 곳에서 같은 정보를 노출하면 사용자가 선택 부담을
                     느낌. Settings 진입 후 About 섹션 클릭으로 일관 액세스. */}
@@ -569,20 +578,23 @@ export default function AppContentDesign1({ urlLang }: { urlLang: 'ko' | 'en' | 
                 {label}
               </button>
             ))}
-            {/* [2026-04-30 Tori 18841602 v3] 60초 둘러보기 — Welcome demo 재진입 */}
-            <button
-              onClick={() => {
-                setDrawerOpen(false);
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('blend:replay-welcome'));
-                }
-              }}
-              className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none pl-4 pr-3 text-[13px] transition-colors hover:bg-black/5"
-              style={{ color: tokens.text }}
-            >
-              <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" aria-hidden style={{ color: tokens.textDim }}>🎬</span>
-              {lang === 'ko' ? '60초 둘러보기' : '60-second tour'}
-            </button>
+            {/* [2026-04-30 Tori 18841602 v3] 60초 둘러보기 — Welcome demo 재진입.
+                [2026-05-05 Roy PM-30] 일시 비활성 — ENABLE_WELCOME_TOUR=true로 복원. */}
+            {ENABLE_WELCOME_TOUR && (
+              <button
+                onClick={() => {
+                  setDrawerOpen(false);
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('blend:replay-welcome'));
+                  }
+                }}
+                className="flex h-10 w-full items-center gap-3 rounded-[10px] border-none pl-4 pr-3 text-[13px] transition-colors hover:bg-black/5"
+                style={{ color: tokens.text }}
+              >
+                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center" aria-hidden style={{ color: tokens.textDim }}>🎬</span>
+                {lang === 'ko' ? '60초 둘러보기' : '60-second tour'}
+              </button>
+            )}
             {/* [2026-05-04 Roy #16] 모바일 drawer About 항목 제거 — Settings 안
                 About 섹션으로 통합. 데스크탑 ··· 팝오버와 동일 처리. */}
           </aside>
