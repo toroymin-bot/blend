@@ -72,17 +72,20 @@ export async function handleDevLogSummary(
     });
   }
 
-  // 3. Telegram 전송
+  // 3. Telegram 전송 — KV 메타 기록은 부수적, 실패해도 본 흐름 차단 X.
   try {
     await sendTelegramMessage(env, message);
-    await env.BLEND_STATS.put('dev_log_last_run', new Date().toISOString());
+    // 성공 메타 — KV put 한도 초과해도 응답 영향 X.
+    try { await env.BLEND_STATS.put('dev_log_last_run', new Date().toISOString()); } catch {}
     return new Response('sent', { status: 200 });
   } catch (e) {
     const err = e as Error;
-    await env.BLEND_STATS.put(
-      'dev_log_last_error',
-      `${new Date().toISOString()} ${err.message ?? String(err)}`,
-    );
-    return new Response(`telegram send failed: ${err.message}`, { status: 500 });
+    try {
+      await env.BLEND_STATS.put(
+        'dev_log_last_error',
+        `${new Date().toISOString()} ${err.message ?? String(err)}`,
+      );
+    } catch { /* KV 한도 초과 — 에러 메시지만 응답으로 */ }
+    return new Response(`telegram send failed: ${err.message ?? String(err)}`, { status: 500 });
   }
 }
