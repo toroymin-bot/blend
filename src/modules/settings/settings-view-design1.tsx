@@ -205,6 +205,8 @@ export function D1SettingsView() {
   const [showKeys,    setShowKeys]    = useState<Record<string, boolean>>({});
   const [testingKey,  setTestingKey]  = useState<Record<string, boolean>>({});
   const [testResult,  setTestResult]  = useState<Record<string, 'ok' | 'fail' | null>>({});
+  // [2026-05-05 PM-37 Roy] 키 테스트 실패 시 친절 안내 메시지 (이유 + 행동 가이드).
+  const [testErrorMsg, setTestErrorMsg] = useState<Record<string, string | null>>({});
   const [guideProvider, setGuideProvider] = useState<string | null>(null);
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [presetName,  setPresetName]  = useState('');
@@ -268,37 +270,129 @@ export function D1SettingsView() {
     reader.readAsText(file);
   };
 
+  // [2026-05-05 PM-37 Roy] 키 테스트 실패 시 친절한 카피 + 사용자 행동 안내.
+  // 🧬 Blend 하이브리드 패턴 — 코드 빠른 결정 + AI 톤 카피.
+  // 단순 'ok/fail' → status code 분석 → 어떤 이유 + 어떻게 하면 되는지 짧게.
+  const friendlyKeyTestError = (
+    providerId: AIProvider,
+    status: number | null,
+    bodyText: string,
+  ): string => {
+    const body = (bodyText ?? '').toLowerCase();
+    const ko = lang === 'ko';
+    const ph = lang === 'ph';
+    const providerName = providerId === 'openai' ? 'OpenAI'
+      : providerId === 'anthropic' ? 'Anthropic'
+      : providerId === 'google' ? 'Google AI Studio'
+      : providerId === 'deepseek' ? 'DeepSeek'
+      : 'Groq';
+    const consoleUrl = providerId === 'openai' ? 'platform.openai.com/api-keys'
+      : providerId === 'anthropic' ? 'console.anthropic.com/settings/keys'
+      : providerId === 'google' ? 'aistudio.google.com/apikey'
+      : providerId === 'deepseek' ? 'platform.deepseek.com/api_keys'
+      : 'console.groq.com/keys';
+    const expectedPrefix = providerId === 'openai' ? 'sk-...'
+      : providerId === 'anthropic' ? 'sk-ant-...'
+      : providerId === 'google' ? 'AIza...'
+      : providerId === 'deepseek' ? 'sk-...'
+      : 'gsk_...';
+
+    // 401 / invalid key
+    if (status === 401 || /unauthorized|invalid.*key|not.?valid|api_key_invalid|incorrect/.test(body)) {
+      return ko
+        ? `🔑 키가 올바르지 않아요. ${consoleUrl}에서 새 키 발급 → 앞뒤 공백 없이 복사해 다시 입력 (${expectedPrefix} 형식).`
+        : ph
+        ? `🔑 Hindi valid ang key. Kumuha ng bagong key sa ${consoleUrl} → kopyahin nang walang space (${expectedPrefix}).`
+        : `🔑 Invalid key. Generate a new one at ${consoleUrl} → copy without spaces (format: ${expectedPrefix}).`;
+    }
+    // 403 / forbidden / not verified
+    if (status === 403 || /forbidden|verify|verification|permission.?denied/.test(body)) {
+      return ko
+        ? `🚫 키는 맞지만 권한 부족. ${providerName} 콘솔 → 결제·organization 인증 완료 후 재시도.`
+        : ph
+        ? `🚫 Tama ang key pero kulang ang permission. Sa ${providerName} console → tapusin ang billing / org verification.`
+        : `🚫 Key is valid but lacks permissions. Complete billing / org verification at ${providerName} console.`;
+    }
+    // 429 / rate limit / quota
+    if (status === 429 || /rate.?limit|quota|exceeded/.test(body)) {
+      return ko
+        ? `⚠️ 호출 한도 초과. 1~2분 후 다시 테스트, 또는 ${providerName} 콘솔에서 결제·한도 상향.`
+        : ph
+        ? `⚠️ Rate limit. Subukan muli pagkatapos ng 1-2 minuto, o i-upgrade sa ${providerName} console.`
+        : `⚠️ Rate limit. Retry in 1-2 min, or upgrade limits at ${providerName} console.`;
+    }
+    // 404 / wrong endpoint or key format
+    if (status === 404 || /not.?found|model.*not.*found/.test(body)) {
+      return ko
+        ? `⏳ API endpoint 응답 없음. 키 형식이 ${expectedPrefix}인지 확인 + ${providerName} 콘솔에서 키 활성 상태 점검.`
+        : ph
+        ? `⏳ Walang API endpoint response. Tiyaking ${expectedPrefix} format ang key + check status sa ${providerName} console.`
+        : `⏳ No API endpoint response. Verify key format (${expectedPrefix}) + check status at ${providerName} console.`;
+    }
+    // 5xx / server error
+    if ((status && status >= 500 && status < 600) || /server.*error|internal|service unavailable|overloaded/.test(body)) {
+      return ko
+        ? `🔧 ${providerName} 서버 일시 장애. 1~2분 후 다시 테스트.`
+        : ph
+        ? `🔧 Pansamantalang server issue sa ${providerName}. Subukan muli pagkatapos ng 1-2 minuto.`
+        : `🔧 ${providerName} server hiccup. Try again in 1-2 min.`;
+    }
+    // network / fetch / timeout / aborted
+    if (status === null || /fetch|network|load failed|connection|timeout|timed out|aborted/.test(body)) {
+      return ko
+        ? `📡 네트워크 연결 확인 후 다시 시도. VPN / 방화벽이 ${providerName} 차단할 수 있어요.`
+        : ph
+        ? `📡 I-check ang network connection. Maaaring naka-block ang ${providerName} ng VPN / firewall.`
+        : `📡 Check network. VPN / firewall may block ${providerName}.`;
+    }
+    // generic
+    return ko
+      ? `❗ 키 테스트 실패 (status ${status ?? '?'}). ${providerName} 콘솔에서 키 상태 확인 → 필요 시 재발급.`
+      : ph
+      ? `❗ Hindi nag-test ang key (status ${status ?? '?'}). I-check sa ${providerName} console.`
+      : `❗ Test failed (status ${status ?? '?'}). Check key status at ${providerName} console.`;
+  };
+
   const handleTestKey = async (providerId: AIProvider) => {
     const key = keys[providerId];
     if (!key) return;
     setTestingKey((s) => ({ ...s, [providerId]: true }));
     setTestResult((s) => ({ ...s, [providerId]: null }));
+    setTestErrorMsg((s) => ({ ...s, [providerId]: null }));
+    let res: Response | null = null;
+    let bodyText = '';
     try {
-      let ok = false;
       if (providerId === 'openai') {
-        const res = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-        ok = res.ok;
+        res = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: `Bearer ${key}` } });
       } else if (providerId === 'anthropic') {
-        const res = await fetch('https://api.anthropic.com/v1/models', {
+        res = await fetch('https://api.anthropic.com/v1/models', {
           headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
         });
-        ok = res.ok;
       } else if (providerId === 'google') {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
-        ok = res.ok;
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
       } else if (providerId === 'deepseek') {
-        const res = await fetch('https://api.deepseek.com/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-        ok = res.ok;
+        res = await fetch('https://api.deepseek.com/v1/models', { headers: { Authorization: `Bearer ${key}` } });
       } else if (providerId === 'groq') {
-        const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-        ok = res.ok;
+        res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+      }
+      const ok = !!res?.ok;
+      if (!ok && res) {
+        try { bodyText = await res.text(); } catch { /* ignore */ }
+        const friendly = friendlyKeyTestError(providerId, res.status, bodyText);
+        setTestErrorMsg((s) => ({ ...s, [providerId]: friendly }));
       }
       setTestResult((s) => ({ ...s, [providerId]: ok ? 'ok' : 'fail' }));
-    } catch {
+    } catch (e) {
+      const friendly = friendlyKeyTestError(providerId, null, (e as Error)?.message ?? '');
+      setTestErrorMsg((s) => ({ ...s, [providerId]: friendly }));
       setTestResult((s) => ({ ...s, [providerId]: 'fail' }));
     } finally {
       setTestingKey((s) => ({ ...s, [providerId]: false }));
-      setTimeout(() => setTestResult((s) => ({ ...s, [providerId]: null })), 4000);
+      // 친절 메시지는 8초 노출 (사용자가 읽고 행동할 시간), 그 후 dismiss.
+      setTimeout(() => {
+        setTestResult((s) => ({ ...s, [providerId]: null }));
+        setTestErrorMsg((s) => ({ ...s, [providerId]: null }));
+      }, 8000);
     }
   };
 
@@ -602,6 +696,21 @@ export function D1SettingsView() {
                       </button>
                     )}
                   </div>
+
+                  {/* [2026-05-05 PM-37 Roy] 키 테스트 실패 시 친절 안내 — 이유 + 행동 가이드.
+                      🧬 하이브리드 패턴 — 단순 X 표시 X, AI 톤 카피로 사용자 다음 행동 유도. */}
+                  {testResult[provider.id] === 'fail' && testErrorMsg[provider.id] && (
+                    <div
+                      className="mx-5 mb-4 rounded-xl px-4 py-3 text-[12.5px] leading-[1.55]"
+                      style={{
+                        background: '#fef2f2',
+                        color: '#991b1b',
+                        border: '1px solid #fecaca',
+                      }}
+                    >
+                      {testErrorMsg[provider.id]}
+                    </div>
+                  )}
 
                   {/* Get key / guide */}
                   {!keys[provider.id] && (

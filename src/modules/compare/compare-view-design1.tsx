@@ -22,6 +22,8 @@ import {
   FEATURED_PROVIDER_ORDER,
   PROVIDER_LABELS,
   isTrialModel,
+  getAutoFallbackChain,
+  AVAILABLE_MODELS,
   type ProviderId,
 } from '@/data/available-models';
 import type { AIProvider } from '@/types';
@@ -195,13 +197,17 @@ function formatTokens(count: number | undefined, lang: 'ko' | 'en' | 'ph'): stri
 
 // ── Column state ─────────────────────────────────────────────────
 type ColumnState = {
-  modelId:    string;
+  modelId:    string;             // 원래 사용자가 선택한 모델
   content:    string;
   isStreaming: boolean;
   done:       boolean;
   tokens?:    number;
   cost?:      number;
   error?:     string;
+  // [2026-05-05 PM-37 Roy] 자동 fallback 추적 — 사용자 선택 모델 키 invalid 등 실패 시
+  // 다른 provider 모델로 자동 교체. 컬럼 헤더에 "원래 X → Y" 안내 표시.
+  fallbackToModelId?: string;
+  fallbackToProvider?: AIProvider;
 };
 
 // ── Main component ────────────────────────────────────────────────
@@ -436,6 +442,53 @@ export default function D1CompareView({
         }));
         setTimeout(() => streamOneModel(modelId, question, 1, true), 300);
         return;
+      }
+
+      // [2026-05-05 PM-37 Roy] 🧬 Blend 하이브리드 패턴 — auth 실패 시 다른 provider 모델로 자동 fallback.
+      // PM-26-4 회의 분석의 getAutoFallbackChain() 패턴을 Compare에 적용.
+      // 사용자 키 등록된 다른 provider 중 첫 번째 fast/balanced 모델로 교체 + UI에 안내.
+      const canChainFallback =
+        attempt === 0 &&
+        !forceTrial &&
+        AUTH_INVALID_RE.test(raw ?? '');
+      if (canChainFallback) {
+        const chain = getAutoFallbackChain();
+        const fb = chain.find((c) => c.provider !== model.apiProv && hasKey(c.provider as AIProvider));
+        if (fb) {
+          const fbModel = AVAILABLE_MODELS.find((m) => m.id === fb.apiModel);
+          const fbApiKey = getKey(fb.provider as AIProvider);
+          if (fbModel && fbApiKey) {
+            // content reset + 자동 교체 표시 + sendChatRequest 직접 호출 (chain은 재귀 X).
+            colContentRef.current[modelId] = '';
+            setSession((prev) => prev && ({
+              ...prev,
+              columns: prev.columns.map((c) =>
+                c.modelId === modelId
+                  ? { ...c, content: '', isStreaming: true, done: false, error: undefined,
+                      fallbackToModelId: fb.apiModel, fallbackToProvider: fb.provider as AIProvider }
+                  : c,
+              ),
+            }));
+            const fbAbort = new AbortController();
+            abortRefs.current[modelId] = fbAbort;
+            setTimeout(() => {
+              void sendChatRequest({
+                messages:  [{ role: 'user', content: question }],
+                model:     fb.apiModel,
+                provider:  fb.provider as AIProvider,
+                apiKey:    fbApiKey,
+                onChunk:   appendChunk,
+                onDone:    (full, usage) => {
+                  const totalTok = (usage?.input ?? 0) + (usage?.output ?? 0);
+                  finalize(full, totalTok || undefined, estimateCost(fb.apiModel, totalTok));
+                },
+                onError:   (e) => markError(friendlyCompareError(e)),
+                signal:    fbAbort.signal,
+              });
+            }, 300);
+            return;
+          }
+        }
       }
       markError(friendlyCompareError(raw));
     };
@@ -714,34 +767,62 @@ export default function D1CompareView({
                   }}
                 >
                   {/* Column header */}
-                  <div
-                    className="flex shrink-0 items-center gap-2.5 border-b px-4 py-3"
-                    style={{ borderColor: tokens.border, position: isMobile ? 'sticky' : undefined, top: 0, background: tokens.bg, zIndex: 1 }}
-                  >
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: provColor }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <span
-                        className="block truncate text-[13.5px] font-medium"
-                        style={{ color: tokens.text }}
+                  {/* [2026-05-05 PM-37 Roy] fallback 발생 시 헤더에 자연스러운 안내 배지.
+                      "원래 [Claude Opus] 키 문제 → [GPT-5.5]로 자동 전환" 같은 톤. */}
+                  {(() => {
+                    // [PM-37] AvailableModel은 displayName, ModelEntry는 name — 양쪽 호환 처리.
+                    const fbAvail = col.fallbackToModelId
+                      ? AVAILABLE_MODELS.find((m) => m.id === col.fallbackToModelId)
+                      : null;
+                    const fbDisplayName = fbAvail?.displayName ?? col.fallbackToModelId ?? '';
+                    const fbProvider = fbAvail?.provider;
+                    const showFallback = !!fbAvail;
+                    const provColorForHeader = fbProvider
+                      ? (BRAND_COLORS[fbProvider] ?? tokens.textFaint)
+                      : provColor;
+                    const headerName = showFallback ? fbDisplayName : (model?.name ?? col.modelId);
+                    const headerProvLabel = showFallback && fbProvider
+                      ? PROVIDER_LABELS[fbProvider][lang]
+                      : (model ? PROVIDER_LABELS[model.provider][lang] : '');
+                    return (
+                      <div
+                        className="flex shrink-0 flex-col gap-1 border-b px-4 py-3"
+                        style={{ borderColor: tokens.border, position: isMobile ? 'sticky' : undefined, top: 0, background: tokens.bg, zIndex: 1 }}
                       >
-                        {model?.name ?? col.modelId}
-                      </span>
-                      <span
-                        className="block truncate text-[11px] uppercase tracking-[0.05em]"
-                        style={{ color: tokens.textFaint }}
-                      >
-                        {model ? PROVIDER_LABELS[model.provider][lang] : ''}
-                      </span>
-                    </div>
-                    {col.isStreaming && (
-                      <span className="text-[11px]" style={{ color: tokens.textFaint }}>
-                        {t.streaming}
-                      </span>
-                    )}
-                  </div>
+                        <div className="flex items-center gap-2.5">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: provColorForHeader }} />
+                          <div className="min-w-0 flex-1">
+                            <span className="block truncate text-[13.5px] font-medium" style={{ color: tokens.text }}>
+                              {headerName}
+                            </span>
+                            <span className="block truncate text-[11px] uppercase tracking-[0.05em]" style={{ color: tokens.textFaint }}>
+                              {headerProvLabel}
+                            </span>
+                          </div>
+                          {col.isStreaming && (
+                            <span className="text-[11px]" style={{ color: tokens.textFaint }}>
+                              {t.streaming}
+                            </span>
+                          )}
+                        </div>
+                        {showFallback && (
+                          <div
+                            className="flex items-center gap-1 text-[10.5px] leading-tight"
+                            style={{ color: tokens.textFaint }}
+                          >
+                            <span aria-hidden>↻</span>
+                            <span className="truncate">
+                              {lang === 'ko'
+                                ? `${model?.name ?? col.modelId} 키 문제로 자동 전환`
+                                : lang === 'ph'
+                                ? `Auto-switched (${model?.name ?? col.modelId} key issue)`
+                                : `Auto-switched (${model?.name ?? col.modelId} key issue)`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* [2026-05-05 Roy PM-33] Column body — 모바일 기본 6줄(약 132px,
                       이전 4줄 88px에서 50% 증가). 답변 길면 10줄(260px)까지 자동 확장,
