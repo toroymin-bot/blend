@@ -55,4 +55,17 @@ export interface Env {
   TELEGRAM_CHAT_ID: string;
   GITHUB_REPO_URL: string;
   TIMEZONE: string;
+  // [2026-05-05 PM-46 Phase 4 Roy] WAE-backed 사용 통계용
+  BLEND_COUNTER_URL: string;
+}
+
+// [2026-05-05 PM-46 Phase 4] blend-counter /usage-detailed 응답 shape
+export interface UsageDetailed {
+  date: string;
+  totalRequests: number;
+  totalCost: number;
+  totalTokens: number;
+  providers: Record<string, { requests: number; cost: number; tokens: number }>;
+  models: Record<string, { requests: number; cost: number; tokens: number }>;
+  hourly: Array<{ hour: string; requests: number; cost: number }>;
 }

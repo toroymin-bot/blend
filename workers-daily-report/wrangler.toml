@@ -22,4 +22,6 @@ preview_id = "cef51d6253e34bb0be9633a386d806a6"
 [vars]
 GITHUB_REPO_URL = "https://github.com/toroymin-bot/blend"
 TIMEZONE = "Asia/Seoul"
+# [2026-05-05 PM-46 Phase 4 Roy] WAE 기반 사용 통계 fetch용 — blend-counter URL.
+BLEND_COUNTER_URL = "https://blend-counter.toroymin.workers.dev"
 # TELEGRAM_CHAT_ID는 wrangler secret put으로 등록 (vars로 두면 secret을 덮어씀)

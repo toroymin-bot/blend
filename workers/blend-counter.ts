@@ -479,6 +479,121 @@ export default {
     // fetch 시 CF가 loop 차단(error 1042). 검증은 외부 curl 두 번(/usage-summary +
     // /usage-summary-v2)으로 충분.
 
+    // ═══ /usage-detailed — 1일 상세 분석 (PM-46 Phase 4, 2026-05-05 Roy) ═══
+    // Telegram 일일 리포트 워커가 호출 → provider/model/hour breakdown 반환.
+    // KST 날짜 기준 (date param = YYYY-MM-DD). WAE SQL 3개 쿼리 병렬.
+    if (url.pathname === '/usage-detailed' && req.method === 'GET') {
+      try {
+        const date = url.searchParams.get('date');
+        if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          return new Response(JSON.stringify({ error: 'date param required (YYYY-MM-DD)' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+
+        const querySql = async (sql: string): Promise<Array<Record<string, unknown>>> => {
+          const res = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${env.AE_QUERY_TOKEN}`,
+                'Content-Type': 'text/plain',
+              },
+              body: sql,
+            },
+          );
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`AE SQL ${res.status}: ${txt.slice(0, 300)}`);
+          }
+          const json = await res.json() as { data?: Array<Record<string, unknown>> };
+          return json.data ?? [];
+        };
+
+        const where = `WHERE blob4 = '${date}'`;
+        const [providerRows, modelRows, hourlyRows] = await Promise.all([
+          querySql(`
+            SELECT index1 AS provider,
+                   SUM(_sample_interval) AS requests,
+                   SUM(double1) AS cost,
+                   SUM(double2 + double3) AS tokens
+            FROM blend_usage ${where}
+            GROUP BY index1
+          `),
+          querySql(`
+            SELECT blob1 AS model,
+                   SUM(_sample_interval) AS requests,
+                   SUM(double1) AS cost,
+                   SUM(double2 + double3) AS tokens
+            FROM blend_usage ${where}
+            GROUP BY blob1
+          `),
+          querySql(`
+            SELECT blob5 AS hour,
+                   SUM(_sample_interval) AS requests,
+                   SUM(double1) AS cost
+            FROM blend_usage ${where}
+            GROUP BY blob5
+            ORDER BY blob5
+          `),
+        ]);
+
+        let totalRequests = 0, totalCost = 0, totalTokens = 0;
+        const providers: Record<string, { requests: number; cost: number; tokens: number }> = {};
+        for (const r of providerRows) {
+          const p = String(r.provider || 'unknown');
+          const requests = Number(r.requests) || 0;
+          const cost = Number(r.cost) || 0;
+          const tokens = Number(r.tokens) || 0;
+          totalRequests += requests;
+          totalCost += cost;
+          totalTokens += tokens;
+          providers[p] = { requests, cost, tokens };
+        }
+        const models: Record<string, { requests: number; cost: number; tokens: number }> = {};
+        for (const r of modelRows) {
+          const m = String(r.model || 'unknown');
+          models[m] = {
+            requests: Number(r.requests) || 0,
+            cost: Number(r.cost) || 0,
+            tokens: Number(r.tokens) || 0,
+          };
+        }
+        const hourly: Array<{ hour: string; requests: number; cost: number }> = [];
+        for (const r of hourlyRows) {
+          hourly.push({
+            hour: String(r.hour || '00'),
+            requests: Number(r.requests) || 0,
+            cost: Number(r.cost) || 0,
+          });
+        }
+
+        return new Response(JSON.stringify({
+          date,
+          totalRequests,
+          totalCost,
+          totalTokens,
+          providers,
+          models,
+          hourly,
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+            'Cache-Control': 'public, max-age=300', // 5분 캐시
+          },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
+
     // ═══ /track — 이벤트 추적 ═══
     if (url.pathname === '/track' && req.method === 'POST') {
       try {
