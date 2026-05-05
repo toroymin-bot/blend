@@ -33,6 +33,8 @@ interface SendTrialMessageParams {
   onDone: (fullText: string) => void;
   onError: (err: Error) => void;
   signal?: AbortSignal;
+  /** [2026-05-05 PM-44 Roy] usage-store records.chatId 트래킹용. */
+  chatId?: string;
 }
 
 /** data URL → { mimeType, base64 } 분해. 'data:image/png;base64,iVBORw...' 형식. */
@@ -67,6 +69,7 @@ export async function sendTrialMessage({
   onDone,
   onError,
   signal,
+  chatId,
 }: SendTrialMessageParams): Promise<void> {
   const key = process.env.NEXT_PUBLIC_BLEND_TRIAL_GEMINI_KEY;
   if (!key) {
@@ -145,6 +148,27 @@ export async function sendTrialMessage({
         }
       }
     }
+
+    // [2026-05-05 PM-44 Roy] trial path도 records 자동 트래킹 추가 (chat-api와 동일 패턴).
+    // 이전: trial 사용 시 records 누락 → dashboard heatmap/topModels 데이터 부족.
+    // Gemini 2.5 Flash 가격 = $0 (free tier) → cost=0, token은 추정 (응답 글자수 기반).
+    // 정확한 토큰 카운트는 Gemini 비-stream API에서만 제공 — stream에서는 추정 OK.
+    try {
+      if (typeof window !== 'undefined' && full.length > 0) {
+        const estTokens = Math.max(1, Math.ceil(full.length / 4));
+        // dynamic import — bundle 분리 + SSR 안전.
+        const { useUsageStore } = await import('@/stores/usage-store');
+        useUsageStore.getState().addRecord({
+          timestamp: Date.now(),
+          model: 'gemini-2.5-flash',
+          provider: 'google',
+          inputTokens: 0, // user 메시지 토큰은 stream에서 미제공
+          outputTokens: estTokens,
+          cost: 0, // Gemini Flash free tier
+          chatId: chatId ?? 'trial-unknown',
+        });
+      }
+    } catch { /* 추적 실패는 본 응답 흐름 막지 않음 */ }
 
     onDone(full);
   } catch (err: any) {

@@ -219,15 +219,36 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
     return { grid, max };
   }, [filtered]);
 
+  // [2026-05-05 PM-44 Roy] AI 회사별 사용 분포 — KV providers (모든 디바이스 합산) 우선.
+  // 이전엔 records (이 디바이스 4건만)로 집계 → 메시지 카드 171건과 모순. 데이터 일관성
+  // 위반. 이제 KV providers count를 사용해 메시지 카드 합과 정확히 일치.
   const topModels = useMemo(() => {
+    const kvForPeriod = kvSummary
+      ? (period === 'week'  ? kvSummary.week
+      :  period === 'month' ? kvSummary.month
+      :  /* year/all */       kvSummary.all)
+      : null;
+    const kvProviderRecord = (kvForPeriod && 'providers' in kvForPeriod) ? kvForPeriod.providers : undefined;
+    if (kvProviderRecord && Object.keys(kvProviderRecord).length > 0) {
+      // KV provider 합산 — 모델 단위가 아닌 provider 단위지만 사용자 직관 OK ('AI 회사별').
+      // 레이블도 t.topModels → t.byProvider 분기 (아래 UI 참조).
+      return Object.entries(kvProviderRecord)
+        .map(([provider, v]) => ({ id: provider, count: (v as { requests: number }).requests }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+    }
+    // KV 없으면 records 기반 모델별 (이 디바이스만, 작은 데이터)
     const counts: Record<string, number> = {};
     for (const r of filtered) counts[r.model] = (counts[r.model] || 0) + 1;
     return Object.entries(counts)
       .map(([id, count]) => ({ id, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
-  }, [filtered]);
+  }, [filtered, kvSummary, period]);
 
+  // [2026-05-05 PM-44 Roy] 카테고리 분석 (창작/일반/코딩 등)은 records 기반 — KV에 카테고리 없음.
+  // 데이터 일관성을 위해: records 카운트가 메시지 카드 (KV 합산)와 너무 차이나면
+  // 표시 안 함 (사용자 혼란 차단). records.length / messages 비율 < 30%면 숨김.
   const categories = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const r of filtered) {
@@ -354,19 +375,28 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
               <Heatmap grid={heatmap.grid} max={heatmap.max} weekdayLabels={t.weekdays} />
             </Card>
 
-            {/* Top models */}
+            {/* [2026-05-05 PM-44 Roy] AI 회사별 사용 분포 — KV 합산 기반.
+                메시지 카드 합과 정확히 일치 (데이터 일관성). 라벨도 '가장 많이' 어휘 제거 →
+                '사용 분포'. */}
             {topModels.length > 0 && (
-              <Card title={t.topModels}>
+              <Card title={
+                stats.hasKv
+                  ? (lang === 'ko' ? 'AI 회사별 사용 분포'
+                    : lang === 'ph' ? 'Sa AI company sukat'
+                    : 'Usage by provider')
+                  : t.topModels
+              }>
                 <ul className="space-y-2.5">
                   {topModels.map(({ id, count }) => {
-                    const max = topModels[0].count;
-                    const pct = max > 0 ? (count / max) * 100 : 0;
-                    const color = BRAND_COLORS[modelProvider(id)] || tokens.accent;
+                    const total = topModels.reduce((s, m) => s + m.count, 0);
+                    const pct = total > 0 ? (count / total) * 100 : 0;
+                    const color = BRAND_COLORS[stats.hasKv ? id : modelProvider(id)] || tokens.accent;
+                    const displayName = stats.hasKv ? id : modelDisplayName(id);
                     return (
                       <li key={id}>
                         <div className="flex items-baseline justify-between text-[13px] mb-1">
-                          <span style={{ color: tokens.text }}>{modelDisplayName(id)}</span>
-                          <span style={{ color: tokens.textDim }}>{count}</span>
+                          <span style={{ color: tokens.text }}>{displayName}</span>
+                          <span style={{ color: tokens.textDim }}>{count} · {pct.toFixed(0)}%</span>
                         </div>
                         <div className="h-1.5 rounded-full" style={{ background: tokens.surfaceAlt }}>
                           <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
@@ -375,12 +405,24 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
                     );
                   })}
                 </ul>
+                {stats.hasKv && (
+                  <p className="mt-3 text-[11px]" style={{ color: tokens.textFaint }}>
+                    {lang === 'ko' ? '* 모든 디바이스 합산 (Cloudflare KV) — 메시지 카드 합과 일치.'
+                      : lang === 'ph' ? '* Lahat ng devices (Cloudflare KV) — tugma sa Messages card.'
+                      : '* All devices (Cloudflare KV) — matches Messages card total.'}
+                  </p>
+                )}
               </Card>
             )}
 
-            {/* Categories donut */}
+            {/* [PM-44] 카테고리 분포 — records 기반. 메시지 카드 합과 차이 크면 사용자 혼란
+                방지 위해 records 비율 명시. records.length / messages 비율 표시. */}
             {categories.total > 0 && (
-              <Card title={t.categories}>
+              <Card title={
+                lang === 'ko' ? '용도별 분포 (이 디바이스)'
+                : lang === 'ph' ? 'Sa kategoriya (device na ito)'
+                : 'By category (this device)'
+              }>
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   <Donut entries={categories.entries} total={categories.total} />
                   <ul className="flex-1 space-y-2">
@@ -401,6 +443,17 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
                     })}
                   </ul>
                 </div>
+                {/* [PM-44] 데이터 일관성 — categories.total은 records (이 디바이스) 합.
+                    메시지 카드 (KV 합산)과 차이 명시 → 사용자 혼란 차단. */}
+                {stats.hasKv && stats.messages !== categories.total && (
+                  <p className="mt-3 text-[11px]" style={{ color: tokens.textFaint }}>
+                    {lang === 'ko'
+                      ? `* 이 디바이스 ${categories.total}건 분석. 전체 메시지 ${stats.messages}건 중 분류는 이 디바이스 기록만 가능 (KV에 카테고리 메타 없음).`
+                      : lang === 'ph'
+                      ? `* ${categories.total} mga record sa device na ito. Sa ${stats.messages} mensahe sa lahat — kategoriya ng device na ito lang.`
+                      : `* ${categories.total} records on this device. Of ${stats.messages} total messages — categories from this device only (KV lacks category meta).`}
+                  </p>
+                )}
               </Card>
             )}
           </>

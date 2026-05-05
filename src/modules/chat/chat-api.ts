@@ -38,6 +38,10 @@ interface ChatRequest {
   enableTools?: boolean;
   /** Tool execution 진행 알림 — 'weather' 도구 사용 중 → UI indicator */
   onToolUse?: (toolName: string) => void;
+  /** [2026-05-05 PM-44 Roy] 사용자 활성 대화 ID — usage-store records.chatId에 저장.
+   *  이전엔 hardcoded 'chat'으로 모든 record 같은 chatId → dashboard 대화 카운트 항상 1.
+   *  caller가 명시 전달 (chat-view = activeChatId, compare = 'compare', meeting = 'meeting'). */
+  chatId?: string;
 }
 
 /** Tool call recursion 한도 — 무한 루프 방지. 사용자 한 메시지에 도구 3번까지. */
@@ -169,7 +173,7 @@ async function enforceLimits(): Promise<void> {
 }
 
 export async function sendChatRequest(req: ChatRequest) {
-  const { messages, model, provider, apiKey, baseUrl, stream = true, onChunk, onDone, onError, signal, enableTools = true, onToolUse } = req;
+  const { messages, model, provider, apiKey, baseUrl, stream = true, onChunk, onDone, onError, signal, enableTools = true, onToolUse, chatId } = req;
   // [2026-05-02 Roy] enableTools=true (default) + 모델/provider가 지원하면 tool 활성.
   const useTools = enableTools && supportsTools(provider, model);
 
@@ -213,7 +217,10 @@ export async function sendChatRequest(req: ChatRequest) {
               inputTokens: usage.input,
               outputTokens: usage.output,
               cost,
-              chatId: 'chat',
+              // [2026-05-05 PM-44 Roy] caller chatId 우선 — dashboard 대화 카운트 정확.
+              // 미전달 시 'unknown' (hardcoded 'chat' 회귀 차단 — 모든 record 같은 chatId로
+              // 들어가던 버그).
+              chatId: chatId ?? 'unknown',
             });
             // 한도 enforcement는 enforceLimits()가 다음 호출 직전 체크 (이건 사후 기록)
           }).catch(() => {});

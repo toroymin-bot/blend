@@ -1205,6 +1205,7 @@ export default function D1ChatView({
       });
     } else if (TRIAL_KEY_AVAILABLE) {
       sendTrialMessage({
+        chatId: activeChatId ?? `d1_${Date.now().toString(36)}`,
         messages: [{ role: 'user', content: `${sysPrompt}\n\n${userPayload}` }],
         onChunk: () => {},
         onDone: (full) => onTitle(full),
@@ -2414,6 +2415,9 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
       provider: resolvedProvider,
       apiKey: getKey(resolvedProvider),
       signal: controller.signal,
+      // [2026-05-05 PM-44 Roy] activeChatId 전달 → dashboard 대화 카운트 정확.
+      // 이전 chat-api hardcoded 'chat' → 모든 record 같은 chatId → 항상 1개로 집계.
+      chatId: activeChatId ?? `d1_${Date.now().toString(36)}`,
       // [2026-05-02 Roy] AI 도구 자동 사용 default ON. 사용자가 '오늘 날씨' 같은
       // 자연어 한 줄에 모델이 자체 판단으로 도구 호출. 모델/provider가 미지원이면
       // 자동 비활성 (chat-api supportsTools).
@@ -2491,6 +2495,8 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
             provider: chainAlt.provider,
             apiKey: getKey(chainAlt.provider),
             signal: controller.signal,
+            // [PM-44] fallback path에서도 chatId 동일하게 전달 — 트래킹 누락 방지.
+            chatId: activeChatId ?? `d1_${Date.now().toString(36)}`,
             enableTools: true,
             onToolUse: (toolName) => {
               setActiveToolName(toolName);
@@ -2559,6 +2565,7 @@ The user wants this answer downloaded as PDF. **The Blend platform will automati
             : `> 🔄 ${resolvedProvider} key issue — auto-switched to free Gemini.\n\n`;
           let fbAccumulated = '';
           sendTrialMessage({
+            chatId: activeChatId ?? `d1_${Date.now().toString(36)}`,
             messages: bridgedMessages.map(m => ({ role: m.role, content: toApiContent(m) })),
             systemPrompt: blendIdentity,
             signal: controller.signal,
