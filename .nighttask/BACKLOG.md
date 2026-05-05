@@ -646,6 +646,32 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 
 ---
 
+## 2026-05-06 — blend-daily-dev nighttask
+
+### [x] CLEAN-QUEUE-03 — 시스템 헬스 체크 + TC 10건 처리 ✅ 2026-05-06
+- **결과**: Improvement Approved 0, Bug Fix Requested 0, TC Fail 미수정 0(스캔 시점), production 6 URL 모두 200, i18n ko/en/ph 955키 완전 동기, REG-01 0 hit, TypeScript 통과
+- **Roy 활동**: 5월 5일 이후 PM-46 Phase 1~7 대규모 commit (Workers Analytics Engine 기반 사용량 추적, KV race lost update 정정, Telegram Daily Pulse, Dashboard/Billing WAE-only, /usage-summary-v2 endpoint, 라벨/데이터 일관성 회귀 3건 정정)
+- **TC 10건 처리** (496/695 → **506/695, 73%**):
+  - **Pass 7건**: TEST-498 (블렌드란?/Blend? ko·en 분기), TEST-499 (ph 'Blend?' 모바일), TEST-504 (currency.ts 모듈), TEST-509 (ENABLE_WELCOME_TOUR=false), TEST-512 (FAQ mailto blend@ai4min.com), TEST-513 (월$8/$39/$68 plan), TEST-516 ($68 1년 카드 lifetime id 재활용)
+  - **Fail 3건**: TEST-503/510/517 — 모두 신규 회귀 BUG-196로 일괄 묶음
+- **신규 발견 — BUG-196 (PH currency 정책 위반)**: ph.json 14곳 + about-view-design1.tsx:75 + billing-view-design1.tsx ph 카피에 `$` 잔존. PM-31 가격 변경(8/39/68) 시 ph 카피 미반영. placeholder `${{...}}` 형태도 prefix `$` 박혀 ph에서 `$₱` 이중 표시 위험. Bug Report row 206에 🔴 Found 등록 → 다음 nighttask carry-over
+
+### [ ] BUG-196 — PH currency 정책 위반 (다음 nighttask 처리)
+- **위치**:
+  - `src/locales/ph.json:308,309,931,956,959,965,985,993,996,997,1003,1007,1011,1012,1013` — 가격 카피 14곳 `$` 하드코딩
+  - `src/locales/ph.json:161,174,242,587,733,734` — placeholder prefix `${{...}}` 6곳 (ph에서 `$₱X` 이중 표시 위험)
+  - `src/modules/about/about-view-design1.tsx:75` — ph 카피 `"Membership ng Blend $8/buwan (o $39/6 buwan / $68/1 taon)"`
+  - `src/modules/billing/billing-view-design1.tsx` — ph 분기 가격 카피 점검 필요
+- **수정 방침**:
+  1. 카테고리 A (placeholder prefix $): i18n 카피에서 `${{amount}}` → 통화별 분기 (ko `₩{{amount}}`, en `${{amount}}`, ph `₱{{amount}}`). 또는 컴포넌트에서 `formatPrice(value, lang)` 통째로 넘기는 방식으로 통일
+  2. 카테고리 B (가격 카피 하드코딩): PM-31 정책 가격($8 → ₱490, $39 → ₱2388, $68 → ₱4164, $5 → ₱307, $9 → ₱552, $20 → ₱1225, $15 → ₱919, $45 → ₱2756, $29 → ₱1776, $90+ → ₱5511+, $60+ → ₱3674+, $3 → ₱184, $10 → ₱613) — currency.ts:Math.ceil 정책 따름
+  3. about-view-design1.tsx ph 카피 직접 ₱ 변환 (line 75)
+  4. 모든 변경 후 `grep '\$' src/locales/ph.json` → 0 hit 검증
+- **Risk**: i18n placeholder prefix 분기는 기존 `t('key', { values })` 호출부 수정 필요할 수 있음. 컴포넌트 grep 후 진행
+- **Severity**: Medium (UX/i18n, 기능적 영향 X)
+
+---
+
 ## 🐛 BLEND-DAILY-QA 2026-05-02 — 신규 발견 (Komi)
 
 ### [x] BUG-011 — React #418 REGRESSION ✅ 2026-05-03

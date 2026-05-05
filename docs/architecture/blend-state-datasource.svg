@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1000" width="1500" height="1000"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', sans-serif">
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151"/>
+    </marker>
+    <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#DC2626"/>
+    </marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#15803D"/>
+    </marker>
+    <style>
+      .state-h { font-size: 14px; font-weight: 700; fill: #111827; text-anchor: middle; }
+      .state-d { font-size: 10px;  fill: #4B5563; text-anchor: middle; }
+      .trans   { font-size: 11px;  fill: #1F2937; }
+      .trans-r { font-size: 11px;  fill: #DC2626; }
+      .trans-g { font-size: 11px;  fill: #166534; }
+      .guard   { font-size: 9px;   fill: #6B7280; font-style: italic; }
+    </style>
+  </defs>
+
+  <!-- Title -->
+  <text x="750" y="32" text-anchor="middle" font-size="22" font-weight="700" fill="#111827">🔄 State Machine — Datasource Lifecycle</text>
+  <text x="750" y="54" text-anchor="middle" font-size="12" fill="#6B7280">
+    UML Statechart · datasource-store.syncStatus 전이 · webhook · OAuth · sync-runner 상호작용
+  </text>
+
+  <!-- Initial state -->
+  <circle cx="100" cy="120" r="10" fill="#1F2937"/>
+  <line x1="100" y1="130" x2="100" y2="165" stroke="#1F2937" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="115" y="150" class="trans">사용자가 소스 추가</text>
+
+  <!-- ===== State: idle ===== -->
+  <g>
+    <rect x="40" y="170" width="200" height="80" fill="#F3F4F6" stroke="#6B7280" stroke-width="2" rx="12"/>
+    <text x="140" y="195" class="state-h">⚪ idle</text>
+    <text x="140" y="215" class="state-d">신규 등록만 됨</text>
+    <text x="140" y="230" class="state-d">OAuth · 첫 scan 대기</text>
+    <text x="140" y="244" class="state-d">activeIds 미포함</text>
+  </g>
+
+  <!-- ===== State: connecting ===== -->
+  <g>
+    <rect x="320" y="170" width="200" height="80" fill="#FEF3C7" stroke="#CA8A04" stroke-width="2" rx="12"/>
+    <text x="420" y="195" class="state-h">🔵 connecting</text>
+    <text x="420" y="215" class="state-d">OAuth 진행 중</text>
+    <text x="420" y="230" class="state-d">/oauth-callback 대기</text>
+    <text x="420" y="244" class="state-d">redirect → consent</text>
+  </g>
+
+  <!-- ===== State: connected ===== -->
+  <g>
+    <rect x="600" y="170" width="220" height="80" fill="#DCFCE7" stroke="#15803D" stroke-width="2.5" rx="12"/>
+    <text x="710" y="195" class="state-h">✅ connected</text>
+    <text x="710" y="215" class="state-d">정상 · 동기 완료</text>
+    <text x="710" y="230" class="state-d">subscription 등록됨</text>
+    <text x="710" y="244" class="state-d">activeIds 포함 · RAG 사용 가능</text>
+  </g>
+
+  <!-- ===== State: syncing ===== -->
+  <g>
+    <rect x="920" y="170" width="220" height="80" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="2" rx="12"/>
+    <text x="1030" y="195" class="state-h">⚙️ syncing</text>
+    <text x="1030" y="215" class="state-d">scan · parse · embed 진행 중</text>
+    <text x="1030" y="230" class="state-d">sync-runner active</text>
+    <text x="1030" y="244" class="state-d">UI: 진행 % bar</text>
+  </g>
+
+  <!-- ===== State: has_updates ===== -->
+  <g>
+    <rect x="1240" y="170" width="220" height="80" fill="#E0E7FF" stroke="#4338CA" stroke-width="2" rx="12"/>
+    <text x="1350" y="195" class="state-h">🔔 has_updates</text>
+    <text x="1350" y="215" class="state-d">webhook 변경 알림 받음</text>
+    <text x="1350" y="230" class="state-d">queue 대기</text>
+    <text x="1350" y="244" class="state-d">badge 표시 (사이드바)</text>
+  </g>
+
+  <!-- ===== State: partial ===== -->
+  <g>
+    <rect x="320" y="430" width="200" height="80" fill="#FEF9C3" stroke="#CA8A04" stroke-width="2" stroke-dasharray="4 2" rx="12"/>
+    <text x="420" y="455" class="state-h">⚠️ partial</text>
+    <text x="420" y="475" class="state-d">일부 파일 실패</text>
+    <text x="420" y="490" class="state-d">너무 큰 파일 / 형식 오류</text>
+    <text x="420" y="504" class="state-d">retry 가능</text>
+  </g>
+
+  <!-- ===== State: permission_required ===== -->
+  <g>
+    <rect x="600" y="430" width="220" height="80" fill="#FED7AA" stroke="#EA580C" stroke-width="2" rx="12"/>
+    <text x="710" y="455" class="state-h">🔐 permission_required</text>
+    <text x="710" y="475" class="state-d">OAuth 토큰 만료 / 401·403</text>
+    <text x="710" y="490" class="state-d">사용자 재인증 필요</text>
+    <text x="710" y="504" class="state-d">동기화 데이터는 보존</text>
+  </g>
+
+  <!-- ===== State: error ===== -->
+  <g>
+    <rect x="920" y="430" width="220" height="80" fill="#FEE2E2" stroke="#DC2626" stroke-width="2" rx="12"/>
+    <text x="1030" y="455" class="state-h">❌ error</text>
+    <text x="1030" y="475" class="state-d">기타 실패 (network · quota)</text>
+    <text x="1030" y="490" class="state-d">retry 시 connecting 복귀</text>
+    <text x="1030" y="504" class="state-d">friendlyError 토스트</text>
+  </g>
+
+  <!-- ===== State: disconnected (final) ===== -->
+  <g>
+    <rect x="1240" y="430" width="220" height="80" fill="#F3F4F6" stroke="#1F2937" stroke-width="3" rx="12"/>
+    <text x="1350" y="455" class="state-h">🚫 disconnected</text>
+    <text x="1350" y="475" class="state-d">사용자 끊음 (소스 삭제)</text>
+    <text x="1350" y="490" class="state-d">subscription 해제</text>
+    <text x="1350" y="504" class="state-d">IndexedDB 해당 partition 정리</text>
+  </g>
+  <circle cx="1350" cy="540" r="14" fill="none" stroke="#1F2937" stroke-width="2"/>
+  <circle cx="1350" cy="540" r="8" fill="#1F2937"/>
+
+  <!-- ============== TRANSITIONS ============== -->
+
+  <!-- idle → connecting -->
+  <line x1="240" y1="210" x2="320" y2="210" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="280" y="200" class="trans" text-anchor="middle">「연결」 클릭</text>
+  <text x="280" y="222" class="guard" text-anchor="middle">→ Drive/OneDrive consent</text>
+
+  <!-- connecting → connected -->
+  <line x1="520" y1="210" x2="600" y2="210" stroke="#15803D" stroke-width="2" marker-end="url(#arrG)"/>
+  <text x="560" y="200" class="trans-g" text-anchor="middle">OAuth OK</text>
+  <text x="560" y="222" class="guard" text-anchor="middle">+ subscription 등록</text>
+
+  <!-- connecting → error -->
+  <line x1="430" y1="250" x2="950" y2="430" stroke="#DC2626" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrR)"/>
+  <text x="660" y="335" class="trans-r" text-anchor="middle">OAuth 실패 / 사용자 거절</text>
+
+  <!-- connected → syncing (자동 첫 scan) -->
+  <line x1="820" y1="210" x2="920" y2="210" stroke="#1D4ED8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="870" y="200" class="trans" text-anchor="middle">scan 시작</text>
+  <text x="870" y="222" class="guard" text-anchor="middle">(첫 진입 또는 재동기)</text>
+
+  <!-- syncing → connected (clean complete) -->
+  <path d="M 920 235 Q 870 280 820 235" fill="none" stroke="#15803D" stroke-width="1.5" marker-end="url(#arrG)"/>
+  <text x="870" y="280" class="trans-g" text-anchor="middle">complete (clean)</text>
+
+  <!-- syncing → has_updates -->
+  <line x1="1140" y1="210" x2="1240" y2="210" stroke="#4338CA" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="1190" y="200" class="trans" text-anchor="middle">webhook 알림</text>
+  <text x="1190" y="222" class="guard" text-anchor="middle">(Drive Watch / Graph)</text>
+
+  <!-- has_updates → syncing -->
+  <path d="M 1240 235 Q 1185 270 1140 235" fill="none" stroke="#1D4ED8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="1190" y="265" class="trans" text-anchor="middle">client poll</text>
+  <text x="1190" y="278" class="guard" text-anchor="middle">/queue/:id</text>
+
+  <!-- syncing → partial -->
+  <line x1="980" y1="250" x2="450" y2="430" stroke="#CA8A04" stroke-width="1.5" stroke-dasharray="4 2" marker-end="url(#arr)"/>
+  <text x="710" y="350" class="trans" text-anchor="middle">일부 파일 실패</text>
+  <text x="710" y="364" class="guard" text-anchor="middle">(too large / 형식 미지원)</text>
+
+  <!-- syncing → permission_required -->
+  <line x1="1000" y1="250" x2="730" y2="430" stroke="#EA580C" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="855" y="375" class="trans" text-anchor="middle">401 / 403</text>
+  <text x="855" y="389" class="guard" text-anchor="middle">(token 만료 · 권한 박탈)</text>
+
+  <!-- partial → syncing (retry) -->
+  <line x1="450" y1="430" x2="980" y2="250" stroke="#1D4ED8" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#arr)"/>
+  <text x="650" y="430" class="trans" text-anchor="middle">retry (사용자 클릭)</text>
+
+  <!-- permission_required → connecting (재인증) -->
+  <path d="M 600 470 Q 350 350 420 250" fill="none" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="380" y="395" class="trans" text-anchor="middle">「재인증」</text>
+  <text x="380" y="409" class="guard" text-anchor="middle">→ OAuth 다시</text>
+
+  <!-- error → connecting (retry) -->
+  <path d="M 920 470 Q 700 350 480 250" fill="none" stroke="#374151" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="700" y="402" class="trans" text-anchor="middle">「재시도」</text>
+
+  <!-- ALL STATES → disconnected (user disconnect) -->
+  <path d="M 240 230 L 1240 470" fill="none" stroke="#1F2937" stroke-width="0.8" stroke-dasharray="2 2"/>
+  <path d="M 480 250 L 1240 460" fill="none" stroke="#1F2937" stroke-width="0.8" stroke-dasharray="2 2"/>
+  <path d="M 750 250 L 1240 450" fill="none" stroke="#1F2937" stroke-width="0.8" stroke-dasharray="2 2"/>
+  <path d="M 1140 220 L 1240 440" fill="none" stroke="#1F2937" stroke-width="0.8" stroke-dasharray="2 2" marker-end="url(#arr)"/>
+  <path d="M 820 470 L 1240 470" fill="none" stroke="#1F2937" stroke-width="0.8" stroke-dasharray="2 2" marker-end="url(#arr)"/>
+  <path d="M 1140 470 L 1240 470" fill="none" stroke="#1F2937" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="1180" y="440" class="trans" text-anchor="middle">「소스 삭제」</text>
+  <text x="1180" y="454" class="guard" text-anchor="middle">→ unsubscribe</text>
+
+  <!-- ============== SIDE PANELS ============== -->
+
+  <!-- Webhook flow -->
+  <rect x="40" y="600" width="700" height="170" fill="#FFFFFF" stroke="#15803D" stroke-width="1.5" rx="6"/>
+  <text x="56" y="622" font-size="13" font-weight="700" fill="#166534">📡 Webhook → has_updates 전이 메커니즘</text>
+
+  <text x="56" y="648" font-size="11" fill="#1F2937" font-weight="600">[1] 외부 변경</text>
+  <text x="56" y="666" font-size="10" fill="#4B5563">Drive 사용자 파일 추가/수정/삭제</text>
+  <text x="56" y="680" font-size="10" fill="#4B5563">또는 OneDrive 변경 (Graph)</text>
+
+  <text x="206" y="648" font-size="11" fill="#1F2937" font-weight="600">[2] Push notification</text>
+  <text x="206" y="666" font-size="10" fill="#4B5563">Drive Watch channel POST</text>
+  <text x="206" y="680" font-size="10" fill="#4B5563">→ /webhook/google-drive</text>
+  <text x="206" y="694" font-size="10" fill="#4B5563">Graph subscription POST</text>
+  <text x="206" y="708" font-size="10" fill="#4B5563">→ /webhook/onedrive (+validation)</text>
+
+  <text x="406" y="648" font-size="11" fill="#1F2937" font-weight="600">[3] Worker enqueue</text>
+  <text x="406" y="666" font-size="10" fill="#4B5563">workers-datasource-webhook</text>
+  <text x="406" y="680" font-size="10" fill="#4B5563">parse → KV queue</text>
+  <text x="406" y="694" font-size="10" fill="#4B5563">{datasourceId, fileIds[], op}</text>
+
+  <text x="556" y="648" font-size="11" fill="#1F2937" font-weight="600">[4] 클라이언트 poll</text>
+  <text x="556" y="666" font-size="10" fill="#4B5563">use-datasource-queue-polling</text>
+  <text x="556" y="680" font-size="10" fill="#4B5563">GET /queue/:datasourceId</text>
+  <text x="556" y="694" font-size="10" fill="#4B5563">→ syncing 전환 + sync-runner</text>
+
+  <line x1="170" y1="676" x2="200" y2="676" stroke="#374151" stroke-width="1" marker-end="url(#arr)"/>
+  <line x1="380" y1="676" x2="400" y2="676" stroke="#374151" stroke-width="1" marker-end="url(#arr)"/>
+  <line x1="540" y1="676" x2="550" y2="676" stroke="#374151" stroke-width="1" marker-end="url(#arr)"/>
+
+  <text x="56" y="745" font-size="10" fill="#6B7280" font-style="italic">→ 평균 webhook → has_updates 노출까지: 2~5초 (poll interval 의존)</text>
+
+  <!-- State invariants -->
+  <rect x="760" y="600" width="700" height="170" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.5" rx="6"/>
+  <text x="776" y="622" font-size="13" font-weight="700" fill="#1E3A8A">📋 State Invariants (불변식)</text>
+
+  <text x="776" y="648" font-size="11" fill="#1F2937">1. <tspan font-weight="600">activeIds 포함</tspan> ⇔ syncStatus ∈ {connected, syncing, has_updates, partial}</text>
+  <text x="776" y="666" font-size="10" fill="#4B5563">    → idle / permission / error / disconnected는 RAG 검색에서 제외</text>
+
+  <text x="776" y="690" font-size="11" fill="#1F2937">2. <tspan font-weight="600">subscription 등록</tspan> ⇔ syncStatus ∉ {idle, disconnected}</text>
+  <text x="776" y="708" font-size="10" fill="#4B5563">    → idle/disconnected는 webhook 받지 않음 · 12h cron이 subscription/expiring 마킹</text>
+
+  <text x="776" y="732" font-size="11" fill="#1F2937">3. <tspan font-weight="600">IndexedDB partition 보존</tspan> ⇔ syncStatus ≠ disconnected</text>
+  <text x="776" y="750" font-size="10" fill="#4B5563">    → permission_required 상태에서도 기존 임베딩 유지 (재인증 시 즉시 사용 가능)</text>
+
+  <text x="776" y="770" font-size="11" fill="#1F2937">4. <tspan font-weight="600">progress %</tspan> 의미 있음 ⇔ syncStatus = syncing</text>
+
+  <!-- Legend -->
+  <rect x="40" y="800" width="1420" height="170" fill="#FAFAFA" stroke="#9CA3AF" rx="6"/>
+  <text x="56" y="822" font-size="13" font-weight="700" fill="#374151">Legend</text>
+
+  <rect x="56" y="840" width="40" height="20" fill="#F3F4F6" stroke="#6B7280" stroke-width="2"/>
+  <text x="106" y="855" font-size="11">초기 상태 (활성 RAG 아님)</text>
+
+  <rect x="56" y="868" width="40" height="20" fill="#DCFCE7" stroke="#15803D" stroke-width="2.5"/>
+  <text x="106" y="883" font-size="11">정상 작동 (RAG 사용 가능)</text>
+
+  <rect x="56" y="896" width="40" height="20" fill="#FEF9C3" stroke="#CA8A04" stroke-width="2" stroke-dasharray="4 2"/>
+  <text x="106" y="911" font-size="11">경고 (일부 데이터)</text>
+
+  <rect x="56" y="924" width="40" height="20" fill="#FED7AA" stroke="#EA580C" stroke-width="2"/>
+  <text x="106" y="939" font-size="11">사용자 액션 필요</text>
+
+  <rect x="320" y="840" width="40" height="20" fill="#FEE2E2" stroke="#DC2626" stroke-width="2"/>
+  <text x="370" y="855" font-size="11">실패 (재시도 가능)</text>
+
+  <rect x="320" y="868" width="40" height="20" fill="#F3F4F6" stroke="#1F2937" stroke-width="3"/>
+  <text x="370" y="883" font-size="11">최종 상태 (불가역)</text>
+
+  <line x1="320" y1="906" x2="360" y2="906" stroke="#15803D" stroke-width="2" marker-end="url(#arrG)"/>
+  <text x="370" y="911" font-size="11">정상 흐름</text>
+
+  <line x1="320" y1="934" x2="360" y2="934" stroke="#DC2626" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrR)"/>
+  <text x="370" y="939" font-size="11">에러 흐름</text>
+
+  <line x1="600" y1="840" x2="640" y2="840" stroke="#1F2937" stroke-width="0.8" stroke-dasharray="2 2"/>
+  <text x="650" y="845" font-size="11">모든 상태에서 가능 (omni-transition)</text>
+
+  <line x1="600" y1="868" x2="640" y2="868" stroke="#1D4ED8" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#arr)"/>
+  <text x="650" y="873" font-size="11">retry / 자동 재시도</text>
+
+  <text x="900" y="840" font-size="13" font-weight="700" fill="#374151">📊 통계 (실측)</text>
+  <text x="900" y="860" font-size="11" fill="#4B5563">• Drive Watch 채널 만료: 7일 → 12h 마킹 cron으로 갱신</text>
+  <text x="900" y="876" font-size="11" fill="#4B5563">• Graph subscription 만료: 24h~30일 (resource 의존)</text>
+  <text x="900" y="892" font-size="11" fill="#4B5563">• 첫 동기 평균 시간: 100MB/100파일 ≈ 90초 (parse + embed)</text>
+  <text x="900" y="908" font-size="11" fill="#4B5563">• 증분 동기 평균: 5파일 변경 ≈ 8초</text>
+  <text x="900" y="924" font-size="11" fill="#4B5563">• partial 발생률: 약 2% (PDF 손상 / 60MB+ 영상)</text>
+  <text x="900" y="940" font-size="11" fill="#4B5563">• permission_required 발생: 7일 비활성 시 token revoke (Google 정책)</text>
+</svg>

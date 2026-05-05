@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1100" width="1400" height="1100"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', sans-serif">
+
+  <defs>
+    <!-- 일반 화살표 (정방향 흐름) -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151"/>
+    </marker>
+    <!-- 사용 관계 (점선) -->
+    <marker id="arrowLight" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6B7280"/>
+    </marker>
+    <!-- ArchiMate Actor 아이콘 (사람 머리 + 어깨) -->
+    <symbol id="iconActor" viewBox="0 0 16 16">
+      <circle cx="8" cy="4" r="2.5" fill="none" stroke="#374151" stroke-width="1.2"/>
+      <path d="M 3 14 L 3 11 Q 3 8 8 8 Q 13 8 13 11 L 13 14" fill="none" stroke="#374151" stroke-width="1.2"/>
+    </symbol>
+    <!-- ArchiMate Service 아이콘 (둥근 모서리 + 톱니) -->
+    <symbol id="iconService" viewBox="0 0 16 16">
+      <rect x="2" y="4" width="12" height="8" rx="4" fill="none" stroke="#374151" stroke-width="1.2"/>
+    </symbol>
+    <!-- ArchiMate Component 아이콘 (사각형 + 두 핀) -->
+    <symbol id="iconComponent" viewBox="0 0 16 16">
+      <rect x="4" y="3" width="10" height="10" fill="none" stroke="#374151" stroke-width="1.2"/>
+      <rect x="2" y="5" width="3" height="2" fill="#374151"/>
+      <rect x="2" y="9" width="3" height="2" fill="#374151"/>
+    </symbol>
+    <!-- ArchiMate Node 아이콘 (3D 박스) -->
+    <symbol id="iconNode" viewBox="0 0 16 16">
+      <rect x="2" y="5" width="10" height="8" fill="none" stroke="#374151" stroke-width="1.2"/>
+      <path d="M 2 5 L 5 2 L 15 2 L 15 10 L 12 13" fill="none" stroke="#374151" stroke-width="1.2"/>
+      <line x1="12" y1="5" x2="15" y2="2" stroke="#374151" stroke-width="1.2"/>
+    </symbol>
+    <!-- Driver/Goal 아이콘 (별 모양) -->
+    <symbol id="iconDriver" viewBox="0 0 16 16">
+      <polygon points="8,2 9.5,6 14,6 10.5,9 12,13 8,10.5 4,13 5.5,9 2,6 6.5,6"
+               fill="none" stroke="#374151" stroke-width="1"/>
+    </symbol>
+    <symbol id="iconGoal" viewBox="0 0 16 16">
+      <circle cx="8" cy="8" r="6" fill="none" stroke="#374151" stroke-width="1.2"/>
+      <circle cx="8" cy="8" r="3" fill="none" stroke="#374151" stroke-width="1.2"/>
+      <circle cx="8" cy="8" r="1" fill="#374151"/>
+    </symbol>
+  </defs>
+
+  <!-- ============================================================ -->
+  <!--   Title                                                      -->
+  <!-- ============================================================ -->
+  <text x="700" y="32" text-anchor="middle" font-size="22" font-weight="700" fill="#111827">
+    🏛 Blend Enterprise Architecture — ArchiMate 3.1 (4 Layers)
+  </text>
+  <text x="700" y="54" text-anchor="middle" font-size="12" fill="#6B7280">
+    2026-05-05 · TOGAF BDAT · Color: Motivation Business Application Technology
+  </text>
+
+  <!-- ============================================================ -->
+  <!--   🟣 MOTIVATION LAYER                                        -->
+  <!-- ============================================================ -->
+  <rect x="20" y="70" width="1360" height="160" fill="#F5EAFB" stroke="#7C3AED" stroke-width="1" rx="8"/>
+  <text x="36" y="92" font-size="13" font-weight="700" fill="#5B21B6">🟣 MOTIVATION — Why we build it</text>
+
+  <!-- Vision -->
+  <g>
+    <rect x="180" y="110" width="240" height="100" fill="#E9D5F5" stroke="#7C3AED" stroke-width="1.5" rx="6"/>
+    <use href="#iconDriver" x="392" y="116" width="22" height="22"/>
+    <text x="200" y="130" font-size="10" fill="#5B21B6" font-style="italic">«vision»</text>
+    <text x="200" y="155" font-size="15" font-weight="700" fill="#1F2937">Vision</text>
+    <text x="200" y="178" font-size="11" fill="#374151">한 달에 커피 한 잔.</text>
+    <text x="200" y="195" font-size="11" fill="#374151">매일 모든 AI를.</text>
+  </g>
+
+  <!-- Drivers -->
+  <g>
+    <rect x="580" y="110" width="240" height="100" fill="#E9D5F5" stroke="#7C3AED" stroke-width="1.5" rx="6"/>
+    <use href="#iconDriver" x="792" y="116" width="22" height="22"/>
+    <text x="600" y="130" font-size="10" fill="#5B21B6" font-style="italic">«driver»</text>
+    <text x="600" y="155" font-size="15" font-weight="700" fill="#1F2937">Strategic Drivers</text>
+    <text x="600" y="178" font-size="11" fill="#374151">AI fragmentation</text>
+    <text x="600" y="195" font-size="11" fill="#374151">BYOK 시장 · 글로벌</text>
+  </g>
+
+  <!-- Goals -->
+  <g>
+    <rect x="980" y="110" width="240" height="100" fill="#E9D5F5" stroke="#7C3AED" stroke-width="1.5" rx="6"/>
+    <use href="#iconGoal" x="1192" y="116" width="22" height="22"/>
+    <text x="1000" y="130" font-size="10" fill="#5B21B6" font-style="italic">«goal»</text>
+    <text x="1000" y="155" font-size="15" font-weight="700" fill="#1F2937">Goals (KPI)</text>
+    <text x="1000" y="178" font-size="11" fill="#374151">D+7 ≥ 30%  ·  CPM ≤ ₩3</text>
+    <text x="1000" y="195" font-size="11" fill="#374151">월 1,000 BYOK 사용자</text>
+  </g>
+
+  <!-- 동기 흐름: Vision → Drivers → Goals -->
+  <line x1="420" y1="160" x2="580" y2="160" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="820" y1="160" x2="980" y2="160" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============================================================ -->
+  <!--   🟡 BUSINESS LAYER                                          -->
+  <!-- ============================================================ -->
+  <rect x="20" y="250" width="1360" height="240" fill="#FFFBE6" stroke="#CA8A04" stroke-width="1" rx="8"/>
+  <text x="36" y="272" font-size="13" font-weight="700" fill="#854D0E">🟡 BUSINESS — Who &amp; What</text>
+
+  <!-- Actor row: Roy / Tori / 꼬미 / End User -->
+  <g>
+    <rect x="60" y="290" width="150" height="70" fill="#FFF9C4" stroke="#CA8A04" stroke-width="1.5" rx="6"/>
+    <use href="#iconActor" x="180" y="296" width="22" height="22"/>
+    <text x="78" y="310" font-size="10" fill="#854D0E" font-style="italic">«business actor»</text>
+    <text x="78" y="333" font-size="14" font-weight="700" fill="#1F2937">Roy</text>
+    <text x="78" y="350" font-size="10" fill="#4B5563">CEO · 의사결정</text>
+  </g>
+  <g>
+    <rect x="240" y="290" width="150" height="70" fill="#FFF9C4" stroke="#CA8A04" stroke-width="1.5" rx="6"/>
+    <use href="#iconActor" x="360" y="296" width="22" height="22"/>
+    <text x="258" y="310" font-size="10" fill="#854D0E" font-style="italic">«business actor»</text>
+    <text x="258" y="333" font-size="14" font-weight="700" fill="#1F2937">Tori</text>
+    <text x="258" y="350" font-size="10" fill="#4B5563">UX · 디자인</text>
+  </g>
+  <g>
+    <rect x="420" y="290" width="150" height="70" fill="#FFF9C4" stroke="#CA8A04" stroke-width="1.5" rx="6"/>
+    <use href="#iconActor" x="540" y="296" width="22" height="22"/>
+    <text x="438" y="310" font-size="10" fill="#854D0E" font-style="italic">«business actor»</text>
+    <text x="438" y="333" font-size="14" font-weight="700" fill="#1F2937">꼬미</text>
+    <text x="438" y="350" font-size="10" fill="#4B5563">Code · QA · 배포</text>
+  </g>
+  <g>
+    <rect x="600" y="290" width="150" height="70" fill="#FFF9C4" stroke="#CA8A04" stroke-width="1.5" rx="6"/>
+    <use href="#iconActor" x="720" y="296" width="22" height="22"/>
+    <text x="618" y="310" font-size="10" fill="#854D0E" font-style="italic">«business actor»</text>
+    <text x="618" y="333" font-size="14" font-weight="700" fill="#1F2937">End User</text>
+    <text x="618" y="350" font-size="10" fill="#4B5563">BYOK / Smarter</text>
+  </g>
+
+  <!-- Service row: AI Chat / Billing / Daily Report -->
+  <g>
+    <rect x="160" y="395" width="200" height="70" fill="#FEF3C7" stroke="#CA8A04" stroke-width="1.5" rx="22"/>
+    <use href="#iconService" x="330" y="401" width="22" height="22"/>
+    <text x="178" y="415" font-size="10" fill="#854D0E" font-style="italic">«business service»</text>
+    <text x="178" y="438" font-size="14" font-weight="700" fill="#1F2937">AI 통합 채팅</text>
+    <text x="178" y="455" font-size="10" fill="#4B5563">자동 모델 매칭</text>
+  </g>
+  <g>
+    <rect x="400" y="395" width="200" height="70" fill="#FEF3C7" stroke="#CA8A04" stroke-width="1.5" rx="22"/>
+    <use href="#iconService" x="570" y="401" width="22" height="22"/>
+    <text x="418" y="415" font-size="10" fill="#854D0E" font-style="italic">«business service»</text>
+    <text x="418" y="438" font-size="14" font-weight="700" fill="#1F2937">사용량 / 결제</text>
+    <text x="418" y="455" font-size="10" fill="#4B5563">Smarter · BYOK</text>
+  </g>
+  <g>
+    <rect x="640" y="395" width="220" height="70" fill="#FEF3C7" stroke="#CA8A04" stroke-width="1.5" rx="22"/>
+    <use href="#iconService" x="830" y="401" width="22" height="22"/>
+    <text x="658" y="415" font-size="10" fill="#854D0E" font-style="italic">«business service»</text>
+    <text x="658" y="438" font-size="14" font-weight="700" fill="#1F2937">Daily Pulse 리포트</text>
+    <text x="658" y="455" font-size="10" fill="#4B5563">CEO 인사이트 11종</text>
+  </g>
+
+  <!-- Actor → AI 통합 채팅 (4 actor 모두 사용) -->
+  <line x1="135" y1="360" x2="200" y2="395" stroke="#6B7280" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrowLight)"/>
+  <line x1="315" y1="360" x2="240" y2="395" stroke="#6B7280" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrowLight)"/>
+  <line x1="495" y1="360" x2="280" y2="395" stroke="#6B7280" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrowLight)"/>
+  <line x1="675" y1="360" x2="320" y2="395" stroke="#6B7280" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrowLight)"/>
+
+  <!-- 동기 흐름: Goals → AI 통합 채팅 (cross-layer) -->
+  <line x1="1100" y1="210" x2="380" y2="395" stroke="#7C3AED" stroke-width="1" stroke-dasharray="6 3"/>
+  <text x="900" y="280" font-size="10" fill="#7C3AED" font-style="italic">realizes</text>
+
+  <!-- AI 통합 채팅 → Billing, Daily Report -->
+  <line x1="360" y1="430" x2="400" y2="430" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="600" y1="430" x2="640" y2="430" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============================================================ -->
+  <!--   🔵 APPLICATION LAYER                                       -->
+  <!-- ============================================================ -->
+  <rect x="20" y="510" width="1360" height="180" fill="#E6F2FB" stroke="#1D4ED8" stroke-width="1" rx="8"/>
+  <text x="36" y="532" font-size="13" font-weight="700" fill="#1E3A8A">🔵 APPLICATION — How (services &amp; modules)</text>
+
+  <g>
+    <rect x="60" y="550" width="200" height="100" fill="#C2E0F4" stroke="#1D4ED8" stroke-width="1.5" rx="6"/>
+    <use href="#iconComponent" x="232" y="556" width="22" height="22"/>
+    <text x="78" y="570" font-size="10" fill="#1E3A8A" font-style="italic">«application component»</text>
+    <text x="78" y="595" font-size="14" font-weight="700" fill="#1F2937">Frontend</text>
+    <text x="78" y="613" font-size="10" fill="#4B5563">Next.js static · Vercel</text>
+    <text x="78" y="628" font-size="10" fill="#4B5563">design1 modules</text>
+    <text x="78" y="643" font-size="10" fill="#4B5563">stores · BYOK</text>
+  </g>
+  <g>
+    <rect x="290" y="550" width="200" height="100" fill="#C2E0F4" stroke="#1D4ED8" stroke-width="1.5" rx="6"/>
+    <use href="#iconComponent" x="462" y="556" width="22" height="22"/>
+    <text x="308" y="570" font-size="10" fill="#1E3A8A" font-style="italic">«application component»</text>
+    <text x="308" y="595" font-size="14" font-weight="700" fill="#1F2937">blend-counter</text>
+    <text x="308" y="613" font-size="10" fill="#4B5563">CF Worker · Edge</text>
+    <text x="308" y="628" font-size="10" fill="#4B5563">/track-usage</text>
+    <text x="308" y="643" font-size="10" fill="#4B5563">/usage-summary-v2</text>
+  </g>
+  <g>
+    <rect x="520" y="550" width="220" height="100" fill="#C2E0F4" stroke="#1D4ED8" stroke-width="1.5" rx="6"/>
+    <use href="#iconComponent" x="712" y="556" width="22" height="22"/>
+    <text x="538" y="570" font-size="10" fill="#1E3A8A" font-style="italic">«application component»</text>
+    <text x="538" y="595" font-size="14" font-weight="700" fill="#1F2937">blend-daily-report</text>
+    <text x="538" y="613" font-size="10" fill="#4B5563">CF Worker · Cron</text>
+    <text x="538" y="628" font-size="10" fill="#4B5563">KST 08:35 daily</text>
+    <text x="538" y="643" font-size="10" fill="#4B5563">11 insights engine</text>
+  </g>
+  <g>
+    <rect x="770" y="550" width="200" height="100" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5" stroke-dasharray="3 3" rx="6"/>
+    <use href="#iconComponent" x="942" y="556" width="22" height="22"/>
+    <text x="788" y="570" font-size="10" fill="#1E3A8A" font-style="italic">«external app»</text>
+    <text x="788" y="595" font-size="14" font-weight="700" fill="#1F2937">AI Providers</text>
+    <text x="788" y="613" font-size="10" fill="#4B5563">OpenAI · Anthropic</text>
+    <text x="788" y="628" font-size="10" fill="#4B5563">Google · DeepSeek</text>
+    <text x="788" y="643" font-size="10" fill="#4B5563">Groq</text>
+  </g>
+  <g>
+    <rect x="1000" y="550" width="200" height="100" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5" stroke-dasharray="3 3" rx="6"/>
+    <use href="#iconComponent" x="1172" y="556" width="22" height="22"/>
+    <text x="1018" y="570" font-size="10" fill="#1E3A8A" font-style="italic">«external app»</text>
+    <text x="1018" y="595" font-size="14" font-weight="700" fill="#1F2937">Telegram Bot API</text>
+    <text x="1018" y="613" font-size="10" fill="#4B5563">Roy 채팅</text>
+    <text x="1018" y="628" font-size="10" fill="#4B5563">CEO 일일 알림</text>
+  </g>
+
+  <!-- Frontend → AI Providers (BYOK direct) -->
+  <line x1="260" y1="585" x2="770" y2="585" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="490" y="578" font-size="9" fill="#374151" font-style="italic">BYOK direct (HTTPS)</text>
+
+  <!-- Frontend → blend-counter -->
+  <line x1="260" y1="615" x2="290" y2="615" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- blend-daily-report → blend-counter (Service Binding) -->
+  <line x1="520" y1="630" x2="490" y2="630" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="475" y="675" font-size="9" fill="#374151" font-style="italic">Service Binding</text>
+
+  <!-- blend-daily-report → Telegram -->
+  <line x1="740" y1="600" x2="1000" y2="600" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="830" y="592" font-size="9" fill="#374151" font-style="italic">Bot API</text>
+
+  <!-- AI 통합 채팅 (Business) → Frontend (Application) — realizes -->
+  <line x1="260" y1="465" x2="160" y2="550" stroke="#CA8A04" stroke-width="1" stroke-dasharray="6 3"/>
+  <text x="80" y="510" font-size="10" fill="#854D0E" font-style="italic">realized by</text>
+
+  <!-- Daily Pulse (Business) → blend-daily-report (Application) — realizes -->
+  <line x1="750" y1="465" x2="630" y2="550" stroke="#CA8A04" stroke-width="1" stroke-dasharray="6 3"/>
+
+  <!-- ============================================================ -->
+  <!--   🟢 TECHNOLOGY LAYER                                        -->
+  <!-- ============================================================ -->
+  <rect x="20" y="710" width="1360" height="180" fill="#E8F5E9" stroke="#15803D" stroke-width="1" rx="8"/>
+  <text x="36" y="732" font-size="13" font-weight="700" fill="#166534">🟢 TECHNOLOGY — Where it runs</text>
+
+  <g>
+    <rect x="60" y="750" width="190" height="100" fill="#C5E0B4" stroke="#15803D" stroke-width="1.5" rx="6"/>
+    <use href="#iconNode" x="222" y="756" width="22" height="22"/>
+    <text x="78" y="770" font-size="10" fill="#166534" font-style="italic">«node»</text>
+    <text x="78" y="795" font-size="13" font-weight="700" fill="#1F2937">Browser Storage</text>
+    <text x="78" y="813" font-size="10" fill="#4B5563">localStorage</text>
+    <text x="78" y="828" font-size="10" fill="#4B5563">IndexedDB (vector)</text>
+    <text x="78" y="843" font-size="10" fill="#4B5563">사용자 디바이스</text>
+  </g>
+  <g>
+    <rect x="280" y="750" width="190" height="100" fill="#C5E0B4" stroke="#15803D" stroke-width="1.5" rx="6"/>
+    <use href="#iconNode" x="442" y="756" width="22" height="22"/>
+    <text x="298" y="770" font-size="10" fill="#166534" font-style="italic">«node»</text>
+    <text x="298" y="795" font-size="13" font-weight="700" fill="#1F2937">Vercel CDN</text>
+    <text x="298" y="813" font-size="10" fill="#4B5563">Next.js static export</text>
+    <text x="298" y="828" font-size="10" fill="#4B5563">전 세계 edge</text>
+    <text x="298" y="843" font-size="10" fill="#4B5563">$0 (free tier)</text>
+  </g>
+  <g>
+    <rect x="500" y="750" width="200" height="100" fill="#C5E0B4" stroke="#15803D" stroke-width="1.5" rx="6"/>
+    <use href="#iconNode" x="672" y="756" width="22" height="22"/>
+    <text x="518" y="770" font-size="10" fill="#166534" font-style="italic">«node»</text>
+    <text x="518" y="795" font-size="13" font-weight="700" fill="#1F2937">Workers Runtime</text>
+    <text x="518" y="813" font-size="10" fill="#4B5563">Cloudflare V8 isolates</text>
+    <text x="518" y="828" font-size="10" fill="#4B5563">10만 req/일 free</text>
+    <text x="518" y="843" font-size="10" fill="#4B5563">cron · service binding</text>
+  </g>
+  <g>
+    <rect x="730" y="750" width="200" height="100" fill="#C5E0B4" stroke="#15803D" stroke-width="1.5" rx="6"/>
+    <use href="#iconNode" x="902" y="756" width="22" height="22"/>
+    <text x="748" y="770" font-size="10" fill="#166534" font-style="italic">«node»</text>
+    <text x="748" y="795" font-size="13" font-weight="700" fill="#1F2937">Cloudflare KV</text>
+    <text x="748" y="813" font-size="10" fill="#4B5563">cohort · summary 90d</text>
+    <text x="748" y="828" font-size="10" fill="#4B5563">legacy counters</text>
+    <text x="748" y="843" font-size="10" fill="#4B5563">free tier</text>
+  </g>
+  <g>
+    <rect x="960" y="750" width="220" height="100" fill="#A7D08F" stroke="#15803D" stroke-width="2" rx="6"/>
+    <use href="#iconNode" x="1152" y="756" width="22" height="22"/>
+    <text x="978" y="770" font-size="10" fill="#166534" font-style="italic">«node» (canonical)</text>
+    <text x="978" y="795" font-size="13" font-weight="700" fill="#1F2937">Cloudflare WAE</text>
+    <text x="978" y="813" font-size="10" fill="#4B5563">blend_usage dataset</text>
+    <text x="978" y="828" font-size="10" fill="#4B5563">append-only · SQL</text>
+    <text x="978" y="843" font-size="10" fill="#4B5563">100K events/일 free</text>
+  </g>
+  <g>
+    <rect x="1210" y="750" width="170" height="100" fill="#DBEAFE" stroke="#15803D" stroke-width="1.5" stroke-dasharray="3 3" rx="6"/>
+    <use href="#iconNode" x="1352" y="756" width="22" height="22"/>
+    <text x="1228" y="770" font-size="10" fill="#166534" font-style="italic">«external»</text>
+    <text x="1228" y="795" font-size="13" font-weight="700" fill="#1F2937">GitHub Actions</text>
+    <text x="1228" y="813" font-size="10" fill="#4B5563">CI / 배포</text>
+    <text x="1228" y="828" font-size="10" fill="#4B5563">wrangler</text>
+    <text x="1228" y="843" font-size="10" fill="#4B5563">vercel CLI</text>
+  </g>
+
+  <!-- Application → Technology (assigned to / deployed on) -->
+  <!-- Frontend → Vercel CDN -->
+  <line x1="160" y1="650" x2="370" y2="750" stroke="#1D4ED8" stroke-width="1" stroke-dasharray="6 3"/>
+  <!-- Frontend → Browser Storage -->
+  <line x1="120" y1="650" x2="155" y2="750" stroke="#1D4ED8" stroke-width="1" stroke-dasharray="6 3"/>
+  <!-- blend-counter → Workers Runtime -->
+  <line x1="390" y1="650" x2="600" y2="750" stroke="#1D4ED8" stroke-width="1" stroke-dasharray="6 3"/>
+  <!-- blend-daily-report → Workers Runtime -->
+  <line x1="630" y1="650" x2="600" y2="750" stroke="#1D4ED8" stroke-width="1" stroke-dasharray="6 3"/>
+  <!-- Workers Runtime → KV -->
+  <line x1="700" y1="800" x2="730" y2="800" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <!-- Workers Runtime → WAE -->
+  <line x1="700" y1="820" x2="960" y2="820" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="800" y="838" font-size="9" fill="#374151" font-style="italic">writeDataPoint() · SQL</text>
+
+  <!-- ============================================================ -->
+  <!--   Legend                                                     -->
+  <!-- ============================================================ -->
+  <rect x="20" y="910" width="1360" height="170" fill="#FAFAFA" stroke="#9CA3AF" stroke-width="1" rx="6"/>
+  <text x="36" y="932" font-size="13" font-weight="700" fill="#374151">Legend — ArchiMate 3.1</text>
+
+  <!-- Layer color swatches -->
+  <rect x="50" y="950" width="20" height="20" fill="#E9D5F5" stroke="#7C3AED"/>
+  <text x="80" y="965" font-size="11" fill="#374151"><tspan font-weight="600">Motivation</tspan> — 비전·동기·목표 (Why)</text>
+
+  <rect x="50" y="980" width="20" height="20" fill="#FFF9C4" stroke="#CA8A04"/>
+  <text x="80" y="995" font-size="11" fill="#374151"><tspan font-weight="600">Business</tspan> — 사람·역할·서비스 (Who &amp; What)</text>
+
+  <rect x="50" y="1010" width="20" height="20" fill="#C2E0F4" stroke="#1D4ED8"/>
+  <text x="80" y="1025" font-size="11" fill="#374151"><tspan font-weight="600">Application</tspan> — 시스템·앱·모듈 (How)</text>
+
+  <rect x="50" y="1040" width="20" height="20" fill="#C5E0B4" stroke="#15803D"/>
+  <text x="80" y="1055" font-size="11" fill="#374151"><tspan font-weight="600">Technology</tspan> — 인프라·플랫폼·노드 (Where)</text>
+
+  <!-- Element type icons -->
+  <use href="#iconActor" x="430" y="950" width="20" height="20"/>
+  <text x="460" y="965" font-size="11" fill="#374151">Business Actor (사람)</text>
+
+  <use href="#iconService" x="430" y="980" width="20" height="20"/>
+  <text x="460" y="995" font-size="11" fill="#374151">Business / Application Service</text>
+
+  <use href="#iconComponent" x="430" y="1010" width="20" height="20"/>
+  <text x="460" y="1025" font-size="11" fill="#374151">Application Component (모듈)</text>
+
+  <use href="#iconNode" x="430" y="1040" width="20" height="20"/>
+  <text x="460" y="1055" font-size="11" fill="#374151">Technology Node (인프라)</text>
+
+  <!-- Relationship lines -->
+  <line x1="780" y1="960" x2="830" y2="960" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="845" y="965" font-size="11" fill="#374151">Flow / Triggering (정보·통제 흐름)</text>
+
+  <line x1="780" y1="990" x2="830" y2="990" stroke="#6B7280" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrowLight)"/>
+  <text x="845" y="995" font-size="11" fill="#374151">Used-by (서비스 사용 관계)</text>
+
+  <line x1="780" y1="1020" x2="830" y2="1020" stroke="#CA8A04" stroke-width="1" stroke-dasharray="6 3"/>
+  <text x="845" y="1025" font-size="11" fill="#374151">Realization (Service ⇢ Component)</text>
+
+  <line x1="780" y1="1050" x2="830" y2="1050" stroke="#1D4ED8" stroke-width="1" stroke-dasharray="6 3"/>
+  <text x="845" y="1055" font-size="11" fill="#374151">Assignment (Component ⇢ Node)</text>
+
+  <text x="1380" y="1075" text-anchor="end" font-size="10" fill="#9CA3AF" font-style="italic">
+    Source: docs/architecture/blend-archimate.svg · Edit via Archi (open .archimate file)
+  </text>
+</svg>

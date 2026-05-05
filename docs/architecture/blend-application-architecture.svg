@@ -1,0 +1,809 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 3000" width="2000" height="3000"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', sans-serif">
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151"/>
+    </marker>
+    <marker id="arrL" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6B7280"/>
+    </marker>
+    <style>
+      .h-layer { font-size: 14px; font-weight: 700; }
+      .h-group { font-size: 12px; font-weight: 700; }
+      .h-box   { font-size: 13px; font-weight: 700; fill: #111827; }
+      .stereo  { font-size: 9px;  font-style: italic; }
+      .desc    { font-size: 9.5px; fill: #4B5563; }
+      .small   { font-size: 9px;  fill: #6B7280; }
+      .endpoint{ font-size: 10px; fill: #1F2937; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    </style>
+  </defs>
+
+  <!-- ============ Title ============ -->
+  <text x="1000" y="32" text-anchor="middle" font-size="24" font-weight="700" fill="#111827">🔵 Blend Application Architecture — Detailed (ArchiMate 3.1)</text>
+  <text x="1000" y="56" text-anchor="middle" font-size="12" fill="#6B7280">
+    Source: github.com/toroymin-bot/blend · Next.js 16 static export · Cloudflare Workers · Zustand · IndexedDB · 2026-05-05
+  </text>
+
+  <!-- =================================================================== -->
+  <!--   LAYER 1 — Presentation (App Router + Components + Design System)  -->
+  <!-- =================================================================== -->
+  <rect x="20" y="80" width="1960" height="280" fill="#FAFBFE" stroke="#1D4ED8" stroke-width="1" rx="6"/>
+  <text x="36" y="102" class="h-layer" fill="#1E3A8A">L1 · PRESENTATION — App Router · Pages · Components · Design System</text>
+
+  <!-- 1A: Pages (page.tsx) -->
+  <rect x="40" y="120" width="600" height="225" fill="#FFFFFF" stroke="#94A3B8" rx="6"/>
+  <text x="56" y="140" class="h-group" fill="#1E3A8A">📄 Pages (Next.js App Router · src/app/)</text>
+  <text x="56" y="162" class="endpoint">/                                  → root → /design1/[lang] redirect</text>
+  <text x="56" y="178" class="endpoint">/[lang]                            → 메인 (ko/en/ph)</text>
+  <text x="56" y="194" class="endpoint">/[lang]/payment/{success,fail}    → 결제 결과</text>
+  <text x="56" y="210" class="endpoint">/[lang]/share?id=...               → 공유 채팅 보기</text>
+  <text x="56" y="226" class="endpoint">/[lang]/qatest                     → QA 테스트</text>
+  <text x="56" y="242" class="endpoint">/design1/[lang]                    → Design1 메인 (현행)</text>
+  <text x="56" y="258" class="endpoint">/design1/[lang]/{qatest, share}    → Design1 sub</text>
+  <text x="56" y="274" class="endpoint">/design2/[lang], /design3/[lang]   → AB 변형 (멀티 디자인)</text>
+  <text x="56" y="290" class="endpoint">/pricing  /privacy  /terms  /refund → 정책 페이지</text>
+  <text x="56" y="306" class="endpoint">/oauth-callback                    → Google/OneDrive OAuth</text>
+  <text x="56" y="322" class="endpoint">/qatest                            → 루트 QA</text>
+  <text x="56" y="338" class="small">→ 동적 segment [lang]: 'ko' | 'en' | 'ph' · vercel.json redirects 8건</text>
+
+  <!-- 1B: API Routes (route.ts) -->
+  <rect x="660" y="120" width="450" height="225" fill="#FFFFFF" stroke="#94A3B8" rx="6"/>
+  <text x="676" y="140" class="h-group" fill="#1E3A8A">🔌 API Routes (Edge functions · src/app/api/)</text>
+  <text x="676" y="162" class="endpoint">POST /api/image-gen          이미지 생성 프록시</text>
+  <text x="676" y="178" class="endpoint">POST /api/transcribe         음성→텍스트 (Whisper/Gemini)</text>
+  <text x="676" y="194" class="endpoint">POST /api/url-reader         URL 콘텐츠 추출</text>
+  <text x="676" y="210" class="endpoint">POST /api/web-search         웹 검색 (Tavily/Brave)</text>
+  <text x="676" y="226" class="endpoint">POST /api/webdav-proxy       WebDAV CORS 우회</text>
+  <text x="676" y="242" class="endpoint">POST /api/youtube-transcript YouTube 자막 추출</text>
+  <text x="676" y="258" class="endpoint">GET  /api/cron/sync-models   모델 카탈로그 동기 (cron)</text>
+  <text x="676" y="282" class="small">→ static export 모드라 일부 cron만 외부 워커가 호출.</text>
+  <text x="676" y="296" class="small">→ image-gen / web-search / transcribe 는 server-on-demand routes.</text>
+
+  <!-- 1C: Common Components -->
+  <rect x="1130" y="120" width="420" height="105" fill="#FFFFFF" stroke="#94A3B8" rx="6"/>
+  <text x="1146" y="140" class="h-group" fill="#1E3A8A">🧩 Components (src/components/)</text>
+  <text x="1146" y="160" class="desc">app-content · app-content-design1/2/3 (root containers)</text>
+  <text x="1146" y="176" class="desc">share-modal · storage-quota-toast · welcome-demo</text>
+  <text x="1146" y="196" class="desc">7개 root-level UI primitives</text>
+
+  <!-- 1D: Hooks -->
+  <rect x="1130" y="240" width="420" height="105" fill="#FFFFFF" stroke="#94A3B8" rx="6"/>
+  <text x="1146" y="260" class="h-group" fill="#1E3A8A">🪝 Hooks (src/hooks/)</text>
+  <text x="1146" y="280" class="desc">use-active-source-list · use-datasource-queue-polling</text>
+  <text x="1146" y="296" class="desc">use-device-class (mobile/tablet/desktop)</text>
+
+  <!-- 1E: Design System -->
+  <rect x="1570" y="120" width="410" height="225" fill="#FFFFFF" stroke="#94A3B8" rx="6"/>
+  <text x="1586" y="140" class="h-group" fill="#1E3A8A">🎨 Design System (src/design/)</text>
+  <text x="1586" y="160" class="desc">d1-tokens.ts        — color · spacing · radius</text>
+  <text x="1586" y="176" class="desc">d1-typography.ts    — font · size · weight</text>
+  <text x="1586" y="192" class="desc">d1-easing.ts        — animation easing</text>
+  <text x="1586" y="208" class="desc">d1-providers.ts     — design1 context</text>
+  <text x="1586" y="224" class="desc">theme-provider.tsx  — light/dark/system</text>
+  <text x="1586" y="240" class="desc">theme-store.ts      — zustand 테마 state</text>
+  <text x="1586" y="256" class="desc">use-theme.ts        — hook</text>
+  <text x="1586" y="280" class="h-group" fill="#1E3A8A">🌐 Locales (src/locales/)</text>
+  <text x="1586" y="300" class="desc">ko.json · en.json · ph.json (필리핀 타갈로그)</text>
+  <text x="1586" y="320" class="small">→ 951 키 × 3 언어 · ph 88.3% 번역</text>
+
+  <!-- =================================================================== -->
+  <!--   LAYER 2 — Feature Modules (src/modules/)                           -->
+  <!-- =================================================================== -->
+  <rect x="20" y="380" width="1960" height="630" fill="#E6F2FB" stroke="#1D4ED8" stroke-width="1" rx="6"/>
+  <text x="36" y="402" class="h-layer" fill="#1E3A8A">L2 · FEATURE MODULES (src/modules/) — 20 도메인 모듈 · design1 + legacy 듀얼 트랙</text>
+
+  <!-- Module box helper template: 380w × 130h, 5 cols × 4 rows -->
+
+  <!-- Row 1 -->
+  <g>
+    <rect x="40" y="420" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="56" y="440" class="h-box">💬 chat</text>
+    <text x="56" y="455" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="56" y="475" class="desc">메인 채팅 UI · BYOK direct call · streaming · RAG 통합</text>
+    <text x="56" y="492" class="desc">• chat-view-design1.tsx · chat-view.tsx (legacy)</text>
+    <text x="56" y="506" class="desc">• history-overlay-design1 · export-dropdown-design1</text>
+    <text x="56" y="520" class="desc">• rag-progress-banner · chat-tags · export-chat.ts</text>
+    <text x="56" y="534" class="desc">• intent-classifier.ts · trial-gemini-client.ts</text>
+    <text x="56" y="548" class="small">→ chat-store · usage-store · datasource-store</text>
+  </g>
+  <g>
+    <rect x="432" y="420" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="448" y="440" class="h-box">🎙️ meeting</text>
+    <text x="448" y="455" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="448" y="475" class="desc">회의 녹음/트랜스크립트/마인드맵 분석</text>
+    <text x="448" y="492" class="desc">• meeting-view-design1 · meeting-view (legacy)</text>
+    <text x="448" y="506" class="desc">• meeting-mindmap (markmap)</text>
+    <text x="448" y="520" class="desc">• meeting-plugin · meeting-runner</text>
+    <text x="448" y="534" class="desc">• Whisper/Gemini transcribe + diarization</text>
+    <text x="448" y="548" class="small">→ meeting-store · meeting-job-store · runner</text>
+  </g>
+  <g>
+    <rect x="824" y="420" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="840" y="440" class="h-box">💳 billing</text>
+    <text x="840" y="455" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="840" y="475" class="desc">결제·구독·요금제 ($8/$39/$68 USD source)</text>
+    <text x="840" y="492" class="desc">• billing-view-design1.tsx</text>
+    <text x="840" y="506" class="desc">• PRICING / SavingsPlanCard / PaymentStubModal</text>
+    <text x="840" y="520" class="desc">• 4 카드: Free / Pro 월간 / Smarter 6개월 / Yearly</text>
+    <text x="840" y="534" class="desc">• PHP·KRW·USD lang 기반 단일 통화</text>
+    <text x="840" y="548" class="small">→ usage-store · license-store · paddle/toss/xendit</text>
+  </g>
+  <g>
+    <rect x="1216" y="420" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="1232" y="440" class="h-box">📊 dashboard</text>
+    <text x="1232" y="455" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="1232" y="475" class="desc">홈 KPI · 사용량 추이 · WAE 기반 인사이트</text>
+    <text x="1232" y="492" class="desc">• dashboard-view-design1.tsx</text>
+    <text x="1232" y="506" class="desc">• today / 7일 / 전체 period 토글</text>
+    <text x="1232" y="520" class="desc">• providers · models · heatmap · daily 차트</text>
+    <text x="1232" y="534" class="desc">• fetchUsageSummary() 공통 fetcher</text>
+    <text x="1232" y="548" class="small">→ usage-store · /usage-summary-v2 (Worker)</text>
+  </g>
+  <g>
+    <rect x="1608" y="420" width="372" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="1624" y="440" class="h-box">⚙️ settings</text>
+    <text x="1624" y="455" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="1624" y="475" class="desc">앱 설정 · BYOK 키 · FAQ · About</text>
+    <text x="1624" y="492" class="desc">• settings-view-design1 · settings-view (legacy)</text>
+    <text x="1624" y="506" class="desc">• 언어 selector (ko/en/ph)</text>
+    <text x="1624" y="520" class="desc">• Settings → FAQ 메뉴 (잡스 아코디언)</text>
+    <text x="1624" y="534" class="desc">• 저장소 사용량 인디케이터 (storage-estimate)</text>
+    <text x="1624" y="548" class="small">→ settings-store · api-key-store · trial-store</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g>
+    <rect x="40" y="565" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="56" y="585" class="h-box">📁 datasources</text>
+    <text x="56" y="600" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="56" y="620" class="desc">RAG 외부 소스 (Drive/OneDrive/WebDAV/Local)</text>
+    <text x="56" y="637" class="desc">• datasources-view-design1 · datasource-view</text>
+    <text x="56" y="651" class="desc">• google-drive-folder-modal · onedrive-folder-modal</text>
+    <text x="56" y="665" class="desc">• local-drive-modal · cost-{alert,preview}-modal</text>
+    <text x="56" y="679" class="desc">• webdav-proxy 라우트 + use-datasource-queue-polling</text>
+    <text x="56" y="693" class="small">→ datasource-store · sync-runner · source-indexer</text>
+  </g>
+  <g>
+    <rect x="432" y="565" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="448" y="585" class="h-box">📚 documents</text>
+    <text x="448" y="600" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="448" y="620" class="desc">임포트된 문서 메타데이터 + Semantic 검색</text>
+    <text x="448" y="637" class="desc">• documents-view-design1.tsx</text>
+    <text x="448" y="651" class="desc">• 인덱스 진행 상태 (indexedCount/totalCount)</text>
+    <text x="448" y="665" class="desc">• PDF / Word / TXT / MD 파싱 (mammoth, pdfjs)</text>
+    <text x="448" y="679" class="desc">• vector embedding (Tier 1 IndexedDB)</text>
+    <text x="448" y="693" class="small">→ document-store · vector-db · source-indexer</text>
+  </g>
+  <g>
+    <rect x="824" y="565" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="840" y="585" class="h-box">🤖 models</text>
+    <text x="840" y="600" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="840" y="620" class="desc">AI 모델 카탈로그 + REG-01 자동 노출</text>
+    <text x="840" y="637" class="desc">• models-view-design1 · models-view · model-compare-view</text>
+    <text x="840" y="651" class="desc">• model-registry.ts (provider별 메타)</text>
+    <text x="840" y="665" class="desc">• model-removed-banner (deprecation 알림)</text>
+    <text x="840" y="679" class="desc">• available-models.generated.json (cron 동기)</text>
+    <text x="840" y="693" class="small">→ scripts/sync-models.mjs · /api/cron/sync-models</text>
+  </g>
+  <g>
+    <rect x="1216" y="565" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="1232" y="585" class="h-box">🆚 compare</text>
+    <text x="1232" y="600" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="1232" y="620" class="desc">동일 질문 → N개 모델 동시 비교</text>
+    <text x="1232" y="637" class="desc">• compare-view-design1.tsx</text>
+    <text x="1232" y="651" class="desc">• 카드 3~10줄 + 스크롤 (모바일)</text>
+    <text x="1232" y="665" class="desc">• friendlyError + 일시 장애 자동 1회 retry</text>
+    <text x="1232" y="679" class="desc">• provider별 latency · cost · 길이 비교</text>
+    <text x="1232" y="693" class="small">→ chat-store · model-router · BYOK keys</text>
+  </g>
+  <g>
+    <rect x="1608" y="565" width="372" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="1624" y="585" class="h-box">💰 cost-savings</text>
+    <text x="1624" y="600" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="1624" y="620" class="desc">비용 절감 권고 (BYOK vs 구독 비교)</text>
+    <text x="1624" y="637" class="desc">• cost-savings-view-design1.tsx</text>
+    <text x="1624" y="651" class="desc">• "$60 구독 대신 평균 $13" 카피</text>
+    <text x="1624" y="665" class="desc">• 사용 패턴 기반 권장 카드</text>
+    <text x="1624" y="679" class="desc">• Smarter $39 (28% off) 추천</text>
+    <text x="1624" y="693" class="small">→ usage-store · billing 카드 navigate</text>
+  </g>
+
+  <!-- Row 3 -->
+  <g>
+    <rect x="40" y="710" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="56" y="730" class="h-box">🧠 agents</text>
+    <text x="56" y="745" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="56" y="765" class="desc">AI Agent (system prompt + plugins) 관리</text>
+    <text x="56" y="782" class="desc">• agents-view-design1 · agents-view (legacy)</text>
+    <text x="56" y="796" class="desc">• agent_defaults locales 7건</text>
+    <text x="56" y="810" class="desc">• plugin 토글 · model 선택</text>
+    <text x="56" y="824" class="small">→ agent-store · plugin-store</text>
+  </g>
+  <g>
+    <rect x="432" y="710" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="448" y="730" class="h-box">📝 prompts</text>
+    <text x="448" y="745" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="448" y="765" class="desc">프롬프트 템플릿 라이브러리</text>
+    <text x="448" y="782" class="desc">• prompts-view.tsx</text>
+    <text x="448" y="796" class="desc">• prompt-variable-modal (변수 치환)</text>
+    <text x="448" y="810" class="desc">• favorites · tags · 검색</text>
+    <text x="448" y="824" class="small">→ prompt-store</text>
+  </g>
+  <g>
+    <rect x="824" y="710" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="840" y="730" class="h-box">🔌 plugins</text>
+    <text x="840" y="745" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="840" y="765" class="desc">AI Tools (검색/이미지/코드/차트/URL/메일)</text>
+    <text x="840" y="782" class="desc">• plugins-view · document-plugin-view</text>
+    <text x="840" y="796" class="desc">• chart-render · code-runner · image-gen.tsx</text>
+    <text x="840" y="810" class="desc">• url-reader.ts · web-search.ts</text>
+    <text x="840" y="824" class="small">→ plugin-store · ai-tools.ts · /api/* edge</text>
+  </g>
+  <g>
+    <rect x="1216" y="710" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="1232" y="730" class="h-box">🔒 security</text>
+    <text x="1232" y="745" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="1232" y="765" class="desc">권한 · 데이터 위치 · 백업 안내</text>
+    <text x="1232" y="782" class="desc">• security-view-design1.tsx</text>
+    <text x="1232" y="796" class="desc">• localStorage 평문 (브라우저 격리)</text>
+    <text x="1232" y="810" class="desc">• full-backup 내보내기 / 복원</text>
+    <text x="1232" y="824" class="small">→ full-backup.ts</text>
+  </g>
+  <g>
+    <rect x="1608" y="710" width="372" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="1624" y="730" class="h-box">🚀 onboarding</text>
+    <text x="1624" y="745" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="1624" y="765" class="desc">초기 설정 · API 키 첫 등록 가이드</text>
+    <text x="1624" y="782" class="desc">• onboarding-view-design1.tsx</text>
+    <text x="1624" y="796" class="desc">• provider별 발급 링크 (3개)</text>
+    <text x="1624" y="810" class="desc">• 100% 다국어 (ko/en/ph 따갈로그)</text>
+    <text x="1624" y="824" class="small">→ api-key-store · trial-store</text>
+  </g>
+
+  <!-- Row 4 -->
+  <g>
+    <rect x="40" y="855" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="56" y="875" class="h-box">🏛 about</text>
+    <text x="56" y="890" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="56" y="910" class="desc">소개 · 가치 제안 · BLEND_INTRO_QUESTION</text>
+    <text x="56" y="927" class="desc">• about-view-design1.tsx</text>
+    <text x="56" y="941" class="desc">• "한 달에 커피 한 잔" tagline</text>
+    <text x="56" y="955" class="desc">• ph: ₱ 가격 표시</text>
+    <text x="56" y="969" class="small">→ blend-identity.ts</text>
+  </g>
+  <g>
+    <rect x="432" y="855" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="448" y="875" class="h-box">🔗 shared</text>
+    <text x="448" y="890" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="448" y="910" class="desc">공통 context provider · 상수 · 유틸</text>
+    <text x="448" y="927" class="desc">• providers-design1.ts</text>
+    <text x="448" y="941" class="desc">• d1:nav-to / d1:toast / d1:ask-blend events</text>
+    <text x="448" y="955" class="desc">• 모듈 간 cross-cut concerns</text>
+  </g>
+  <g>
+    <rect x="824" y="855" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="840" y="875" class="h-box">💾 storage</text>
+    <text x="840" y="890" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="840" y="910" class="desc">localStorage / IndexedDB 모듈 어댑터</text>
+    <text x="840" y="927" class="desc">• local-storage.ts</text>
+    <text x="840" y="941" class="desc">• safeSetItem / safeGetItem 래퍼</text>
+    <text x="840" y="955" class="desc">• Quota Exceeded 토스트 + 동적 한도</text>
+    <text x="840" y="969" class="small">→ src/lib/safe-storage.ts</text>
+  </g>
+  <g>
+    <rect x="1216" y="855" width="380" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="1232" y="875" class="h-box">🧱 ui (legacy)</text>
+    <text x="1232" y="890" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="1232" y="910" class="desc">design1 전환 전 레거시 view + 공통 UI</text>
+    <text x="1232" y="927" class="desc">• dashboard-view · welcome-view · sidebar</text>
+    <text x="1232" y="941" class="desc">• keyboard-shortcuts · billing-view (legacy)</text>
+    <text x="1232" y="955" class="desc">• about-view · security-view (legacy)</text>
+    <text x="1232" y="969" class="small">→ /[lang]/* (non-design1) 라우트에서 사용</text>
+  </g>
+  <g>
+    <rect x="1608" y="855" width="372" height="135" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.3" rx="6"/>
+    <text x="1624" y="875" class="h-box">🔑 api-keys (settings 內)</text>
+    <text x="1624" y="890" class="stereo" fill="#1E3A8A">«application component»</text>
+    <text x="1624" y="910" class="desc">BYOK provider별 키 등록 · 검증 · 삭제</text>
+    <text x="1624" y="927" class="desc">• settings-view-design1 sub-section</text>
+    <text x="1624" y="941" class="desc">• validate ping (provider별 1 토큰)</text>
+    <text x="1624" y="955" class="desc">• 자동 fallback chain (meeting-runner 검증됨)</text>
+    <text x="1624" y="969" class="small">→ api-key-store · 5 providers</text>
+  </g>
+
+  <!-- =================================================================== -->
+  <!--   LAYER 3 — State Stores (Zustand)                                   -->
+  <!-- =================================================================== -->
+  <rect x="20" y="1030" width="1960" height="210" fill="#FFFBE6" stroke="#CA8A04" stroke-width="1" rx="6"/>
+  <text x="36" y="1052" class="h-layer" fill="#854D0E">L3 · STATE STORES (src/stores/, Zustand + localStorage persist) — 17 stores</text>
+
+  <!-- 6 cols × 3 rows, box 320×50 -->
+  <g font-size="10">
+    <!-- Row 1 -->
+    <rect x="40"   y="1070" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="52" y="1086" font-weight="700">api-key-store</text>
+    <text x="52" y="1102" fill="#4B5563">keys: Record&lt;Provider, APIKeyConfig[]&gt;</text>
+    <text x="52" y="1116" fill="#6B7280" font-size="9">5 providers · validate · default 선택</text>
+
+    <rect x="368"  y="1070" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="380" y="1086" font-weight="700">chat-store</text>
+    <text x="380" y="1102" fill="#4B5563">chats[] · currentChatId · folders[] · model</text>
+    <text x="380" y="1116" fill="#6B7280" font-size="9">메시지 + 폴더 + 즐겨찾기</text>
+
+    <rect x="696"  y="1070" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="708" y="1086" font-weight="700">agent-store</text>
+    <text x="708" y="1102" fill="#4B5563">agents[] · selectedAgentId</text>
+    <text x="708" y="1116" fill="#6B7280" font-size="9">AI Agent 시스템 프롬프트</text>
+
+    <rect x="1024" y="1070" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="1036" y="1086" font-weight="700">prompt-store</text>
+    <text x="1036" y="1102" fill="#4B5563">prompts[] · favorites[] · tags[]</text>
+    <text x="1036" y="1116" fill="#6B7280" font-size="9">프롬프트 템플릿 라이브러리</text>
+
+    <rect x="1352" y="1070" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="1364" y="1086" font-weight="700">settings-store</text>
+    <text x="1364" y="1102" fill="#4B5563">theme · language · sendOnEnter · model</text>
+    <text x="1364" y="1116" fill="#6B7280" font-size="9">UI + 동작 preferences</text>
+
+    <rect x="1680" y="1070" width="300" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="1692" y="1086" font-weight="700">usage-store</text>
+    <text x="1692" y="1102" fill="#4B5563">dailyCost · in/outTokens · statsByModel</text>
+    <text x="1692" y="1116" fill="#6B7280" font-size="9">실시간 사용량 · trackUsage 호출</text>
+
+    <!-- Row 2 -->
+    <rect x="40"   y="1130" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="52" y="1146" font-weight="700">datasource-store</text>
+    <text x="52" y="1162" fill="#4B5563">sources[] · activeIds[] · syncStatus</text>
+    <text x="52" y="1176" fill="#6B7280" font-size="9">RAG 메타 + 동기화 상태</text>
+
+    <rect x="368"  y="1130" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="380" y="1146" font-weight="700">document-store</text>
+    <text x="380" y="1162" fill="#4B5563">documents[] · indexedCount/totalCount</text>
+    <text x="380" y="1176" fill="#6B7280" font-size="9">문서 메타 (vector-db 별도)</text>
+
+    <rect x="696"  y="1130" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="708" y="1146" font-weight="700">plugin-store</text>
+    <text x="708" y="1162" fill="#4B5563">plugins[] · enabledIds[] · config</text>
+    <text x="708" y="1176" fill="#6B7280" font-size="9">tool 활성화 · 자격증명</text>
+
+    <rect x="1024" y="1130" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="1036" y="1146" font-weight="700">project-store</text>
+    <text x="1036" y="1162" fill="#4B5563">projects[] · currentProjectId</text>
+    <text x="1036" y="1176" fill="#6B7280" font-size="9">워크스페이스 분리</text>
+
+    <rect x="1352" y="1130" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="1364" y="1146" font-weight="700">license-store</text>
+    <text x="1364" y="1162" fill="#4B5563">licenseKey · isValid · expiresAt</text>
+    <text x="1364" y="1176" fill="#6B7280" font-size="9">Pro/Team 라이선스 (Paddle/Toss/Xendit)</text>
+
+    <rect x="1680" y="1130" width="300" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="1692" y="1146" font-weight="700">trial-store</text>
+    <text x="1692" y="1162" fill="#4B5563">isTrialMode · trialExpiry · messagesUsed</text>
+    <text x="1692" y="1176" fill="#6B7280" font-size="9">무료 체험 (Gemini key)</text>
+
+    <!-- Row 3 -->
+    <rect x="40"   y="1190" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="52" y="1206" font-weight="700">meeting-store</text>
+    <text x="52" y="1222" fill="#4B5563">analyses[] · currentId · segments[]</text>
+    <text x="52" y="1236" fill="#6B7280" font-size="9">트랜스크립트 + 액션 아이템</text>
+
+    <rect x="368"  y="1190" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="380" y="1206" font-weight="700">meeting-job-store</text>
+    <text x="380" y="1222" fill="#4B5563">jobs[] · activeJobId · progress</text>
+    <text x="380" y="1236" fill="#6B7280" font-size="9">분석 진행률 (0~100%)</text>
+
+    <rect x="696"  y="1190" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="708" y="1206" font-weight="700">d1-chat-store (실험)</text>
+    <text x="708" y="1222" fill="#4B5563">d1Chats[] · d1CurrentId</text>
+    <text x="708" y="1236" fill="#6B7280" font-size="9">Cloudflare D1 sync (옵트인)</text>
+
+    <rect x="1024" y="1190" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="1036" y="1206" font-weight="700">d1-cost-store</text>
+    <text x="1036" y="1222" fill="#4B5563">totalCost · dayCosts[] · costByModel</text>
+    <text x="1036" y="1236" fill="#6B7280" font-size="9">D1 누적 비용 추적</text>
+
+    <rect x="1352" y="1190" width="320" height="50" fill="#FFF9C4" stroke="#CA8A04" rx="4"/>
+    <text x="1364" y="1206" font-weight="700">d1-memory-store</text>
+    <text x="1364" y="1222" fill="#4B5563">memories[] · contextWindow</text>
+    <text x="1364" y="1236" fill="#6B7280" font-size="9">AI 장기 메모리 (한도 무제한)</text>
+
+    <rect x="1680" y="1190" width="300" height="50" fill="#F5F5F5" stroke="#9CA3AF" rx="4" stroke-dasharray="3 2"/>
+    <text x="1692" y="1206" font-weight="700" fill="#6B7280">theme-store (design/)</text>
+    <text x="1692" y="1222" fill="#6B7280" font-size="9">light/dark/system — design system 산하</text>
+  </g>
+
+  <!-- =================================================================== -->
+  <!--   LAYER 4 — Core Libraries (src/lib/)                                -->
+  <!-- =================================================================== -->
+  <rect x="20" y="1260" width="1960" height="300" fill="#F5F5F5" stroke="#475569" stroke-width="1" rx="6"/>
+  <text x="36" y="1282" class="h-layer" fill="#1F2937">L4 · CORE LIBRARIES (src/lib/) — 25 utilities · 8 카테고리</text>
+
+  <!-- Cat 1: AI / Routing -->
+  <rect x="40" y="1300" width="240" height="245" fill="#FFFFFF" stroke="#475569" rx="6"/>
+  <text x="56" y="1320" class="h-group" fill="#1F2937">🤖 AI / Routing (3)</text>
+  <rect x="52" y="1334" width="216" height="42" fill="#EEF2FF" rx="3"/>
+  <text x="60" y="1349" font-size="11" font-weight="600">ai-tools.ts</text>
+  <text x="60" y="1364" class="small">웹 검색 / 이미지 / 코드 도구 정의 + runner</text>
+  <rect x="52" y="1382" width="216" height="42" fill="#EEF2FF" rx="3"/>
+  <text x="60" y="1397" font-size="11" font-weight="600">model-router.ts</text>
+  <text x="60" y="1412" class="small">selectBestModel(question) — 자동 매칭 엔진</text>
+  <rect x="52" y="1430" width="216" height="42" fill="#EEF2FF" rx="3"/>
+  <text x="60" y="1445" font-size="11" font-weight="600">blend-identity.ts</text>
+  <text x="60" y="1460" class="small">BLEND_SYSTEM_PROMPT — 모든 요청 주입</text>
+
+  <!-- Cat 2: RAG / Sync -->
+  <rect x="290" y="1300" width="240" height="245" fill="#FFFFFF" stroke="#475569" rx="6"/>
+  <text x="306" y="1320" class="h-group" fill="#1F2937">📚 RAG / Sync (4)</text>
+  <rect x="302" y="1334" width="216" height="42" fill="#F0FDF4" rx="3"/>
+  <text x="310" y="1349" font-size="11" font-weight="600">source-indexer.ts</text>
+  <text x="310" y="1364" class="small">scan → parse → embed → IndexedDB 적재</text>
+  <rect x="302" y="1382" width="216" height="42" fill="#F0FDF4" rx="3"/>
+  <text x="310" y="1397" font-size="11" font-weight="600">vector-db.ts</text>
+  <text x="310" y="1412" class="small">VectorDB interface (IndexedDB Tier 1)</text>
+  <rect x="302" y="1430" width="216" height="42" fill="#F0FDF4" rx="3"/>
+  <text x="310" y="1445" font-size="11" font-weight="600">sync-runner.ts</text>
+  <text x="310" y="1460" class="small">백그라운드 sync (component lifecycle 분리)</text>
+  <rect x="302" y="1478" width="216" height="42" fill="#F0FDF4" rx="3"/>
+  <text x="310" y="1493" font-size="11" font-weight="600">storage-estimate.ts</text>
+  <text x="310" y="1508" class="small">navigator.storage.estimate() 동적 한도</text>
+
+  <!-- Cat 3: Meeting -->
+  <rect x="540" y="1300" width="240" height="245" fill="#FFFFFF" stroke="#475569" rx="6"/>
+  <text x="556" y="1320" class="h-group" fill="#1F2937">🎙️ Meeting (2)</text>
+  <rect x="552" y="1334" width="216" height="42" fill="#FEF3C7" rx="3"/>
+  <text x="560" y="1349" font-size="11" font-weight="600">meeting-runner.ts</text>
+  <text x="560" y="1364" class="small">analyzeMeeting() + 자동 fallback chain</text>
+  <rect x="552" y="1382" width="216" height="42" fill="#FEF3C7" rx="3"/>
+  <text x="560" y="1397" font-size="11" font-weight="600">meeting-types.ts</text>
+  <text x="560" y="1412" class="small">TranscriptSegment / ActionItem / Analysis</text>
+
+  <!-- Cat 4: Payment -->
+  <rect x="790" y="1300" width="240" height="245" fill="#FFFFFF" stroke="#475569" rx="6"/>
+  <text x="806" y="1320" class="h-group" fill="#1F2937">💳 Payment (3)</text>
+  <rect x="802" y="1334" width="216" height="42" fill="#FCE7F3" rx="3"/>
+  <text x="810" y="1349" font-size="11" font-weight="600">paddle.ts</text>
+  <text x="810" y="1364" class="small">Paddle Billing v2 — 200+ 국가 글로벌</text>
+  <rect x="802" y="1382" width="216" height="42" fill="#FCE7F3" rx="3"/>
+  <text x="810" y="1397" font-size="11" font-weight="600">toss.ts</text>
+  <text x="810" y="1412" class="small">Toss Payments v2 — 한국 KRW</text>
+  <rect x="802" y="1430" width="216" height="42" fill="#FCE7F3" rx="3"/>
+  <text x="810" y="1445" font-size="11" font-weight="600">xendit.ts</text>
+  <text x="810" y="1460" class="small">Xendit — 필리핀 PHP (GCash/Maya)</text>
+
+  <!-- Cat 5: I18n -->
+  <rect x="1040" y="1300" width="240" height="245" fill="#FFFFFF" stroke="#475569" rx="6"/>
+  <text x="1056" y="1320" class="h-group" fill="#1F2937">🌐 I18n / Locale (5)</text>
+  <rect x="1052" y="1334" width="216" height="34" fill="#E0E7FF" rx="3"/>
+  <text x="1060" y="1346" font-size="11" font-weight="600">i18n.ts</text>
+  <text x="1060" y="1359" class="small">useTranslation · ko/en/ph 분기</text>
+  <rect x="1052" y="1372" width="216" height="34" fill="#E0E7FF" rx="3"/>
+  <text x="1060" y="1384" font-size="11" font-weight="600">currency.ts</text>
+  <text x="1060" y="1397" class="small">MONTHLY_FX_RATES · xe.com 매월 1일</text>
+  <rect x="1052" y="1410" width="216" height="34" fill="#E0E7FF" rx="3"/>
+  <text x="1060" y="1422" font-size="11" font-weight="600">format-currency.ts</text>
+  <text x="1060" y="1435" class="small">formatPrice(usd, lang) → 단일 통화</text>
+  <rect x="1052" y="1448" width="216" height="34" fill="#E0E7FF" rx="3"/>
+  <text x="1060" y="1460" font-size="11" font-weight="600">use-country.ts</text>
+  <text x="1060" y="1473" class="small">국가 감지 (ipapi.co · localStorage cache)</text>
+  <rect x="1052" y="1486" width="216" height="34" fill="#E0E7FF" rx="3"/>
+  <text x="1060" y="1498" font-size="11" font-weight="600">use-user-location.ts</text>
+  <text x="1060" y="1511" class="small">위치 → AI prompt 주입 (날씨 등)</text>
+
+  <!-- Cat 6: Storage / Backup -->
+  <rect x="1290" y="1300" width="240" height="245" fill="#FFFFFF" stroke="#475569" rx="6"/>
+  <text x="1306" y="1320" class="h-group" fill="#1F2937">💾 Storage / Backup (3)</text>
+  <rect x="1302" y="1334" width="216" height="42" fill="#FFEDD5" rx="3"/>
+  <text x="1310" y="1349" font-size="11" font-weight="600">safe-storage.ts</text>
+  <text x="1310" y="1364" class="small">safeSetItem · QuotaExceeded 토스트</text>
+  <rect x="1302" y="1382" width="216" height="42" fill="#FFEDD5" rx="3"/>
+  <text x="1310" y="1397" font-size="11" font-weight="600">full-backup.ts</text>
+  <text x="1310" y="1412" class="small">JSON 전체 export/import (security 메뉴)</text>
+  <rect x="1302" y="1430" width="216" height="42" fill="#FFEDD5" rx="3"/>
+  <text x="1310" y="1445" font-size="11" font-weight="600">share-encoder.ts</text>
+  <text x="1310" y="1460" class="small">pako gzip + base64 → /share?id=</text>
+
+  <!-- Cat 7: Session / Analytics -->
+  <rect x="1540" y="1300" width="220" height="245" fill="#FFFFFF" stroke="#475569" rx="6"/>
+  <text x="1556" y="1320" class="h-group" fill="#1F2937">📈 Session / Analytics (3)</text>
+  <rect x="1552" y="1334" width="196" height="42" fill="#DBEAFE" rx="3"/>
+  <text x="1560" y="1349" font-size="11" font-weight="600">session-load.ts</text>
+  <text x="1560" y="1364" class="small">100% = baseLatency × 1.10 임계</text>
+  <rect x="1552" y="1382" width="196" height="42" fill="#DBEAFE" rx="3"/>
+  <text x="1560" y="1397" font-size="11" font-weight="600">usage-summary.ts</text>
+  <text x="1560" y="1412" class="small">fetchUsageSummary() 공통 fetcher</text>
+  <rect x="1552" y="1430" width="196" height="42" fill="#DBEAFE" rx="3"/>
+  <text x="1560" y="1445" font-size="11" font-weight="600">analytics.ts</text>
+  <text x="1560" y="1460" class="small">trackEvent · trackVisit · trackUsage</text>
+
+  <!-- Cat 8: Voice / Hooks -->
+  <rect x="1770" y="1300" width="210" height="245" fill="#FFFFFF" stroke="#475569" rx="6"/>
+  <text x="1786" y="1320" class="h-group" fill="#1F2937">🎤 Voice / Hooks (2)</text>
+  <rect x="1782" y="1334" width="186" height="42" fill="#F3E8FF" rx="3"/>
+  <text x="1790" y="1349" font-size="11" font-weight="600">voice-chat.ts</text>
+  <text x="1790" y="1364" class="small">STT + TTS pipeline (Web Speech API)</text>
+  <rect x="1782" y="1382" width="186" height="42" fill="#F3E8FF" rx="3"/>
+  <text x="1790" y="1397" font-size="11" font-weight="600">use-focus-trap.ts</text>
+  <text x="1790" y="1412" class="small">모달 focus trap (a11y)</text>
+
+  <!-- =================================================================== -->
+  <!--   LAYER 5 — Browser Local Storage                                    -->
+  <!-- =================================================================== -->
+  <rect x="20" y="1580" width="1960" height="120" fill="#FEF6F0" stroke="#EA580C" stroke-width="1" rx="6"/>
+  <text x="36" y="1602" class="h-layer" fill="#9A3412">L5 · BROWSER LOCAL DATA — Per-device, no server sync (BYOK 본질)</text>
+
+  <rect x="40" y="1620" width="960" height="68" fill="#FFFFFF" stroke="#EA580C" rx="6"/>
+  <text x="56" y="1640" class="h-box">localStorage (zustand persist + 직접)</text>
+  <text x="56" y="1657" class="desc">blend:chats · blend:api-keys · blend:settings · blend:projects · blend:trial · blend:license</text>
+  <text x="56" y="1672" class="desc">blend:usage · blend:visits · blend:owner · blend:country · blend:onboarding · blend:user-uuid</text>
+  <text x="56" y="1685" class="small">→ 17 store × persist + 기타 직접 접근. safeSetItem 래핑. 동적 한도 (storage-estimate)</text>
+
+  <rect x="1010" y="1620" width="970" height="68" fill="#FFFFFF" stroke="#EA580C" rx="6"/>
+  <text x="1026" y="1640" class="h-box">IndexedDB (idb · dexie)</text>
+  <text x="1026" y="1657" class="desc">blend-vector (RAG 임베딩) · blend-documents (parsed content) · blend-cache (response cache)</text>
+  <text x="1026" y="1672" class="desc">vector-db.ts (Tier 1 추상화) · per-source partition · 90일 자동 정리 (사용량 기반)</text>
+  <text x="1026" y="1685" class="small">→ 벡터 차원 1536 (OpenAI text-embedding-3-small) · cosine similarity · 100K 도큐먼트</text>
+
+  <!-- =================================================================== -->
+  <!--   LAYER 6 — Cloudflare Workers                                       -->
+  <!-- =================================================================== -->
+  <rect x="20" y="1720" width="1960" height="520" fill="#E8F5E9" stroke="#15803D" stroke-width="1" rx="6"/>
+  <text x="36" y="1742" class="h-layer" fill="#166534">L6 · CLOUDFLARE WORKERS (workers/, workers-daily-report/, workers-datasource-webhook/) — Edge functions</text>
+
+  <!-- Worker 1: blend-counter -->
+  <rect x="40" y="1760" width="640" height="465" fill="#FFFFFF" stroke="#15803D" stroke-width="1.5" rx="6"/>
+  <text x="56" y="1782" class="h-box">⚙️ blend-counter</text>
+  <text x="56" y="1798" class="stereo" fill="#166534">«application component» · workers/blend-counter.ts · KV STATS + WAE blend_usage</text>
+  <text x="56" y="1820" class="h-group">HTTP Endpoints (11):</text>
+  <g class="endpoint">
+    <text x="56" y="1840">POST /track-visit               익명 UUID 방문 + 코호트 마킹</text>
+    <text x="56" y="1856">POST /track-usage               이벤트 8종 (chat / model / cost / OS / country)</text>
+    <text x="56" y="1872">POST /track                     다중 이벤트 batched</text>
+    <text x="56" y="1888">GET  /usage-summary             v1 누적 (legacy)</text>
+    <text x="56" y="1904">GET  /usage-summary-v2          WAE SQL 집계 (Dashboard·Billing 공통)</text>
+    <text x="56" y="1920">GET  /usage-detailed?date=      시간/모델 상세</text>
+    <text x="56" y="1936">GET  /usage-grid                heatmap (시간×요일)</text>
+    <text x="56" y="1952">GET  /usage-daily               billing 차트</text>
+    <text x="56" y="1968">GET  /usage-by-country          국가 분포</text>
+    <text x="56" y="1984">GET  /usage-by-os               OS 분포 (iOS/Android/macOS/Win/Linux)</text>
+    <text x="56" y="2000">GET  /retention-cohorts         코호트 D+1·D+7·D+30</text>
+  </g>
+  <text x="56" y="2026" class="h-group">Bindings:</text>
+  <text x="56" y="2046" class="desc">• KV STATS namespace (90일 TTL · counter dual-write legacy)</text>
+  <text x="56" y="2062" class="desc">• Analytics Engine dataset blend_usage (canonical · append-only)</text>
+  <text x="56" y="2078" class="desc">• Secrets: AE_QUERY_TOKEN · CF_ACCOUNT_ID</text>
+  <text x="56" y="2102" class="h-group">데이터 모델 (WAE):</text>
+  <text x="56" y="2122" class="desc">indexes: [provider]</text>
+  <text x="56" y="2138" class="desc">blobs:   [model, country, os, kstDate, kstHour]</text>
+  <text x="56" y="2154" class="desc">doubles: [costUSD, inputTokens, outputTokens]</text>
+  <text x="56" y="2178" class="h-group">디버그 endpoint (cleanup 보류):</text>
+  <text x="56" y="2196" class="desc">• /diag · /last-error (PM-46+ 임시)</text>
+
+  <!-- Worker 2: blend-datasource-webhook -->
+  <rect x="700" y="1760" width="620" height="465" fill="#FFFFFF" stroke="#15803D" stroke-width="1.5" rx="6"/>
+  <text x="716" y="1782" class="h-box">📁 blend-datasource-webhook</text>
+  <text x="716" y="1798" class="stereo" fill="#166534">«application component» · workers-datasource-webhook/src/ · KV queue</text>
+  <text x="716" y="1820" class="h-group">HTTP Endpoints (6):</text>
+  <g class="endpoint">
+    <text x="716" y="1840">GET  /health                            헬스 체크</text>
+    <text x="716" y="1856">POST /webhook/google-drive              Google Drive Watch 알림</text>
+    <text x="716" y="1872">POST /webhook/onedrive                  Microsoft Graph subscription</text>
+    <text x="716" y="1888">                                         + validationToken 응답</text>
+    <text x="716" y="1904">POST /subscription/register             OAuth 후 메타 등록 (Bearer)</text>
+    <text x="716" y="1920">GET  /subscription/expiring             만료 임박 list (Bearer)</text>
+    <text x="716" y="1936">GET  /queue/:datasourceId               클라이언트 폴링 (대기 변경)</text>
+  </g>
+  <text x="716" y="1962" class="h-group">Cron:</text>
+  <text x="716" y="1982" class="desc">• "17 */12 * * *" — 12시간마다 만료 임박 갱신 마킹</text>
+  <text x="716" y="2002" class="h-group">Handlers (workers-datasource-webhook/src/handlers/):</text>
+  <text x="716" y="2022" class="desc">• google-drive.ts — Drive Watch 채널 파싱</text>
+  <text x="716" y="2038" class="desc">• onedrive.ts — Graph subscription + validationToken</text>
+  <text x="716" y="2054" class="desc">• queue.ts — GET/POST 큐 관리 (per datasource)</text>
+  <text x="716" y="2070" class="desc">• subscription.ts — register / expiring</text>
+  <text x="716" y="2094" class="h-group">Bindings:</text>
+  <text x="716" y="2114" class="desc">• KV namespace (queue + subscription metadata)</text>
+  <text x="716" y="2130" class="desc">• Secrets: WEBHOOK_BEARER_TOKEN</text>
+  <text x="716" y="2154" class="h-group">호출 흐름:</text>
+  <text x="716" y="2174" class="desc">Drive/OneDrive change → webhook → enqueue → client poll → sync-runner → IndexedDB</text>
+
+  <!-- Worker 3: blend-daily-report -->
+  <rect x="1340" y="1760" width="640" height="465" fill="#FFFFFF" stroke="#15803D" stroke-width="1.5" rx="6"/>
+  <text x="1356" y="1782" class="h-box">📡 blend-daily-report</text>
+  <text x="1356" y="1798" class="stereo" fill="#166534">«application component» · workers-daily-report/src/ · cron + Telegram</text>
+  <text x="1356" y="1820" class="h-group">HTTP Endpoints (3):</text>
+  <g class="endpoint">
+    <text x="1356" y="1840">GET  /health                       상태</text>
+    <text x="1356" y="1856">POST /push-summary                 nighttask 요약 KV 저장</text>
+    <text x="1356" y="1872">GET  /preview?date=&amp;send=1        Telegram 미리보기/실 발송</text>
+  </g>
+  <text x="1356" y="1898" class="h-group">Cron:</text>
+  <text x="1356" y="1918" class="desc">• "35 23 * * *" UTC = KST 08:35 매일 → 어제 데이터 발송</text>
+  <text x="1356" y="1942" class="h-group">Service Binding:</text>
+  <text x="1356" y="1962" class="desc">• env.BLEND_COUNTER.fetch(...) — internal call</text>
+  <text x="1356" y="1978" class="desc">• public URL fetch는 CF loop 차단 (error 1042)</text>
+  <text x="1356" y="2002" class="h-group">Insight Engines (workers-daily-report/src/lib/):</text>
+  <text x="1356" y="2022" class="desc">• daily-pulse.ts · insights.ts · telegram.ts</text>
+  <text x="1356" y="2038" class="desc">• markdown-v2.ts · status-emoji.ts</text>
+  <text x="1356" y="2054" class="desc">• 11 자동 인사이트: 성장 / CPM / HHI / 비용 효율 /</text>
+  <text x="1356" y="2070" class="desc">  시간 패턴 / 구독 가치 / 월말 추정 / 이상 감지 /</text>
+  <text x="1356" y="2086" class="desc">  국가 / OS / 코호트 리텐션</text>
+  <text x="1356" y="2110" class="h-group">Bindings:</text>
+  <text x="1356" y="2130" class="desc">• KV namespace (summary cache)</text>
+  <text x="1356" y="2146" class="desc">• Secrets: TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID</text>
+  <text x="1356" y="2170" class="h-group">로드맵 (보류):</text>
+  <text x="1356" y="2190" class="desc">• Weekly Brief (월 09:00) · Monthly Exec (1일 09:00)</text>
+
+  <!-- =================================================================== -->
+  <!--   LAYER 7 — External Services                                        -->
+  <!-- =================================================================== -->
+  <rect x="20" y="2260" width="1960" height="320" fill="#FAFAFA" stroke="#6B7280" stroke-width="1" rx="6"/>
+  <text x="36" y="2282" class="h-layer" fill="#374151">L7 · EXTERNAL SERVICES — 19 외부 시스템</text>
+
+  <!-- AI Providers -->
+  <rect x="40" y="2300" width="380" height="265" fill="#FFFFFF" stroke="#6B7280" rx="6"/>
+  <text x="56" y="2320" class="h-group">🤖 AI Providers (BYOK direct call)</text>
+  <text x="56" y="2340" class="desc">• OpenAI                       gpt-4o, o1, GPT-5</text>
+  <text x="56" y="2356" class="desc">• Anthropic                    Claude 4.5/4.6/4.7 (Sonnet/Opus/Haiku)</text>
+  <text x="56" y="2372" class="desc">• Google                       Gemini 2.5 Pro/Flash · Vision</text>
+  <text x="56" y="2388" class="desc">• DeepSeek                     deepseek-chat / coder</text>
+  <text x="56" y="2404" class="desc">• Groq                         Llama / Mixtral (저지연)</text>
+  <text x="56" y="2420" class="desc">• Custom (BYOK)                OpenAI 호환 endpoint 추가</text>
+  <text x="56" y="2444" class="h-group">호출 패턴:</text>
+  <text x="56" y="2464" class="desc">Frontend → AI Provider (HTTPS streaming)</text>
+  <text x="56" y="2480" class="desc">→ 키는 사용자 localStorage</text>
+  <text x="56" y="2496" class="desc">→ 운영 비용 0 (BYOK)</text>
+  <text x="56" y="2520" class="desc">자동 fallback: 1차 picked 실패 시</text>
+  <text x="56" y="2536" class="desc">getAutoFallbackChain() 다른 provider</text>
+
+  <!-- Cloud SDK / RAG sources -->
+  <rect x="430" y="2300" width="320" height="265" fill="#FFFFFF" stroke="#6B7280" rx="6"/>
+  <text x="446" y="2320" class="h-group">☁️ Cloud SDK (RAG 외부 소스)</text>
+  <text x="446" y="2340" class="desc">• Google Drive API             OAuth + Watch 채널</text>
+  <text x="446" y="2356" class="desc">• Microsoft Graph API          OneDrive 파일 + Excel write</text>
+  <text x="446" y="2372" class="desc">• WebDAV                       /api/webdav-proxy 우회</text>
+  <text x="446" y="2388" class="desc">• Local FileSystem Access API  로컬 폴더 직접 (Chrome)</text>
+  <text x="446" y="2412" class="h-group">동기 흐름:</text>
+  <text x="446" y="2432" class="desc">1. OAuth → 토큰 localStorage</text>
+  <text x="446" y="2448" class="desc">2. Watch/Subscription 등록 → webhook worker</text>
+  <text x="446" y="2464" class="desc">3. 변경 알림 → queue → 클라이언트 poll</text>
+  <text x="446" y="2480" class="desc">4. sync-runner → source-indexer</text>
+  <text x="446" y="2496" class="desc">5. parse → embed → IndexedDB</text>
+  <text x="446" y="2520" class="h-group">QA (관리자만):</text>
+  <text x="446" y="2540" class="desc">Microsoft Graph → Blend_QA_Task.xlsx</text>
+
+  <!-- Payment -->
+  <rect x="760" y="2300" width="280" height="265" fill="#FFFFFF" stroke="#6B7280" rx="6"/>
+  <text x="776" y="2320" class="h-group">💳 Payment (3-region)</text>
+  <text x="776" y="2340" class="desc">• Paddle Billing v2</text>
+  <text x="776" y="2356" class="desc">  → 200+ 국가 글로벌 (USD)</text>
+  <text x="776" y="2372" class="desc">• Toss Payments v2</text>
+  <text x="776" y="2388" class="desc">  → 한국 KRW · NEXT_PUBLIC_TOSS_KEY</text>
+  <text x="776" y="2404" class="desc">• Xendit</text>
+  <text x="776" y="2420" class="desc">  → 필리핀 GCash / Maya</text>
+  <text x="776" y="2444" class="h-group">SKU:</text>
+  <text x="776" y="2464" class="desc">• Pro 월간 $8</text>
+  <text x="776" y="2480" class="desc">• Smarter 6개월 $39 (20% off)</text>
+  <text x="776" y="2496" class="desc">• Smarter 1년 $68 (30% off)</text>
+  <text x="776" y="2520" class="h-group">정책:</text>
+  <text x="776" y="2540" class="desc">• 매월 1일 xe.com 환율 (올림)</text>
+
+  <!-- Notifications + Analytics -->
+  <rect x="1050" y="2300" width="320" height="265" fill="#FFFFFF" stroke="#6B7280" rx="6"/>
+  <text x="1066" y="2320" class="h-group">📢 Notifications · Analytics</text>
+  <text x="1066" y="2340" class="desc">• Telegram Bot API             일일 Pulse → Roy</text>
+  <text x="1066" y="2356" class="desc">• Vercel Analytics             pageview · web vitals</text>
+  <text x="1066" y="2372" class="desc">• Google Apps Script           BlendDailyReport.gs</text>
+  <text x="1066" y="2388" class="desc">                                CostReport.gs</text>
+  <text x="1066" y="2412" class="h-group">🌍 Geo / Misc</text>
+  <text x="1066" y="2432" class="desc">• ipapi.co                     국가/도시 감지 (800ms timeout)</text>
+  <text x="1066" y="2448" class="desc">• YouTube Transcript API       /api/youtube-transcript</text>
+  <text x="1066" y="2464" class="desc">• Tavily / Brave (web-search)  /api/web-search</text>
+  <text x="1066" y="2488" class="h-group">📦 Storage Infra (Cloudflare)</text>
+  <text x="1066" y="2508" class="desc">• Cloudflare KV (STATS · queue · summary)</text>
+  <text x="1066" y="2524" class="desc">• Cloudflare WAE (blend_usage canonical)</text>
+  <text x="1066" y="2540" class="desc">• Cloudflare D1 (실험 — d1-* stores)</text>
+
+  <!-- Hosting & Domain -->
+  <rect x="1380" y="2300" width="600" height="265" fill="#FFFFFF" stroke="#6B7280" rx="6"/>
+  <text x="1396" y="2320" class="h-group">🌐 Hosting · Domain · DNS</text>
+  <text x="1396" y="2340" class="desc">• Vercel CDN — Next.js static export · blend.ai4min.com alias · 무료 tier</text>
+  <text x="1396" y="2356" class="desc">• Cloudflare DNS — ai4min.com 관리 · ₩15K/년</text>
+  <text x="1396" y="2372" class="desc">• Cloudflare Workers Runtime — V8 isolates · 10만 req/일 무료</text>
+  <text x="1396" y="2396" class="h-group">Security Headers (vercel.json)</text>
+  <text x="1396" y="2416" class="desc">• X-Frame-Options · CSP · HSTS · Permissions-Policy</text>
+  <text x="1396" y="2432" class="desc">• Redirects 8건 (/[lang] → /design1/[lang])</text>
+  <text x="1396" y="2456" class="h-group">Build Configuration</text>
+  <text x="1396" y="2476" class="desc">• next.config.ts: output: 'export' (SSR 없음)</text>
+  <text x="1396" y="2492" class="desc">• images: { unoptimized: true }</text>
+  <text x="1396" y="2508" class="desc">• alternates: ko · en · tl-PH (Filipino)</text>
+  <text x="1396" y="2532" class="desc">• sitemap.ts: design1/{ko,en,ph} + qatest 생성</text>
+
+  <!-- =================================================================== -->
+  <!--   LAYER 8 — CI/CD, Scripts, Automation                               -->
+  <!-- =================================================================== -->
+  <rect x="20" y="2600" width="1960" height="220" fill="#F0F9FF" stroke="#0284C7" stroke-width="1" rx="6"/>
+  <text x="36" y="2622" class="h-layer" fill="#075985">L8 · CI/CD · SCRIPTS · AUTOMATION</text>
+
+  <!-- GitHub Actions -->
+  <rect x="40" y="2640" width="600" height="165" fill="#FFFFFF" stroke="#0284C7" rx="6"/>
+  <text x="56" y="2660" class="h-group">⚡ GitHub Actions (.github/workflows/) — 5개 워크플로</text>
+  <text x="56" y="2680" class="desc">• deploy-worker.yml          blend-counter 배포 + secret put</text>
+  <text x="56" y="2696" class="desc">• deploy-daily-report.yml    workers-daily-report 배포 + Telegram secrets</text>
+  <text x="56" y="2712" class="desc">• ai-models-report.yml       모델 카탈로그 정기 리포트</text>
+  <text x="56" y="2728" class="desc">• daily-telegram-report.yml  Telegram 일일 보고 (Node.js)</text>
+  <text x="56" y="2744" class="desc">• update-models.yml          모델 카탈로그 자동 업데이트</text>
+  <text x="56" y="2768" class="small">→ Secrets: CF_API_TOKEN · CF_ACCOUNT_ID · CF_KV_NAMESPACE_ID · TELEGRAM_* · OPENAI_ADMIN_KEY</text>
+
+  <!-- Scripts -->
+  <rect x="650" y="2640" width="600" height="165" fill="#FFFFFF" stroke="#0284C7" rx="6"/>
+  <text x="666" y="2660" class="h-group">📜 Scripts (scripts/)</text>
+  <text x="666" y="2680" class="desc">• daily-telegram-report.mjs    Telegram 일일 요약 (Node.js cron)</text>
+  <text x="666" y="2696" class="desc">• ai-models-report.mjs         AI 모델 카탈로그 리포트</text>
+  <text x="666" y="2712" class="desc">• sync-models.mjs              OpenAI/Anthropic/Google 폴링 → catalog</text>
+  <text x="666" y="2728" class="desc">• update-models.sh / .ts       빌드 전/후 모델 업데이트</text>
+  <text x="666" y="2744" class="desc">• generate-descriptions.ts     모델 설명 자동 생성 (AI)</text>
+  <text x="666" y="2768" class="small">→ available-models.generated.json (REG-01 자동 노출 — IMP-016)</text>
+
+  <!-- Google Apps Script -->
+  <rect x="1260" y="2640" width="720" height="165" fill="#FFFFFF" stroke="#0284C7" rx="6"/>
+  <text x="1276" y="2660" class="h-group">📊 Google Apps Script (gas/) · QA Excel (Microsoft Graph)</text>
+  <text x="1276" y="2680" class="desc">• BlendDailyReport.gs          시간당/일일 자동 (Google Sheets)</text>
+  <text x="1276" y="2696" class="desc">• CostReport.gs                비용 리포트 → Sheets</text>
+  <text x="1276" y="2712" class="desc">• SETUP.md                     GAS 설정 가이드</text>
+  <text x="1276" y="2728" class="desc">• graph_excel.py (Python)      Blend_QA_Task.xlsx 수정 (Graph API only)</text>
+  <text x="1276" y="2744" class="desc">                                ⚠️ openpyxl 로컬 저장 금지 (메모리 룰)</text>
+  <text x="1276" y="2768" class="small">→ Excel 파일은 OneDrive · 모든 수정은 graph_excel.py 통과 필수</text>
+
+  <!-- =================================================================== -->
+  <!--   Legend                                                             -->
+  <!-- =================================================================== -->
+  <rect x="20" y="2840" width="1960" height="160" fill="#FFFFFF" stroke="#9CA3AF" rx="6"/>
+  <text x="36" y="2862" class="h-layer" fill="#374151">Legend</text>
+
+  <!-- Color swatches -->
+  <rect x="40"  y="2880" width="20" height="20" fill="#FAFBFE" stroke="#1D4ED8"/>
+  <text x="68" y="2895" font-size="11">L1 Presentation</text>
+  <rect x="40"  y="2910" width="20" height="20" fill="#E6F2FB" stroke="#1D4ED8"/>
+  <text x="68" y="2925" font-size="11">L2 Modules</text>
+  <rect x="40"  y="2940" width="20" height="20" fill="#FFFBE6" stroke="#CA8A04"/>
+  <text x="68" y="2955" font-size="11">L3 Stores</text>
+  <rect x="40"  y="2970" width="20" height="20" fill="#F5F5F5" stroke="#475569"/>
+  <text x="68" y="2985" font-size="11">L4 Libs</text>
+
+  <rect x="200" y="2880" width="20" height="20" fill="#FEF6F0" stroke="#EA580C"/>
+  <text x="228" y="2895" font-size="11">L5 Local Storage</text>
+  <rect x="200" y="2910" width="20" height="20" fill="#E8F5E9" stroke="#15803D"/>
+  <text x="228" y="2925" font-size="11">L6 Workers</text>
+  <rect x="200" y="2940" width="20" height="20" fill="#FAFAFA" stroke="#6B7280"/>
+  <text x="228" y="2955" font-size="11">L7 External</text>
+  <rect x="200" y="2970" width="20" height="20" fill="#F0F9FF" stroke="#0284C7"/>
+  <text x="228" y="2985" font-size="11">L8 CI/CD</text>
+
+  <!-- Stats -->
+  <text x="430" y="2880" font-size="13" font-weight="700" fill="#374151">📊 카운트 요약</text>
+  <text x="430" y="2900" font-size="11" fill="#4B5563">• Routes: 11 page + 7 API edge</text>
+  <text x="430" y="2916" font-size="11" fill="#4B5563">• Modules: 20 도메인</text>
+  <text x="430" y="2932" font-size="11" fill="#4B5563">• Stores: 17 (Zustand + persist)</text>
+  <text x="430" y="2948" font-size="11" fill="#4B5563">• Libs: 25 (8 카테고리)</text>
+  <text x="430" y="2964" font-size="11" fill="#4B5563">• Workers: 3 (총 20 endpoint + 3 cron)</text>
+  <text x="430" y="2980" font-size="11" fill="#4B5563">• External: 19 systems</text>
+
+  <!-- Patterns -->
+  <text x="730" y="2880" font-size="13" font-weight="700" fill="#374151">🏗️ 핵심 아키텍처 패턴</text>
+  <text x="730" y="2900" font-size="11" fill="#4B5563">• BYOK direct — 키는 사용자 localStorage, 운영 비용 0</text>
+  <text x="730" y="2916" font-size="11" fill="#4B5563">• Static Export — Vercel CDN, 서버 비용 0</text>
+  <text x="730" y="2932" font-size="11" fill="#4B5563">• Module-level Runners — sync-runner / meeting-runner (lifecycle 분리)</text>
+  <text x="730" y="2948" font-size="11" fill="#4B5563">• Single Source of Truth — fetchUsageSummary() 공통 fetcher</text>
+  <text x="730" y="2964" font-size="11" fill="#4B5563">• Service Binding — env.BLEND_COUNTER (worker→worker, loop 우회)</text>
+  <text x="730" y="2980" font-size="11" fill="#4B5563">• Append-only WAE — KV race lost 이슈 해결 (PM-46)</text>
+
+  <!-- Stats -->
+  <text x="1330" y="2880" font-size="13" font-weight="700" fill="#374151">🔧 Build &amp; Deploy</text>
+  <text x="1330" y="2900" font-size="11" fill="#4B5563">• Next.js 16 · React 19 · TypeScript · Tailwind</text>
+  <text x="1330" y="2916" font-size="11" fill="#4B5563">• Zustand 5 · IndexedDB (idb · dexie)</text>
+  <text x="1330" y="2932" font-size="11" fill="#4B5563">• Vercel CDN (alias blend.ai4min.com)</text>
+  <text x="1330" y="2948" font-size="11" fill="#4B5563">• Cloudflare Workers (wrangler)</text>
+  <text x="1330" y="2964" font-size="11" fill="#4B5563">• 다국어: ko/en/ph (88.3% Filipino)</text>
+  <text x="1330" y="2980" font-size="11" fill="#4B5563">• 비용: ~₩15K/년 (≈ 월 ₩1,250)</text>
+</svg>

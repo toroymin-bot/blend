@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1300" width="1800" height="1300"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', sans-serif">
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151"/>
+    </marker>
+    <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#DC2626"/>
+    </marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#15803D"/>
+    </marker>
+    <marker id="arrB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1D4ED8"/>
+    </marker>
+    <marker id="arrP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7C3AED"/>
+    </marker>
+    <style>
+      .h-zone   { font-size: 13px; font-weight: 700; }
+      .h-comp   { font-size: 12px; font-weight: 700; fill: #111827; }
+      .desc     { font-size: 9.5px; fill: #4B5563; }
+      .small    { font-size: 9px;  fill: #6B7280; }
+      .tag      { font-size: 9px;  fill: #FFFFFF; font-weight: 700; text-anchor: middle; }
+      .label    { font-size: 10px; fill: #1F2937; font-style: italic; }
+    </style>
+  </defs>
+
+  <!-- ============ Title ============ -->
+  <text x="900" y="32" text-anchor="middle" font-size="22" font-weight="700" fill="#111827">💬 Module Deep-dive — Chat Module Internal Architecture</text>
+  <text x="900" y="54" text-anchor="middle" font-size="12" fill="#6B7280">
+    src/modules/chat/* · 6 internal zones · 10 store dependencies · 7 lib dependencies · 3 external systems
+  </text>
+
+  <!-- ============ Chat Module Outer Box ============ -->
+  <rect x="40" y="80" width="1720" height="640" fill="#F0F9FF" stroke="#1D4ED8" stroke-width="2.5" rx="8"/>
+  <text x="60" y="105" font-size="14" font-weight="700" fill="#1E3A8A">📦 Chat Module (src/modules/chat/) · «application component»</text>
+  <text x="60" y="123" class="small">design1 + legacy 듀얼 트랙 · BYOK direct streaming · RAG · TTS · Tool use · Cost tracking</text>
+
+  <!-- ===== Zone 1: Composition (UI input) ===== -->
+  <g>
+    <rect x="60" y="145" width="540" height="270" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.5" rx="6"/>
+    <rect x="60" y="145" width="540" height="24" fill="#1D4ED8" rx="6"/>
+    <text x="72" y="162" class="h-zone" fill="#FFFFFF">🎨 Zone 1 — Composition (UI Input)</text>
+
+    <!-- Header bar -->
+    <rect x="80" y="180" width="500" height="40" fill="#EEF2FF" stroke="#94A3B8" rx="4"/>
+    <text x="92" y="195" class="h-comp">Header bar</text>
+    <text x="92" y="212" class="desc">model selector · agent selector · chat title · 새 채팅 버튼</text>
+
+    <!-- Message list -->
+    <rect x="80" y="230" width="500" height="80" fill="#EEF2FF" stroke="#94A3B8" rx="4"/>
+    <text x="92" y="245" class="h-comp">Message list (virtualized)</text>
+    <text x="92" y="262" class="desc">User message: text + attachments + chat-tags</text>
+    <text x="92" y="278" class="desc">Assistant message: streaming · markdown · tool render · TTS button · reasoning</text>
+    <text x="92" y="294" class="small">→ react-markdown · markmap-view (mindmap) · 코드 highlight</text>
+
+    <!-- Input bar -->
+    <rect x="80" y="320" width="500" height="85" fill="#EEF2FF" stroke="#94A3B8" rx="4"/>
+    <text x="92" y="335" class="h-comp">Input bar (D1InputBar)</text>
+    <text x="92" y="352" class="desc">• textarea (1줄, auto-grow → max 240px)</text>
+    <text x="92" y="367" class="desc">• 첨부 (이미지 · PDF · 음성) · paste · drag-drop</text>
+    <text x="92" y="382" class="desc">• 음성 입력 (STT) · 듣기 토글 (TTS)</text>
+    <text x="92" y="397" class="desc">• SessionLoadBar (rounded-bl/br · 검정→주황→빨강) · 전송</text>
+  </g>
+
+  <!-- ===== Zone 2: Routing (intent + model) ===== -->
+  <g>
+    <rect x="620" y="145" width="540" height="270" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.5" rx="6"/>
+    <rect x="620" y="145" width="540" height="24" fill="#7C3AED" rx="6"/>
+    <text x="632" y="162" class="h-zone" fill="#FFFFFF">🧭 Zone 2 — Routing (Intent · Model · Tool)</text>
+
+    <rect x="640" y="180" width="500" height="55" fill="#F3E8FF" stroke="#94A3B8" rx="4"/>
+    <text x="652" y="195" class="h-comp">intent-classifier.ts</text>
+    <text x="652" y="212" class="desc">query → intent ('chat' / 'search' / 'code' / 'image' / 'weather' / ...)</text>
+    <text x="652" y="226" class="small">→ 가벼운 keyword + heuristic (LLM 호출 없음, 즉답)</text>
+
+    <rect x="640" y="245" width="500" height="65" fill="#F3E8FF" stroke="#94A3B8" rx="4"/>
+    <text x="652" y="260" class="h-comp">model-router.selectBestModel()</text>
+    <text x="652" y="277" class="desc">입력: { intent, query length, hasImage, BYOK keys }</text>
+    <text x="652" y="291" class="desc">출력: { provider, model, fallback chain[] }</text>
+    <text x="652" y="305" class="small">→ Blend 핵심 원칙 ⭐ 모든 질문에 최적화된 AI 자동 매칭</text>
+
+    <rect x="640" y="320" width="500" height="85" fill="#F3E8FF" stroke="#94A3B8" rx="4"/>
+    <text x="652" y="335" class="h-comp">ai-tools detection &amp; invocation</text>
+    <text x="652" y="352" class="desc">웹 검색 / 이미지 생성 / 코드 실행 / 차트 / URL reader / YouTube</text>
+    <text x="652" y="367" class="desc">→ /api/web-search · /api/image-gen · /api/url-reader · /api/youtube-transcript</text>
+    <text x="652" y="382" class="desc">→ 결과를 다음 LLM 호출 context에 주입</text>
+    <text x="652" y="397" class="small">자동 fallback: 1차 picked 실패 시 fallback chain 순차 retry</text>
+  </g>
+
+  <!-- ===== Zone 3: Context (RAG + memory) ===== -->
+  <g>
+    <rect x="1180" y="145" width="560" height="270" fill="#FFFFFF" stroke="#EA580C" stroke-width="1.5" rx="6"/>
+    <rect x="1180" y="145" width="560" height="24" fill="#EA580C" rx="6"/>
+    <text x="1192" y="162" class="h-zone" fill="#FFFFFF">📚 Zone 3 — Context (RAG · Memory · System Prompt)</text>
+
+    <rect x="1200" y="180" width="520" height="55" fill="#FFEDD5" stroke="#94A3B8" rx="4"/>
+    <text x="1212" y="195" class="h-comp">datasource-store.activeIds → source-indexer</text>
+    <text x="1212" y="212" class="desc">활성 RAG 소스 검색 → vector-db.cosine(top-K=5)</text>
+    <text x="1212" y="226" class="small">→ 1536-dim 임베딩 · IndexedDB · per-source partition</text>
+
+    <rect x="1200" y="245" width="520" height="55" fill="#FFEDD5" stroke="#94A3B8" rx="4"/>
+    <text x="1212" y="260" class="h-comp">d1-memory-store (장기 메모리)</text>
+    <text x="1212" y="277" class="desc">사용자가 「기억하기」 한 메시지 — 한도 무제한 (PM-26)</text>
+    <text x="1212" y="291" class="small">→ 모든 채팅에서 system prompt 영역에 주입</text>
+
+    <rect x="1200" y="310" width="520" height="55" fill="#FFEDD5" stroke="#94A3B8" rx="4"/>
+    <text x="1212" y="325" class="h-comp">blend-identity.SYSTEM_PROMPT</text>
+    <text x="1212" y="342" class="desc">Blend 정체성 + 가치 + 매칭 원칙 압축 prompt</text>
+    <text x="1212" y="356" class="small">→ 모든 LLM 호출에 자동 주입 (코어 카피 일관성)</text>
+
+    <rect x="1200" y="375" width="520" height="30" fill="#FFEDD5" stroke="#94A3B8" rx="4"/>
+    <text x="1212" y="395" class="h-comp">Final context = system + memory + RAG chunks + agent + history</text>
+  </g>
+
+  <!-- ===== Zone 4: Execution ===== -->
+  <g>
+    <rect x="60" y="430" width="540" height="270" fill="#FFFFFF" stroke="#7C3AED" stroke-width="2" rx="6"/>
+    <rect x="60" y="430" width="540" height="24" fill="#7C3AED" rx="6"/>
+    <text x="72" y="447" class="h-zone" fill="#FFFFFF">⚡ Zone 4 — Execution (BYOK · Streaming)</text>
+
+    <rect x="80" y="465" width="500" height="50" fill="#F3E8FF" stroke="#94A3B8" rx="4"/>
+    <text x="92" y="480" class="h-comp">api-key-store.get(provider)</text>
+    <text x="92" y="497" class="desc">localStorage 평문 read · 5 provider 지원</text>
+    <text x="92" y="510" class="small">→ trial 모드면 trial-gemini-client.ts 경로</text>
+
+    <rect x="80" y="525" width="500" height="80" fill="#F3E8FF" stroke="#94A3B8" rx="4"/>
+    <text x="92" y="540" class="h-comp">BYOK direct fetch — provider API</text>
+    <text x="92" y="557" class="desc">POST /v1/messages · /v1/chat/completions · /v1beta/models/...</text>
+    <text x="92" y="572" class="desc">SSE streaming · headers: x-api-key / Authorization Bearer</text>
+    <text x="92" y="587" class="desc">timeout: 120s · abort signal · 사용자 「중단」 버튼</text>
+    <text x="92" y="601" class="small">⚠️ 키는 Blend 백엔드 절대 통과 X — Frontend → Provider 직접</text>
+
+    <rect x="80" y="615" width="500" height="75" fill="#F3E8FF" stroke="#94A3B8" rx="4"/>
+    <text x="92" y="630" class="h-comp">onChunk handler (streaming SSE)</text>
+    <text x="92" y="647" class="desc">delta append → chat-store.appendChunk → React re-render</text>
+    <text x="92" y="662" class="desc">tool_use chunk → AI Tools 추가 호출 (multi-turn)</text>
+    <text x="92" y="676" class="desc">finish_reason: stop · length · tool_use · safety</text>
+    <text x="92" y="688" class="small">자동 retry: 일시 장애 (5xx) 시 1회 재시도</text>
+  </g>
+
+  <!-- ===== Zone 5: Persistence ===== -->
+  <g>
+    <rect x="620" y="430" width="540" height="270" fill="#FFFFFF" stroke="#15803D" stroke-width="1.5" rx="6"/>
+    <rect x="620" y="430" width="540" height="24" fill="#15803D" rx="6"/>
+    <text x="632" y="447" class="h-zone" fill="#FFFFFF">💾 Zone 5 — Persistence (Cost · Analytics)</text>
+
+    <rect x="640" y="465" width="500" height="55" fill="#DCFCE7" stroke="#94A3B8" rx="4"/>
+    <text x="652" y="480" class="h-comp">chat-store.finalizeMessage()</text>
+    <text x="652" y="497" class="desc">전체 text · tokens · cost · timestamp · model meta 저장</text>
+    <text x="652" y="511" class="small">→ localStorage persist · 폴더 / 즐겨찾기 / 태그 자동 적용</text>
+
+    <rect x="640" y="530" width="500" height="55" fill="#DCFCE7" stroke="#94A3B8" rx="4"/>
+    <text x="652" y="545" class="h-comp">cost calc + usage-store.tick()</text>
+    <text x="652" y="562" class="desc">model-registry pricing × tokens → costUSD (마이크로센트)</text>
+    <text x="652" y="576" class="small">→ dailyCost · statsByModel · 90일 자동 정리</text>
+
+    <rect x="640" y="595" width="500" height="55" fill="#DCFCE7" stroke="#94A3B8" rx="4"/>
+    <text x="652" y="610" class="h-comp">analytics.trackUsage() — keepalive POST</text>
+    <text x="652" y="627" class="desc">{provider, model, costUSD, in, out, country, os, kstHour}</text>
+    <text x="652" y="641" class="small">→ POST /track-usage (blend-counter Worker) · 페이지 떠나도 보장</text>
+
+    <rect x="640" y="660" width="500" height="35" fill="#DCFCE7" stroke="#94A3B8" rx="4"/>
+    <text x="652" y="680" class="h-comp">+ d1-cost-store sync (옵트인 · CF D1)</text>
+  </g>
+
+  <!-- ===== Zone 6: Presentation ===== -->
+  <g>
+    <rect x="1180" y="430" width="560" height="270" fill="#FFFFFF" stroke="#CA8A04" stroke-width="1.5" rx="6"/>
+    <rect x="1180" y="430" width="560" height="24" fill="#CA8A04" rx="6"/>
+    <text x="1192" y="447" class="h-zone" fill="#FFFFFF">✨ Zone 6 — Presentation (TTS · Toast · Sidebar)</text>
+
+    <rect x="1200" y="465" width="520" height="50" fill="#FEF3C7" stroke="#94A3B8" rx="4"/>
+    <text x="1212" y="480" class="h-comp">SessionLoadBar · 진행 % 텍스트</text>
+    <text x="1212" y="497" class="desc">검정 (0~70%) → 주황 (70~90%) → 빨강 (90~100%)</text>
+    <text x="1212" y="510" class="small">→ 100%: 새 채팅 유도 (자동 이동 X · 노란 펄스)</text>
+
+    <rect x="1200" y="525" width="520" height="50" fill="#FEF3C7" stroke="#94A3B8" rx="4"/>
+    <text x="1212" y="540" class="h-comp">voice-chat.tts (선택 · 듣기 ON일 때)</text>
+    <text x="1212" y="557" class="desc">Web Speech API SpeechSynthesis · 사용자 디바이스</text>
+    <text x="1212" y="570" class="small">→ 50회/채팅 한도 (코드 보존, 현재 비활성)</text>
+
+    <rect x="1200" y="585" width="520" height="50" fill="#FEF3C7" stroke="#94A3B8" rx="4"/>
+    <text x="1212" y="600" class="h-comp">history-overlay-design1 (사이드바)</text>
+    <text x="1212" y="617" class="desc">오버레이 형식 · 검색 · 폴더 · 즐겨찾기 · 삭제</text>
+    <text x="1212" y="630" class="small">→ d1:nav-to · d1:toast · d1:ask-blend events</text>
+
+    <rect x="1200" y="645" width="520" height="50" fill="#FEF3C7" stroke="#94A3B8" rx="4"/>
+    <text x="1212" y="660" class="h-comp">export-dropdown-design1</text>
+    <text x="1212" y="677" class="desc">PDF · DOCX · MD export (export-chat.ts · docx · pdf)</text>
+    <text x="1212" y="690" class="small">→ share-encoder → /share?id= 공유 링크 (pako gzip + base64)</text>
+  </g>
+
+  <!-- ============ Sub-component file map ============ -->
+  <rect x="40" y="740" width="1720" height="80" fill="#FAFAFA" stroke="#9CA3AF" rx="6"/>
+  <text x="60" y="762" font-size="13" font-weight="700" fill="#374151">📁 Sub-component file map (src/modules/chat/)</text>
+  <text x="60" y="780" font-size="10" fill="#374151">• <tspan font-weight="600">chat-view-design1.tsx</tspan> (~3700+ LOC, orchestrator) · <tspan font-weight="600">chat-view.tsx</tspan> (legacy)</text>
+  <text x="60" y="795" font-size="10" fill="#374151">• <tspan font-weight="600">history-overlay-design1.tsx</tspan> · <tspan font-weight="600">export-dropdown-design1.tsx</tspan> · <tspan font-weight="600">rag-progress-banner.tsx</tspan> · <tspan font-weight="600">chat-tags.tsx</tspan></text>
+  <text x="60" y="810" font-size="10" fill="#374151">• <tspan font-weight="600">export-chat.ts</tspan> (PDF/DOCX/MD) · <tspan font-weight="600">intent-classifier.ts</tspan> (키워드+heuristic) · <tspan font-weight="600">trial-gemini-client.ts</tspan> · <tspan font-weight="600">trial-modals.tsx</tspan></text>
+
+  <!-- ============ Stores Bus ============ -->
+  <rect x="40" y="840" width="1720" height="100" fill="#FFFBE6" stroke="#CA8A04" stroke-width="1.5" rx="6"/>
+  <text x="60" y="862" font-size="13" font-weight="700" fill="#854D0E">🗄️ Store Dependencies (10) — Read · Write</text>
+
+  <g font-size="10">
+    <rect x="60"  y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="68" y="892" font-weight="700" fill="#1F2937">chat-store</text>
+    <text x="68" y="908" fill="#DC2626">RW</text>
+    <text x="86" y="908" fill="#4B5563">— 메시지 RW</text>
+    <text x="68" y="922" fill="#6B7280" font-size="9">currentChat · folders · tags</text>
+
+    <rect x="230" y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="238" y="892" font-weight="700" fill="#1F2937">usage-store</text>
+    <text x="238" y="908" fill="#DC2626">W</text>
+    <text x="252" y="908" fill="#4B5563">— cost tick</text>
+    <text x="238" y="922" fill="#6B7280" font-size="9">매 turn cost 누적</text>
+
+    <rect x="400" y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="408" y="892" font-weight="700" fill="#1F2937">api-key-store</text>
+    <text x="408" y="908" fill="#15803D">R</text>
+    <text x="420" y="908" fill="#4B5563">— BYOK 선택</text>
+    <text x="408" y="922" fill="#6B7280" font-size="9">provider별 키 + validate</text>
+
+    <rect x="570" y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="578" y="892" font-weight="700" fill="#1F2937">datasource-store</text>
+    <text x="578" y="908" fill="#15803D">R</text>
+    <text x="590" y="908" fill="#4B5563">— activeIds</text>
+    <text x="578" y="922" fill="#6B7280" font-size="9">RAG 활성 소스 list</text>
+
+    <rect x="740" y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="748" y="892" font-weight="700" fill="#1F2937">agent-store</text>
+    <text x="748" y="908" fill="#15803D">R</text>
+    <text x="760" y="908" fill="#4B5563">— selected agent</text>
+    <text x="748" y="922" fill="#6B7280" font-size="9">system prompt 주입</text>
+
+    <rect x="910" y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="918" y="892" font-weight="700" fill="#1F2937">prompt-store</text>
+    <text x="918" y="908" fill="#15803D">R</text>
+    <text x="930" y="908" fill="#4B5563">— 템플릿 적용</text>
+    <text x="918" y="922" fill="#6B7280" font-size="9">변수 치환 후 입력바 채움</text>
+
+    <rect x="1080" y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="1088" y="892" font-weight="700" fill="#1F2937">plugin-store</text>
+    <text x="1088" y="908" fill="#15803D">R</text>
+    <text x="1100" y="908" fill="#4B5563">— enabled tools</text>
+    <text x="1088" y="922" fill="#6B7280" font-size="9">ai-tools detection 필터</text>
+
+    <rect x="1250" y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="1258" y="892" font-weight="700" fill="#1F2937">settings-store</text>
+    <text x="1258" y="908" fill="#15803D">R</text>
+    <text x="1270" y="908" fill="#4B5563">— 모델 · lang</text>
+    <text x="1258" y="922" fill="#6B7280" font-size="9">defaultModel · sendOnEnter</text>
+
+    <rect x="1420" y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="1428" y="892" font-weight="700" fill="#1F2937">trial-store</text>
+    <text x="1428" y="908" fill="#DC2626">RW</text>
+    <text x="1448" y="908" fill="#4B5563">— trial mode</text>
+    <text x="1428" y="922" fill="#6B7280" font-size="9">Gemini 무료 한도 추적</text>
+
+    <rect x="1590" y="875" width="160" height="55" fill="#FFF9C4" stroke="#CA8A04" rx="3"/>
+    <text x="1598" y="892" font-weight="700" fill="#1F2937">d1-memory-store</text>
+    <text x="1598" y="908" fill="#DC2626">RW</text>
+    <text x="1618" y="908" fill="#4B5563">— 기억 토글</text>
+    <text x="1598" y="922" fill="#6B7280" font-size="9">장기 메모리 (한도 무제한)</text>
+  </g>
+
+  <!-- ============ Libs Bus ============ -->
+  <rect x="40" y="960" width="1720" height="80" fill="#F5F5F5" stroke="#475569" stroke-width="1.5" rx="6"/>
+  <text x="60" y="982" font-size="13" font-weight="700" fill="#1F2937">🔧 Library Dependencies (7) — pure functions</text>
+
+  <g font-size="10">
+    <rect x="60"  y="995" width="220" height="40" fill="#FFFFFF" stroke="#475569" rx="3"/>
+    <text x="68" y="1010" font-weight="700">model-router</text>
+    <text x="68" y="1025" fill="#6B7280">selectBestModel({intent, ...})</text>
+
+    <rect x="290" y="995" width="220" height="40" fill="#FFFFFF" stroke="#475569" rx="3"/>
+    <text x="298" y="1010" font-weight="700">ai-tools</text>
+    <text x="298" y="1025" fill="#6B7280">detect + invoke 도구 5종</text>
+
+    <rect x="520" y="995" width="220" height="40" fill="#FFFFFF" stroke="#475569" rx="3"/>
+    <text x="528" y="1010" font-weight="700">source-indexer</text>
+    <text x="528" y="1025" fill="#6B7280">query → vector-db cosine top-K</text>
+
+    <rect x="750" y="995" width="220" height="40" fill="#FFFFFF" stroke="#475569" rx="3"/>
+    <text x="758" y="1010" font-weight="700">session-load</text>
+    <text x="758" y="1025" fill="#6B7280">100% = baseLatency × 1.10</text>
+
+    <rect x="980" y="995" width="220" height="40" fill="#FFFFFF" stroke="#475569" rx="3"/>
+    <text x="988" y="1010" font-weight="700">voice-chat</text>
+    <text x="988" y="1025" fill="#6B7280">STT (Whisper) + TTS (Web Speech)</text>
+
+    <rect x="1210" y="995" width="220" height="40" fill="#FFFFFF" stroke="#475569" rx="3"/>
+    <text x="1218" y="1010" font-weight="700">analytics</text>
+    <text x="1218" y="1025" fill="#6B7280">trackUsage keepalive POST</text>
+
+    <rect x="1440" y="995" width="220" height="40" fill="#FFFFFF" stroke="#475569" rx="3"/>
+    <text x="1448" y="1010" font-weight="700">blend-identity · share-encoder</text>
+    <text x="1448" y="1025" fill="#6B7280">SYSTEM_PROMPT · pako gzip share</text>
+  </g>
+
+  <!-- ============ External Calls ============ -->
+  <rect x="40" y="1060" width="1720" height="220" fill="#FAFAFA" stroke="#6B7280" stroke-width="1" rx="6"/>
+  <text x="60" y="1082" font-size="13" font-weight="700" fill="#374151">🌐 External Calls — 3 systems · 6 endpoint groups</text>
+
+  <!-- AI Provider -->
+  <g>
+    <rect x="60" y="1100" width="540" height="160" fill="#F3E8FF" stroke="#7C3AED" stroke-width="2" rx="6"/>
+    <text x="76" y="1120" font-size="12" font-weight="700" fill="#5B21B6">🤖 AI Provider (BYOK direct call)</text>
+    <text x="76" y="1140" class="desc" font-size="10">• OpenAI: POST api.openai.com/v1/chat/completions</text>
+    <text x="76" y="1156" class="desc" font-size="10">• Anthropic: POST api.anthropic.com/v1/messages</text>
+    <text x="76" y="1172" class="desc" font-size="10">• Google: POST generativelanguage.googleapis.com/v1beta/models/.../generateContent</text>
+    <text x="76" y="1188" class="desc" font-size="10">• DeepSeek: POST api.deepseek.com/v1/chat/completions</text>
+    <text x="76" y="1204" class="desc" font-size="10">• Groq: POST api.groq.com/openai/v1/chat/completions</text>
+    <text x="76" y="1224" font-size="10" fill="#5B21B6" font-style="italic">→ x-api-key 또는 Authorization Bearer · streaming SSE · 평균 첫 chunk 200~800ms</text>
+    <text x="76" y="1242" font-size="10" fill="#DC2626" font-weight="600">⚠️ 키는 클라이언트 → 직접 · Blend 백엔드는 절대 통과 X</text>
+  </g>
+
+  <!-- Edge functions -->
+  <g>
+    <rect x="620" y="1100" width="540" height="160" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="2" rx="6"/>
+    <text x="636" y="1120" font-size="12" font-weight="700" fill="#1E3A8A">🔌 Edge API Routes (선택, tool 사용 시)</text>
+    <text x="636" y="1140" class="desc" font-size="10">• POST /api/web-search → Tavily / Brave (서버키)</text>
+    <text x="636" y="1156" class="desc" font-size="10">• POST /api/image-gen → DALL-E / Gemini Image</text>
+    <text x="636" y="1172" class="desc" font-size="10">• POST /api/url-reader → fetch + readability</text>
+    <text x="636" y="1188" class="desc" font-size="10">• POST /api/youtube-transcript → caption fetch</text>
+    <text x="636" y="1204" class="desc" font-size="10">• POST /api/transcribe → Whisper / Gemini Audio</text>
+    <text x="636" y="1224" font-size="10" fill="#1E3A8A" font-style="italic">→ Vercel Edge functions · 서버 키 (web-search 등) · CORS 격리</text>
+    <text x="636" y="1242" font-size="10" fill="#374151">tool 결과 → 다음 LLM context에 주입 (multi-turn)</text>
+  </g>
+
+  <!-- Cloudflare Worker -->
+  <g>
+    <rect x="1180" y="1100" width="560" height="160" fill="#DCFCE7" stroke="#15803D" stroke-width="2" rx="6"/>
+    <text x="1196" y="1120" font-size="12" font-weight="700" fill="#166534">⚙️ blend-counter Worker (analytics)</text>
+    <text x="1196" y="1140" class="desc" font-size="10">• POST /track-usage — 매 turn 종료 시 keepalive POST</text>
+    <text x="1196" y="1156" class="desc" font-size="10">• POST /track-visit — 첫 진입 (1회/세션)</text>
+    <text x="1196" y="1172" class="desc" font-size="10">• POST /track — 다중 이벤트 batched</text>
+    <text x="1196" y="1192" class="desc" font-size="10" font-weight="600">Worker 내부:</text>
+    <text x="1196" y="1208" class="desc" font-size="10">→ env.AE.writeDataPoint (canonical) — append-only</text>
+    <text x="1196" y="1224" class="desc" font-size="10">→ env.STATS.put (legacy KV, 90d TTL, dual-write)</text>
+    <text x="1196" y="1244" font-size="10" fill="#166534" font-style="italic">→ blend-daily-report cron (KST 08:35) → Service Binding → Telegram</text>
+  </g>
+
+  <!-- Connection arrows -->
+  <line x1="345" y1="700" x2="345" y2="740" stroke="#374151" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="900" y1="940" x2="900" y2="960" stroke="#374151" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="900" y1="1040" x2="900" y2="1060" stroke="#374151" stroke-width="1" stroke-dasharray="3 3"/>
+</svg>
