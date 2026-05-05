@@ -26,6 +26,7 @@ interface PeriodSummary {
 export interface UsageSummary {
   generatedAt: string;
   source?: 'analytics_engine' | 'kv';
+  today?:    PeriodSummary;   // [Phase 7] WAE v2 추가 — 라벨 "최근 24시간"용 (rolling)
   yesterday: PeriodSummary;
   week:      PeriodSummary;
   month:     PeriodSummary;

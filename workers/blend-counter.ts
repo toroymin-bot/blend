@@ -382,12 +382,19 @@ export default {
           d.setUTCDate(d.getUTCDate() - 1);
           return d.toISOString().slice(0, 10);
         })();
+        // [2026-05-05 PM-46 Phase 7 Roy] rolling window 통일 — 클라 라벨 ("최근 7일",
+        // "최근 30일")과 의미 일치. 이전엔 week=어제까지 7일(today 제외) / month=KST 캘린더 월
+        // 이라 today 데이터 빠짐 → "어제 0건 / 이번주 0건 / 전체 49건" 같은 부조리 발생.
         const sevenDaysAgo = (() => {
           const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
-          d.setUTCDate(d.getUTCDate() - 6);
+          d.setUTCDate(d.getUTCDate() - 6); // today 포함 7일
           return d.toISOString().slice(0, 10);
         })();
-        const monthStart = today.slice(0, 7) + '-01';
+        const thirtyDaysAgo = (() => {
+          const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+          d.setUTCDate(d.getUTCDate() - 29); // today 포함 30일
+          return d.toISOString().slice(0, 10);
+        })();
 
         // WAE SQL 호출 helper. 응답 형식: { data: [{...row}], meta: [{...col}], ... }
         const querySql = async (sql: string): Promise<Array<Record<string, unknown>>> => {
@@ -468,16 +475,19 @@ export default {
           return { totalCost, totalTokens, totalRequests, providers, models };
         };
 
-        const [yesterday, week, month, all] = await Promise.all([
+        // [2026-05-05 PM-46 Phase 7] today 추가 + week/month rolling. 라벨과 의미 일치.
+        const [todayP, yesterday, week, month, all] = await Promise.all([
+          summarizePeriod(today, today),
           summarizePeriod(yKst, yKst),
-          summarizePeriod(sevenDaysAgo, yKst),
-          summarizePeriod(monthStart, today),
+          summarizePeriod(sevenDaysAgo, today),
+          summarizePeriod(thirtyDaysAgo, today),
           summarizePeriod(null, null),
         ]);
 
         return new Response(JSON.stringify({
           generatedAt: new Date().toISOString(),
           source: 'analytics_engine',
+          today: todayP,
           yesterday,
           week,
           month,

@@ -670,10 +670,17 @@ export default function D1BillingView({
                   {lang === 'ko' ? '모든 디바이스 합산 (Mac · iPhone · PC)' : 'All devices combined (Mac · iPhone · PC)'}
                 </span>
               </div>
+              {/* [2026-05-05 PM-46 Phase 7 Roy] 라벨과 데이터 의미 일치:
+                  - 최근 24시간 → summary.today (today 포함 1일)
+                  - 최근 7일 → summary.week (today 포함 rolling 7d)
+                  - 전체 누적 → summary.all (90일 자연 만료) */}
               <div className="grid grid-cols-3 gap-4">
-                <KvCol label={lang === 'ko' ? '어제(최근 24시간)' : 'Yesterday (24h)'}    cost={kvSummary.yesterday.totalCost} reqs={kvSummary.yesterday.totalRequests} lang={lang} isPh={isPh} />
-                <KvCol label={lang === 'ko' ? '이번 주(최근 7일)' : 'This week (7d)'}    cost={kvSummary.week.totalCost}      reqs={kvSummary.week.totalRequests}      lang={lang} isPh={isPh} />
-                <KvCol label={lang === 'ko' ? '전체 누적' : 'All time'}    cost={kvSummary.all.totalCost}       reqs={kvSummary.all.totalRequests}       lang={lang} isPh={isPh} />
+                <KvCol label={lang === 'ko' ? '최근 24시간' : 'Last 24h'}
+                       cost={kvSummary.today?.totalCost ?? 0} reqs={kvSummary.today?.totalRequests ?? 0} lang={lang} isPh={isPh} />
+                <KvCol label={lang === 'ko' ? '최근 7일' : 'Last 7 days'}
+                       cost={kvSummary.week.totalCost}        reqs={kvSummary.week.totalRequests}        lang={lang} isPh={isPh} />
+                <KvCol label={lang === 'ko' ? '전체 누적' : 'All time'}
+                       cost={kvSummary.all.totalCost}         reqs={kvSummary.all.totalRequests}         lang={lang} isPh={isPh} />
               </div>
               {Object.keys(kvSummary.all.providers).length > 0 && (
                 <div className="mt-5 pt-4 border-t text-[13px]" style={{ borderColor: tokens.border, color: tokens.textDim }}>

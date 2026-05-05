@@ -65,7 +65,7 @@ const copy = {
     } as Record<Period, string>,
     chats:        '대화',
     messages:     '메시지',
-    modelsUsed:   '사용한 모델',
+    modelsUsed:   'AI 모델 종류',  // [Phase 7] 명확화 — '사용한 모델'은 회사로 오해 가능
     dailyAvg:     '일평균 메시지',
     whenLabel:    '사용 시간대',
     topModels:    '가장 많이 쓴 모델',
@@ -94,7 +94,7 @@ const copy = {
     } as Record<Period, string>,
     chats:        'Chats',
     messages:     'Messages',
-    modelsUsed:   'Models used',
+    modelsUsed:   'AI model types',  // [Phase 7] '사용한 모델'은 회사로 오해 가능 → 명확화
     dailyAvg:     'Daily avg msgs',
     whenLabel:    'When you use Blend',
     topModels:    'Most used models',
@@ -197,24 +197,15 @@ export default function D1DashboardView({ lang }: { lang: 'ko' | 'en' | 'ph' }) 
     fetchUsageGrid(from, to).then((g) => setGrid(g));
   }, [period]);
 
-  // 선택 period에 해당하는 WAE 집계.
+  // 선택 period에 해당하는 WAE 집계. [Phase 7] today도 v2에서 직접 (providers/models 포함).
   const periodData = useMemo(() => {
     if (!summary) return null;
-    if (period === 'today') {
-      // 오늘은 v2에 별도 버킷 없음 → grid에서 합산 (오늘 KST의 모든 시간 합)
-      const today = kstToday();
-      const todayCells = grid.filter((c) => c.date === today);
-      const totalRequests = todayCells.reduce((s, c) => s + c.requests, 0);
-      return totalRequests > 0 ? {
-        totalCost: 0, totalRequests, totalTokens: 0,
-        providers: {}, models: {},
-      } : null;
-    }
+    if (period === 'today')     return summary.today ?? null;
     if (period === 'yesterday') return summary.yesterday;
     if (period === 'week')      return summary.week;
     if (period === 'month')     return summary.month;
     return summary.all; // year/all
-  }, [summary, period, grid]);
+  }, [summary, period]);
 
   const stats = useMemo(() => {
     const messages = periodData?.totalRequests ?? 0;
