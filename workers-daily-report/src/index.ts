@@ -22,7 +22,9 @@ export default {
 
     if (url.pathname === '/preview' && req.method === 'GET') {
       const date = url.searchParams.get('date') ?? undefined;
-      return handleDevLogSummary(env, { dryRun: true, date });
+      // [2026-05-05 Phase 5] ?send=1 → dryRun 끄고 실제 Telegram 발송. 평소 GET은 미리보기.
+      const send = url.searchParams.get('send') === '1';
+      return handleDevLogSummary(env, { dryRun: !send, date });
     }
 
     if (url.pathname === '/health') {
