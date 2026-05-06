@@ -656,19 +656,14 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
   - **Fail 3건**: TEST-503/510/517 — 모두 신규 회귀 BUG-196로 일괄 묶음
 - **신규 발견 — BUG-196 (PH currency 정책 위반)**: ph.json 14곳 + about-view-design1.tsx:75 + billing-view-design1.tsx ph 카피에 `$` 잔존. PM-31 가격 변경(8/39/68) 시 ph 카피 미반영. placeholder `${{...}}` 형태도 prefix `$` 박혀 ph에서 `$₱` 이중 표시 위험. Bug Report row 206에 🔴 Found 등록 → 다음 nighttask carry-over
 
-### [ ] BUG-196 — PH currency 정책 위반 (다음 nighttask 처리)
-- **위치**:
-  - `src/locales/ph.json:308,309,931,956,959,965,985,993,996,997,1003,1007,1011,1012,1013` — 가격 카피 14곳 `$` 하드코딩
-  - `src/locales/ph.json:161,174,242,587,733,734` — placeholder prefix `${{...}}` 6곳 (ph에서 `$₱X` 이중 표시 위험)
-  - `src/modules/about/about-view-design1.tsx:75` — ph 카피 `"Membership ng Blend $8/buwan (o $39/6 buwan / $68/1 taon)"`
-  - `src/modules/billing/billing-view-design1.tsx` — ph 분기 가격 카피 점검 필요
-- **수정 방침**:
-  1. 카테고리 A (placeholder prefix $): i18n 카피에서 `${{amount}}` → 통화별 분기 (ko `₩{{amount}}`, en `${{amount}}`, ph `₱{{amount}}`). 또는 컴포넌트에서 `formatPrice(value, lang)` 통째로 넘기는 방식으로 통일
-  2. 카테고리 B (가격 카피 하드코딩): PM-31 정책 가격($8 → ₱490, $39 → ₱2388, $68 → ₱4164, $5 → ₱307, $9 → ₱552, $20 → ₱1225, $15 → ₱919, $45 → ₱2756, $29 → ₱1776, $90+ → ₱5511+, $60+ → ₱3674+, $3 → ₱184, $10 → ₱613) — currency.ts:Math.ceil 정책 따름
-  3. about-view-design1.tsx ph 카피 직접 ₱ 변환 (line 75)
-  4. 모든 변경 후 `grep '\$' src/locales/ph.json` → 0 hit 검증
-- **Risk**: i18n placeholder prefix 분기는 기존 `t('key', { values })` 호출부 수정 필요할 수 있음. 컴포넌트 grep 후 진행
-- **Severity**: Medium (UX/i18n, 기능적 영향 X)
+### [x] BUG-196 — PH currency 정책 위반 ✅ 2026-05-07 (commit `aff7308`)
+- **수정 1** `src/modules/billing/billing-view-design1.tsx:1624`: LimitRow input prefix `lang === 'ko' ? '₩' : '$'` → `lang === 'ko' ? '₩' : lang === 'ph' ? '₱' : '$'`. line 1628 inputMode도 ph→numeric.
+- **수정 2** `src/modules/about/about-view-design1.tsx:75-77`: ph 카피 `$8/$39/$68/$60/$13` → `₱490/₱2,388/₱4,164/₱3,674/₱796` (PM-30 환율 1 USD = 61.23 PHP, ceiling).
+- **수정 3** `src/locales/ph.json` 22곳 일괄 변환:
+  - 카테고리 A 6곳 (placeholder prefix `${{...}}` → `₱{{...}}`): 161/174/242/587/733/734
+  - 카테고리 B 16곳 (가격 카피 하드코딩 환율 변환): 308/309/931/956/959/965/985/993/996/997/998/1003/1007/1011/1012/1013
+- **검증**: `grep '\$' src/locales/ph.json` → 0 hit. Production /design1/ph 200 OK.
+- **Excel**: Bug Report row 206 → 🔵 Pending Re-test. TC TEST-503/510/517 모두 R2 Pass.
 
 ---
 
@@ -697,3 +692,26 @@ curl -s -L "${GAS_URL}?action=sendDevReport"
 - `active-sources-bar.tsx:65-74` `categoryStatus()` worst-status aggregation 분해: 일부만 error → `'partial'` (주황 #ea8c1e), 전부 error여야 `'error'` (빨강 #dc2626)
 - chip tooltip + 라벨에 failure count 명시 (`(N/M개 인덱싱 실패)`, line 295-301)
 - partial 카피: ko `"일부 동기화 성공"` / en `"Partially synced"`
+
+### [x] BUG-OG-IMAGE → BUG-197 — `/og-image.png` 404 ✅ 2026-05-07 (commit `aff7308`)
+- **수정**: `public/og-image.png` 신규 생성 (1200×630, 35,559 bytes). PIL 사용 — 브랜드 그라데이션 (#1d4ed8 → #7c3aed) + Blend 워드마크 + "Every AI, every day." tagline + blend.ai4min.com footer.
+- **검증**: `curl -I https://blend.ai4min.com/og-image.png` → HTTP/2 200, content-type: image/png, content-length: 35559. SNS 공유 미리보기 복원.
+- **Excel**: Bug Report row 208 (BUG-197) → 🔵 Pending Re-test. Roy QC 승인 시 ✅ Done.
+
+---
+
+## 2026-05-07 — blend-daily-dev nighttask
+
+### [x] BUG-FIX-BUNDLE-2026-05-07 — BUG-196 + BUG-197 + TC 22건 ✅ 2026-05-07
+- **BUG-196**: billing-view-design1 LimitRow ph 분기 (₱) + about-view-design1 ph 카피 환율 변환 + ph.json 22곳 $→₱
+- **BUG-197**: public/og-image.png 1200×630 35.5KB 신규 (PIL 생성)
+- **QA Phase 1**: 22 TC 처리 (R2 Pass 3건 + R1 Pass 19건). TC 506→**525/695 (75%)**.
+- **Phase 3 헬스**: 7/7 production URL 200, i18n 955키 ko/en/ph 동기, REG-01 0 hit, ph.json $ 0 hit, tsc 통과
+- **commit**: `aff7308`
+- **Confluence**: https://ai4min.atlassian.net/wiki/spaces/Blend/pages/23822338
+- **Dev 시트**: row 183
+- **GAS 이메일**: 인증 차단 (GAS-AUTH 이슈 동일, Roy 재인증 필요)
+
+### 다음 nighttask 후보
+- **i18n 후속 정리**: ko.json/en.json $9/$29 등 PM-31 이전 가격 카피 → 새 가격 ($8/$39/$68) 동기화. 현재 ph.json만 새 가격 환율 변환됨, ko/en stale 잔존
+- **untested TC 잔여 170건** — 매일 20건씩 Phase 1 처리 → 약 8-9일 내 완주 예상
