@@ -1621,11 +1621,11 @@ function LimitRow({
       {editing ? (
         <div className="flex items-center gap-2">
           <span className="text-[13px]" style={{ color: tokens.textDim }}>
-            {lang === 'ko' ? '₩' : '$'}
+            {lang === 'ko' ? '₩' : lang === 'ph' ? '₱' : '$'}
           </span>
           <input
             type="text"
-            inputMode={lang === 'ko' ? 'numeric' : 'decimal'}
+            inputMode={lang === 'ko' || lang === 'ph' ? 'numeric' : 'decimal'}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {

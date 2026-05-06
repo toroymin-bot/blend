@@ -72,9 +72,9 @@ export default function D1AboutView({ lang }: { lang: 'ko' | 'en' | 'ph'; onNavi
           ) : isPh ? (
             <>
               <P>Lahat ng AI araw-araw. Bayaran lamang ang ginagamit.</P>
-              <P>Membership ng Blend $8/buwan (o $39/6 buwan / $68/1 taon).</P>
+              <P>Membership ng Blend ₱490/buwan (o ₱2,388/6 buwan / ₱4,164/1 taon).</P>
               <P>API ng Claude + ChatGPT + Gemini sa presyo lang.</P>
-              <P>Ngayon, sa halip na $60 kada buwan, average ay $13.</P>
+              <P>Ngayon, sa halip na ₱3,674 kada buwan, average ay ₱796.</P>
               <PStrong>Iyan ang Blend.</PStrong>
             </>
           ) : (
