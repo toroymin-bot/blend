@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-02T07:51:45.314Z",
+  "generatedAt": "2026-05-06T17:06:10.122Z",
   "providers": [
     "anthropic",
     "openai",
@@ -188,30 +188,6 @@
       "supportsStreaming": true
     },
     {
-      "id": "gemma-3-27b-it",
-      "provider": "google",
-      "displayName": "Gemma 3 27B",
-      "description_ko": "어려운 문제를 풀어요",
-      "description_en": "Solves complex problems",
-      "tier": "reasoning",
-      "contextWindow": 131072,
-      "deprecated": false,
-      "supportsVision": true,
-      "supportsStreaming": true
-    },
-    {
-      "id": "gemma-3-12b-it",
-      "provider": "google",
-      "displayName": "Gemma 3 12b It",
-      "description_ko": "google 모델",
-      "description_en": "google model",
-      "tier": "balanced",
-      "contextWindow": 32768,
-      "deprecated": false,
-      "supportsVision": true,
-      "supportsStreaming": true
-    },
-    {
       "id": "gemma-4-26b-a4b-it",
       "provider": "google",
       "displayName": "Gemma 4 26B IT",
@@ -339,54 +315,6 @@
       "description_en": "Fastest and lightest",
       "tier": "fast",
       "contextWindow": 1048576,
-      "deprecated": false,
-      "supportsVision": true,
-      "supportsStreaming": true
-    },
-    {
-      "id": "gemma-3-4b-it",
-      "provider": "google",
-      "displayName": "Gemma 3 4B IT",
-      "description_ko": "가볍고 빨라요",
-      "description_en": "Lightweight and fast",
-      "tier": "fast",
-      "contextWindow": 32768,
-      "deprecated": false,
-      "supportsVision": true,
-      "supportsStreaming": true
-    },
-    {
-      "id": "gemma-3n-e4b-it",
-      "provider": "google",
-      "displayName": "Gemma 3 Nano",
-      "description_ko": "오픈소스 구글 모델이에요",
-      "description_en": "Open-source Google model",
-      "tier": "fast",
-      "contextWindow": 8192,
-      "deprecated": false,
-      "supportsVision": true,
-      "supportsStreaming": true
-    },
-    {
-      "id": "gemma-3n-e2b-it",
-      "provider": "google",
-      "displayName": "Gemma 3 Nano",
-      "description_ko": "가볍고 빨라요",
-      "description_en": "Lightweight and fast",
-      "tier": "fast",
-      "contextWindow": 8192,
-      "deprecated": false,
-      "supportsVision": true,
-      "supportsStreaming": true
-    },
-    {
-      "id": "gemma-3-1b-it",
-      "provider": "google",
-      "displayName": "Gemma 3.1B IT",
-      "description_ko": "오픈소스 구글 모델이에요",
-      "description_en": "Open-source Google model",
-      "tier": "fast",
-      "contextWindow": 32768,
       "deprecated": false,
       "supportsVision": true,
       "supportsStreaming": true
@@ -1219,5 +1147,21 @@
       "supportsVision": true,
       "supportsStreaming": true
     }
-  ]
+  ],
+  "lastSyncDiff": {
+    "syncedAt": "2026-05-06T17:06:10.122Z",
+    "added": [],
+    "removed": [
+      "gemma-3-27b-it",
+      "gemma-3-12b-it",
+      "gemma-3-4b-it",
+      "gemma-3n-e4b-it",
+      "gemma-3n-e2b-it",
+      "gemma-3-1b-it"
+    ],
+    "newlyDeprecated": [],
+    "addedFamilies": [],
+    "removedFamilies": [],
+    "totalModels": 95
+  }
 }
